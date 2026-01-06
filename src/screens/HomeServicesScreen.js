@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -16,6 +16,8 @@ import { useI18n } from '../services/i18n/i18n';
 import { spacing, borderRadius } from '../theme/tokens';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+
+console.log("API_BASE_URL:", process.env.EXPO_PUBLIC_API_BASE_URL);
 
 function ServiceCard({ title, description, icon, color, onPress }) {
   const { colors } = useTheme();
@@ -116,7 +118,7 @@ function ToggleChip({ label, icon, onPress, active }) {
 export function HomeServicesScreen() {
   const { colors, toggleTheme, isDark } = useTheme();
   const { t, language, changeLanguage } = useI18n();
-  const navigation = useNavigation();
+  const router = useRouter();
 
   const handleLanguageToggle = () => {
     changeLanguage(language === 'en' ? 'ar' : 'en');
@@ -130,6 +132,7 @@ export function HomeServicesScreen() {
       icon: 'compass',
       color: colors.accentOrange,
       screen: 'Discover',
+      href: '/academies',
     },
     {
       id: 'playground',
@@ -191,7 +194,7 @@ export function HomeServicesScreen() {
             description={service.description}
             icon={service.icon}
             color={service.color}
-            onPress={() => navigation.navigate(service.screen)}
+            onPress={() => router.push(service.href)}
           />
         ))}
       </View>

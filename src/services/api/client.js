@@ -1,9 +1,10 @@
 import axios from 'axios';
+import Constants from 'expo-constants';
 import { storage } from '../storage/storage';
 import { handleApiError } from './error';
 
-const API_BASE_URL = 'https://api.sporhive.com';
 
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL + '/api/v1';;
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
@@ -35,4 +36,4 @@ apiClient.interceptors.response.use(
   }
 );
 
-export { apiClient };
+export { apiClient, API_BASE_URL };

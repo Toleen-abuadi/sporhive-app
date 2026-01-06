@@ -15,6 +15,26 @@ export const endpoints = {
     search: (query) => apiClient.get('/academies/search', { params: { q: query } }),
   },
 
+  /**
+   * Public academy pages (mobile discovery + template page)
+   * Backend convention in SporHive: POST endpoints under /public/*
+   */
+  publicAcademies: {
+    list: (filters = {}) => apiClient.post('/public/academies/list', filters),
+    templateGet: (slug) =>
+      apiClient.post(`/public/academy-template/get/${encodeURIComponent(slug)}`, {}),
+
+        getTemplate: (slug, body = {}) =>
+      apiClient.post(`/public/academy-template/get/${encodeURIComponent(slug)}`, body),
+
+    // ✅ map markers
+    map: (filters = {}) => apiClient.post('/public/academies/map', filters),
+
+    // ✅ join submit (adjust basename if your router differs)
+    joinSubmit: (slug, payload) =>
+      apiClient.post(`/public/academy-join/submit/${encodeURIComponent(slug)}`, payload),
+  },
+
   playgrounds: {
     getAll: (params) => apiClient.get('/playgrounds', { params }),
     getById: (id) => apiClient.get(`/playgrounds/${id}`),
