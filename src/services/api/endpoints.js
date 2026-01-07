@@ -24,7 +24,7 @@ export const endpoints = {
     templateGet: (slug) =>
       apiClient.post(`/public/academy-template/get/${encodeURIComponent(slug)}`, {}),
 
-        getTemplate: (slug, body = {}) =>
+    getTemplate: (slug, body = {}) =>
       apiClient.post(`/public/academy-template/get/${encodeURIComponent(slug)}`, body),
 
     // ✅ map markers
@@ -56,5 +56,78 @@ export const endpoints = {
       apiClient.post('/profile/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       }),
+  },
+
+  playerPortalProxy: {
+    // -----------------------
+    // Auth (AllowAny)
+    // -----------------------
+    login: (payload) =>
+      apiClient.post('/player-portal-external-proxy/auth/login', payload),
+
+    me: (payload = {}) =>
+      apiClient.post('/player-portal-external-proxy/auth/me', payload),
+
+    passwordResetRequest: (payload) =>
+      apiClient.post('/player-portal-external-proxy/auth/password-reset/request', payload),
+
+    // -----------------------
+    // Uniforms
+    // -----------------------
+    uniformsStore: (payload = {}) =>
+      apiClient.post('/player-portal-external-proxy/uniforms/store', payload),
+
+    uniformsOrder: (payload = {}) =>
+      apiClient.post('/player-portal-external-proxy/uniforms/order', payload),
+
+    uniformsMyOrders: (payload = {}) =>
+      apiClient.post('/player-portal-external-proxy/uniforms/my_orders', payload),
+
+    // -----------------------
+    // Registration
+    // -----------------------
+    freezesRequest: (payload = {}) =>
+      apiClient.post('/player-portal-external-proxy/registration/freezes/request', payload),
+
+    renewalsEligibility: (payload = {}) =>
+      apiClient.post('/player-portal-external-proxy/registration/renewals/eligibility', payload),
+
+    renewalsRequest: (payload = {}) =>
+      apiClient.post('/player-portal-external-proxy/registration/renewals/request', payload),
+
+    // -----------------------
+    // Player Profile
+    // -----------------------
+    playerOverview: (payload = {}) =>
+      apiClient.post('/player-portal-external-proxy/player-profile/overview', payload),
+
+    playerProfileUpdate: (payload = {}) =>
+      apiClient.post('/player-portal-external-proxy/player-profile/profile/update', payload),
+
+    printInvoice: async (payload = {}) => {
+      const res = await binaryClient.post(
+        '/player-portal-external-proxy/registration/print_invoice',
+        payload,
+        { responseType: 'arraybuffer' }
+      );
+      return res.data; // ArrayBuffer
+    },
+    // -----------------------
+    // Performance / Feedback
+    // -----------------------
+    feedbackTypes: (payload = {}) =>
+      apiClient.post('/player-portal-external-proxy/player-performance/feedback/types', payload),
+
+    feedbackPeriods: (payload = {}) =>
+      apiClient.post('/player-portal-external-proxy/player-performance/feedback/periods', payload),
+
+    feedbackPlayerSummary: (payload = {}) =>
+      apiClient.post('/player-portal-external-proxy/player-performance/feedback/player_summary', payload),
+
+    // -----------------------
+    // News
+    // -----------------------
+    newsList: (payload = {}) =>
+      apiClient.post('/player-portal-external-proxy/news/list', payload),
   },
 };
