@@ -1,13 +1,14 @@
 // src/screens/portal/DashboardScreen.js
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, RefreshControl, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
 import { useI18n } from '../../services/i18n/i18n';
 import { usePortalOverview } from '../../services/portal/portal.hooks';
 import { portalStyles } from '../../theme/portal.styles';
 import { Card, ErrorBanner, Hero, Pill, PortalHeader, PortalScreen, SkeletonBlock } from '../../components/portal/PortalPrimitives';
+import { RequestFreezeModal } from './modals/RequestFreezeModal';
+import { RequestRenewalModal } from './modals/RequestRenewalModal';
 
 const kpiTone = (status) => {
   const s = (status || '').toLowerCase();
@@ -56,10 +57,11 @@ const ActionPill = React.memo(function ActionPill({ label, onPress }) {
   );
 });
 
-export default function DashboardScreen() {
+export default function DashboardScreen({ navigation }) {
   const { t } = useI18n();
-  const router = useRouter();
   const { overview, loading, refreshing, error, refresh } = usePortalOverview();
+  const [freezeOpen, setFreezeOpen] = useState(false);
+  const [renewOpen, setRenewOpen] = useState(false);
 
   const heroName = overview?.player?.fullName || `${overview?.player?.firstName || ''} ${overview?.player?.lastName || ''}`.trim();
   const academyName = overview?.player?.academyName;
@@ -87,17 +89,27 @@ export default function DashboardScreen() {
 
   const actions = useMemo(
     () => [
-      { key: 'edit', label: t('portal.actions.editProfile', 'Edit Profile'), to: '/portal/profile' },
-      { key: 'freeze', label: t('portal.actions.requestFreeze', 'Request Freeze'), to: '/portal/freeze' },
-      { key: 'renew', label: t('portal.actions.requestRenewal', 'Request Renewal'), to: '/portal/renewal' },
-      { key: 'pay', label: t('portal.actions.viewPayments', 'View Payments'), to: '/portal/payments' },
-      { key: 'store', label: t('portal.actions.uniformStore', 'Uniform Store'), to: '/portal/uniform-store' },
-      { key: 'fb', label: t('portal.actions.feedback', 'Feedback'), to: '/portal/feedback' },
+      { key: 'edit', label: t('portal.actions.editProfile', 'Edit Profile'), action: 'profile' },
+      { key: 'freeze', label: t('portal.actions.requestFreeze', 'Request Freeze'), action: 'freeze' },
+      { key: 'renew', label: t('portal.actions.requestRenewal', 'Request Renewal'), action: 'renew' },
+      { key: 'pay', label: t('portal.actions.viewPayments', 'View Payments'), action: 'payments' },
+      { key: 'store', label: t('portal.actions.uniformStore', 'Uniform Store'), action: 'store' },
+      { key: 'fb', label: t('portal.actions.feedback', 'Feedback'), action: 'feedback' },
     ],
     [t]
   );
 
-  const onGo = useCallback((to) => router.push(to), [router]);
+  const onAction = useCallback(
+    (action) => {
+      if (action === 'profile') navigation.navigate('PortalPersonalInfo');
+      else if (action === 'payments') navigation.navigate('PortalPayments');
+      else if (action === 'store') navigation.navigate('PortalUniformStore');
+      else if (action === 'feedback') navigation.navigate('PortalFeedback');
+      else if (action === 'freeze') setFreezeOpen(true);
+      else if (action === 'renew') setRenewOpen(true);
+    },
+    [navigation]
+  );
 
   const data = useMemo(() => {
     // FlatList needs a stable array. We render the whole page as one item to keep scrolling+refresh native.
@@ -193,7 +205,7 @@ export default function DashboardScreen() {
               <Text style={portalStyles.blockTitle}>{t('portal.dashboard.primaryActions', 'Actions')}</Text>
               <View style={portalStyles.actionWrap}>
                 {actions.map((a) => (
-                  <ActionPill key={a.key} label={a.label} onPress={() => onGo(a.to)} />
+                  <ActionPill key={a.key} label={a.label} onPress={() => onAction(a.action)} />
                 ))}
               </View>
             </Card>
@@ -220,7 +232,7 @@ export default function DashboardScreen() {
                 </View>
               )}
 
-              <Text onPress={() => onGo('/portal/training-info')} style={portalStyles.linkBtn}>
+              <Text onPress={() => navigation.navigate('PortalTrainingInfo')} style={portalStyles.linkBtn}>
                 {t('portal.dashboard.openTrainingInfo', 'Open training details')} →
               </Text>
             </Card>
@@ -242,11 +254,13 @@ export default function DashboardScreen() {
         )}
       </View>
     ),
-    [academyName, actions, error, fmtDate, heroName, loading, notices, onGo, overview, refresh, reg, metrics, t]
+    [academyName, actions, error, fmtDate, heroName, loading, notices, overview, refresh, reg, metrics, t]
   );
 
   return (
     <PortalScreen>
+      <RequestFreezeModal visible={freezeOpen} onClose={() => setFreezeOpen(false)} />
+      <RequestRenewalModal visible={renewOpen} onClose={() => setRenewOpen(false)} />
       <FlatList
         data={data}
         keyExtractor={(i) => i.id}
