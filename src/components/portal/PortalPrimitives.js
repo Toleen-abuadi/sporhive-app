@@ -1,273 +1,302 @@
 // src/components/portal/PortalPrimitives.js
-// Portal UI primitives shared across all Player Portal screens.
-
 import React, { memo } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  Image,
+} from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { Feather } from '@expo/vector-icons';
 
 import { colors, spacing, radius, typography, shadows, alphaBg } from '../../theme/portal.styles';
 
-// -----------------------------
-// Layout wrappers
-// -----------------------------
+// ----------
+// Layout
+// ----------
+export const PortalScreen = ({ children, style }) => (
+  <View style={[styles.screen, style]}>{children}</View>
+);
 
-export const PortalScreen = ({ children, style }) => <View style={[styles.screen, style]}>{children}</View>;
-
-export const PortalHeader = memo(function PortalHeader({ title, subtitle, right }) {
+// ----------
+// Header / Hero
+// ----------
+export const PortalHeader = memo(function PortalHeader({ title, subtitle, right, onBack }) {
   return (
-    <Animated.View entering={FadeInDown.duration(220)} style={styles.header}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.headerTitle}>{title}</Text>
-        {!!subtitle && <Text style={styles.headerSub}>{subtitle}</Text>}
+    <View style={styles.header}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        {!!onBack && (
+          <Pressable onPress={onBack} hitSlop={10} style={styles.backBtn}>
+            <Feather name="chevron-left" size={22} color={colors.textPrimary} />
+          </Pressable>
+        )}
+        <View style={{ flex: 1 }}>
+          {!!title && <Text style={styles.headerTitle}>{title}</Text>}
+          {!!subtitle && <Text style={styles.headerSub}>{subtitle}</Text>}
+        </View>
       </View>
-      {right}
-    </Animated.View>
+      {!!right && <View style={{ marginLeft: spacing.sm }}>{right}</View>}
+    </View>
   );
 });
 
-// -----------------------------
-// Cards
-// -----------------------------
+export const Hero = memo(function Hero({ title, subtitle, badge, imageSource, right }) {
+  return (
+    <View style={styles.hero}>
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          {!!badge && <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>{badge}</Text></View>}
+          {!!right && <View style={{ marginLeft: 'auto' }}>{right}</View>}
+        </View>
+        {!!title && <Text style={styles.heroTitle} numberOfLines={1}>{title}</Text>}
+        {!!subtitle && <Text style={styles.heroSub} numberOfLines={2}>{subtitle}</Text>}
+      </View>
 
+      {!!imageSource && (
+        <View style={styles.heroAvatarWrap}>
+          <Image source={imageSource} style={styles.heroAvatar} />
+        </View>
+      )}
+    </View>
+  );
+});
+
+// ----------
+// Card
+// ----------
 export const PortalCard = ({ title, subtitle, right, children, style }) => (
   <View style={[styles.card, style]}>
-    {title || subtitle || right ? (
+    {(title || subtitle || right) ? (
       <View style={styles.cardHeader}>
         <View style={{ flex: 1 }}>
           {!!title && <Text style={styles.cardTitle}>{title}</Text>}
           {!!subtitle && <Text style={styles.cardSub}>{subtitle}</Text>}
         </View>
-        {right}
+        {!!right && <View style={{ marginLeft: spacing.sm }}>{right}</View>}
       </View>
     ) : null}
-    {children}
+    <View style={styles.cardBody}>{children}</View>
   </View>
 );
 
-// Backward-friendly alias used by some screens
-export const Card = ({ children, style, title, subtitle, right }) => (
-  <PortalCard style={style} title={title} subtitle={subtitle} right={right}>
-    {children}
-  </PortalCard>
-);
+// Aliases used by some portal screens (keep backward compatibility)
+export const Card = PortalCard;
 
-// -----------------------------
-// Pills / badges
-// -----------------------------
-
-export const Pill = memo(function Pill({ label, tone = 'neutral', style }) {
-  const bg =
-    tone === 'success'
-      ? alphaBg(colors.success, 0.14)
-      : tone === 'warning'
-        ? alphaBg(colors.warning, 0.14)
-        : tone === 'danger'
-          ? alphaBg(colors.error, 0.14)
-          : alphaBg(colors.primary, 0.10);
-
-  const border =
-    tone === 'success'
-      ? alphaBg(colors.success, 0.32)
-      : tone === 'warning'
-        ? alphaBg(colors.warning, 0.32)
-        : tone === 'danger'
-          ? alphaBg(colors.error, 0.32)
-          : colors.borderMedium;
-
+// ----------
+// Rows / Pills
+// ----------
+export const PortalRow = memo(function PortalRow({ leftIcon, title, value, right, tone = 'neutral', style, onPress }) {
+  const Comp = onPress ? Pressable : View;
+  const toneStyles = rowTone(tone);
   return (
-    <View style={[styles.pill, { backgroundColor: bg, borderColor: border }, style]}>
-      <Text style={styles.pillText}>{label}</Text>
+    <Comp onPress={onPress} style={[styles.row, toneStyles.row, style]}>
+      {!!leftIcon && <View style={[styles.rowIconWrap, toneStyles.iconWrap]}>{leftIcon}</View>}
+      <View style={{ flex: 1 }}>
+        {!!title && <Text style={styles.rowTitle}>{title}</Text>}
+        {!!value && <Text style={styles.rowValue} numberOfLines={2}>{value}</Text>}
+      </View>
+      {!!right && <View style={{ marginLeft: spacing.sm }}>{right}</View>}
+      {!!onPress && <Feather name="chevron-right" size={18} color={colors.textTertiary} />}
+    </Comp>
+  );
+});
+
+export const Pill = memo(function Pill({ label, tone = 'neutral', small }) {
+  const toneStyles = pillTone(tone);
+  return (
+    <View style={[styles.pill, small && styles.pillSmall, toneStyles.wrap]}>
+      <Text style={[styles.pillText, toneStyles.text]} numberOfLines={1}>
+        {label}
+      </Text>
     </View>
   );
 });
 
-// -----------------------------
-// Hero (dashboard)
-// -----------------------------
+// Keep existing Chip pattern (some older screens use it)
+export const PortalChip = ({ label, active, small, left }) => (
+  <View style={[styles.chip, active && styles.chipActive, small && styles.chipSmall]}>
+    {!!left && <View style={{ marginRight: 6 }}>{left}</View>}
+    <Text style={styles.chipText}>{label}</Text>
+  </View>
+);
 
-const imgFromBase64 = (b64) => {
-  if (!b64) return null;
-  if (String(b64).startsWith('data:')) return { uri: b64 };
-  return { uri: `data:image/jpeg;base64,${b64}` };
-};
-
-export const Hero = memo(function Hero({ name, academyName, badgeText, imageBase64 }) {
-  const src = imgFromBase64(imageBase64);
-  return (
-    <Animated.View entering={FadeInUp.duration(260)} style={styles.hero}>
-      <View style={styles.heroLeft}>
-        <View style={styles.avatar}>
-          {src ? <Image source={src} style={styles.avatarImg} /> : <Text style={styles.avatarFallback}>👤</Text>}
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.heroName} numberOfLines={1}>
-            {name || '—'}
-          </Text>
-          {!!academyName && (
-            <Text style={styles.heroSub} numberOfLines={1}>
-              {academyName}
-            </Text>
-          )}
-        </View>
-      </View>
-      {!!badgeText && <Pill label={badgeText} />}
-    </Animated.View>
-  );
-});
-
-// -----------------------------
-// Rows
-// -----------------------------
-
-export const PortalRow = memo(({ label, value, onPress, right, tone = 'default' }) => {
-  const clickable = !!onPress;
-  const Container = clickable ? Pressable : View;
-
-  const bg =
-    tone === 'soft'
-      ? alphaBg(colors.primary, 0.08)
-      : tone === 'danger'
-        ? alphaBg(colors.error, 0.10)
-        : 'transparent';
-
-  return (
-    <Container
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.row,
-        { backgroundColor: bg },
-        clickable && pressed ? { opacity: 0.85, transform: [{ scale: 0.995 }] } : null,
-      ]}
-    >
-      <View style={{ flex: 1 }}>
-        <Text style={styles.rowLabel}>{label}</Text>
-        <Text style={styles.rowValue} numberOfLines={2}>
-          {value || '—'}
-        </Text>
-      </View>
-      {right}
-    </Container>
-  );
-});
-
-// -----------------------------
+// ----------
 // Buttons
-// -----------------------------
-
-export const PortalButton = memo(({ label, variant = 'primary', onPress, disabled, left, style }) => {
-  const isPrimary = variant === 'primary';
+// ----------
+export const PortalButton = ({ title, left, right, tone = 'primary', disabled, loading, onPress, style }) => {
+  const isPrimary = tone === 'primary';
   return (
     <Pressable
+      disabled={disabled || loading}
       onPress={onPress}
-      disabled={disabled}
       style={({ pressed }) => [
         styles.btn,
         isPrimary ? styles.btnPrimary : styles.btnSecondary,
-        disabled ? { opacity: 0.55 } : null,
-        pressed && !disabled ? { transform: [{ scale: 0.99 }], opacity: 0.92 } : null,
+        (disabled || loading) && styles.btnDisabled,
+        pressed && !disabled && !loading && styles.btnPressed,
         style,
       ]}
     >
-      {left}
-      <Text style={[styles.btnText, isPrimary ? styles.btnTextPrimary : styles.btnTextSecondary]}>
-        {label}
-      </Text>
+      {!!left && <View style={{ marginRight: spacing.sm }}>{left}</View>}
+      {loading ? (
+        <ActivityIndicator color={isPrimary ? colors.textInverted : colors.textPrimary} />
+      ) : (
+        <Text style={[styles.btnText, isPrimary ? styles.btnTextPrimary : styles.btnTextSecondary]} numberOfLines={1}>
+          {title}
+        </Text>
+      )}
+      {!!right && <View style={{ marginLeft: spacing.sm }}>{right}</View>}
     </Pressable>
   );
-});
+};
 
-// Backward-friendly alias used by some screens
-export const PrimaryButton = (props) => <PortalButton {...props} variant="primary" />;
+export const PrimaryButton = (props) => <PortalButton {...props} tone="primary" />;
 
-// -----------------------------
-// Sticky bottom bar
-// -----------------------------
-
+// ----------
+// Sticky bar (CTA)
 export const StickyBar = ({ children }) => <View style={styles.sticky}>{children}</View>;
 
-// -----------------------------
-// Errors / skeleton
-// -----------------------------
+// ----------
+// Errors + Loading
+// ----------
+export const InlineError = ({ text, style }) => (text ? <Text style={[styles.inlineError, style]}>{text}</Text> : null);
 
-export const InlineError = ({ text }) =>
-  text ? (
-    <View style={styles.errBox}>
-      <Text style={styles.errText}>{text}</Text>
-    </View>
-  ) : null;
-
-export const ErrorBanner = ({ title, desc, onRetry }) => (
-  <PortalCard style={{ marginTop: 12 }}>
-    <Text style={styles.errTitle}>{title || 'Something went wrong'}</Text>
-    {!!desc && (
-      <Text style={styles.errDesc} numberOfLines={4}>
-        {String(desc)}
-      </Text>
-    )}
-    {!!onRetry && (
-      <View style={{ marginTop: spacing.md }}>
-        <PortalButton label="Retry" onPress={onRetry} variant="secondary" />
-      </View>
-    )}
-  </PortalCard>
-);
-
-export const SkeletonBlock = memo(function SkeletonBlock({ h = 12, w = '100%', r = 10, style }) {
+export const ErrorBanner = memo(function ErrorBanner({ title = 'Something went wrong', message, onRetry }) {
   return (
-    <View
-      style={[
-        {
-          height: h,
-          width: w,
-          borderRadius: r,
-          backgroundColor: colors.backgroundElevated,
-          borderWidth: 1,
-          borderColor: colors.borderLight,
-        },
-        style,
-      ]}
-    />
+    <View style={styles.errorBanner}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.errorTitle}>{title}</Text>
+        {!!message && <Text style={styles.errorMsg}>{message}</Text>}
+      </View>
+      {!!onRetry && (
+        <Pressable onPress={onRetry} style={styles.retryBtn}>
+          <Text style={styles.retryText}>Retry</Text>
+        </Pressable>
+      )}
+    </View>
   );
 });
 
-// -----------------------------
+export const SkeletonBlock = memo(function SkeletonBlock({ height = 14, width = '100%', style }) {
+  return <View style={[styles.skel, { height, width }, style]} />;
+});
+
+// ----------
+// Helpers
+// ----------
+const pillTone = (tone) => {
+  if (tone === 'success') return { wrap: { backgroundColor: alphaBg(colors.success, 0.18), borderColor: alphaBg(colors.success, 0.35) }, text: { color: colors.success } };
+  if (tone === 'warning') return { wrap: { backgroundColor: alphaBg(colors.warning, 0.18), borderColor: alphaBg(colors.warning, 0.35) }, text: { color: colors.warning } };
+  if (tone === 'danger') return { wrap: { backgroundColor: alphaBg(colors.error, 0.18), borderColor: alphaBg(colors.error, 0.35) }, text: { color: colors.error } };
+  if (tone === 'info') return { wrap: { backgroundColor: alphaBg(colors.info, 0.18), borderColor: alphaBg(colors.info, 0.35) }, text: { color: colors.info } };
+  return { wrap: { backgroundColor: colors.backgroundElevated, borderColor: colors.borderMedium }, text: { color: colors.textSecondary } };
+};
+
+const rowTone = (tone) => {
+  if (tone === 'success') return { row: { backgroundColor: alphaBg(colors.success, 0.10) }, iconWrap: { backgroundColor: alphaBg(colors.success, 0.16) } };
+  if (tone === 'warning') return { row: { backgroundColor: alphaBg(colors.warning, 0.10) }, iconWrap: { backgroundColor: alphaBg(colors.warning, 0.16) } };
+  if (tone === 'danger') return { row: { backgroundColor: alphaBg(colors.error, 0.10) }, iconWrap: { backgroundColor: alphaBg(colors.error, 0.16) } };
+  if (tone === 'info') return { row: { backgroundColor: alphaBg(colors.info, 0.10) }, iconWrap: { backgroundColor: alphaBg(colors.info, 0.16) } };
+  return { row: { backgroundColor: colors.backgroundElevated }, iconWrap: { backgroundColor: colors.backgroundCard } };
+};
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.backgroundDark,
-  },
+  screen: { flex: 1, backgroundColor: colors.backgroundDark },
+
   header: {
     paddingHorizontal: spacing.screenPadding,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.round,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.backgroundElevated,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
   headerTitle: {
     color: colors.textPrimary,
     fontFamily: typography.family.bold,
-    fontSize: typography.sizes['3xl'],
-    letterSpacing: -0.3,
+    fontSize: typography.sizes.xl,
   },
   headerSub: {
-    marginTop: 6,
+    color: colors.textSecondary,
+    marginTop: 2,
+    fontFamily: typography.family.regular,
+    fontSize: typography.sizes.sm,
+  },
+
+  hero: {
+    marginHorizontal: spacing.screenPadding,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: colors.backgroundElevated,
+    borderWidth: 1,
+    borderColor: colors.borderMedium,
+    ...shadows.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+  },
+  heroBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.round,
+    backgroundColor: alphaBg(colors.primary, 0.14),
+    borderWidth: 1,
+    borderColor: alphaBg(colors.primary, 0.35),
+  },
+  heroBadgeText: {
+    color: colors.primaryLight,
+    fontFamily: typography.family.medium,
+    fontSize: typography.sizes.sm,
+  },
+  heroTitle: {
+    marginTop: spacing.sm,
+    color: colors.textPrimary,
+    fontFamily: typography.family.bold,
+    fontSize: typography.sizes['2xl'],
+  },
+  heroSub: {
+    marginTop: spacing.xs,
     color: colors.textSecondary,
     fontFamily: typography.family.regular,
     fontSize: typography.sizes.sm,
-    lineHeight: typography.sizes.sm * 1.45,
+    lineHeight: Math.round(typography.sizes.sm * typography.lineHeights.relaxed),
   },
+  heroAvatarWrap: {
+    width: 62,
+    height: 62,
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.borderMedium,
+    backgroundColor: colors.backgroundCard,
+  },
+  heroAvatar: { width: '100%', height: '100%' },
+
   card: {
     backgroundColor: colors.backgroundCard,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    padding: spacing.md,
-    ...shadows.md,
+    overflow: 'hidden',
   },
   cardHeader: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
-    marginBottom: spacing.sm,
   },
   cardTitle: {
     color: colors.textPrimary,
@@ -275,92 +304,71 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.lg,
   },
   cardSub: {
-    marginTop: 2,
     color: colors.textSecondary,
+    marginTop: 2,
     fontFamily: typography.family.regular,
     fontSize: typography.sizes.sm,
-    lineHeight: typography.sizes.sm * 1.35,
   },
-  pill: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radius.round,
-    borderWidth: 1,
-  },
-  pillText: {
-    color: colors.textPrimary,
-    fontFamily: typography.family.medium,
-    fontSize: typography.sizes.xs,
-  },
-  hero: {
-    marginHorizontal: spacing.screenPadding,
-    marginTop: 4,
-    marginBottom: 12,
-    backgroundColor: colors.backgroundCard,
+  cardBody: { paddingHorizontal: spacing.md, paddingBottom: spacing.md },
+
+  row: {
+    padding: spacing.md,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    borderRadius: radius.xl,
-    padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...shadows.md,
-  },
-  heroLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    flex: 1,
-    paddingRight: spacing.sm,
   },
-  avatar: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
-    backgroundColor: colors.backgroundElevated,
-    borderWidth: 1,
-    borderColor: colors.borderMedium,
-    overflow: 'hidden',
+  rowIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
-  avatarImg: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarFallback: {
-    fontSize: 22,
-  },
-  heroName: {
-    color: colors.textPrimary,
-    fontFamily: typography.family.bold,
-    fontSize: typography.sizes.xl,
-  },
-  heroSub: {
-    marginTop: 4,
+  rowTitle: {
     color: colors.textSecondary,
-    fontFamily: typography.family.regular,
+    fontFamily: typography.family.medium,
     fontSize: typography.sizes.sm,
   },
-  row: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radius.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  rowLabel: {
-    color: colors.textTertiary,
-    fontFamily: typography.family.medium,
-    fontSize: typography.sizes.xs,
-    marginBottom: 3,
-  },
   rowValue: {
+    marginTop: 2,
     color: colors.textPrimary,
     fontFamily: typography.family.regular,
     fontSize: typography.sizes.base,
+    lineHeight: Math.round(typography.sizes.base * typography.lineHeights.normal),
   },
+
+  pill: {
+    borderWidth: 1,
+    borderRadius: radius.round,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    maxWidth: '100%',
+  },
+  pillSmall: { paddingVertical: 4, paddingHorizontal: spacing.sm },
+  pillText: {
+    fontFamily: typography.family.medium,
+    fontSize: typography.sizes.sm,
+  },
+
+  chip: {
+    backgroundColor: colors.backgroundElevated,
+    borderRadius: radius.round,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderMedium,
+  },
+  chipActive: { backgroundColor: alphaBg(colors.primary, 0.12), borderColor: alphaBg(colors.primary, 0.5) },
+  chipSmall: { paddingVertical: 2, paddingHorizontal: spacing.sm },
+  chipText: { color: colors.textPrimary, fontFamily: typography.family.medium, fontSize: typography.sizes.sm },
+
   btn: {
     height: 48,
     borderRadius: radius.md,
@@ -370,55 +378,59 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
   },
-  btnPrimary: {
-    backgroundColor: colors.primary,
-    ...shadows.glow,
-  },
+  btnPrimary: { backgroundColor: colors.primary, ...shadows.glow },
   btnSecondary: {
     backgroundColor: colors.backgroundElevated,
     borderWidth: 1,
     borderColor: colors.borderMedium,
   },
-  btnText: {
-    fontFamily: typography.family.medium,
-    fontSize: typography.sizes.base,
-  },
+  btnDisabled: { opacity: 0.55 },
+  btnPressed: { transform: [{ scale: 0.98 }] },
+  btnText: { fontFamily: typography.family.medium, fontSize: typography.sizes.base },
   btnTextPrimary: { color: colors.textInverted },
   btnTextSecondary: { color: colors.textPrimary },
+
   sticky: {
     position: 'absolute',
-    left: spacing.screenPadding,
-    right: spacing.screenPadding,
-    bottom: spacing.screenPadding,
-    padding: spacing.sm,
-    borderRadius: radius.lg,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: spacing.screenPadding,
     backgroundColor: colors.backgroundOverlay,
-    borderWidth: 1,
-    borderColor: colors.borderMedium,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
   },
-  errBox: {
-    marginTop: spacing.sm,
-    padding: spacing.sm,
+
+  inlineError: { marginTop: 6, color: colors.error, fontFamily: typography.family.regular, fontSize: typography.sizes.sm },
+
+  errorBanner: {
+    marginHorizontal: spacing.screenPadding,
+    marginTop: spacing.md,
+    padding: spacing.md,
     borderRadius: radius.md,
-    backgroundColor: alphaBg(colors.error, 0.14),
     borderWidth: 1,
     borderColor: alphaBg(colors.error, 0.35),
+    backgroundColor: alphaBg(colors.error, 0.12),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
   },
-  errText: {
-    color: colors.textPrimary,
-    fontFamily: typography.family.medium,
-    fontSize: typography.sizes.sm,
+  errorTitle: { color: colors.textPrimary, fontFamily: typography.family.bold, fontSize: typography.sizes.base },
+  errorMsg: { marginTop: 2, color: colors.textSecondary, fontFamily: typography.family.regular, fontSize: typography.sizes.sm },
+  retryBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radius.round,
+    borderWidth: 1,
+    borderColor: colors.borderMedium,
+    backgroundColor: colors.backgroundElevated,
   },
-  errTitle: {
-    color: colors.textPrimary,
-    fontFamily: typography.family.bold,
-    fontSize: typography.sizes.lg,
-  },
-  errDesc: {
-    marginTop: 6,
-    color: colors.textSecondary,
-    fontFamily: typography.family.regular,
-    fontSize: typography.sizes.sm,
-    lineHeight: typography.sizes.sm * 1.4,
+  retryText: { color: colors.textPrimary, fontFamily: typography.family.medium, fontSize: typography.sizes.sm },
+
+  skel: {
+    borderRadius: radius.sm,
+    backgroundColor: alphaBg('#FFFFFF', 0.06),
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
 });

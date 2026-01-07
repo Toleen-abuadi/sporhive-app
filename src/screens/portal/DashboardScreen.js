@@ -1,274 +1,290 @@
 // src/screens/portal/DashboardScreen.js
 import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, RefreshControl, Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
 import { useI18n } from '../../services/i18n/i18n';
 import { usePortalOverview } from '../../services/portal/portal.hooks';
-import { portalStyles } from '../../theme/portal.styles';
-import { Card, ErrorBanner, Hero, Pill, PortalHeader, PortalScreen, SkeletonBlock } from '../../components/portal/PortalPrimitives';
+import { colors, spacing, formatDate } from '../../theme/portal.styles';
+import {
+  ErrorBanner,
+  Hero,
+  Pill,
+  PortalButton,
+  PortalCard,
+  PortalHeader,
+  PortalRow,
+  PortalScreen,
+  SkeletonBlock,
+} from '../../components/portal/PortalPrimitives';
+
 import { RequestFreezeModal } from './modals/RequestFreezeModal';
 import { RequestRenewalModal } from './modals/RequestRenewalModal';
 
-const kpiTone = (status) => {
-  const s = (status || '').toLowerCase();
+const imgFromBase64 = (b64) => {
+  if (!b64) return null;
+  if (String(b64).startsWith('data:')) return { uri: b64 };
+  return { uri: `data:image/jpeg;base64,${b64}` };
+};
+
+const toneForSub = (status) => {
+  const s = String(status || '').toLowerCase();
   if (s.includes('active')) return 'success';
   if (s.includes('expired') || s.includes('inactive')) return 'danger';
   return 'neutral';
 };
 
-const fmtDate = (d) => {
-  if (!d) return '';
-  const x = new Date(d);
-  if (Number.isNaN(x.getTime())) return '';
-  return x.toLocaleDateString();
-};
-
-const KpiCard = React.memo(function KpiCard({ title, value, subtitle, tone }) {
-  return (
-    <Card style={portalStyles.kpiCard}>
-      <View style={portalStyles.kpiTop}>
-        <Text style={portalStyles.kpiTitle} numberOfLines={1}>
-          {title}
-        </Text>
-        {!!tone && <Pill label={tone === 'success' ? 'OK' : tone === 'danger' ? '!' : '•'} tone={tone} />}
-      </View>
-      <Text style={portalStyles.kpiValue} numberOfLines={1}>
-        {value}
-      </Text>
-      {!!subtitle && (
-        <Text style={portalStyles.kpiSub} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      )}
-    </Card>
-  );
-});
-
-const ActionPill = React.memo(function ActionPill({ label, onPress }) {
-  return (
-    <Animated.View entering={FadeInUp.duration(240)}>
-      <View style={{ marginRight: 10, marginBottom: 10 }}>
-        <Text onPress={onPress} style={portalStyles.actionPill}>
-          {label}
-        </Text>
-      </View>
-    </Animated.View>
-  );
-});
-
-export default function DashboardScreen({ navigation }) {
+export function DashboardScreen({ navigation }) {
   const { t } = useI18n();
-  const { overview, loading, refreshing, error, refresh } = usePortalOverview();
+  const { overview, loading, error, refreshing, refresh } = usePortalOverview();
+
   const [freezeOpen, setFreezeOpen] = useState(false);
   const [renewOpen, setRenewOpen] = useState(false);
 
-  const heroName = overview?.player?.fullName || `${overview?.player?.firstName || ''} ${overview?.player?.lastName || ''}`.trim();
-  const academyName = overview?.player?.academyName;
-
-  const metrics = overview?.performance_feedback?.metrics || {};
+  const player = overview?.player || {};
   const reg = overview?.registration || {};
+  const metrics = overview?.performance_feedback?.metrics || {};
+
+  const avatar = imgFromBase64(player.imageBase64);
+
+  const kpis = useMemo(() => {
+    const remaining = Number(metrics?.remaining ?? reg.remainingSessions ?? 0) || 0;
+    const total = Number(metrics?.total ?? reg.totalSessions ?? 0) || 0;
+    const creditsTotal = Number(metrics?.credits?.totalRemaining ?? 0) || 0;
+    const creditsExp = metrics?.credits?.nextExpiry || null;
+
+    const currentFreeze = metrics?.freeze?.current || null;
+    const upcomingFreeze = metrics?.freeze?.upcoming || null;
+
+    return [
+      {
+        id: 'sub',
+        label: t('portal.kpi.subscription', 'Subscription'),
+        value: metrics?.subscriptionStatus || '—',
+        tone: toneForSub(metrics?.subscriptionStatus),
+        icon: <Feather name="shield" size={16} color={colors.textSecondary} />,
+      },
+      {
+        id: 'sessions',
+        label: t('portal.kpi.sessions', 'Sessions'),
+        value: `${remaining} / ${total}`,
+        tone: remaining > 0 ? 'info' : 'warning',
+        icon: <Feather name="activity" size={16} color={colors.textSecondary} />,
+      },
+      {
+        id: 'credits',
+        label: t('portal.kpi.credits', 'Credits'),
+        value: creditsExp ? `${creditsTotal} • ${formatDate(creditsExp)}` : String(creditsTotal),
+        tone: creditsTotal > 0 ? 'success' : 'neutral',
+        icon: <Feather name="zap" size={16} color={colors.textSecondary} />,
+      },
+      {
+        id: 'freeze',
+        label: t('portal.kpi.freeze', 'Freeze'),
+        value: currentFreeze ? t('portal.freeze.active', 'Active') : upcomingFreeze ? t('portal.freeze.scheduled', 'Scheduled') : t('portal.freeze.none', 'None'),
+        tone: currentFreeze ? 'warning' : upcomingFreeze ? 'info' : 'neutral',
+        icon: <Feather name="pause-circle" size={16} color={colors.textSecondary} />,
+      },
+    ];
+  }, [metrics, reg.remainingSessions, reg.totalSessions, t]);
 
   const notices = useMemo(() => {
     const list = [];
     const creditsExp = metrics?.credits?.nextExpiry;
-    if (creditsExp) list.push({ id: 'credits', text: t('portal.notices.creditsExpiry', 'Credits expire soon') + ` • ${fmtDate(creditsExp)}` });
+    if (creditsExp) list.push({ id: 'credits', text: `${t('portal.notices.creditExpiry', 'Credit expiry')} • ${formatDate(creditsExp)}` });
 
     const upcomingFreeze = metrics?.freeze?.upcoming;
-    if (upcomingFreeze?.start || upcomingFreeze?.from) {
-      const a = upcomingFreeze.start || upcomingFreeze.from;
-      const b = upcomingFreeze.end || upcomingFreeze.to;
-      list.push({ id: 'freeze', text: t('portal.notices.freezeScheduled', 'Freeze scheduled') + ` • ${fmtDate(a)} → ${fmtDate(b)}` });
-    }
+    const a = upcomingFreeze?.start || upcomingFreeze?.from;
+    const b = upcomingFreeze?.end || upcomingFreeze?.to;
+    if (a && b) list.push({ id: 'freeze', text: `${t('portal.notices.freezeScheduled', 'Freeze scheduled')} • ${formatDate(a)} → ${formatDate(b)}` });
 
-    const paymentDue = (overview?.payment_info || []).find((p) => String(p?.status || '').toLowerCase().includes('pending'));
-    if (paymentDue?.due_date) list.push({ id: 'pay', text: t('portal.notices.paymentDue', 'Payment due') + ` • ${fmtDate(paymentDue.due_date)}` });
+    const due = Array.isArray(overview?.payment_info) ? overview.payment_info.find((p) => String(p?.status || '').toLowerCase().includes('pend')) : null;
+    if (due?.due_date || due?.dueDate) list.push({ id: 'payment', text: `${t('portal.notices.paymentDue', 'Payment due')} • ${formatDate(due.due_date || due.dueDate)}` });
 
     return list;
   }, [metrics, overview?.payment_info, t]);
 
-  const actions = useMemo(
-    () => [
-      { key: 'edit', label: t('portal.actions.editProfile', 'Edit Profile'), action: 'profile' },
-      { key: 'freeze', label: t('portal.actions.requestFreeze', 'Request Freeze'), action: 'freeze' },
-      { key: 'renew', label: t('portal.actions.requestRenewal', 'Request Renewal'), action: 'renew' },
-      { key: 'pay', label: t('portal.actions.viewPayments', 'View Payments'), action: 'payments' },
-      { key: 'store', label: t('portal.actions.uniformStore', 'Uniform Store'), action: 'store' },
-      { key: 'fb', label: t('portal.actions.feedback', 'Feedback'), action: 'feedback' },
-    ],
-    [t]
-  );
-
-  const onAction = useCallback(
-    (action) => {
-      if (action === 'profile') navigation.navigate('PortalPersonalInfo');
-      else if (action === 'payments') navigation.navigate('PortalPayments');
-      else if (action === 'store') navigation.navigate('PortalUniformStore');
-      else if (action === 'feedback') navigation.navigate('PortalFeedback');
-      else if (action === 'freeze') setFreezeOpen(true);
-      else if (action === 'renew') setRenewOpen(true);
-    },
-    [navigation]
-  );
+  const actions = useMemo(() => ([
+    { id: 'profile', label: t('portal.actions.profile', 'Personal Info'), icon: 'user', onPress: () => navigation.navigate('PortalPersonalInfo') },
+    { id: 'freeze', label: t('portal.actions.freeze', 'Request Freeze'), icon: 'pause-circle', onPress: () => setFreezeOpen(true) },
+    { id: 'renew', label: t('portal.actions.renew', 'Request Renewal'), icon: 'refresh-cw', onPress: () => setRenewOpen(true) },
+    { id: 'payments', label: t('portal.actions.payments', 'Payments'), icon: 'credit-card', onPress: () => navigation.navigate('PortalPayments') },
+    { id: 'store', label: t('portal.actions.uniforms', 'Uniform Store'), icon: 'shopping-bag', onPress: () => navigation.navigate('PortalUniformStore') },
+    { id: 'feedback', label: t('portal.actions.feedback', 'Feedback'), icon: 'star', onPress: () => navigation.navigate('PortalFeedback') },
+  ]), [navigation, t]);
 
   const data = useMemo(() => {
-    // FlatList needs a stable array. We render the whole page as one item to keep scrolling+refresh native.
-    return [{ id: 'dashboard' }];
+    // FlatList sections
+    return [
+      { type: 'kpis' },
+      { type: 'actions' },
+      { type: 'training' },
+      { type: 'notices' },
+    ];
   }, []);
 
-  const render = useCallback(
-    () => (
-      <View style={{ paddingBottom: 24 }}>
-        <PortalHeader title={t('portal.dashboard.title', 'Dashboard')} subtitle={t('portal.dashboard.subtitle', 'Your training at a glance')} />
-
-        {loading ? (
-          <View style={{ marginTop: 12 }}>
-            <Card>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <SkeletonBlock h={56} w={56} r={16} />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <SkeletonBlock h={16} w="70%" r={8} />
-                  <SkeletonBlock h={12} w="45%" r={8} style={{ marginTop: 8 }} />
+  const renderItem = useCallback(({ item }) => {
+    if (item.type === 'kpis') {
+      return (
+        <PortalCard style={{ marginHorizontal: spacing.screenPadding, marginTop: spacing.lg }} title={t('portal.dashboard.kpis', 'Quick Status')}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+            {loading ? (
+              <>
+                <SkeletonBlock height={42} width="48%" />
+                <SkeletonBlock height={42} width="48%" />
+                <SkeletonBlock height={42} width="48%" />
+                <SkeletonBlock height={42} width="48%" />
+              </>
+            ) : (
+              kpis.map((k) => (
+                <View key={k.id} style={{ width: '48%' }}>
+                  <PortalRow
+                    leftIcon={k.icon}
+                    title={k.label}
+                    value={String(k.value || '—')}
+                    tone={k.tone}
+                  />
                 </View>
-              </View>
-            </Card>
-
-            <View style={portalStyles.kpiGrid}>
-              {[0, 1, 2, 3].map((i) => (
-                <Card key={i} style={portalStyles.kpiCard}>
-                  <SkeletonBlock h={12} w="65%" r={8} />
-                  <SkeletonBlock h={22} w="45%" r={10} style={{ marginTop: 10 }} />
-                  <SkeletonBlock h={10} w="70%" r={8} style={{ marginTop: 10 }} />
-                </Card>
-              ))}
-            </View>
+              ))
+            )}
           </View>
-        ) : error ? (
-          <ErrorBanner
-            title={t('portal.errors.overviewTitle', 'Could not load overview')}
-            desc={error?.message}
-            onRetry={refresh}
-          />
-        ) : (
-          <>
-            <Hero
-              name={heroName}
-              academyName={academyName}
-              imageBase64={overview?.player?.imageBase64}
-              badgeText={t('portal.dashboard.badge', 'Player')}
-            />
+        </PortalCard>
+      );
+    }
 
-            <View style={portalStyles.kpiGrid}>
-              <KpiCard
-                title={t('portal.kpi.subscription', 'Subscription')}
-                value={metrics?.subscriptionStatus || t('portal.common.na', 'N/A')}
-                subtitle={t('portal.kpi.subscriptionHint', 'Current status')}
-                tone={kpiTone(metrics?.subscriptionStatus)}
-              />
-              <KpiCard
-                title={t('portal.kpi.sessions', 'Sessions')}
-                value={`${metrics?.remaining ?? 0} / ${metrics?.total ?? reg?.totalSessions ?? 0}`}
-                subtitle={t('portal.kpi.sessionsHint', 'Remaining / Total')}
-                tone={metrics?.remaining > 0 ? 'success' : 'danger'}
-              />
-              <KpiCard
-                title={t('portal.kpi.credits', 'Credits')}
-                value={`${metrics?.credits?.totalRemaining ?? 0}`}
-                subtitle={
-                  metrics?.credits?.nextExpiry
-                    ? `${t('portal.kpi.nextExpiry', 'Next expiry')}: ${fmtDate(metrics?.credits?.nextExpiry)}`
-                    : t('portal.kpi.noExpiry', 'No expiry data')
-                }
-                tone={(metrics?.credits?.totalRemaining ?? 0) > 0 ? 'neutral' : 'danger'}
-              />
-              <KpiCard
-                title={t('portal.kpi.freeze', 'Freeze')}
-                value={
-                  metrics?.freeze?.current?.active
-                    ? t('portal.freeze.active', 'Active')
-                    : metrics?.freeze?.upcoming
-                      ? t('portal.freeze.upcoming', 'Upcoming')
-                      : t('portal.freeze.none', 'None')
-                }
-                subtitle={
-                  metrics?.freeze?.current?.start
-                    ? `${fmtDate(metrics?.freeze?.current?.start)} → ${fmtDate(metrics?.freeze?.current?.end)}`
-                    : metrics?.freeze?.upcoming?.start
-                      ? `${fmtDate(metrics?.freeze?.upcoming?.start)} → ${fmtDate(metrics?.freeze?.upcoming?.end)}`
-                      : t('portal.freeze.noData', 'No freeze scheduled')
-                }
-                tone={metrics?.freeze?.current?.active ? 'warning' : 'neutral'}
-              />
-            </View>
-
-            <Card style={{ marginTop: 10 }}>
-              <Text style={portalStyles.blockTitle}>{t('portal.dashboard.primaryActions', 'Actions')}</Text>
-              <View style={portalStyles.actionWrap}>
-                {actions.map((a) => (
-                  <ActionPill key={a.key} label={a.label} onPress={() => onAction(a.action)} />
-                ))}
+    if (item.type === 'actions') {
+      return (
+        <PortalCard style={{ marginHorizontal: spacing.screenPadding, marginTop: spacing.md }} title={t('portal.dashboard.actions', 'Actions')}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+            {actions.map((a) => (
+              <View key={a.id} style={{ width: '48%' }}>
+                <PortalButton
+                  title={a.label}
+                  tone="secondary"
+                  left={<Feather name={a.icon} size={16} color={colors.textPrimary} />}
+                  onPress={a.onPress}
+                />
               </View>
-            </Card>
+            ))}
+          </View>
+        </PortalCard>
+      );
+    }
 
-            <Card style={{ marginTop: 10 }}>
-              <Text style={portalStyles.blockTitle}>{t('portal.dashboard.myTraining', 'My Training')}</Text>
-              <Text style={portalStyles.blockLine}>
-                {t('portal.training.group', 'Group')}: <Text style={portalStyles.em}>{reg?.groupName || '—'}</Text>
-              </Text>
-              <Text style={portalStyles.blockLine}>
-                {t('portal.training.course', 'Course')}: <Text style={portalStyles.em}>{reg?.courseName || '—'}</Text>
-              </Text>
-              <Text style={portalStyles.blockLine}>
-                {t('portal.training.dates', 'Dates')}: <Text style={portalStyles.em}>{fmtDate(reg?.startDate) || '—'} → {fmtDate(reg?.endDate) || '—'}</Text>
-              </Text>
-              {!!(reg?.schedulePreview?.length) && (
-                <View style={{ marginTop: 8 }}>
-                  <Text style={portalStyles.muted}>{t('portal.training.schedulePreview', 'Schedule')}</Text>
-                  {reg.schedulePreview.slice(0, 3).map((s, idx) => (
-                    <Text key={idx} style={portalStyles.scheduleLine} numberOfLines={1}>
-                      • {typeof s === 'string' ? s : `${s?.day || ''} ${s?.time || ''}`.trim()}
-                    </Text>
+    if (item.type === 'training') {
+      const schedulePreview = Array.isArray(reg.schedulePreview) ? reg.schedulePreview.slice(0, 3) : [];
+      return (
+        <PortalCard style={{ marginHorizontal: spacing.screenPadding, marginTop: spacing.md }} title={t('portal.dashboard.training', 'My Training')}>
+          {loading ? (
+            <>
+              <SkeletonBlock height={14} width="80%" />
+              <View style={{ height: spacing.sm }} />
+              <SkeletonBlock height={14} width="60%" />
+              <View style={{ height: spacing.sm }} />
+              <SkeletonBlock height={14} width="90%" />
+            </>
+          ) : (
+            <>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                {!!reg.groupName && <Pill label={`${t('portal.training.group', 'Group')}: ${reg.groupName}`} tone="info" />}
+                {!!reg.courseName && <Pill label={`${t('portal.training.course', 'Course')}: ${reg.courseName}`} tone="neutral" />}
+                {!!reg.level && <Pill label={`${t('portal.training.level', 'Level')}: ${reg.level}`} tone="neutral" />}
+              </View>
+
+              <View style={{ height: spacing.md }} />
+
+              {!!reg.startDate && !!reg.endDate ? (
+                <Text style={{ color: colors.textSecondary }}>
+                  {t('portal.training.dates', 'Dates')}: {formatDate(reg.startDate)} → {formatDate(reg.endDate)}
+                </Text>
+              ) : null}
+
+              {schedulePreview.length ? (
+                <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+                  {schedulePreview.map((s, idx) => (
+                    <PortalRow
+                      key={idx}
+                      leftIcon={<Feather name="calendar" size={16} color={colors.textSecondary} />}
+                      title={t('portal.training.session', 'Session')}
+                      value={typeof s === 'string' ? s : `${s?.day || ''} ${s?.time || ''}`.trim() || JSON.stringify(s)}
+                    />
                   ))}
                 </View>
-              )}
+              ) : null}
 
-              <Text onPress={() => navigation.navigate('PortalTrainingInfo')} style={portalStyles.linkBtn}>
-                {t('portal.dashboard.openTrainingInfo', 'Open training details')} →
-              </Text>
-            </Card>
+              <View style={{ marginTop: spacing.md }}>
+                <PortalButton
+                  title={t('portal.dashboard.openTraining', 'View Training Details')}
+                  tone="secondary"
+                  right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+                  onPress={() => navigation.navigate('PortalTrainingInfo')}
+                />
+              </View>
+            </>
+          )}
+        </PortalCard>
+      );
+    }
 
-            <Card style={{ marginTop: 10 }}>
-              <Text style={portalStyles.blockTitle}>{t('portal.dashboard.notices', 'Notices')}</Text>
-              {notices.length ? (
-                notices.map((n) => (
-                  <View key={n.id} style={portalStyles.noticeRow}>
-                    <View style={portalStyles.noticeDot} />
-                    <Text style={portalStyles.noticeText}>{n.text}</Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={portalStyles.muted}>{t('portal.dashboard.noNotices', 'All good — no notices right now.')}</Text>
-              )}
-            </Card>
-          </>
-        )}
-      </View>
-    ),
-    [academyName, actions, error, fmtDate, heroName, loading, notices, overview, refresh, reg, metrics, t]
-  );
+    if (item.type === 'notices') {
+      return (
+        <PortalCard style={{ marginHorizontal: spacing.screenPadding, marginTop: spacing.md, marginBottom: spacing.xl }} title={t('portal.dashboard.notices', 'Notices')}>
+          {loading ? (
+            <>
+              <SkeletonBlock height={14} width="92%" />
+              <View style={{ height: spacing.sm }} />
+              <SkeletonBlock height={14} width="72%" />
+            </>
+          ) : notices.length ? (
+            <View style={{ gap: spacing.sm }}>
+              {notices.map((n) => (
+                <PortalRow
+                  key={n.id}
+                  leftIcon={<Feather name="bell" size={16} color={colors.textSecondary} />}
+                  title={t('portal.notice', 'Notice')}
+                  value={n.text}
+                />
+              ))}
+            </View>
+          ) : (
+            <Text style={{ color: colors.textSecondary }}>{t('portal.dashboard.noNotices', 'No notices right now')}</Text>
+          )}
+        </PortalCard>
+      );
+    }
+
+    return null;
+  }, [actions, kpis, loading, navigation, notices, reg, t]);
 
   return (
     <PortalScreen>
-      <RequestFreezeModal visible={freezeOpen} onClose={() => setFreezeOpen(false)} />
-      <RequestRenewalModal visible={renewOpen} onClose={() => setRenewOpen(false)} />
+      <PortalHeader title={t('tabs.portal', 'Portal')} subtitle={player.academyName || ''} />
+      <Hero
+        title={player.fullName || t('portal.dashboard.hello', 'Hello')}
+        subtitle={t('portal.dashboard.subtitle', 'Your progress & requests in one place')}
+        badge={player.academyName || ''}
+        imageSource={avatar}
+      />
+
+      {!!error && (
+        <ErrorBanner
+          title={t('portal.error.title', 'Could not load portal')}
+          message={error?.message || String(error)}
+          onRetry={refresh}
+        />
+      )}
+
       <FlatList
         data={data}
-        keyExtractor={(i) => i.id}
-        renderItem={render}
-        contentContainerStyle={portalStyles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#F97316" />}
-        showsVerticalScrollIndicator={false}
+        keyExtractor={(it) => it.type}
+        renderItem={renderItem}
+        contentContainerStyle={{ paddingBottom: 140 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}
       />
+
+      <RequestFreezeModal visible={freezeOpen} onClose={() => setFreezeOpen(false)} />
+      <RequestRenewalModal visible={renewOpen} onClose={() => setRenewOpen(false)} />
     </PortalScreen>
   );
 }

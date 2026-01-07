@@ -149,6 +149,7 @@ export function HomeServicesScreen() {
       icon: 'user',
       color: '#3B82F6',
       screen: 'Portal',
+      href: '/portal',
     },
   ];
 

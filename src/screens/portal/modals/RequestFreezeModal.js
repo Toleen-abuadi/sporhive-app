@@ -1,6 +1,6 @@
 // src/screens/portal/modals/RequestFreezeModal.js
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { portalApi } from '../../../services/portal/portal.api';
