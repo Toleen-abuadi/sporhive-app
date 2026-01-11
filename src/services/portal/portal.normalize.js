@@ -34,27 +34,8 @@ const formatSchedule = (item) => {
   return `${day} ${time}`.trim();
 };
 
-const unwrapDataContainer = (value) => {
-  let cur = value;
-  for (let i = 0; i < 3; i += 1) {
-    const hasPayload =
-      cur?.player_data ||
-      cur?.player_info ||
-      cur?.registration_info ||
-      cur?.performance_feedback;
-    if (hasPayload) break;
-    if (cur?.data && typeof cur.data === 'object') {
-      cur = cur.data;
-      continue;
-    }
-    break;
-  }
-  return cur;
-};
-
 export const normalizePortalOverview = (raw) => {
-  const rawRoot = raw?.data ?? raw;
-  const root = unwrapDataContainer(rawRoot);
+  const root = raw?.data ?? raw;
   const data = root?.player_data ?? root;
 
   const playerInfo = pick(data, ['player_info', 'profile.player_info', 'playerInfo'], {}) || {};
