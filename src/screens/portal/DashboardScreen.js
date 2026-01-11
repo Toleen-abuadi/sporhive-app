@@ -24,10 +24,11 @@ import {
 import { RequestFreezeModal } from './modals/RequestFreezeModal';
 import { RequestRenewalModal } from './modals/RequestRenewalModal';
 
-const imgFromBase64 = (b64) => {
+const imgFromBase64 = (b64, mime = 'image/jpeg') => {
   if (!b64) return null;
   if (String(b64).startsWith('data:')) return { uri: b64 };
-  return { uri: `data:image/jpeg;base64,${b64}` };
+  const safeMime = typeof mime === 'string' && mime.includes('/') ? mime : 'image/jpeg';
+  return { uri: `data:${safeMime};base64,${b64}` };
 };
 
 const toneForSub = (status) => {
@@ -50,7 +51,7 @@ export default function DashboardScreen() {
   const reg = overview?.registration || {};
   const metrics = overview?.performance_feedback?.metrics || {};
 
-  const avatar = imgFromBase64(playerInfo.imageBase64 || playerInfo.image);
+  const avatar = imgFromBase64(playerInfo.imageBase64 || playerInfo.image, playerInfo.imageType);
 
   // Logout handler
   const handleLogout = useCallback(async () => {

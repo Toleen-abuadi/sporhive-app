@@ -77,6 +77,9 @@ export const normalizePortalOverview = (raw) => {
     image:
       pick(data, ['player.image', 'player.image_base64', 'player.imageBase64', 'playerInfo.image'], '') ||
       pick(profileImage, ['image', 'image_base64', 'imageBase64'], ''),
+    imageType:
+      pick(data, ['player.image_type', 'player.imageType', 'playerInfo.image_type'], '') ||
+      pick(profileImage, ['image_type', 'mime', 'type'], ''),
     academyName: pick(root, ['academy.name', 'academy_name', 'academyName'], ''),
     academyBadge: pick(data, ['academy.badge', 'academy.badge_base64'], ''),
   };

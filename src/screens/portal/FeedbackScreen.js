@@ -231,7 +231,7 @@ export default function FeedbackScreen() {
 
           {empty ? (
             <PortalCard title="No feedback yet" subtitle="Once your academy records feedback, it will appear here." style={{ marginTop: spacing.md }}>
-              <PortalRow label="Tip" value="Ask your coach to submit performance ratings after sessions." />
+              <PortalRow title="Tip" value="Ask your coach to submit performance ratings after sessions." />
             </PortalCard>
           ) : null}
         </Animated.View>

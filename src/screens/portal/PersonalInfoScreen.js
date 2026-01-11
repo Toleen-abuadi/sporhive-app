@@ -10,10 +10,11 @@ import { colors, spacing, radius, typography, alphaBg } from '../../theme/portal
 import { PortalCard, PortalRow, PortalScreen, PortalButton } from '../../components/portal/PortalPrimitives';
 import { EditProfileModal } from './modals/EditProfileModal';
 
-const imgFromBase64 = (b64) => {
+const imgFromBase64 = (b64, mime = 'image/jpeg') => {
   if (!b64) return null;
   if (String(b64).startsWith('data:')) return { uri: b64 };
-  return { uri: `data:image/jpeg;base64,${b64}` };
+  const safeMime = typeof mime === 'string' && mime.includes('/') ? mime : 'image/jpeg';
+  return { uri: `data:${safeMime};base64,${b64}` };
 };
 
 export default function PersonalInfoScreen() {
@@ -49,7 +50,7 @@ export default function PersonalInfoScreen() {
     } catch {}
   }, []);
 
-  const avatar = imgFromBase64(player.imageBase64);
+  const avatar = imgFromBase64(player.imageBase64, player.imageType);
 
   return (
     <PortalScreen>
@@ -90,23 +91,23 @@ export default function PersonalInfoScreen() {
         </Animated.View>
 
         <PortalCard title="Identity" subtitle="Your official information (read-only preview).">
-          <PortalRow label="English name" value={fullEn} />
-          <PortalRow label="Arabic name" value={fullAr} />
-          <PortalRow label="Date of birth" value={(p.date_of_birth || '').slice(0, 10) || '—'} />
-          <PortalRow label="Try-out" value={String(reg?.try_out?.id || reg?.try_out_id || '—')} />
+          <PortalRow title="English name" value={fullEn} />
+          <PortalRow title="Arabic name" value={fullAr} />
+          <PortalRow title="Date of birth" value={(p.date_of_birth || '').slice(0, 10) || '—'} />
+          <PortalRow title="Try-out" value={String(reg?.try_out?.id || reg?.try_out_id || '—')} />
         </PortalCard>
 
         <View style={{ height: spacing.md }} />
 
         <PortalCard title="Contact">
           <PortalRow
-            label="Phone 1"
+            title="Phone 1"
             value={p.phone1 || player.phone || '—'}
             onPress={() => openTel(p.phone1 || player.phone)}
             tone="soft"
           />
           <PortalRow
-            label="Phone 2"
+            title="Phone 2"
             value={p.phone2 || player.phone2 || '—'}
             onPress={() => openTel(p.phone2 || player.phone2)}
             tone="soft"
@@ -126,9 +127,9 @@ export default function PersonalInfoScreen() {
             ) : null
           }
         >
-          <PortalRow label="Address" value={p.address || reg.address || '—'} />
+          <PortalRow title="Address" value={p.address || reg.address || '—'} />
           <PortalRow
-            label="Google maps link"
+            title="Google maps link"
             value={reg.google_maps_location || p.google_maps_location || '—'}
             onPress={(reg.google_maps_location || p.google_maps_location) ? openMaps : null}
             tone={(reg.google_maps_location || p.google_maps_location) ? 'soft' : 'default'}
