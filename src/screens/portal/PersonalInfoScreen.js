@@ -2,12 +2,11 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { Image, Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
 
 import { usePortalOverview } from '../../services/portal/portal.hooks';
 import { colors, spacing, radius, typography, alphaBg } from '../../theme/portal.styles';
 
-import { PortalCard, PortalRow, PortalScreen, PortalButton } from '../../components/portal/PortalPrimitives';
+import { PortalCard, PortalRow, PortalScreen } from '../../components/portal/PortalPrimitives';
 import { EditProfileModal } from './modals/EditProfileModal';
 
 const imgFromBase64 = (b64, mime = 'image/jpeg') => {
@@ -19,7 +18,6 @@ const imgFromBase64 = (b64, mime = 'image/jpeg') => {
 
 export default function PersonalInfoScreen() {
   const { overview, loading, refreshing, error, refresh } = usePortalOverview();
-  const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
 
   const p = overview?.profile || {};
