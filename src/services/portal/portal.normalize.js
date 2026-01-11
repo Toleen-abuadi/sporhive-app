@@ -77,7 +77,9 @@ export const normalizePortalOverview = (raw) => {
     image:
       pick(data, ['player.image', 'player.image_base64', 'player.imageBase64', 'playerInfo.image'], '') ||
       pick(profileImage, ['image', 'image_base64', 'imageBase64'], ''),
-    academyName: pick(root, ['academy.name', 'academy_name', 'academyName'], ''),
+    academyName:
+      pick(rawRoot, ['academy.name', 'academy_name', 'academyName'], '') ||
+      pick(root, ['academy.name', 'academy_name', 'academyName'], ''),
     academyBadge: pick(data, ['academy.badge', 'academy.badge_base64'], ''),
   };
 
@@ -200,7 +202,7 @@ export const normalizePortalOverview = (raw) => {
   };
 
   return {
-    raw: data,
+    raw: root,
     player,
     registration,
     performance_feedback,
