@@ -2,28 +2,89 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { DashboardScreen } from '../../screens/portal/DashboardScreen';
-import TrainingInfoScreen from '../../screens/portal/TrainingInfoScreen';
-import PaymentsScreen from '../../screens/portal/PaymentsScreen';
-import SubscriptionHistoryScreen from '../../screens/portal/SubscriptionHistoryScreen';
-import UniformStoreScreen from '../../screens/portal/UniformStoreScreen';
-import HealthFitnessScreen from '../../screens/portal/HealthFitnessScreen';
-import PersonalInfoScreen from '../../screens/portal/PersonalInfoScreen';
-import FeedbackScreen from '../../screens/portal/FeedbackScreen';
+import LoginScreen from '../../screens/portal/LoginScreen';
+import ResetPasswordScreen from '../../screens/portal/ResetPasswordScreen';
+import { PortalTabNavigator } from './PortalTabNavigator';
+import EditProfileModal from '../../screens/portal/modals/EditProfileModal';
+import RequestFreezeModal from '../../screens/portal/modals/RequestFreezeModal';
+import RequestRenewalModal from '../../screens/portal/modals/RequestRenewalModal';
 
 const Stack = createNativeStackNavigator();
 
 export function PortalStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="PortalDashboard" component={DashboardScreen} />
-      <Stack.Screen name="PortalTrainingInfo" component={TrainingInfoScreen} />
-      <Stack.Screen name="PortalPayments" component={PaymentsScreen} />
-      <Stack.Screen name="PortalSubscriptionHistory" component={SubscriptionHistoryScreen} />
-      <Stack.Screen name="PortalUniformStore" component={UniformStoreScreen} />
-      <Stack.Screen name="PortalHealthFitness" component={HealthFitnessScreen} />
-      <Stack.Screen name="PortalPersonalInfo" component={PersonalInfoScreen} />
-      <Stack.Screen name="PortalFeedback" component={FeedbackScreen} />
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+      }}
+    >
+      {/* Auth Screens */}
+      <Stack.Screen 
+        name="PortalLogin" 
+        component={LoginScreen} 
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+        }}
+      />
+      <Stack.Screen 
+        name="ResetPassword" 
+        component={ResetPasswordScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      {/* Main Portal with Bottom Tabs */}
+      <Stack.Screen 
+        name="PortalMain" 
+        component={PortalTabNavigator}
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+        }}
+      />
+
+      {/* Modals */}
+      <Stack.Group screenOptions={{ presentation: 'modal' }}>
+        <Stack.Screen 
+          name="EditProfile" 
+          component={EditProfileModal}
+          options={{
+            headerShown: true,
+            title: 'Edit Profile',
+            headerStyle: {
+              backgroundColor: '#0B1220',
+            },
+            headerTintColor: '#EAF0FF',
+          }}
+        />
+        <Stack.Screen 
+          name="RequestFreeze" 
+          component={RequestFreezeModal}
+          options={{
+            headerShown: true,
+            title: 'Request Freeze',
+            headerStyle: {
+              backgroundColor: '#0B1220',
+            },
+            headerTintColor: '#EAF0FF',
+          }}
+        />
+        <Stack.Screen 
+          name="RequestRenewal" 
+          component={RequestRenewalModal}
+          options={{
+            headerShown: true,
+            title: 'Request Renewal',
+            headerStyle: {
+              backgroundColor: '#0B1220',
+            },
+            headerTintColor: '#EAF0FF',
+          }}
+        />
+      </Stack.Group>
     </Stack.Navigator>
   );
 }

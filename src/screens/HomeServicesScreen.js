@@ -149,7 +149,7 @@ export function HomeServicesScreen() {
       icon: 'user',
       color: '#3B82F6',
       screen: 'Portal',
-      href: '/portal',
+      href: '/portal/login',
     },
   ];
 
@@ -195,7 +195,10 @@ export function HomeServicesScreen() {
             description={service.description}
             icon={service.icon}
             color={service.color}
-            onPress={() => router.push(service.href)}
+            onPress={() => {
+              if (service.href) router.push(service.href);
+            }}
+
           />
         ))}
       </View>

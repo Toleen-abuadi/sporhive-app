@@ -1,6 +1,18 @@
-import React from 'react';
-import { DashboardScreen } from '../../src/screens/portal/DashboardScreen';
+// app/portal/index.jsx
+import { useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { usePortal } from '../../src/services/portal/portal.store';
 
-export default function AcademiesIndex() {
-  return <DashboardScreen />;
+export default function PortalIndex() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading } = usePortal();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    if (isAuthenticated) router.replace('/portal/dashboard');
+    else router.replace('/portal/login');
+  }, [isAuthenticated, isLoading, router]);
+
+  return null;
 }

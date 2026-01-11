@@ -7,7 +7,7 @@ const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
   const systemColorScheme = useColorScheme();
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState('light'); // Default to light theme
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -20,11 +20,11 @@ export function ThemeProvider({ children }) {
       if (savedTheme) {
         setTheme(savedTheme);
       } else {
-        setTheme(systemColorScheme || 'dark');
+        setTheme('light'); // Default to light if no saved theme
       }
     } catch (error) {
       console.error('Error loading theme:', error);
-      setTheme(systemColorScheme || 'dark');
+      setTheme('light');
     } finally {
       setIsLoading(false);
     }

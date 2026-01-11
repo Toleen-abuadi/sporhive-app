@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { Image, Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
 
 import { usePortalOverview } from '../../services/portal/portal.hooks';
 import { colors, spacing, radius, typography, alphaBg } from '../../theme/portal.styles';
@@ -15,8 +16,9 @@ const imgFromBase64 = (b64) => {
   return { uri: `data:image/jpeg;base64,${b64}` };
 };
 
-export default function PersonalInfoScreen({ navigation }) {
+export default function PersonalInfoScreen() {
   const { overview, loading, refreshing, error, refresh } = usePortalOverview();
+  const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
 
   const p = overview?.profile || {};
@@ -46,12 +48,6 @@ export default function PersonalInfoScreen({ navigation }) {
       await Linking.openURL(`tel:${n}`);
     } catch {}
   }, []);
-
-  const openForgot = useCallback(() => {
-    // Optional: route to existing auth screens if present in your app.
-    // Adjust route names to match your repo.
-    if (navigation?.navigate) navigation.navigate('ForgotPassword');
-  }, [navigation]);
 
   const avatar = imgFromBase64(player.imageBase64);
 
@@ -84,11 +80,6 @@ export default function PersonalInfoScreen({ navigation }) {
           <View style={{ flex: 1 }}>
             <Text style={styles.heroTitle} numberOfLines={2}>{fullEn}</Text>
             <Text style={styles.heroSub} numberOfLines={1}>{fullAr}</Text>
-
-            <View style={styles.heroActions}>
-              <PortalButton label="Edit Profile" onPress={() => setEditOpen(true)} />
-              <PortalButton label="Forgot Password" variant="secondary" onPress={openForgot} />
-            </View>
 
             {!!error && (
               <View style={styles.errPill}>

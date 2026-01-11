@@ -1,11 +1,13 @@
 // src/screens/portal/DashboardScreen.js
 import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, Text, View } from 'react-native';
+import { FlatList, RefreshControl, Text, View, Pressable, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
 
 import { useI18n } from '../../services/i18n/i18n';
-import { usePortalOverview } from '../../services/portal/portal.hooks';
+import { usePortal } from '../../services/portal/portal.store';
+import { useDashboard } from '../../services/portal/portal.hooks';
 import { colors, spacing, formatDate } from '../../theme/portal.styles';
 import {
   ErrorBanner,
@@ -35,18 +37,27 @@ const toneForSub = (status) => {
   return 'neutral';
 };
 
-export function DashboardScreen({ navigation }) {
+export default function DashboardScreen() {
   const { t } = useI18n();
-  const { overview, loading, error, refreshing, refresh } = usePortalOverview();
+  const router = useRouter();
+  const { logout, player } = usePortal();
+  const { overview, loading, error, refreshing, refresh } = useDashboard();
 
   const [freezeOpen, setFreezeOpen] = useState(false);
   const [renewOpen, setRenewOpen] = useState(false);
 
-  const player = overview?.player || {};
+  const playerInfo = overview?.player || {};
   const reg = overview?.registration || {};
   const metrics = overview?.performance_feedback?.metrics || {};
 
-  const avatar = imgFromBase64(player.imageBase64);
+  const avatar = imgFromBase64(playerInfo.imageBase64 || playerInfo.image);
+
+  // Logout handler
+  const handleLogout = useCallback(async () => {
+    await logout();
+    // Navigate to login screen
+    router.replace('/portal/login');
+  }, [logout, router]);
 
   const kpis = useMemo(() => {
     const remaining = Number(metrics?.remaining ?? reg.remainingSessions ?? 0) || 0;
@@ -106,16 +117,15 @@ export function DashboardScreen({ navigation }) {
   }, [metrics, overview?.payment_info, t]);
 
   const actions = useMemo(() => ([
-    { id: 'profile', label: t('portal.actions.profile', 'Personal Info'), icon: 'user', onPress: () => navigation.navigate('PortalPersonalInfo') },
+    { id: 'profile', label: t('portal.actions.profile', 'Personal Info'), icon: 'user', onPress: () => router.push('/portal/personal-info') },
     { id: 'freeze', label: t('portal.actions.freeze', 'Request Freeze'), icon: 'pause-circle', onPress: () => setFreezeOpen(true) },
     { id: 'renew', label: t('portal.actions.renew', 'Request Renewal'), icon: 'refresh-cw', onPress: () => setRenewOpen(true) },
-    { id: 'payments', label: t('portal.actions.payments', 'Payments'), icon: 'credit-card', onPress: () => navigation.navigate('PortalPayments') },
-    { id: 'store', label: t('portal.actions.uniforms', 'Uniform Store'), icon: 'shopping-bag', onPress: () => navigation.navigate('PortalUniformStore') },
-    { id: 'feedback', label: t('portal.actions.feedback', 'Feedback'), icon: 'star', onPress: () => navigation.navigate('PortalFeedback') },
-  ]), [navigation, t]);
+    { id: 'payments', label: t('portal.actions.payments', 'Payments'), icon: 'credit-card', onPress: () => router.push('/portal/payments') },
+    { id: 'store', label: t('portal.actions.uniforms', 'Uniform Store'), icon: 'shopping-bag', onPress: () => router.push('/portal/uniform-store') },
+    { id: 'feedback', label: t('portal.actions.feedback', 'Feedback'), icon: 'star', onPress: () => router.push('/portal/feedback') },
+  ]), [router, t]);
 
   const data = useMemo(() => {
-    // FlatList sections
     return [
       { type: 'kpis' },
       { type: 'actions' },
@@ -218,7 +228,7 @@ export function DashboardScreen({ navigation }) {
                   title={t('portal.dashboard.openTraining', 'View Training Details')}
                   tone="secondary"
                   right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
-                  onPress={() => navigation.navigate('PortalTrainingInfo')}
+                  onPress={() => router.push('/portal/training-info')}
                 />
               </View>
             </>
@@ -255,16 +265,29 @@ export function DashboardScreen({ navigation }) {
     }
 
     return null;
-  }, [actions, kpis, loading, navigation, notices, reg, t]);
+  }, [actions, kpis, loading, router, notices, reg, t]);
 
   return (
     <PortalScreen>
-      <PortalHeader title={t('tabs.portal', 'Portal')} subtitle={player.academyName || ''} />
+      <PortalHeader 
+        title={t('tabs.portal', 'Portal')} 
+        subtitle={playerInfo.academyName || player?.academyName || ''}
+        right={
+          <Pressable onPress={handleLogout} hitSlop={8} style={styles.logoutButton}>
+            <Feather name="log-out" size={20} color={colors.textSecondary} />
+          </Pressable>
+        }
+      />
       <Hero
-        title={player.fullName || t('portal.dashboard.hello', 'Hello')}
+        title={playerInfo.fullName || player?.fullName || t('portal.dashboard.hello', 'Hello')}
         subtitle={t('portal.dashboard.subtitle', 'Your progress & requests in one place')}
-        badge={player.academyName || ''}
+        badge={playerInfo.academyName || ''}
         imageSource={avatar}
+        right={
+          <Pressable onPress={() => router.push('/portal/personal-info')} hitSlop={8}>
+            <Feather name="settings" size={20} color={colors.textSecondary} />
+          </Pressable>
+        }
       />
 
       {!!error && (
@@ -288,3 +311,16 @@ export function DashboardScreen({ navigation }) {
     </PortalScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  logoutButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.backgroundElevated,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+});
