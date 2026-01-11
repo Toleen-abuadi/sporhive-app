@@ -1,92 +1,61 @@
 // src/services/portal/portal.hooks.js
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePortal } from './portal.store';
 import { portalApi } from './portal.api';
-import { normalizePortalOverview } from './portal.normalize';
-import { portalStore } from './portal.store';
+import { portalStore, usePortal as usePortalAuth } from './portal.store';
 
 /**
- * Dashboard overview
+ * Overview state hook
  */
-export function useDashboard() {
-  const { academyId } = usePortal();
+export function usePortal() {
+  const [state, setState] = useState(portalStore.getState());
   const mounted = useRef(true);
-
-  const seed = portalStore.getState().overview;
-  const [overview, setOverview] = useState(seed);
-  const [loading, setLoading] = useState(!seed);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
-
-  const load = useCallback(
-    async (mode = 'initial') => {
-      try {
-        mode === 'initial' ? setLoading(true) : setRefreshing(true);
-        setError(null);
-
-        // ✅ portalApi.getOverview will throw early if missing token/id
-        const res = await portalApi.getOverview({ academyId });
-
-        if (!res?.success) throw res?.error || new Error('Overview failed');
-
-        const raw = res.data;
-        // apiClient interceptor already returns data, so raw is the JSON response.
-        const norm = normalizePortalOverview(raw?.data || raw);
-
-        if (mounted.current) setOverview(norm);
-        portalStore.setOverview(norm);
-        return norm;
-      } catch (e) {
-        if (mounted.current) setError(e);
-        return null;
-      } finally {
-        if (!mounted.current) return;
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [academyId]
-  );
 
   useEffect(() => {
     mounted.current = true;
-
-    const unsub = portalStore.subscribe((s) => {
-      if (!mounted.current) return;
-      if (s.overview) setOverview(s.overview);
+    const unsub = portalStore.subscribe((next) => {
+      if (mounted.current) setState(next);
     });
 
-    // Load if not available
-    if (!portalStore.getState().overview) {
-      load('initial');
-    } else {
-      setLoading(false);
+    if (!portalStore.getState().overview && !portalStore.getState().loading) {
+      portalStore.loadOverview();
     }
 
     return () => {
       mounted.current = false;
       unsub?.();
     };
-  }, [load]);
+  }, []);
 
-  const refresh = useCallback(() => load('refresh'), [load]);
+  const refresh = useCallback(async () => portalStore.refreshOverview(), []);
 
-  return { overview, loading, refreshing, error, refresh };
+  return { ...state, refresh };
 }
 
-/**
- * Shared overview hook (used by modals)
- * Keeps naming consistent with modal imports: usePortalOverview()
- */
+export function usePortalRefresh() {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await portalStore.refreshOverview();
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  return { refreshing, onRefresh };
+}
+
+// Backwards compatibility for older screens
 export function usePortalOverview() {
-  return useDashboard();
+  return usePortal();
 }
 
 /**
  * Password reset
  */
 export function usePasswordReset() {
-  const { resetPassword, isLoading, error } = usePortal();
+  const { resetPassword, isLoading, error } = usePortalAuth();
   const [success, setSuccess] = useState(false);
 
   const requestReset = useCallback(
@@ -104,7 +73,6 @@ export function usePasswordReset() {
 
 /**
  * Academies list (customer/active-list)
- * Response items: {id, academy_name, client_name, label}
  */
 export function useAcademies() {
   const mounted = useRef(true);

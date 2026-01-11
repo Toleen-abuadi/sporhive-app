@@ -17,12 +17,29 @@ const wrapApi = async (fn, label = 'Portal API failed') => {
   }
 };
 
+const parseMaybeJson = (payload) => {
+  if (payload == null) return payload;
+  if (typeof payload !== 'string') return payload;
+  const trimmed = payload.trim();
+  const isHtml = /^<!doctype html/i.test(trimmed) || /<html/i.test(trimmed) || /<body/i.test(trimmed);
+  if (isHtml) {
+    const snippet = trimmed.slice(0, 120);
+    throw new Error(`Unexpected HTML response: ${snippet}`);
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch (error) {
+    const snippet = trimmed.slice(0, 120);
+    throw new Error(`Unable to parse response: ${snippet}`);
+  }
+};
+
 const getPortalTokens = async () => {
+  if (storage.getPortalTokens) return storage.getPortalTokens();
   const raw = await storage.getItem(PORTAL_KEYS.AUTH_TOKENS);
   if (!raw) return null;
   if (typeof raw === 'object') return raw;
 
-  // If someone stored it as string by mistake
   try {
     return JSON.parse(raw);
   } catch {
@@ -32,11 +49,12 @@ const getPortalTokens = async () => {
 
 const getPortalAccess = async () => {
   const tokens = await getPortalTokens();
-  return tokens?.access || tokens?.token || null;
+  return tokens?.access || tokens?.token || tokens?.access_token || null;
 };
 
 const getAcademyId = async (override) => {
   if (override != null) return Number(override);
+  if (storage.getPortalAcademyId) return storage.getPortalAcademyId();
   const stored = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);
   return stored != null ? Number(stored) : null;
 };
@@ -45,16 +63,17 @@ const portalAuthConfig = async (academyIdOverride) => {
   const access = await getPortalAccess();
   const academyId = await getAcademyId(academyIdOverride);
 
-  if (!access) throw new Error('Portal access token missing');
-  if (!academyId) throw new Error('Academy id missing');
+  const headers = {};
+  if (access) {
+    headers.Authorization = `Bearer ${access}`;
+    headers.authorization = `Bearer ${access}`;
+  }
+  if (academyId) headers['X-Academy-Id'] = String(academyId);
 
   return {
     academyId,
-    headers: {
-      Authorization: `Bearer ${access}`,
-      authorization: `Bearer ${access}`, // extra safety across platforms
-      'X-Academy-Id': String(academyId),
-    },
+    headers,
+    withCredentials: true,
   };
 };
 
@@ -64,7 +83,6 @@ export const portalApi = {
    */
   async listAcademiesActive() {
     return wrapApi(async () => {
-      // Some projects implement endpoints.customer.activeList(payload)
       if (endpoints?.customer?.activeList) {
         try {
           return await endpoints.customer.activeList({});
@@ -78,7 +96,6 @@ export const portalApi = {
 
   /**
    * Proxy login -> academy /api/v1/auth/login
-   * Returns {success:true, data:{...}} from apiClient interceptor
    */
   async login({ academyId, username, password }) {
     return wrapApi(async () => {
@@ -88,28 +105,24 @@ export const portalApi = {
         password: String(password || ''),
       };
 
-      // ✅ Do NOT use endpoints wrapper here (it often drops axios config)
       return apiClient.post('/player-portal-external-proxy/auth/login', body);
     }, 'Login failed');
   },
 
   /**
    * Proxy auth/me
-   * Useful for "restore session" flows.
    */
   async me({ academyId } = {}) {
     return wrapApi(async () => {
       const { academyId: resolvedAcademyId, headers } = await portalAuthConfig(academyId);
       const body = { customer_id: resolvedAcademyId };
 
-      // ✅ Force direct call with headers
       return apiClient.post('/player-portal-external-proxy/auth/me', body, { headers });
     }, 'Session verification failed');
   },
 
   /**
    * Password reset request (proxy -> academy)
-   * This can be unauth, but we still attach academy id to route tenant.
    */
   async passwordResetRequest({ academyId, username, phoneNumber }) {
     return wrapApi(async () => {
@@ -127,20 +140,31 @@ export const portalApi = {
   },
 
   /**
-   * ✅ Dashboard Overview (MUST include Authorization)
-   * This is the one that was 403 because Authorization never arrived to backend.
+   * Dashboard Overview
+   * Supports cookie-based session or bearer token.
    */
-  async getOverview({ academyId } = {}) {
+  async fetchOverview({ academyId } = {}) {
     return wrapApi(async () => {
-      const { academyId: resolvedAcademyId, headers } = await portalAuthConfig(academyId);
+      const { academyId: resolvedAcademyId, headers, withCredentials } = await portalAuthConfig(academyId);
+      const body = {};
+      if (resolvedAcademyId) {
+        body.customer_id = resolvedAcademyId;
+        body.academy_id = resolvedAcademyId;
+      }
 
-      console.log('OVERVIEW AUTH HEADER =>', String(headers.Authorization || '').slice(0, 25));
+      const res = await apiClient.post(
+        '/player-portal-external-proxy/player-profile/overview',
+        body,
+        { headers, withCredentials }
+      );
 
-      const body = { customer_id: resolvedAcademyId, academy_id: resolvedAcademyId };
-      return apiClient.post('/player-portal-external-proxy/player-profile/overview', body, { headers });
+      return parseMaybeJson(res);
     }, 'Failed to fetch dashboard data');
   },
 
+  async getOverview({ academyId } = {}) {
+    return portalApi.fetchOverview({ academyId });
+  },
 
   async updateProfile(payload) {
     return wrapApi(async () => {
@@ -152,7 +176,7 @@ export const portalApi = {
   async requestFreeze(payload) {
     return wrapApi(async () => {
       const { headers } = await portalAuthConfig();
-      return apiClient.post('/player-portal-external-proxy/registration/freezes/request', payload || {}, { headers });
+      return apiClient.post('/registration/freezes/request', payload || {}, { headers });
     }, 'Freeze request failed');
   },
 
@@ -166,7 +190,7 @@ export const portalApi = {
   async requestRenewal(payload) {
     return wrapApi(async () => {
       const { headers } = await portalAuthConfig();
-      return apiClient.post('/player-portal-external-proxy/registration/renewals/request', payload || {}, { headers });
+      return apiClient.post('/registration/renewals/request', payload || {}, { headers });
     }, 'Renewal request failed');
   },
 

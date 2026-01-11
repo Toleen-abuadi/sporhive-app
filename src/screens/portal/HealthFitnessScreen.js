@@ -3,17 +3,11 @@ import React, { useMemo } from 'react';
 import { FlatList, RefreshControl, Text, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
-import { useI18n } from '../../services/i18n/i18n';
-import { usePortalOverview } from '../../services/portal/portal.hooks';
+import { usePortal, usePortalRefresh } from '../../services/portal/portal.hooks';
+import { selectHealthInfo } from '../../services/portal/portal.store';
+import { formatDate } from '../../services/portal/portal.normalize';
 import { portalStyles } from '../../theme/portal.styles';
-import { Card, ErrorBanner, PortalHeader, PortalScreen, SkeletonBlock } from '../../components/portal/PortalPrimitives';
-
-const fmtDateTime = (d) => {
-  if (!d) return '';
-  const x = new Date(d);
-  if (Number.isNaN(x.getTime())) return '';
-  return x.toLocaleString();
-};
+import { Card, PortalEmptyState, PortalHeader, PortalScreen } from '../../components/portal/PortalPrimitives';
 
 const bmi = (hCm, wKg) => {
   const h = Number(hCm);
@@ -34,13 +28,12 @@ const FitnessCard = React.memo(function FitnessCard({ title, value, subtitle }) 
 });
 
 export default function HealthFitnessScreen() {
-  const { t } = useI18n();
-  const { overview, loading, refreshing, error, refresh } = usePortalOverview();
+  const { overview } = usePortal();
+  const { refreshing, onRefresh } = usePortalRefresh();
 
-  const health = overview?.health_info || {};
-  const height = health?.height ?? health?.height_cm;
-  const weight = health?.weight ?? health?.weight_kg;
-
+  const health = useMemo(() => selectHealthInfo(overview), [overview]);
+  const height = health?.height;
+  const weight = health?.weight;
   const bmiValue = useMemo(() => bmi(height, weight), [height, weight]);
   const hasHealth = !!(height || weight);
 
@@ -51,58 +44,39 @@ export default function HealthFitnessScreen() {
         keyExtractor={(i) => i.id}
         renderItem={() => (
           <View style={{ paddingBottom: 24 }}>
-            <PortalHeader title={t('portal.health.title', 'Health & Fitness')} subtitle={t('portal.health.subtitle', 'Track your basics')} />
+            <PortalHeader title="Health" subtitle={overview?.academyName || ''} />
 
-            {loading ? (
-              <View style={{ marginTop: 12 }}>
-                <Card>
-                  <SkeletonBlock h={14} w="55%" r={8} />
-                  <SkeletonBlock h={10} w="70%" r={8} style={{ marginTop: 10 }} />
-                  <SkeletonBlock h={10} w="90%" r={8} style={{ marginTop: 12 }} />
-                </Card>
-              </View>
-            ) : error ? (
-              <ErrorBanner title={t('portal.errors.overviewTitle', 'Could not load overview')} desc={error?.message} onRetry={refresh} />
+            {!overview ? (
+              <PortalEmptyState
+                title="No health data"
+                message="Pull to refresh to load your health info."
+                action={onRefresh}
+                actionLabel="Refresh"
+              />
             ) : !hasHealth ? (
-              <Card style={{ marginTop: 10 }}>
-                <Text style={portalStyles.emptyTitle}>{t('portal.health.emptyTitle', 'No health data yet')}</Text>
-                <Text style={portalStyles.muted}>
-                  {t('portal.health.emptyDesc', 'Your academy will update height and weight when recorded.')}
-                </Text>
-
-                <View style={portalStyles.tipsBox}>
-                  <Text style={portalStyles.tipsTitle}>{t('portal.health.tipsTitle','Tips')}</Text>
-                  <Text style={portalStyles.tipsText}>• {t('portal.health.tip1','Stay hydrated before training.')}</Text>
-                  <Text style={portalStyles.tipsText}>• {t('portal.health.tip2','Sleep 8 hours for better recovery.')}</Text>
-                  <Text style={portalStyles.tipsText}>• {t('portal.health.tip3','Warm up 10 minutes to prevent injuries.')}</Text>
-                </View>
-              </Card>
+              <PortalEmptyState
+                title="No health data yet"
+                message="Your academy will update height and weight when recorded."
+                action={onRefresh}
+                actionLabel="Refresh"
+              />
             ) : (
-              <>
-                <Animated.View entering={FadeInUp.duration(220)} style={{ marginTop: 10 }}>
-                  <View style={portalStyles.fitnessGrid}>
-                    <FitnessCard title={t('portal.health.height','Height')} value={`${height ?? '—'} cm`} subtitle={t('portal.health.current','Current')} />
-                    <FitnessCard title={t('portal.health.weight','Weight')} value={`${weight ?? '—'} kg`} subtitle={t('portal.health.current','Current')} />
-                    <FitnessCard title={t('portal.health.bmi','BMI')} value={bmiValue ?? '—'} subtitle={bmiValue ? t('portal.health.bmiHint','Estimate') : t('portal.common.na','N/A')} />
-                  </View>
+              <Animated.View entering={FadeInUp.duration(220)} style={{ marginTop: 10 }}>
+                <View style={portalStyles.fitnessGrid}>
+                  <FitnessCard title="Height" value={`${height ?? '—'} cm`} subtitle="Current" />
+                  <FitnessCard title="Weight" value={`${weight ?? '—'} kg`} subtitle="Current" />
+                  <FitnessCard title="BMI" value={bmiValue ?? '—'} subtitle={bmiValue ? 'Estimate' : 'N/A'} />
+                </View>
 
-                  <Card style={{ marginTop: 10 }}>
-                    <Text style={portalStyles.blockTitle}>{t('portal.health.lastUpdated','Last recorded')}</Text>
-                    <Text style={portalStyles.em}>{fmtDateTime(health?.timestamp || health?.updated_at || health?.created_at) || '—'}</Text>
-
-                    <View style={portalStyles.tipsBox}>
-                      <Text style={portalStyles.tipsTitle}>{t('portal.health.tipsTitle','Tips')}</Text>
-                      <Text style={portalStyles.tipsText}>• {t('portal.health.tip1','Stay hydrated before training.')}</Text>
-                      <Text style={portalStyles.tipsText}>• {t('portal.health.tip2','Sleep 8 hours for better recovery.')}</Text>
-                      <Text style={portalStyles.tipsText}>• {t('portal.health.tip3','Warm up 10 minutes to prevent injuries.')}</Text>
-                    </View>
-                  </Card>
-                </Animated.View>
-              </>
+                <Card style={{ marginTop: 10 }}>
+                  <Text style={portalStyles.blockTitle}>Last recorded</Text>
+                  <Text style={portalStyles.em}>{health?.timestamp ? formatDate(health.timestamp) : '—'}</Text>
+                </Card>
+              </Animated.View>
             )}
           </View>
         )}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#F97316" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F97316" />}
         contentContainerStyle={portalStyles.listContent}
         showsVerticalScrollIndicator={false}
       />

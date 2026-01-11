@@ -4,14 +4,14 @@ import { Platform, ScrollView, StyleSheet, Text, View, Pressable } from 'react-n
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { portalApi } from '../../../services/portal/portal.api';
-import { usePortalOverview } from '../../../services/portal/portal.hooks';
-import { validators, validateMap } from '../../../services/portal/portal.validators';
-import { portalStore } from '../../../services/portal/portal.store';
+import { usePortal } from '../../../services/portal/portal.hooks';
+import { safeNumber, formatDate } from '../../../services/portal/portal.normalize';
+import { useToast } from '../../../components/ui/ToastHost';
 
 import { colors, spacing, radius, typography, alphaBg } from '../../../theme/portal.styles';
 import { PortalModal } from '../../../components/portal/PortalModal';
-import { PortalButton, PortalCard, InlineError, StickyBar } from '../../../components/portal/PortalPrimitives';
-import { Field, Input, TextArea, Segmented } from '../../../components/portal/PortalForm';
+import { PortalButton, PortalCard, InlineError, StickyBar, PortalRow } from '../../../components/portal/PortalPrimitives';
+import { Field, TextArea } from '../../../components/portal/PortalForm';
 
 const toISO = (d) => {
   if (!d) return '';
@@ -29,112 +29,121 @@ const parseISO = (s) => {
   return Number.isNaN(x.getTime()) ? null : x;
 };
 
+const daysBetween = (start, end) => {
+  const a = parseISO(start);
+  const b = parseISO(end);
+  if (!a || !b || b < a) return 0;
+  const diff = Math.floor((b - a) / (1000 * 60 * 60 * 24));
+  return diff + 1;
+};
+
+const extractRanges = (metrics = {}) => {
+  const ranges = [];
+  const addRange = (range) => {
+    if (!range) return;
+    const start = range.start_date || range.start || range.from || range.startDate;
+    const end = range.end_date || range.end || range.to || range.endDate;
+    if (start && end) ranges.push({ start, end });
+  };
+
+  addRange(metrics.current_freeze || metrics.freeze?.current);
+  addRange(metrics.upcoming_freeze || metrics.freeze?.upcoming);
+
+  const history = metrics.freeze_history || metrics.history || metrics.freeze?.history || [];
+  (Array.isArray(history) ? history : []).forEach(addRange);
+
+  return ranges;
+};
+
 export const RequestFreezeModal = ({ visible, onClose }) => {
-  const { overview, refresh } = usePortalOverview();
-
-  const tryOutFromOverview =
-    overview?.registration?.try_out?.id || overview?.registration?.try_out_id || overview?.registration?.try_out;
-
-  const tryOutCandidates = useMemo(() => {
-    const raw = portalStore.getState().rawOverview || overview?.raw || overview?.rawOverview || overview?.raw;
-    const fromRaw =
-      raw?.available_tryouts || raw?.tryouts || raw?.try_outs || raw?.registration_info?.available_tryouts || [];
-
-    const list = Array.isArray(fromRaw) ? fromRaw : [];
-    const normalized = list
-      .map((x) => ({
-        id: x?.id ?? x?.try_out_id ?? x?.try_out,
-        label: x?.name ?? x?.label ?? x?.try_out_name ?? `#${x?.id ?? x?.try_out_id ?? ''}`,
-      }))
-      .filter((x) => x.id != null);
-
-    if (tryOutFromOverview) {
-      const id = Number(tryOutFromOverview);
-      const exists = normalized.some((t) => Number(t.id) === id);
-      return exists ? normalized : [{ id, label: `#${id}` }, ...normalized];
-    }
-    return normalized;
-  }, [overview, tryOutFromOverview]);
-
-  const defaultTryOut = useMemo(() => {
-    if (tryOutCandidates.length === 1) return Number(tryOutCandidates[0].id);
-    if (tryOutFromOverview) return Number(tryOutFromOverview);
-    return null;
-  }, [tryOutCandidates, tryOutFromOverview]);
+  const { overview, refresh } = usePortal();
+  const toast = useToast();
 
   const [form, setForm] = useState({
-    try_out: defaultTryOut,
-    start_date: '',
-    end_date: '',
+    startDate: '',
+    endDate: '',
     reason: '',
+    pickStart: false,
+    pickEnd: false,
   });
   const [errs, setErrs] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(null);
 
-  // date picker state
-  const [pickStart, setPickStart] = useState(false);
-  const [pickEnd, setPickEnd] = useState(false);
+  const metrics = overview?.performance?.metrics || {};
+  const tryOutId = overview?.raw?.registration_info?.try_out_id || overview?.raw?.registration_info?.try_out || null;
+  const freezePolicy = metrics.freeze_policy || {};
+  const maxDays = safeNumber(freezePolicy?.max_days_per_year ?? freezePolicy?.max_days ?? 0, 0);
+  const usedDays = safeNumber(freezePolicy?.used_days ?? freezePolicy?.days_used ?? 0, 0);
+
+  const ranges = useMemo(() => extractRanges(metrics), [metrics]);
 
   useEffect(() => {
     if (!visible) return;
-    setSuccess(null);
-    setSubmitting(false);
+    setForm({ startDate: '', endDate: '', reason: '', pickStart: false, pickEnd: false });
     setErrs({});
-    setForm((p) => ({ ...p, try_out: defaultTryOut }));
-  }, [visible, defaultTryOut]);
+    setSubmitting(false);
+  }, [visible]);
 
-  const schema = useMemo(
-    () => ({
-      try_out: [(v) => validators.required(v, 'Tryout is required')],
-      start_date: [(v) => validators.required(v, 'Start date is required'), (v) => validators.dateISO(v)],
-      end_date: [(v) => validators.required(v, 'End date is required'), (v) => validators.dateISO(v)],
-    }),
-    []
-  );
+  const validate = useCallback(() => {
+    const nextErrs = {};
+    if (!form.startDate) nextErrs.startDate = 'Start date is required';
+    if (!form.endDate) nextErrs.endDate = 'End date is required';
 
-  const validate = useCallback(
-    (next = form) => {
-      const e = validateMap(next, schema);
-      // cross-field: end >= start
-      if (!e.start_date && !e.end_date && next.start_date && next.end_date) {
-        const a = parseISO(next.start_date);
-        const b = parseISO(next.end_date);
-        if (a && b && b < a) e.end_date = 'End date must be after start date';
+    if (form.startDate && form.endDate) {
+      const start = parseISO(form.startDate);
+      const end = parseISO(form.endDate);
+      if (start && end && end < start) nextErrs.endDate = 'End date must be after start date';
+
+      const overlap = ranges.find((r) => {
+        const a = parseISO(r.start);
+        const b = parseISO(r.end);
+        return a && b && start && end && start <= b && end >= a;
+      });
+      if (overlap) nextErrs._global = 'Selected dates overlap with an existing freeze.';
+    }
+
+    if (maxDays) {
+      const requestedDays = daysBetween(form.startDate, form.endDate);
+      const remaining = Math.max(maxDays - usedDays, 0);
+      if (requestedDays > remaining) {
+        nextErrs._global = `Freeze request exceeds remaining ${remaining} day(s) for this year.`;
       }
-      setErrs(e);
-      return e;
-    },
-    [form, schema]
-  );
+    }
+
+    setErrs(nextErrs);
+    return nextErrs;
+  }, [form.endDate, form.startDate, maxDays, ranges, usedDays]);
 
   const onSubmit = useCallback(async () => {
-    const e = validate(form);
-    if (Object.keys(e).length) return;
+    const errors = validate();
+    if (Object.keys(errors).length) return;
+
     setSubmitting(true);
     try {
       const payload = {
-        try_out: Number(form.try_out),
-        start_date: form.start_date,
-        end_date: form.end_date,
+        start_date: form.startDate,
+        end_date: form.endDate,
         reason: form.reason || '',
+        registration_id: overview?.registration?.id || null,
+        try_out: tryOutId ? Number(tryOutId) : null,
       };
 
       const res = await portalApi.requestFreeze(payload);
-      setSuccess({ payload, response: res?.data ?? res });
+      if (!res?.success) throw res?.error || new Error('Request failed');
 
-      // Refresh cached overview so dashboard/training pick up the request
+      toast?.success?.('Freeze request submitted', {
+        message: 'Your freeze request has been sent to the academy.',
+      });
       await refresh();
+      onClose?.();
     } catch (err) {
-      setErrs((p) => ({ ...p, _global: err?.message || 'Request failed' }));
+      const msg = err?.message || 'Request failed';
+      setErrs((prev) => ({ ...prev, _global: msg }));
+      toast?.error?.('Freeze request failed', { message: msg });
     } finally {
       setSubmitting(false);
     }
-  }, [form, refresh, validate]);
-
-  const tryOutOptions = useMemo(() => {
-    return tryOutCandidates.map((t) => ({ value: Number(t.id), label: t.label }));
-  }, [tryOutCandidates]);
+  }, [form.endDate, form.reason, form.startDate, overview?.registration?.id, refresh, toast, onClose, validate]);
 
   return (
     <PortalModal
@@ -145,95 +154,92 @@ export const RequestFreezeModal = ({ visible, onClose }) => {
       footer={
         <StickyBar>
           <PortalButton
-            label={success ? 'Done' : submitting ? 'Submitting…' : 'Submit request'}
-            onPress={success ? onClose : onSubmit}
+            title={submitting ? 'Submitting…' : 'Submit request'}
+            onPress={onSubmit}
             disabled={submitting}
           />
         </StickyBar>
       }
     >
-      {success ? (
-        <PortalCard style={{ backgroundColor: alphaBg(colors.success, 0.08), borderColor: alphaBg(colors.success, 0.25) }}>
-          <Text style={styles.successTitle}>Freeze request submitted</Text>
-          <Text style={styles.successLine}>Start: {success.payload.start_date}</Text>
-          <Text style={styles.successLine}>End: {success.payload.end_date}</Text>
-          {!!success.payload.reason && <Text style={styles.successLine}>Reason: {success.payload.reason}</Text>}
-        </PortalCard>
-      ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: 90 }} showsVerticalScrollIndicator={false}>
-          <PortalCard title="Freeze details" subtitle="These will be reviewed by the academy">
-            {!!errs._global && <InlineError text={errs._global} />}
+      <ScrollView contentContainerStyle={{ paddingBottom: 90 }} showsVerticalScrollIndicator={false}>
+        <PortalCard title="Freeze details" subtitle="These will be reviewed by the academy">
+          {!!errs._global && <InlineError text={errs._global} />}
 
-            {tryOutOptions.length > 1 ? (
-              <Field label="Tryout" error={errs.try_out}>
-                <Segmented
-                  options={tryOutOptions}
-                  value={form.try_out}
-                  onChange={(v) => setForm((p) => ({ ...p, try_out: v }))}
-                />
-              </Field>
-            ) : (
-              <Field label="Tryout">
-                <Input value={form.try_out ? String(form.try_out) : ''} editable={false} />
-              </Field>
-            )}
+          {maxDays ? (
+            <View style={styles.policyBox}>
+              <Text style={styles.policyTitle}>Freeze policy</Text>
+              <Text style={styles.policyText}>Max days per year: {maxDays}</Text>
+              <Text style={styles.policyText}>Used days: {usedDays}</Text>
+            </View>
+          ) : null}
 
-            <Field label="Start date" error={errs.start_date}>
-              <Pressable
-                onPress={() => setPickStart(true)}
-                style={({ pressed }) => [styles.dateBtn, pressed ? { opacity: 0.9 } : null]}
-              >
-                <Text style={styles.dateText}>{form.start_date || 'Pick a date'}</Text>
-              </Pressable>
-              {pickStart ? (
-                <DateTimePicker
-                  value={parseISO(form.start_date) || new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(_, d) => {
-                    if (Platform.OS !== 'ios') setPickStart(false);
-                    if (d) setForm((p) => ({ ...p, start_date: toISO(d) }));
-                  }}
-                />
-              ) : null}
-              {Platform.OS === 'ios' && pickStart ? (
-                <PortalButton label="Done" variant="secondary" onPress={() => setPickStart(false)} />
-              ) : null}
-            </Field>
-
-            <Field label="End date" error={errs.end_date}>
-              <Pressable
-                onPress={() => setPickEnd(true)}
-                style={({ pressed }) => [styles.dateBtn, pressed ? { opacity: 0.9 } : null]}
-              >
-                <Text style={styles.dateText}>{form.end_date || 'Pick a date'}</Text>
-              </Pressable>
-              {pickEnd ? (
-                <DateTimePicker
-                  value={parseISO(form.end_date) || parseISO(form.start_date) || new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(_, d) => {
-                    if (Platform.OS !== 'ios') setPickEnd(false);
-                    if (d) setForm((p) => ({ ...p, end_date: toISO(d) }));
-                  }}
-                />
-              ) : null}
-              {Platform.OS === 'ios' && pickEnd ? (
-                <PortalButton label="Done" variant="secondary" onPress={() => setPickEnd(false)} />
-              ) : null}
-            </Field>
-
-            <Field label="Reason (optional)">
-              <TextArea
-                value={form.reason}
-                onChangeText={(v) => setForm((p) => ({ ...p, reason: v }))}
-                placeholder="Add a short note"
+          <Field label="Start date" error={errs.startDate}>
+            <Pressable
+              onPress={() => setForm((prev) => ({ ...prev, pickStart: true }))}
+              style={({ pressed }) => [styles.dateBtn, pressed && { opacity: 0.9 }]}
+            >
+              <Text style={styles.dateText}>{form.startDate || 'Pick a date'}</Text>
+            </Pressable>
+            {form.pickStart ? (
+              <DateTimePicker
+                value={parseISO(form.startDate) || new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(_, d) => {
+                  if (Platform.OS !== 'ios') setForm((prev) => ({ ...prev, pickStart: false }));
+                  if (d) setForm((prev) => ({ ...prev, startDate: toISO(d), pickStart: Platform.OS === 'ios' }));
+                }}
               />
-            </Field>
+            ) : null}
+            {Platform.OS === 'ios' && form.pickStart ? (
+              <PortalButton title="Done" tone="secondary" onPress={() => setForm((prev) => ({ ...prev, pickStart: false }))} />
+            ) : null}
+          </Field>
+
+          <Field label="End date" error={errs.endDate}>
+            <Pressable
+              onPress={() => setForm((prev) => ({ ...prev, pickEnd: true }))}
+              style={({ pressed }) => [styles.dateBtn, pressed && { opacity: 0.9 }]}
+            >
+              <Text style={styles.dateText}>{form.endDate || 'Pick a date'}</Text>
+            </Pressable>
+            {form.pickEnd ? (
+              <DateTimePicker
+                value={parseISO(form.endDate) || parseISO(form.startDate) || new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(_, d) => {
+                  if (Platform.OS !== 'ios') setForm((prev) => ({ ...prev, pickEnd: false }));
+                  if (d) setForm((prev) => ({ ...prev, endDate: toISO(d), pickEnd: Platform.OS === 'ios' }));
+                }}
+              />
+            ) : null}
+            {Platform.OS === 'ios' && form.pickEnd ? (
+              <PortalButton title="Done" tone="secondary" onPress={() => setForm((prev) => ({ ...prev, pickEnd: false }))} />
+            ) : null}
+          </Field>
+
+          <Field label="Reason (optional)">
+            <TextArea
+              value={form.reason}
+              onChangeText={(v) => setForm((prev) => ({ ...prev, reason: v }))}
+              placeholder="Add a short note"
+            />
+          </Field>
+        </PortalCard>
+
+        {ranges.length ? (
+          <PortalCard title="Existing freezes" style={{ marginTop: spacing.md }}>
+            {ranges.map((range, idx) => (
+              <PortalRow
+                key={`${range.start}-${idx}`}
+                title={`Freeze ${idx + 1}`}
+                value={`${formatDate(range.start)} → ${formatDate(range.end)}`}
+              />
+            ))}
           </PortalCard>
-        </ScrollView>
-      )}
+        ) : null}
+      </ScrollView>
     </PortalModal>
   );
 };
@@ -253,16 +259,23 @@ const styles = StyleSheet.create({
     fontFamily: typography.family.regular,
     fontSize: typography.sizes.base,
   },
-  successTitle: {
+  policyBox: {
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: alphaBg(colors.info, 0.14),
+    borderWidth: 1,
+    borderColor: alphaBg(colors.info, 0.35),
+    marginBottom: spacing.md,
+  },
+  policyTitle: {
     color: colors.textPrimary,
     fontFamily: typography.family.bold,
-    fontSize: typography.sizes.lg,
-    marginBottom: 8,
+    fontSize: typography.sizes.sm,
+    marginBottom: 6,
   },
-  successLine: {
+  policyText: {
     color: colors.textSecondary,
     fontFamily: typography.family.regular,
     fontSize: typography.sizes.sm,
-    lineHeight: typography.sizes.sm * 1.5,
   },
 });
