@@ -12,10 +12,11 @@ import { PortalModal } from '../../../components/portal/PortalModal';
 import { PortalButton, PortalCard, InlineError, StickyBar } from '../../../components/portal/PortalPrimitives';
 import { Field, Input, TextArea } from '../../../components/portal/PortalForm';
 
-const imgFromB64 = (b64) => {
+const imgFromB64 = (b64, mime = 'image/jpeg') => {
   if (!b64) return null;
   if (String(b64).startsWith('data:')) return { uri: b64 };
-  return { uri: `data:image/jpeg;base64,${b64}` };
+  const safeMime = typeof mime === 'string' && mime.includes('/') ? mime : 'image/jpeg';
+  return { uri: `data:${safeMime};base64,${b64}` };
 };
 
 async function pickImageAsDataUrl() {
@@ -214,7 +215,7 @@ export const EditProfileModal = ({ visible, onClose }) => {
 
   const avatar = avatarPreview
     ? imgFromB64(avatarPreview)
-    : imgFromB64(overview?.player?.imageBase64);
+    : imgFromB64(overview?.player?.imageBase64, overview?.player?.imageType);
 
   return (
     <PortalModal
