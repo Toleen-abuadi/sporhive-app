@@ -4,9 +4,9 @@ import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { portalApi } from '../../services/portal/portal.api';
-import { usePortalOverview } from '../../services/portal/portal.hooks';
+import { usePortal, usePortalRefresh } from '../../services/portal/portal.hooks';
 import { colors, spacing, radius, typography, alphaBg } from '../../theme/portal.styles';
-import { PortalCard, PortalRow, PortalScreen, PortalButton } from '../../components/portal/PortalPrimitives';
+import { PortalCard, PortalScreen, PortalButton } from '../../components/portal/PortalPrimitives';
 import { Segmented } from '../../components/portal/PortalForm';
 
 const pctTone = (pct) => {
@@ -31,8 +31,9 @@ const Stars = ({ value }) => {
 };
 
 export default function FeedbackScreen() {
-  const { overview, refreshing, refresh } = usePortalOverview();
-  const tryOutId = overview?.registration?.try_out?.id || overview?.registration?.try_out_id || null;
+  const { overview } = usePortal();
+  const { refreshing, onRefresh } = usePortalRefresh();
+  const tryOutId = overview?.raw?.registration_info?.try_out_id || overview?.raw?.registration_info?.try_out || null;
 
   const [types, setTypes] = useState([]); // [{key,label_en,label_ar}]
   const [type, setType] = useState(''); // '' means all
@@ -115,7 +116,7 @@ export default function FeedbackScreen() {
     <PortalScreen>
       <ScrollView
         contentContainerStyle={{ padding: spacing.screenPadding, paddingBottom: 120 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <Animated.View entering={FadeInDown.duration(240)}>
           <PortalCard
@@ -127,12 +128,12 @@ export default function FeedbackScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.filterLabel}>Type</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                  <PortalButton label="All" variant={type ? 'secondary' : 'primary'} onPress={() => setType('')} />
+                  <PortalButton title="All" tone={type ? 'secondary' : 'primary'} onPress={() => setType('')} />
                   {types.slice(0, 10).map((rt) => (
                     <PortalButton
                       key={rt.key}
-                      label={rt.label_en || rt.key}
-                      variant={type === rt.key ? 'primary' : 'secondary'}
+                      title={rt.label_en || rt.key}
+                      tone={type === rt.key ? 'primary' : 'secondary'}
                       onPress={() => setType(rt.key)}
                     />
                   ))}
