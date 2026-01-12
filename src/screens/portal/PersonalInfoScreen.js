@@ -2,7 +2,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { Image, Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
 
 import { usePortalOverview } from '../../services/portal/portal.hooks';
 import { colors, spacing, radius, typography, alphaBg } from '../../theme/portal.styles';
@@ -16,9 +15,8 @@ const imgFromBase64 = (b64) => {
   return { uri: `data:image/jpeg;base64,${b64}` };
 };
 
-export default function PersonalInfoScreen() {
+export default function PersonalInfoScreen({ navigation }) {
   const { overview, loading, refreshing, error, refresh } = usePortalOverview();
-  const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
 
   const p = overview?.profile || {};

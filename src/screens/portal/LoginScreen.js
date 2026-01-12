@@ -21,7 +21,7 @@ import { colors, spacing, radius, typography, shadows, alphaBg } from '../../the
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export default function LoginScreen() {
+export default function LoginScreen({ navigation }) {
   const { t } = useI18n();
   const { login, isLoading, error, academyId: storedAcademyId, setAcademyId } = usePortal();
   const { academies, loading: academiesLoading, searchQuery, setSearchQuery } = useAcademies();

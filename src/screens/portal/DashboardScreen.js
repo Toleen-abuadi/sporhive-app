@@ -37,6 +37,20 @@ const toneForSub = (status) => {
   return 'neutral';
 };
 
+const formatScheduleItem = (s) => {
+  if (!s) return '';
+  if (typeof s === 'string') return s;
+  const day = s?.day || '';
+  const t = s?.time;
+  if (t && typeof t === 'object') {
+    const a = t?.start || '';
+    const b = t?.end || '';
+    const time = [a, b].filter(Boolean).join('–');
+    return `${day} ${time}`.trim();
+  }
+  return `${day} ${s?.time || ''}`.trim() || JSON.stringify(s);
+};
+
 export default function DashboardScreen() {
   const { t } = useI18n();
   const router = useRouter();
@@ -217,7 +231,7 @@ export default function DashboardScreen() {
                       key={idx}
                       leftIcon={<Feather name="calendar" size={16} color={colors.textSecondary} />}
                       title={t('portal.training.session', 'Session')}
-                      value={typeof s === 'string' ? s : `${s?.day || ''} ${s?.time || ''}`.trim() || JSON.stringify(s)}
+                      value={formatScheduleItem(s)}
                     />
                   ))}
                 </View>
@@ -228,7 +242,7 @@ export default function DashboardScreen() {
                   title={t('portal.dashboard.openTraining', 'View Training Details')}
                   tone="secondary"
                   right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
-                  onPress={() => router.push('/portal/training-info')}
+                  onPress={() => router.push('PortalTrainingInfo')}
                 />
               </View>
             </>
@@ -284,7 +298,7 @@ export default function DashboardScreen() {
         badge={playerInfo.academyName || ''}
         imageSource={avatar}
         right={
-          <Pressable onPress={() => router.push('/portal/personal-info')} hitSlop={8}>
+          <Pressable onPress={() => router.push('PortalPersonalInfo')} hitSlop={8}>
             <Feather name="settings" size={20} color={colors.textSecondary} />
           </Pressable>
         }
