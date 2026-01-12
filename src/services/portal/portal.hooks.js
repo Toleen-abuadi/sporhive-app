@@ -1,12 +1,8 @@
-// src/services/portal/portal.hooks.js
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { portalApi } from './portal.api';
-import { portalStore, usePortal as usePortalAuth } from './portal.store';
+import { portalStore, usePortalAuth } from './portal.store';
 
-/**
- * Overview state hook
- */
-export function usePortal() {
+export function usePortalOverview() {
   const [state, setState] = useState(portalStore.getState());
   const mounted = useRef(true);
 
@@ -31,7 +27,11 @@ export function usePortal() {
   return { ...state, refresh };
 }
 
-export function usePlayerPortal() {
+export function usePortal() {
+  return usePortalOverview();
+}
+
+export function usePortalAuthState() {
   return usePortalAuth();
 }
 
@@ -50,34 +50,160 @@ export function usePortalRefresh() {
   return { refreshing, onRefresh };
 }
 
-// Backwards compatibility for older screens
-export function usePortalOverview() {
-  return usePortal();
+export function usePortalProfile() {
+  const { updateProfile, getProfile, isLoading, error } = usePortalAuth();
+
+  const fetchProfile = useCallback(async () => getProfile(), [getProfile]);
+
+  return {
+    fetchProfile,
+    updateProfile,
+    isLoading,
+    error,
+  };
 }
 
-/**
- * Password reset
- */
-export function usePasswordReset() {
-  const { resetPassword, isLoading, error } = usePortalAuth();
-  const [success, setSuccess] = useState(false);
+export function usePortalRenewals() {
+  const { submitRenewal, isLoading, error } = usePortalAuth();
 
-  const requestReset = useCallback(
-    async ({ academyId, username, phoneNumber }) => {
-      setSuccess(false);
-      const result = await resetPassword({ academyId, username, phoneNumber });
-      if (result?.success) setSuccess(true);
-      return result;
-    },
-    [resetPassword]
-  );
+  const checkEligibility = useCallback(async (payload = {}) => portalApi.renewalsEligibility(payload), []);
 
-  return { requestReset, isLoading, error, success };
+  return {
+    checkEligibility,
+    submitRenewal,
+    isLoading,
+    error,
+  };
 }
 
-/**
- * Academies list (customer/active-list)
- */
+export function usePortalFreezes() {
+  const { submitFreeze, isLoading, error } = usePortalAuth();
+
+  const listFreezes = useCallback(async (payload = {}) => portalApi.listFreezes(payload), []);
+
+  return {
+    listFreezes,
+    submitFreeze,
+    isLoading,
+    error,
+  };
+}
+
+export function usePortalPayments() {
+  const [loading, setLoading] = useState(false);
+  const [payments, setPayments] = useState([]);
+  const [error, setError] = useState(null);
+
+  const loadPayments = useCallback(async (payload = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await portalApi.listPayments(payload);
+      if (!res?.success) throw res?.error || new Error('Failed to load payments');
+      const items = res.data?.payments || res.data?.data || res.data || [];
+      setPayments(Array.isArray(items) ? items : []);
+      return res;
+    } catch (err) {
+      setError(err);
+      setPayments([]);
+      return { success: false, error: err };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { payments, loadPayments, loading, error };
+}
+
+export function usePortalRatings() {
+  const [loading, setLoading] = useState(false);
+  const [types, setTypes] = useState([]);
+  const [periods, setPeriods] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [error, setError] = useState(null);
+
+  const loadRatings = useCallback(async (payload = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [typesRes, periodsRes, summaryRes] = await Promise.all([
+        portalApi.listRatingTypes(payload),
+        portalApi.listRatingPeriods(payload),
+        portalApi.fetchRatingSummary(payload),
+      ]);
+
+      if (typesRes?.success) setTypes(typesRes.data?.types || typesRes.data || []);
+      if (periodsRes?.success) setPeriods(periodsRes.data?.periods || periodsRes.data || []);
+      if (summaryRes?.success) setSummary(summaryRes.data || null);
+
+      return { typesRes, periodsRes, summaryRes };
+    } catch (err) {
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { types, periods, summary, loadRatings, loading, error };
+}
+
+export function usePortalStorefront() {
+  const [loading, setLoading] = useState(false);
+  const [storeItems, setStoreItems] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [error, setError] = useState(null);
+
+  const loadStorefront = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [storeRes, ordersRes] = await Promise.all([
+        portalApi.listUniformStore(),
+        portalApi.listMyUniformOrders({}),
+      ]);
+
+      if (storeRes?.success) setStoreItems(storeRes.data?.items || storeRes.data || []);
+      if (ordersRes?.success) setOrders(ordersRes.data?.orders || ordersRes.data || []);
+
+      return { storeRes, ordersRes };
+    } catch (err) {
+      setError(err);
+      return { success: false, error: err };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { storeItems, orders, loadStorefront, loading, error };
+}
+
+export function usePortalNews() {
+  const [loading, setLoading] = useState(false);
+  const [news, setNews] = useState([]);
+  const [error, setError] = useState(null);
+
+  const loadNews = useCallback(async (payload = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await portalApi.listNews(payload);
+      if (!res?.success) throw res?.error || new Error('Failed to load news');
+      const items = res.data?.news || res.data?.items || res.data || [];
+      setNews(Array.isArray(items) ? items : []);
+      return res;
+    } catch (err) {
+      setError(err);
+      setNews([]);
+      return { success: false, error: err };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { news, loadNews, loading, error };
+}
+
 export function useAcademies() {
   const mounted = useRef(true);
 
@@ -91,7 +217,7 @@ export function useAcademies() {
       setLoading(true);
       setError(null);
 
-      const res = await portalApi.listAcademiesActive();
+      const res = await portalApi.fetchActiveAcademies();
       if (!res?.success) throw res?.error || new Error('Failed');
 
       const raw = res.data || {};

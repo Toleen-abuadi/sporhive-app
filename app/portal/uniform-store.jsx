@@ -1,7 +1,6 @@
-// app/portal/uniform-store.jsx
 import React from 'react';
-import { Redirect } from 'expo-router';
+import PortalUniformStoreScreen from '../../src/screens/portal/PortalUniformStoreScreen';
 
-export default function PortalRoute() {
-  return <Redirect href="/(portal)/overview" />;
+export default function PortalUniformStoreRoute() {
+  return <PortalUniformStoreScreen />;
 }

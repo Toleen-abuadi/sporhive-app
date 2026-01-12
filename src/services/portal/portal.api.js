@@ -1,12 +1,22 @@
-// src/services/portal/portal.api.js
-import { apiClient } from '../api/client';
-import { endpoints } from '../api/endpoints';
-import { storage, PORTAL_KEYS } from '../storage/storage';
+import axios from 'axios';
+import { handleApiError } from '../api/error';
+import { storage } from '../storage/storage';
 
-/**
- * Always return a consistent shape:
- * { success: boolean, data?: any, error?: any }
- */
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL + '/api/v1';
+
+const portalClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+portalClient.interceptors.response.use(
+  (response) => response.data,
+  (error) => Promise.reject(handleApiError(error))
+);
+
 const wrapApi = async (fn, label = 'Portal API failed') => {
   try {
     const data = await fn();
@@ -17,220 +27,216 @@ const wrapApi = async (fn, label = 'Portal API failed') => {
   }
 };
 
-const parseMaybeJson = (payload) => {
-  if (payload == null) return payload;
-  if (typeof payload !== 'string') return payload;
-  const trimmed = payload.trim();
-  const isHtml = /^<!doctype html/i.test(trimmed) || /<html/i.test(trimmed) || /<body/i.test(trimmed);
-  if (isHtml) {
-    const snippet = trimmed.slice(0, 120);
-    throw new Error(`Unexpected HTML response: ${snippet}`);
-  }
-  try {
-    return JSON.parse(trimmed);
-  } catch (error) {
-    const snippet = trimmed.slice(0, 120);
-    throw new Error(`Unable to parse response: ${snippet}`);
-  }
+const getPortalToken = async () => {
+  const tokens = await storage.getPortalTokens();
+  if (!tokens) return null;
+  return tokens.access || tokens.token || tokens.access_token || null;
 };
 
-const getPortalTokens = async () => {
-  if (storage.getPortalTokens) return storage.getPortalTokens();
-  const raw = await storage.getItem(PORTAL_KEYS.AUTH_TOKENS);
-  if (!raw) return null;
-  if (typeof raw === 'object') return raw;
+const getPortalAcademyId = async () => storage.getPortalAcademyId();
 
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+const getPortalLanguage = async () => {
+  const lang = await storage.getLanguage();
+  return lang || 'en';
 };
 
-const getPortalAccess = async () => {
-  const tokens = await getPortalTokens();
-  return tokens?.access || tokens?.token || tokens?.access_token || null;
-};
+const buildPortalHeaders = async ({ academyId } = {}) => {
+  const [token, storedAcademyId, language] = await Promise.all([
+    getPortalToken(),
+    getPortalAcademyId(),
+    getPortalLanguage(),
+  ]);
 
-const getAcademyId = async (override) => {
-  if (override != null) return Number(override);
-  if (storage.getPortalAcademyId) return storage.getPortalAcademyId();
-  const stored = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);
-  return stored != null ? Number(stored) : null;
-};
+  const resolvedAcademyId = academyId ?? storedAcademyId;
 
-const portalAuthConfig = async (academyIdOverride) => {
-  const access = await getPortalAccess();
-  const academyId = await getAcademyId(academyIdOverride);
-
-  const headers = {};
-  if (access) {
-    headers.Authorization = `Bearer ${access}`;
-    headers.authorization = `Bearer ${access}`;
-  }
-  if (academyId) headers['X-Academy-Id'] = String(academyId);
-
-  return {
-    academyId,
-    headers,
-    withCredentials: true,
+  const headers = {
+    'Accept-Language': language,
   };
+
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (resolvedAcademyId) headers['X-Academy-Id'] = String(resolvedAcademyId);
+
+  return { headers, academyId: resolvedAcademyId };
 };
 
-const withAcademyPayload = async (payload = {}, academyIdOverride) => {
-  const { academyId, headers } = await portalAuthConfig(academyIdOverride);
-  const body = { ...(payload || {}) };
-  if (academyId) {
-    body.customer_id = academyId;
-    body.academy_id = academyId;
-  }
-
-  return { body, headers };
+const portalEndpoints = {
+  academies: '/customer/active-list',
+  login: '/player-portal-external-proxy/auth/login',
+  me: '/player-portal-external-proxy/auth/me',
+  overview: '/player-portal-external-proxy/player-profile/overview',
+  profileGet: '/player-portal-external-proxy/player-profile/profile/get',
+  profileUpdate: '/player-portal-external-proxy/player-profile/profile/update',
+  renewalsEligibility: '/player-portal-external-proxy/registration/renewals/eligibility',
+  renewalsRequest: '/player-portal-external-proxy/registration/renewals/request',
+  freezesList: '/player-portal-external-proxy/registration/freezes',
+  freezesRequest: '/player-portal-external-proxy/registration/freezes/request',
+  payments: '/player-portal-external-proxy/payments',
+  invoice: '/player-portal-external-proxy/payments/invoice',
+  ratingTypes: '/player-portal-external-proxy/ratings/types',
+  ratingSummary: '/player-portal-external-proxy/ratings/summary',
+  ratingPeriods: '/player-portal-external-proxy/ratings/periods',
+  uniformStore: '/player-portal-external-proxy/uniforms/store',
+  uniformOrder: '/player-portal-external-proxy/uniforms/order',
+  uniformMyOrders: '/player-portal-external-proxy/uniforms/my_orders',
+  newsList: '/player-portal-external-proxy/news/list',
 };
 
 export const portalApi = {
-  /**
-   * customer/active-list
-   */
+  async fetchActiveAcademies() {
+    return wrapApi(async () => portalClient.post(portalEndpoints.academies, {}), 'Failed to fetch academies');
+  },
+
   async listAcademiesActive() {
-    return wrapApi(async () => {
-      if (endpoints?.customer?.activeList) {
-        try {
-          return await endpoints.customer.activeList({});
-        } catch {
-          // fallthrough
-        }
-      }
-      return apiClient.post('/customer/active-list', {});
-    }, 'Failed to fetch academies');
+    return portalApi.fetchActiveAcademies();
   },
 
-  /**
-   * Proxy login -> academy /api/v1/auth/login
-   */
   async login({ academyId, username, password }) {
-    return wrapApi(async () => {
-      const body = {
-        academy_id: Number(academyId),
-        username: String(username || '').trim(),
-        password: String(password || ''),
-      };
-
-      return apiClient.post('/player-portal-external-proxy/auth/login', body);
-    }, 'Login failed');
+    return wrapApi(
+      async () =>
+        portalClient.post(portalEndpoints.login, {
+          academy_id: Number(academyId),
+          username: String(username || '').trim(),
+          password: String(password || ''),
+        }),
+      'Login failed'
+    );
   },
 
-  /**
-   * Proxy auth/me
-   */
   async me({ academyId } = {}) {
     return wrapApi(async () => {
-      const { academyId: resolvedAcademyId, headers } = await portalAuthConfig(academyId);
-      const body = { customer_id: resolvedAcademyId };
-
-      return apiClient.post('/player-portal-external-proxy/auth/me', body, { headers });
+      const { headers, academyId: resolvedId } = await buildPortalHeaders({ academyId });
+      return portalClient.post(portalEndpoints.me, { academy_id: resolvedId }, { headers });
     }, 'Session verification failed');
   },
 
-  /**
-   * Password reset request (proxy -> academy)
-   */
-  async passwordResetRequest({ academyId, username, phoneNumber }) {
-    return wrapApi(async () => {
-      const id = await getAcademyId(academyId);
-      if (!id) throw new Error('Academy id missing');
-
-      const body = {
-        customer_id: id,
-        username: String(username || '').trim(),
-        phone_number: String(phoneNumber || '').trim(),
-      };
-
-      return apiClient.post('/player-portal-external-proxy/auth/password-reset/request', body);
-    }, 'Password reset request failed');
+  async authMe({ academyId } = {}) {
+    return portalApi.me({ academyId });
   },
 
-  /**
-   * Dashboard Overview
-   * Supports cookie-based session or bearer token.
-   */
   async fetchOverview({ academyId } = {}) {
     return wrapApi(async () => {
-      const { academyId: resolvedAcademyId, headers, withCredentials } = await portalAuthConfig(academyId);
-      const body = {};
-      if (resolvedAcademyId) {
-        body.customer_id = resolvedAcademyId;
-        body.academy_id = resolvedAcademyId;
-      }
-
-      const res = await apiClient.post(
-        '/player-portal-external-proxy/player-profile/overview',
-        body,
-        { headers, withCredentials }
-      );
-
-      return parseMaybeJson(res);
-    }, 'Failed to fetch dashboard data');
+      const { headers, academyId: resolvedId } = await buildPortalHeaders({ academyId });
+      return portalClient.post(portalEndpoints.overview, { academy_id: resolvedId }, { headers });
+    }, 'Failed to fetch overview');
   },
 
-  async getOverview({ academyId } = {}) {
-    return portalApi.fetchOverview({ academyId });
-  },
-
-  async updateProfile(payload) {
+  async getProfile({ academyId } = {}) {
     return wrapApi(async () => {
-      const { headers } = await portalAuthConfig();
-      return apiClient.post('/player-portal-external-proxy/player-profile/profile/update', payload || {}, { headers });
+      const { headers, academyId: resolvedId } = await buildPortalHeaders({ academyId });
+      return portalClient.post(portalEndpoints.profileGet, { academy_id: resolvedId }, { headers });
+    }, 'Failed to fetch profile');
+  },
+
+  async updateProfile(payload = {}) {
+    return wrapApi(async () => {
+      const { headers } = await buildPortalHeaders({});
+      return portalClient.post(portalEndpoints.profileUpdate, payload, { headers });
     }, 'Profile update failed');
   },
 
-  async requestFreeze(payload) {
+  async renewalsEligibility(payload = {}) {
     return wrapApi(async () => {
-      const { headers } = await portalAuthConfig();
-      return apiClient.post('/registration/freezes/request', payload || {}, { headers });
-    }, 'Freeze request failed');
-  },
-
-  async getRenewalsEligibility(payload = {}) {
-    return wrapApi(async () => {
-      const { headers } = await portalAuthConfig();
-      return apiClient.post('/player-portal/registration/renewals/eligibility', payload || {}, { headers });
+      const { headers } = await buildPortalHeaders({});
+      return portalClient.post(portalEndpoints.renewalsEligibility, payload, { headers });
     }, 'Failed to check renewal eligibility');
   },
 
-  async renewalsEligibility(payload = {}) {
-    return portalApi.getRenewalsEligibility(payload);
-  },
-
-  async requestRenewal(payload) {
+  async renewalsRequest(payload = {}) {
     return wrapApi(async () => {
-      const { headers } = await portalAuthConfig();
-      return apiClient.post('/player-portal/registration/renewals/request', payload || {}, { headers });
+      const { headers } = await buildPortalHeaders({});
+      return portalClient.post(portalEndpoints.renewalsRequest, payload, { headers });
     }, 'Renewal request failed');
   },
 
-  async renewalsRequest(payload) {
-    return portalApi.requestRenewal(payload);
+  async listFreezes(payload = {}) {
+    return wrapApi(async () => {
+      const { headers } = await buildPortalHeaders({});
+      return portalClient.post(portalEndpoints.freezesList, payload, { headers });
+    }, 'Failed to fetch freezes');
+  },
+
+  async requestFreeze(payload = {}) {
+    return wrapApi(async () => {
+      const { headers } = await buildPortalHeaders({});
+      return portalClient.post(portalEndpoints.freezesRequest, payload, { headers });
+    }, 'Freeze request failed');
+  },
+
+  async listPayments(payload = {}) {
+    return wrapApi(async () => {
+      const { headers } = await buildPortalHeaders({});
+      return portalClient.post(portalEndpoints.payments, payload, { headers });
+    }, 'Failed to fetch payments');
+  },
+
+  async fetchInvoice(payload = {}) {
+    return wrapApi(async () => {
+      const { headers } = await buildPortalHeaders({});
+      return portalClient.post(portalEndpoints.invoice, payload, { headers });
+    }, 'Failed to fetch invoice');
+  },
+
+  async listRatingTypes(payload = {}) {
+    return wrapApi(async () => {
+      const { headers } = await buildPortalHeaders({});
+      return portalClient.post(portalEndpoints.ratingTypes, payload, { headers });
+    }, 'Failed to fetch rating types');
+  },
+
+  async fetchRatingSummary(payload = {}) {
+    return wrapApi(async () => {
+      const { headers } = await buildPortalHeaders({});
+      return portalClient.post(portalEndpoints.ratingSummary, payload, { headers });
+    }, 'Failed to fetch rating summary');
+  },
+
+  async listRatingPeriods(payload = {}) {
+    return wrapApi(async () => {
+      const { headers } = await buildPortalHeaders({});
+      return portalClient.post(portalEndpoints.ratingPeriods, payload, { headers });
+    }, 'Failed to fetch rating periods');
   },
 
   async listUniformStore(payload = {}) {
     return wrapApi(async () => {
-      const { body, headers } = await withAcademyPayload(payload);
-      return apiClient.post('/player-portal-external-proxy/uniforms/store', body, { headers });
+      const { headers } = await buildPortalHeaders({});
+      return portalClient.post(portalEndpoints.uniformStore, payload, { headers });
     }, 'Failed to fetch uniform store');
   },
 
-  async createUniformOrder(payload) {
+  async createUniformOrder(payload = {}) {
     return wrapApi(async () => {
-      const { body, headers } = await withAcademyPayload(payload);
-      return apiClient.post('/player-portal-external-proxy/uniforms/order', body, { headers });
+      const { headers } = await buildPortalHeaders({});
+      return portalClient.post(portalEndpoints.uniformOrder, payload, { headers });
     }, 'Failed to create uniform order');
   },
 
   async listMyUniformOrders(payload = {}) {
     return wrapApi(async () => {
-      const { body, headers } = await withAcademyPayload(payload);
-      return apiClient.post('/player-portal-external-proxy/uniforms/my_orders', body, { headers });
+      const { headers } = await buildPortalHeaders({});
+      return portalClient.post(portalEndpoints.uniformMyOrders, payload, { headers });
     }, 'Failed to fetch uniform orders');
   },
+
+  async listNews(payload = {}) {
+    return wrapApi(async () => {
+      const { headers } = await buildPortalHeaders({});
+      return portalClient.post(portalEndpoints.newsList, payload, { headers });
+    }, 'Failed to fetch news');
+  },
+
+  // Backwards compatibility aliases
+  async feedbackTypes(payload = {}) {
+    return portalApi.listRatingTypes(payload);
+  },
+
+  async feedbackPlayerSummary(payload = {}) {
+    return portalApi.fetchRatingSummary(payload);
+  },
+
+  async feedbackPeriods(payload = {}) {
+    return portalApi.listRatingPeriods(payload);
+  },
 };
+
+export { API_BASE_URL as PORTAL_API_BASE_URL };
