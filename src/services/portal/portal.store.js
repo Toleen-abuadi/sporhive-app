@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { storage, PORTAL_KEYS } from '../storage/storage';
 import { portalApi } from './portal.api';
+import { normalizePortalOverview } from './portal.normalize';
 
 const INITIAL_STATE = {
   isAuthenticated: false,
@@ -16,10 +17,17 @@ const INITIAL_STATE = {
 
 const PortalContext = createContext(null);
 
+const OVERVIEW_INITIAL = {
+  overview: null,
+  loading: false,
+  error: null,
+  lastUpdated: null,
+};
+
 /**
  * Lightweight in-memory store for caching overview & cross-screen refresh
  */
-let _portalStoreState = { overview: null };
+let _portalStoreState = { ...OVERVIEW_INITIAL };
 const _listeners = new Set();
 
 export const portalStore = {
@@ -31,14 +39,34 @@ export const portalStore = {
   _emit: () => {
     for (const fn of _listeners) fn(_portalStoreState);
   },
-  setOverview: (overview) => {
-    _portalStoreState = { ..._portalStoreState, overview };
+  setState: (patch) => {
+    _portalStoreState = { ..._portalStoreState, ...patch };
     portalStore._emit();
+  },
+  setOverview: (overview) => {
+    portalStore.setState({
+      overview,
+      loading: false,
+      error: null,
+      lastUpdated: overview ? new Date().toISOString() : _portalStoreState.lastUpdated,
+    });
   },
   clear: () => {
-    _portalStoreState = { overview: null };
+    _portalStoreState = { ...OVERVIEW_INITIAL };
     portalStore._emit();
   },
+  loadOverview: async ({ academyId, silent = false } = {}) => {
+    portalStore.setState({ loading: !silent, error: null });
+    const res = await portalApi.fetchOverview({ academyId });
+    if (!res?.success) {
+      portalStore.setState({ loading: false, error: res?.error || new Error('Failed to load overview') });
+      return { success: false, error: res?.error };
+    }
+    const normalized = normalizePortalOverview(res.data);
+    portalStore.setOverview(normalized);
+    return { success: true, data: normalized };
+  },
+  refreshOverview: async ({ academyId } = {}) => portalStore.loadOverview({ academyId, silent: true }),
 };
 
 export function PortalProvider({ children }) {
@@ -108,12 +136,10 @@ export function PortalProvider({ children }) {
     const result = await portalApi.login({ academyId: id, username, password });
 
     if (result.success) {
-      console.log('PORTAL LOGIN RAW RESPONSE =>', result);
       const data = result.data || {};
       const tokens = data.tokens || data;
       const playerInfo = data.player || data.player_info || data.user || {};
       const tryOutId = data.try_out_id || data.tryOutId || null;
-      console.log('PORTAL LOGIN TOKENS BEFORE SAVE =>', tokens);
       await storage.setItem(PORTAL_KEYS.AUTH_TOKENS, tokens);
       await storage.setItem(PORTAL_KEYS.SESSION, { player: playerInfo, tryOutId, academyId: id });
       await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(id));
@@ -150,7 +176,7 @@ export function PortalProvider({ children }) {
     const customerId = academyId ? Number(academyId) : state.academyId;
     if (customerId) await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(customerId));
 
-    const result = await portalApi.passwordResetRequest({ customerId, username, phoneNumber });
+    const result = await portalApi.passwordResetRequest({ academyId: customerId, username, phoneNumber });
 
     if (result.success) {
       setState((prev) => ({ ...prev, isLoading: false }));
@@ -163,11 +189,8 @@ export function PortalProvider({ children }) {
   }, [state.academyId]);
 
   const refreshOverview = useCallback(async () => {
-    const result = await portalApi.getOverview({ customerId: state.academyId });
-    if (result.success) {
-      portalStore.setOverview(result.data);
-      return { success: true, data: result.data };
-    }
+    const result = await portalStore.refreshOverview({ academyId: state.academyId });
+    if (result.success) return result;
     return { success: false, error: result.error };
   }, [state.academyId]);
 
@@ -202,13 +225,13 @@ export function PortalProvider({ children }) {
   }, [refreshOverview]);
 
   const checkRenewalsEligibility = useCallback(async (payload = {}) => {
-    const result = await portalApi.getRenewalsEligibility(payload);
+    const result = await portalApi.renewalsEligibility(payload);
     return result;
   }, []);
 
   const submitRenewal = useCallback(async (payload) => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
-    const result = await portalApi.requestRenewal(payload);
+    const result = await portalApi.renewalsRequest(payload);
 
     if (result.success) {
       await refreshOverview();
@@ -242,7 +265,6 @@ export function PortalProvider({ children }) {
 
   const submitFeedback = useCallback(async (payload) => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
-    // Note: Add feedback submission endpoint when available
     const result = await portalApi.getFeedbackTypes(payload);
 
     if (result.success) {
@@ -283,6 +305,49 @@ export function usePortal() {
   if (!ctx) throw new Error('usePortal must be used within a PortalProvider');
   return ctx;
 }
+
+export const selectPaymentsSorted = (overview, direction = 'desc') => {
+  const list = Array.isArray(overview?.payments) ? overview.payments.slice() : [];
+  list.sort((a, b) => {
+    const da = new Date(a?.dueDate || 0).getTime();
+    const db = new Date(b?.dueDate || 0).getTime();
+    return direction === 'asc' ? da - db : db - da;
+  });
+  return list;
+};
+
+export const selectPaymentSummary = (overview) => {
+  const payments = Array.isArray(overview?.payments) ? overview.payments : [];
+  const paid = payments.filter((p) => String(p?.status || '').toLowerCase().includes('paid'));
+  const pending = payments.filter((p) => {
+    const status = String(p?.status || '').toLowerCase();
+    return status.includes('pending') || status.includes('due');
+  });
+  const nextDue = pending
+    .filter((p) => p?.dueDate)
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0];
+  return {
+    paidCount: paid.length,
+    pendingCount: pending.length,
+    nextDue,
+  };
+};
+
+export const selectSubscriptionHistory = (overview) => {
+  const list = Array.isArray(overview?.subscriptionHistory) ? overview.subscriptionHistory.slice() : [];
+  list.sort((a, b) => new Date(b?.startDate || 0) - new Date(a?.startDate || 0));
+  return list;
+};
+
+export const selectHealthInfo = (overview) => overview?.health || { height: null, weight: null, timestamp: '' };
+
+export const selectRegistration = (overview) => overview?.registration || {};
+
+export const selectOverviewHeader = (overview) => ({
+  academyName: overview?.academyName || '',
+  playerName: overview?.player?.fullNameEn || overview?.player?.fullNameAr || '',
+  avatar: overview?.player?.avatar || {},
+});
 
 function safeJsonParse(value) {
   try {

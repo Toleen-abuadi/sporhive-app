@@ -1,7 +1,7 @@
 // src/services/portal/portal.normalize.js
 const pick = (obj, paths, fallback = undefined) => {
-  for (const p of paths) {
-    const parts = p.split('.');
+  for (const path of paths) {
+    const parts = path.split('.');
     let cur = obj;
     let ok = true;
     for (const part of parts) {
@@ -151,15 +151,31 @@ export const normalizePortalOverview = (raw) => {
     weight: pick(healthInfo, ['weight'], null),
   };
 
+  const creditsData = pick(data, ['credits'], {}) || {};
+  const credits = {
+    totalRemaining: safeNumber(pick(creditsData, ['total_remaining', 'remaining', 'total'], 0), 0),
+    nextExpiry: pick(creditsData, ['next_expiry', 'next_expiry_at', 'nextExpiry'], ''),
+    active: toArray(pick(creditsData, ['active', 'items', 'credits'], [])),
+  };
+
+  const performance = {
+    summary: pick(data, ['performance_feedback.summary'], ''),
+    metrics: pick(data, ['performance_feedback.metrics'], {}) || {},
+  };
+
+  const levels = toArray(pick(data, ['levels'], []));
+
   return {
-    raw: data,
+    academyName,
     player,
     registration,
-    performance_feedback,
-    payment_info,
-    subscription_history,
-    health_info: healthInfo,
-    player_info: playerInfo,
-    profile,
+    available,
+    payments,
+    subscriptionHistory,
+    health,
+    credits,
+    performance,
+    levels,
+    raw: data,
   };
 };
