@@ -77,6 +77,17 @@ const portalAuthConfig = async (academyIdOverride) => {
   };
 };
 
+const withAcademyPayload = async (payload = {}, academyIdOverride) => {
+  const { academyId, headers } = await portalAuthConfig(academyIdOverride);
+  const body = { ...(payload || {}) };
+  if (academyId) {
+    body.customer_id = academyId;
+    body.academy_id = academyId;
+  }
+
+  return { body, headers };
+};
+
 export const portalApi = {
   /**
    * customer/active-list
@@ -183,35 +194,43 @@ export const portalApi = {
   async getRenewalsEligibility(payload = {}) {
     return wrapApi(async () => {
       const { headers } = await portalAuthConfig();
-      return apiClient.post('/player-portal-external-proxy/registration/renewals/eligibility', payload || {}, { headers });
+      return apiClient.post('/player-portal/registration/renewals/eligibility', payload || {}, { headers });
     }, 'Failed to check renewal eligibility');
+  },
+
+  async renewalsEligibility(payload = {}) {
+    return portalApi.getRenewalsEligibility(payload);
   },
 
   async requestRenewal(payload) {
     return wrapApi(async () => {
       const { headers } = await portalAuthConfig();
-      return apiClient.post('/registration/renewals/request', payload || {}, { headers });
+      return apiClient.post('/player-portal/registration/renewals/request', payload || {}, { headers });
     }, 'Renewal request failed');
+  },
+
+  async renewalsRequest(payload) {
+    return portalApi.requestRenewal(payload);
   },
 
   async listUniformStore(payload = {}) {
     return wrapApi(async () => {
-      const { headers } = await portalAuthConfig();
-      return apiClient.post('/player-portal-external-proxy/uniforms/store', payload || {}, { headers });
+      const { body, headers } = await withAcademyPayload(payload);
+      return apiClient.post('/player-portal-external-proxy/uniforms/store', body, { headers });
     }, 'Failed to fetch uniform store');
   },
 
   async createUniformOrder(payload) {
     return wrapApi(async () => {
-      const { headers } = await portalAuthConfig();
-      return apiClient.post('/player-portal-external-proxy/uniforms/order', payload || {}, { headers });
+      const { body, headers } = await withAcademyPayload(payload);
+      return apiClient.post('/player-portal-external-proxy/uniforms/order', body, { headers });
     }, 'Failed to create uniform order');
   },
 
   async listMyUniformOrders(payload = {}) {
     return wrapApi(async () => {
-      const { headers } = await portalAuthConfig();
-      return apiClient.post('/player-portal-external-proxy/uniforms/my_orders', payload || {}, { headers });
+      const { body, headers } = await withAcademyPayload(payload);
+      return apiClient.post('/player-portal-external-proxy/uniforms/my_orders', body, { headers });
     }, 'Failed to fetch uniform orders');
   },
 };

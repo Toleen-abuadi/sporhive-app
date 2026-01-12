@@ -31,6 +31,10 @@ export function usePortal() {
   return { ...state, refresh };
 }
 
+export function usePlayerPortal() {
+  return usePortalAuth();
+}
+
 export function usePortalRefresh() {
   const [refreshing, setRefreshing] = useState(false);
 

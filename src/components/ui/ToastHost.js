@@ -25,7 +25,8 @@ export function ToastProvider({ children }) {
 
   const showToast = useCallback((message, type = 'info', options = {}) => {
     const id = makeId();
-    const duration = clamp(Number(options.duration ?? 3200), 1500, 9000);
+    const rawDuration = options.duration;
+    const duration = rawDuration === 0 ? 0 : clamp(Number(rawDuration ?? 3200), 1500, 9000);
     const title = options.title || '';
     const actionLabel = options.actionLabel || '';
     const onAction = typeof options.onAction === 'function' ? options.onAction : null;
@@ -40,12 +41,47 @@ export function ToastProvider({ children }) {
         duration,
         actionLabel: String(actionLabel || ''),
         onAction,
-      },
+        },
     ]);
 
     // auto-remove
-    const timeout = setTimeout(() => remove(id), duration);
-    return () => clearTimeout(timeout);
+    if (duration > 0) {
+      const timeout = setTimeout(() => remove(id), duration);
+      return () => clearTimeout(timeout);
+    }
+    return () => {};
+  }, [remove]);
+
+  const push = useCallback((options = {}) => {
+    const variant = options.variant || 'info';
+    const description = options.description || options.message || '';
+    return showToast(description, variant, {
+      title: options.title || '',
+      duration: options.duration,
+      actionLabel: options.actionLabel,
+      onAction: options.onAction,
+    });
+  }, [showToast]);
+
+  const update = useCallback((id, options = {}) => {
+    const nextDuration = options.duration;
+    const duration = nextDuration === 0 ? 0 : clamp(Number(nextDuration ?? 3200), 1500, 9000);
+    setToasts((prev) => prev.map((toast) => {
+      if (toast.id !== id) return toast;
+      return {
+        ...toast,
+        title: options.title ?? toast.title,
+        message: options.description ?? options.message ?? toast.message,
+        type: options.variant ?? toast.type,
+        duration,
+      };
+    }));
+
+    if (duration > 0) {
+      const timeout = setTimeout(() => remove(id), duration);
+      return () => clearTimeout(timeout);
+    }
+    return () => {};
   }, [remove]);
 
   const api = useMemo(
@@ -55,10 +91,12 @@ export function ToastProvider({ children }) {
       warning: (msg, opts) => showToast(msg, 'warning', opts),
       info: (msg, opts) => showToast(msg, 'info', opts),
       show: showToast,
+      push,
+      update,
       remove,
       clear: () => setToasts([]),
     }),
-    [remove, showToast]
+    [push, remove, showToast, update]
   );
 
   return (
@@ -107,6 +145,7 @@ function ToastItem({ toast, onRemove }) {
     error: 'x-circle',
     warning: 'alert-triangle',
     info: 'info',
+    loading: 'loader',
   };
 
   const accent = {
@@ -114,6 +153,7 @@ function ToastItem({ toast, onRemove }) {
     error: colors.error,
     warning: colors.warning,
     info: colors.accentOrange,
+    loading: colors.accentOrange,
   }[toast.type] || colors.accentOrange;
 
   const bg = isDark ? 'rgba(16,16,18,0.92)' : 'rgba(255,255,255,0.92)';
