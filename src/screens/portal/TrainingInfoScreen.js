@@ -8,6 +8,20 @@ import { formatDate } from '../../services/portal/portal.normalize';
 import { portalStyles } from '../../theme/portal.styles';
 import { Card, PortalHeader, PortalScreen, PortalEmptyState } from '../../components/portal/PortalPrimitives';
 
+const formatScheduleItem = (s) => {
+  if (!s) return '';
+  if (typeof s === 'string') return s;
+  const day = s?.day || '';
+  const t = s?.time;
+  if (t && typeof t === 'object') {
+    const a = t?.start || '';
+    const b = t?.end || '';
+    const time = [a, b].filter(Boolean).join('–');
+    return `${day} ${time}`.trim();
+  }
+  return `${day} ${s?.time || ''}`.trim() || JSON.stringify(s);
+};
+
 const ProgressBar = React.memo(function ProgressBar({ value = 0, max = 1 }) {
   const pct = Math.max(0, Math.min(1, max ? value / max : 0));
   return (
@@ -79,7 +93,7 @@ export default function TrainingInfoScreen() {
                         <Text style={portalStyles.muted}>Schedule</Text>
                         {reg.group.schedule.map((s, idx) => (
                           <Text key={idx} style={portalStyles.scheduleLine} numberOfLines={1}>
-                            • {s?.label || `${s?.day || ''} ${s?.time || ''}`.trim()}
+                            • {formatScheduleItem(s)}
                           </Text>
                         ))}
                       </View>
@@ -121,7 +135,11 @@ export default function TrainingInfoScreen() {
                         <MiniCard
                           key={g?.id ?? idx}
                           title={g?.name || g?.title || String(g)}
-                          subtitle={g?.schedule?.length ? g.schedule.map((s) => s.label).join(', ') : ''}
+                          subtitle={
+                            Array.isArray(g?.schedule)
+                              ? g.schedule.slice(0, 2).map(formatScheduleItem).filter(Boolean).join(' • ')
+                              : (g?.time || g?.desc || '')
+                          }
                         />
                       )) : <Text style={portalStyles.muted}>None</Text>}
                     </View>

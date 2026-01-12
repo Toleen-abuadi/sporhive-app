@@ -8,9 +8,14 @@ import { colors, spacing, radius, typography, alphaBg } from '../../theme/portal
 import { PortalCard, PortalRow, PortalScreen, PortalHeader, PortalEmptyState } from '../../components/portal/PortalPrimitives';
 import { EditProfileModal } from './modals/EditProfileModal';
 
-export default function PersonalInfoScreen() {
-  const { overview, loading, error } = usePortal();
-  const { refreshing, onRefresh } = usePortalRefresh();
+const imgFromBase64 = (b64) => {
+  if (!b64) return null;
+  if (String(b64).startsWith('data:')) return { uri: b64 };
+  return { uri: `data:image/jpeg;base64,${b64}` };
+};
+
+export default function PersonalInfoScreen({ navigation }) {
+  const { overview, loading, refreshing, error, refresh } = usePortalOverview();
   const [editOpen, setEditOpen] = useState(false);
 
   const player = overview?.player || {};

@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown, SlideInLeft } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
 
 import { useI18n } from '../../services/i18n/i18n';
 import { usePasswordReset, useAcademies } from '../../services/portal/portal.hooks';
@@ -22,9 +21,8 @@ import { colors, spacing, radius, typography, shadows, alphaBg } from '../../the
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export default function ResetPasswordScreen() {
+export default function ResetPasswordScreen({ navigation }) {
   const { t } = useI18n();
-  const router = useRouter();
   const { academyId: storedAcademyId, setAcademyId } = usePortal();
   const { academies, loading: academiesLoading, searchQuery, setSearchQuery } = useAcademies();
   const { requestReset, isLoading, error } = usePasswordReset();
@@ -121,7 +119,7 @@ export default function ResetPasswordScreen() {
     >
       <View style={styles.content}>
         <Animated.View entering={SlideInLeft.duration(300)} style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={10}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={10}>
             <Feather name="arrow-left" size={22} color={colors.textPrimary} />
           </Pressable>
           <Text style={styles.headerTitle}>{t('portal.reset.title', 'Reset Password')}</Text>
@@ -141,7 +139,7 @@ export default function ResetPasswordScreen() {
               )}
             </Text>
 
-            <Pressable onPress={() => router.replace('/portal/login')} style={styles.backToLoginButton}>
+            <Pressable onPress={() => navigation.goBack()} style={styles.backToLoginButton}>
               <Feather name="log-in" size={18} color={colors.textInverted} style={{ marginRight: 8 }} />
               <Text style={styles.backToLoginText}>{t('portal.reset.backToLogin', 'Back to Login')}</Text>
             </Pressable>
@@ -281,7 +279,7 @@ export default function ResetPasswordScreen() {
                 )}
               </Pressable>
 
-              <Pressable onPress={() => router.back()} style={styles.cancelLink}>
+              <Pressable onPress={() => navigation.goBack()} style={styles.cancelLink}>
                 <Text style={styles.cancelText}>{t('portal.reset.cancel', 'Cancel')}</Text>
               </Pressable>
             </View>

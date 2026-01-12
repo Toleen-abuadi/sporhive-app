@@ -23,6 +23,20 @@ import {
 } from '../../components/portal/PortalPrimitives';
 import { usePortalModals } from './modals/PortalModalsProvider';
 
+const formatScheduleItem = (s) => {
+  if (!s) return '';
+  if (typeof s === 'string') return s;
+  const day = s?.day || '';
+  const t = s?.time;
+  if (t && typeof t === 'object') {
+    const a = t?.start || '';
+    const b = t?.end || '';
+    const time = [a, b].filter(Boolean).join('–');
+    return `${day} ${time}`.trim();
+  }
+  return `${day} ${s?.time || ''}`.trim() || JSON.stringify(s);
+};
+
 export default function DashboardScreen() {
   const { t } = useI18n();
   const router = useRouter();
@@ -128,11 +142,34 @@ export default function DashboardScreen() {
                 <Pill label={`${t('portal.payments.pending', 'Pending')}: ${paymentSummary.pendingCount}`} tone="warning" />
               </View>
               <View style={{ height: spacing.md }} />
-              <PortalRow
-                leftIcon={<Feather name="clock" size={16} color={colors.textSecondary} />}
-                title={t('portal.payments.nextDue', 'Next Due')}
-                value={paymentSummary?.nextDue?.dueDate ? `${formatDate(paymentSummary.nextDue.dueDate)} • ${formatMoney(paymentSummary.nextDue.amount) || paymentSummary.nextDue.amount}` : t('portal.common.na', 'N/A')}
-              />
+
+              {!!reg.startDate && !!reg.endDate ? (
+                <Text style={{ color: colors.textSecondary }}>
+                  {t('portal.training.dates', 'Dates')}: {formatDate(reg.startDate)} → {formatDate(reg.endDate)}
+                </Text>
+              ) : null}
+
+              {schedulePreview.length ? (
+                <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+                  {schedulePreview.map((s, idx) => (
+                    <PortalRow
+                      key={idx}
+                      leftIcon={<Feather name="calendar" size={16} color={colors.textSecondary} />}
+                      title={t('portal.training.session', 'Session')}
+                      value={formatScheduleItem(s)}
+                    />
+                  ))}
+                </View>
+              ) : null}
+
+              <View style={{ marginTop: spacing.md }}>
+                <PortalButton
+                  title={t('portal.dashboard.openTraining', 'View Training Details')}
+                  tone="secondary"
+                  right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+                  onPress={() => router.push('PortalTrainingInfo')}
+                />
+              </View>
             </>
           )}
         </PortalCard>
@@ -179,10 +216,15 @@ export default function DashboardScreen() {
     <PortalScreen>
       <PortalHeader title={t('tabs.portal', 'Portal')} subtitle={header.academyName} />
       <Hero
-        title={header.playerName || t('portal.overview.hello', 'Welcome')}
-        subtitle={t('portal.overview.subtitle', 'Your portal overview')}
-        badge={header.academyName}
-        imageSource={header.avatar?.uri ? { uri: header.avatar.uri } : null}
+        title={playerInfo.fullName || player?.fullName || t('portal.dashboard.hello', 'Hello')}
+        subtitle={t('portal.dashboard.subtitle', 'Your progress & requests in one place')}
+        badge={playerInfo.academyName || ''}
+        imageSource={avatar}
+        right={
+          <Pressable onPress={() => router.push('PortalPersonalInfo')} hitSlop={8}>
+            <Feather name="settings" size={20} color={colors.textSecondary} />
+          </Pressable>
+        }
       />
 
       {!!error && (
