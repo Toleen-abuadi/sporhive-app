@@ -10,7 +10,7 @@ export default function PortalIndex() {
   useEffect(() => {
     if (isLoading) return;
 
-    if (isAuthenticated) router.replace('/portal/dashboard');
+    if (isAuthenticated) router.replace('/(portal)/overview');
     else router.replace('/portal/login');
   }, [isAuthenticated, isLoading, router]);
 

@@ -1,7 +1,7 @@
 // app/portal/personal-info.jsx
 import React from 'react';
-import Screen from '../../src/screens/portal/PersonalInfoScreen';
+import { Redirect } from 'expo-router';
 
 export default function PortalRoute() {
-  return <Screen />;
+  return <Redirect href="/(portal)/personal-info" />;
 }
