@@ -12,6 +12,8 @@ export const PORTAL_KEYS = {
   ACADEMY_ID: '@sporhive/portal/academy_id',
   AUTH_TOKENS: '@sporhive/portal/auth_tokens', // { access, refresh, ... }
   SESSION: '@sporhive/portal/session', // { player, tryOutId, academyId }
+  USERNAME: '@sporhive/portal/username',
+  PASSWORD: '@sporhive/portal/password',
 };
 
 class StorageService {
@@ -183,6 +185,20 @@ class StorageService {
   async setPortalSession(session) {
     if (!session) return this.removeItem(PORTAL_KEYS.SESSION);
     return this.setItem(PORTAL_KEYS.SESSION, session);
+  }
+
+  async getPortalCredentials() {
+    const username = await this.getItem(PORTAL_KEYS.USERNAME);
+    const password = await this.getItem(PORTAL_KEYS.PASSWORD);
+    return {
+      username: typeof username === 'string' ? username : '',
+      password: typeof password === 'string' ? password : '',
+    };
+  }
+
+  async setPortalCredentials({ username = '', password = '' } = {}) {
+    await this.setItem(PORTAL_KEYS.USERNAME, String(username || ''));
+    await this.setItem(PORTAL_KEYS.PASSWORD, String(password || ''));
   }
 
   /**
