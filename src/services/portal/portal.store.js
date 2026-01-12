@@ -9,6 +9,7 @@ const INITIAL_STATE = {
   isLoading: true,
   academyId: null,
   authTokens: null,
+  token: null,
   tryOutId: null,
   player: null,
   error: null,
@@ -57,7 +58,7 @@ export const portalStore = {
   },
   loadOverview: async ({ academyId, silent = false } = {}) => {
     portalStore.setState({ loading: !silent, error: null });
-    const res = await portalApi.fetchOverview({ academyId });
+    const res = await portalApi.getOverview({ academyId });
     if (!res?.success) {
       portalStore.setState({ loading: false, error: res?.error || new Error('Failed to load overview') });
       return { success: false, error: res?.error };
@@ -74,86 +75,119 @@ export function PortalProvider({ children }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   const clearStorage = useCallback(async () => {
-    await storage.removeItem(PORTAL_KEYS.AUTH_TOKENS);
-    await storage.removeItem(PORTAL_KEYS.SESSION);
+    if (storage.logoutPortal) {
+      await storage.logoutPortal();
+    } else {
+      await storage.removeItem(PORTAL_KEYS.AUTH_TOKENS);
+      await storage.removeItem(PORTAL_KEYS.SESSION);
+    }
     portalStore.clear();
   }, []);
 
+  const restoreSession = useCallback(async () => {
+    try {
+      const authTokens = await storage.getItem(PORTAL_KEYS.AUTH_TOKENS);
+      const academyIdRaw = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);
+      const session = await storage.getItem(PORTAL_KEYS.SESSION);
+
+      const academyId = academyIdRaw ? Number(academyIdRaw) : null;
+      const tokens = authTokens && typeof authTokens === 'string' ? safeJsonParse(authTokens) : authTokens;
+      const token = tokens?.access || tokens?.token || tokens?.access_token || null;
+
+      if (!token || !academyId) {
+        setState({ ...INITIAL_STATE, isLoading: false, academyId: academyId || null });
+        return { success: false };
+      }
+
+      const me = await portalApi.authMe({ academyId });
+
+      if (me.success) {
+        setState({
+          isAuthenticated: true,
+          isLoading: false,
+          academyId,
+          authTokens: tokens,
+          token,
+          tryOutId: session?.tryOutId || null,
+          player: session?.player || me.data?.player || null,
+          error: null,
+        });
+        await portalStore.loadOverview({ academyId, silent: true });
+        return { success: true };
+      }
+
+      await clearStorage();
+      setState({ ...INITIAL_STATE, isLoading: false, academyId: academyId || null });
+      return { success: false };
+    } catch (error) {
+      console.error('Failed to load portal session:', error);
+      setState({ ...INITIAL_STATE, isLoading: false });
+      return { success: false, error };
+    } finally {
+      setIsInitialized(true);
+    }
+  }, [clearStorage]);
+
   // Load persisted session on mount
   useEffect(() => {
-    const loadSession = async () => {
-      try {
-        const authTokens = await storage.getItem(PORTAL_KEYS.AUTH_TOKENS);
-        const academyIdRaw = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);
-        const session = await storage.getItem(PORTAL_KEYS.SESSION);
-
-        const academyId = academyIdRaw ? Number(academyIdRaw) : null;
-        const tokens = authTokens && typeof authTokens === 'string' ? safeJsonParse(authTokens) : authTokens;
-
-        if (!tokens?.access || !academyId) {
-          setState({ ...INITIAL_STATE, isLoading: false, academyId: academyId || null });
-          return;
-        }
-
-        const me = await portalApi.me({ academyId });
-
-        if (me.success) {
-          setState({
-            isAuthenticated: true,
-            isLoading: false,
-            academyId,
-            authTokens: tokens,
-            tryOutId: session?.tryOutId || null,
-            player: session?.player || null,
-            error: null,
-          });
-        } else {
-          await clearStorage();
-          setState({ ...INITIAL_STATE, isLoading: false, academyId: academyId || null });
-        }
-      } catch (error) {
-        console.error('Failed to load portal session:', error);
-        setState({ ...INITIAL_STATE, isLoading: false });
-      } finally {
-        setIsInitialized(true);
-      }
-    };
-
-    loadSession();
-  }, [clearStorage]);
+    restoreSession();
+  }, [restoreSession]);
 
   const setAcademyId = useCallback(async (academyId) => {
     const id = academyId == null ? null : Number(academyId);
-    if (id) await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(id));
+    if (storage.setPortalAcademyId) {
+      await storage.setPortalAcademyId(id);
+    } else if (id) {
+      await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(id));
+    }
     setState((prev) => ({ ...prev, academyId: id }));
   }, []);
 
   const login = useCallback(async ({ academyId, username, password }) => {
     const id = Number(academyId);
     setState((prev) => ({ ...prev, isLoading: true, error: null, academyId: id }));
-    await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(id));
+    if (storage.setPortalAcademyId) {
+      await storage.setPortalAcademyId(id);
+    } else {
+      await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(id));
+    }
 
     const result = await portalApi.login({ academyId: id, username, password });
 
     if (result.success) {
       const data = result.data || {};
       const tokens = data.tokens || data;
+      const token = tokens?.access || tokens?.token || tokens?.access_token || null;
       const playerInfo = data.player || data.player_info || data.user || {};
       const tryOutId = data.try_out_id || data.tryOutId || null;
-      await storage.setItem(PORTAL_KEYS.AUTH_TOKENS, tokens);
-      await storage.setItem(PORTAL_KEYS.SESSION, { player: playerInfo, tryOutId, academyId: id });
-      await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(id));
+      if (storage.setPortalTokens) {
+        await storage.setPortalTokens(tokens);
+      } else {
+        await storage.setItem(PORTAL_KEYS.AUTH_TOKENS, tokens);
+      }
+      if (storage.setPortalSession) {
+        await storage.setPortalSession({ player: playerInfo, tryOutId, academyId: id });
+      } else {
+        await storage.setItem(PORTAL_KEYS.SESSION, { player: playerInfo, tryOutId, academyId: id });
+      }
+      if (storage.setPortalAcademyId) {
+        await storage.setPortalAcademyId(id);
+      } else {
+        await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(id));
+      }
 
       setState({
         isAuthenticated: true,
         isLoading: false,
         academyId: id,
         authTokens: tokens,
+        token,
         tryOutId,
         player: playerInfo,
         error: null,
       });
 
+      await portalStore.loadOverview({ academyId: id, silent: true });
       return { success: true };
     }
 
@@ -174,7 +208,13 @@ export function PortalProvider({ children }) {
   const resetPassword = useCallback(async ({ academyId, username, phoneNumber }) => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
     const customerId = academyId ? Number(academyId) : state.academyId;
-    if (customerId) await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(customerId));
+    if (customerId) {
+      if (storage.setPortalAcademyId) {
+        await storage.setPortalAcademyId(customerId);
+      } else {
+        await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(customerId));
+      }
+    }
 
     const result = await portalApi.passwordResetRequest({ academyId: customerId, username, phoneNumber });
 
@@ -265,7 +305,7 @@ export function PortalProvider({ children }) {
 
   const submitFeedback = useCallback(async (payload) => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
-    const result = await portalApi.getFeedbackTypes(payload);
+    const result = await portalApi.getRatingTypes(payload);
 
     if (result.success) {
       setState((prev) => ({ ...prev, isLoading: false }));
@@ -283,6 +323,7 @@ export function PortalProvider({ children }) {
       isInitialized,
       login,
       logout,
+      restoreSession,
       resetPassword,
       setAcademyId,
       refreshOverview,
@@ -294,7 +335,7 @@ export function PortalProvider({ children }) {
       refreshUniformOrders,
       submitFeedback,
     }),
-    [state, isInitialized, login, logout, resetPassword, setAcademyId, refreshOverview, updateProfile, submitFreeze, checkRenewalsEligibility, submitRenewal, placeUniformOrder, refreshUniformOrders, submitFeedback]
+    [state, isInitialized, login, logout, restoreSession, resetPassword, setAcademyId, refreshOverview, updateProfile, submitFreeze, checkRenewalsEligibility, submitRenewal, placeUniformOrder, refreshUniformOrders, submitFeedback]
   );
 
   return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>;
