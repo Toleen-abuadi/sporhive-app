@@ -1,12 +1,12 @@
-// src/services/portal/portal.hooks.js
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { portalApi } from './portal.api';
-import { portalStore, usePortal as usePortalAuth } from './portal.store';
+import { portalStore, usePortal as usePortalContext } from './portal.store';
 
-/**
- * Overview state hook
- */
-export function usePortal() {
+export function usePortalAuth() {
+  return usePortalContext();
+}
+
+export function usePortalOverview() {
   const [state, setState] = useState(portalStore.getState());
   const mounted = useRef(true);
 
@@ -31,10 +31,6 @@ export function usePortal() {
   return { ...state, refresh };
 }
 
-export function usePlayerPortal() {
-  return usePortalAuth();
-}
-
 export function usePortalRefresh() {
   const [refreshing, setRefreshing] = useState(false);
 
@@ -50,14 +46,157 @@ export function usePortalRefresh() {
   return { refreshing, onRefresh };
 }
 
-// Backwards compatibility for older screens
-export function usePortalOverview() {
-  return usePortal();
+export function usePortalProfile() {
+  const { updateProfile } = usePortalAuth();
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    const res = await portalApi.getProfile();
+    if (res?.success) setProfile(res.data?.data || res.data);
+    setLoading(false);
+    return res;
+  }, []);
+
+  const saveProfile = useCallback(async (payload) => {
+    setLoading(true);
+    const res = await updateProfile(payload);
+    setLoading(false);
+    return res;
+  }, [updateProfile]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  return { profile, loading, refresh: loadProfile, saveProfile };
 }
 
-/**
- * Password reset
- */
+export function usePortalRenewals() {
+  const { submitRenewal, checkRenewalsEligibility } = usePortalAuth();
+  const [eligibility, setEligibility] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const checkEligibility = useCallback(async () => {
+    setLoading(true);
+    const res = await checkRenewalsEligibility();
+    if (res?.success) setEligibility(res.data?.data || res.data);
+    setLoading(false);
+    return res;
+  }, [checkRenewalsEligibility]);
+
+  const requestRenewal = useCallback(async () => {
+    setLoading(true);
+    const res = await submitRenewal();
+    setLoading(false);
+    return res;
+  }, [submitRenewal]);
+
+  return {
+    eligibility,
+    loading,
+    checkEligibility,
+    submitRenewal: requestRenewal,
+  };
+}
+
+export function usePortalFreezes() {
+  const { submitFreeze } = usePortalAuth();
+  const [freezes, setFreezes] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadFreezes = useCallback(async () => {
+    setLoading(true);
+    const res = await portalApi.requestFreeze({ preview: true });
+    if (res?.success) setFreezes(res.data?.data || res.data || []);
+    setLoading(false);
+    return res;
+  }, []);
+
+  const handleSubmit = useCallback(async () => {
+    setLoading(true);
+    const res = await submitFreeze();
+    setLoading(false);
+    return res;
+  }, [submitFreeze]);
+
+  useEffect(() => {
+    loadFreezes();
+  }, [loadFreezes]);
+
+  return { freezes, loading, refresh: loadFreezes, submitFreeze: handleSubmit };
+}
+
+export function usePortalPayments() {
+  const [loading, setLoading] = useState(false);
+
+  const printInvoice = useCallback(async (payload) => {
+    setLoading(true);
+    const res = await portalApi.printInvoice(payload);
+    setLoading(false);
+    return res;
+  }, []);
+
+  return { loading, printInvoice };
+}
+
+export function usePortalPerformance() {
+  const [summary, setSummary] = useState(null);
+
+  useEffect(() => {
+    const load = async () => {
+      const res = await portalApi.getRatingSummary();
+      if (res?.success) setSummary(res.data?.summary || res.data?.data || res.data);
+    };
+    load();
+  }, []);
+
+  return { summary };
+}
+
+export function usePortalUniforms() {
+  const [items, setItems] = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const res = await portalApi.listUniformStore();
+      if (res?.success) setItems(res.data?.data || res.data || []);
+    };
+    load();
+  }, []);
+
+  return { items };
+}
+
+export function usePortalOrders() {
+  const [orders, setOrders] = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const res = await portalApi.listMyUniformOrders();
+      if (res?.success) setOrders(res.data?.data || res.data || []);
+    };
+    load();
+  }, []);
+
+  return { orders };
+}
+
+export function usePortalNews() {
+  const [news, setNews] = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const res = await portalApi.listNews();
+      if (res?.success) setNews(res.data?.data || res.data || []);
+    };
+    load();
+  }, []);
+
+  return { news };
+}
+
 export function usePasswordReset() {
   const { resetPassword, isLoading, error } = usePortalAuth();
   const [success, setSuccess] = useState(false);
@@ -75,9 +214,6 @@ export function usePasswordReset() {
   return { requestReset, isLoading, error, success };
 }
 
-/**
- * Academies list (customer/active-list)
- */
 export function useAcademies() {
   const mounted = useRef(true);
 
@@ -91,7 +227,7 @@ export function useAcademies() {
       setLoading(true);
       setError(null);
 
-      const res = await portalApi.listAcademiesActive();
+      const res = await portalApi.fetchActiveAcademies();
       if (!res?.success) throw res?.error || new Error('Failed');
 
       const raw = res.data || {};
@@ -102,18 +238,18 @@ export function useAcademies() {
           : [];
 
       const items = customers.map((c) => {
-        const academy_name = c.academy_name || '';
-        const client_name = c.client_name || '';
-        const label = c.label || `${academy_name} — ${client_name}`.trim();
+        const academyName = c.academy_name || '';
+        const clientName = c.client_name || '';
+        const label = c.label || `${academyName} — ${clientName}`.trim();
 
         return {
           id: Number(c.id),
-          academy_name,
-          client_name,
+          academy_name: academyName,
+          client_name: clientName,
           label,
-          name: academy_name || label || 'Academy',
-          subtitle: client_name || '',
-          searchText: `${academy_name} ${client_name} ${label}`.toLowerCase(),
+          name: academyName || label || 'Academy',
+          subtitle: clientName || '',
+          searchText: `${academyName} ${clientName} ${label}`.toLowerCase(),
         };
       });
 
