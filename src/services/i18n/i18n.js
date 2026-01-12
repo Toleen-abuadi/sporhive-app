@@ -86,3 +86,14 @@ export function useI18n() {
   }
   return context;
 }
+
+export function useTranslation() {
+  const { t, isRTL, language } = useI18n();
+  return {
+    t,
+    isRTL,
+    i18n: {
+      language,
+    },
+  };
+}

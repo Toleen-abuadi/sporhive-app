@@ -225,13 +225,13 @@ export function PortalProvider({ children }) {
   }, [refreshOverview]);
 
   const checkRenewalsEligibility = useCallback(async (payload = {}) => {
-    const result = await portalApi.getRenewalsEligibility(payload);
+    const result = await portalApi.renewalsEligibility(payload);
     return result;
   }, []);
 
   const submitRenewal = useCallback(async (payload) => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
-    const result = await portalApi.requestRenewal(payload);
+    const result = await portalApi.renewalsRequest(payload);
 
     if (result.success) {
       await refreshOverview();
