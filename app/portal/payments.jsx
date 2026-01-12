@@ -1,7 +1,6 @@
-// app/portal/payments.jsx
 import React from 'react';
-import { Redirect } from 'expo-router';
+import PortalPaymentsScreen from '../../src/screens/portal/PortalPaymentsScreen';
 
-export default function PortalRoute() {
-  return <Redirect href="/(portal)/payments" />;
+export default function PortalPaymentsRoute() {
+  return <PortalPaymentsScreen />;
 }

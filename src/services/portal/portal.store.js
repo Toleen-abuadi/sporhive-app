@@ -1,6 +1,5 @@
-// src/services/portal/portal.store.js
-import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
-import { storage, PORTAL_KEYS } from '../storage/storage';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { storage } from '../storage/storage';
 import { portalApi } from './portal.api';
 import { normalizePortalOverview } from './portal.normalize';
 
@@ -8,11 +7,10 @@ const INITIAL_STATE = {
   isAuthenticated: false,
   isLoading: true,
   academyId: null,
-  authTokens: null,
-  tryOutId: null,
+  token: null,
   player: null,
-  error: null,
   overview: null,
+  error: null,
 };
 
 const PortalContext = createContext(null);
@@ -24,9 +22,6 @@ const OVERVIEW_INITIAL = {
   lastUpdated: null,
 };
 
-/**
- * Lightweight in-memory store for caching overview & cross-screen refresh
- */
 let _portalStoreState = { ...OVERVIEW_INITIAL };
 const _listeners = new Set();
 
@@ -74,85 +69,91 @@ export function PortalProvider({ children }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   const clearStorage = useCallback(async () => {
-    await storage.removeItem(PORTAL_KEYS.AUTH_TOKENS);
-    await storage.removeItem(PORTAL_KEYS.SESSION);
+    await storage.logoutPortal();
     portalStore.clear();
   }, []);
 
-  // Load persisted session on mount
-  useEffect(() => {
-    const loadSession = async () => {
-      try {
-        const authTokens = await storage.getItem(PORTAL_KEYS.AUTH_TOKENS);
-        const academyIdRaw = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);
-        const session = await storage.getItem(PORTAL_KEYS.SESSION);
+  const restoreSession = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    try {
+      const [academyId, tokens, session] = await Promise.all([
+        storage.getPortalAcademyId(),
+        storage.getPortalTokens(),
+        storage.getPortalSession(),
+      ]);
 
-        const academyId = academyIdRaw ? Number(academyIdRaw) : null;
-        const tokens = authTokens && typeof authTokens === 'string' ? safeJsonParse(authTokens) : authTokens;
+      const token = tokens?.access || tokens?.token || tokens?.access_token || null;
 
-        if (!tokens?.access || !academyId) {
-          setState({ ...INITIAL_STATE, isLoading: false, academyId: academyId || null });
-          return;
-        }
-
-        const me = await portalApi.me({ academyId });
-
-        if (me.success) {
-          setState({
-            isAuthenticated: true,
-            isLoading: false,
-            academyId,
-            authTokens: tokens,
-            tryOutId: session?.tryOutId || null,
-            player: session?.player || null,
-            error: null,
-          });
-        } else {
-          await clearStorage();
-          setState({ ...INITIAL_STATE, isLoading: false, academyId: academyId || null });
-        }
-      } catch (error) {
-        console.error('Failed to load portal session:', error);
-        setState({ ...INITIAL_STATE, isLoading: false });
-      } finally {
-        setIsInitialized(true);
+      if (!academyId || !token) {
+        setState({ ...INITIAL_STATE, isLoading: false, academyId: academyId || null });
+        return { success: false };
       }
-    };
 
-    loadSession();
+      const me = await portalApi.authMe({ academyId });
+
+      if (me.success) {
+        setState({
+          isAuthenticated: true,
+          isLoading: false,
+          academyId,
+          token,
+          player: session?.player || me.data?.player || null,
+          overview: null,
+          error: null,
+        });
+        await portalStore.loadOverview({ academyId, silent: true });
+        return { success: true };
+      }
+
+      await clearStorage();
+      setState({ ...INITIAL_STATE, isLoading: false, academyId });
+      return { success: false };
+    } catch (error) {
+      console.error('Failed to restore portal session:', error);
+      setState({ ...INITIAL_STATE, isLoading: false });
+      return { success: false, error };
+    } finally {
+      setIsInitialized(true);
+    }
   }, [clearStorage]);
+
+  useEffect(() => {
+    restoreSession();
+  }, [restoreSession]);
 
   const setAcademyId = useCallback(async (academyId) => {
     const id = academyId == null ? null : Number(academyId);
-    if (id) await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(id));
+    await storage.setPortalAcademyId(id);
     setState((prev) => ({ ...prev, academyId: id }));
   }, []);
 
   const login = useCallback(async ({ academyId, username, password }) => {
     const id = Number(academyId);
     setState((prev) => ({ ...prev, isLoading: true, error: null, academyId: id }));
-    await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(id));
+    await storage.setPortalAcademyId(id);
 
     const result = await portalApi.login({ academyId: id, username, password });
 
     if (result.success) {
       const data = result.data || {};
       const tokens = data.tokens || data;
-      const playerInfo = data.player || data.player_info || data.user || {};
-      const tryOutId = data.try_out_id || data.tryOutId || null;
-      await storage.setItem(PORTAL_KEYS.AUTH_TOKENS, tokens);
-      await storage.setItem(PORTAL_KEYS.SESSION, { player: playerInfo, tryOutId, academyId: id });
-      await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(id));
+      const token = tokens.access || tokens.token || tokens.access_token || null;
+      const playerInfo = data.player || data.player_info || data.user || null;
+
+      await storage.setPortalTokens(tokens);
+      await storage.setPortalSession({ player: playerInfo, academyId: id });
 
       setState({
         isAuthenticated: true,
         isLoading: false,
         academyId: id,
-        authTokens: tokens,
-        tryOutId,
+        token,
         player: playerInfo,
+        overview: null,
         error: null,
       });
+
+      await portalStore.loadOverview({ academyId: id, silent: true });
 
       return { success: true };
     }
@@ -171,28 +172,15 @@ export function PortalProvider({ children }) {
     }
   }, [clearStorage]);
 
-  const resetPassword = useCallback(async ({ academyId, username, phoneNumber }) => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
-    const customerId = academyId ? Number(academyId) : state.academyId;
-    if (customerId) await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(customerId));
-
-    const result = await portalApi.passwordResetRequest({ academyId: customerId, username, phoneNumber });
-
-    if (result.success) {
-      setState((prev) => ({ ...prev, isLoading: false }));
-      return { success: true };
-    }
-
-    const errorMsg = result.message || result.error?.message || 'Password reset request failed';
-    setState((prev) => ({ ...prev, isLoading: false, error: errorMsg }));
-    return { success: false, error: errorMsg };
-  }, [state.academyId]);
-
   const refreshOverview = useCallback(async () => {
     const result = await portalStore.refreshOverview({ academyId: state.academyId });
-    if (result.success) return result;
-    return { success: false, error: result.error };
+    if (result.success) {
+      setState((prev) => ({ ...prev, overview: result.data }));
+    }
+    return result;
   }, [state.academyId]);
+
+  const getProfile = useCallback(async () => portalApi.getProfile(), []);
 
   const updateProfile = useCallback(async (payload) => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
@@ -224,11 +212,6 @@ export function PortalProvider({ children }) {
     return { success: false, error: errorMsg };
   }, [refreshOverview]);
 
-  const checkRenewalsEligibility = useCallback(async (payload = {}) => {
-    const result = await portalApi.renewalsEligibility(payload);
-    return result;
-  }, []);
-
   const submitRenewal = useCallback(async (payload) => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
     const result = await portalApi.renewalsRequest(payload);
@@ -244,66 +227,35 @@ export function PortalProvider({ children }) {
     return { success: false, error: errorMsg };
   }, [refreshOverview]);
 
-  const placeUniformOrder = useCallback(async (payload) => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
-    const result = await portalApi.createUniformOrder(payload);
-
-    if (result.success) {
-      setState((prev) => ({ ...prev, isLoading: false }));
-      return { success: true, data: result.data };
-    }
-
-    const errorMsg = result.message || result.error?.message || 'Uniform order failed';
-    setState((prev) => ({ ...prev, isLoading: false, error: errorMsg }));
-    return { success: false, error: errorMsg };
-  }, []);
-
-  const refreshUniformOrders = useCallback(async (payload = {}) => {
-    const result = await portalApi.listMyUniformOrders(payload);
-    return result;
-  }, []);
-
-  const submitFeedback = useCallback(async (payload) => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
-    const result = await portalApi.getFeedbackTypes(payload);
-
-    if (result.success) {
-      setState((prev) => ({ ...prev, isLoading: false }));
-      return { success: true };
-    }
-
-    const errorMsg = result.message || result.error?.message || 'Feedback submission failed';
-    setState((prev) => ({ ...prev, isLoading: false, error: errorMsg }));
-    return { success: false, error: errorMsg };
-  }, []);
-
   const value = useMemo(
     () => ({
       ...state,
       isInitialized,
+      restoreSession,
       login,
       logout,
-      resetPassword,
       setAcademyId,
       refreshOverview,
+      getProfile,
       updateProfile,
       submitFreeze,
-      checkRenewalsEligibility,
       submitRenewal,
-      placeUniformOrder,
-      refreshUniformOrders,
-      submitFeedback,
     }),
-    [state, isInitialized, login, logout, resetPassword, setAcademyId, refreshOverview, updateProfile, submitFreeze, checkRenewalsEligibility, submitRenewal, placeUniformOrder, refreshUniformOrders, submitFeedback]
+    [state, isInitialized, restoreSession, login, logout, setAcademyId, refreshOverview, getProfile, updateProfile, submitFreeze, submitRenewal]
   );
 
   return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>;
 }
 
-export function usePortal() {
+export function usePortalAuth() {
   const ctx = useContext(PortalContext);
-  if (!ctx) throw new Error('usePortal must be used within a PortalProvider');
+  if (!ctx) throw new Error('usePortalAuth must be used within a PortalProvider');
   return ctx;
+}
+
+// Backwards compatibility
+export function usePortal() {
+  return usePortalAuth();
 }
 
 export const selectPaymentsSorted = (overview, direction = 'desc') => {
@@ -348,11 +300,3 @@ export const selectOverviewHeader = (overview) => ({
   playerName: overview?.player?.fullNameEn || overview?.player?.fullNameAr || '',
   avatar: overview?.player?.avatar || {},
 });
-
-function safeJsonParse(value) {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}

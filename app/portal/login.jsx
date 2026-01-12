@@ -1,7 +1,6 @@
-// app/portal/login.jsx
 import React from 'react';
-import Screen from '../../src/screens/portal/LoginScreen';
+import PortalLoginScreen from '../../src/screens/portal/PortalLoginScreen';
 
-export default function PortalRoute() {
-  return <Screen />;
+export default function PortalLoginRoute() {
+  return <PortalLoginScreen />;
 }

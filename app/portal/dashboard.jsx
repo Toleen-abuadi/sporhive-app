@@ -1,7 +1,6 @@
-// app/portal/dashboard.jsx
 import React from 'react';
 import { Redirect } from 'expo-router';
 
-export default function PortalRoute() {
-  return <Redirect href="/(portal)/overview" />;
+export default function PortalDashboardRoute() {
+  return <Redirect href="/portal/(tabs)/home" />;
 }
