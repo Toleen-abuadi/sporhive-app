@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 
 import { RequestFreezeModal } from './RequestFreezeModal';
-import { RequestRenewalDialog } from './RequestRenewalDialog';
+import { RequestRenewalDialog } from './RequestRenewalModal';
 import { usePortal } from '../../../services/portal/portal.hooks';
 
 const PortalModalsContext = createContext(null);

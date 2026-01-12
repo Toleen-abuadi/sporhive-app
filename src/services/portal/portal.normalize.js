@@ -105,7 +105,6 @@ export const normalizePortalOverview = (raw) => {
   };
 
   const metrics = pick(root, ['performance_feedback.metrics', 'metrics'], {}) || {};
-  const credits = pick(metrics, ['credits', 'credit_info'], {}) || {};
   const freeze = {
     current: pick(metrics, ['current_freeze'], null),
     upcoming: pick(metrics, ['upcoming_freeze'], null),

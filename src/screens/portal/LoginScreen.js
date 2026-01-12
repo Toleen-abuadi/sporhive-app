@@ -83,7 +83,7 @@ export default function LoginScreen({ navigation }) {
       return;
     }
     
-      router.replace('/(portal)/overview');
+      router.replace('/portal/overview');
   }, [validateForm, setAcademyId, selectedAcademy, login, username, password, t, router]);
 
   const renderAcademyItem = useCallback(

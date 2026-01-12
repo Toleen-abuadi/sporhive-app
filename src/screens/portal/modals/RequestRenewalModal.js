@@ -1,33 +1,26 @@
-// src/screens/portal/modals/RequestRenewalModal.js
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+// src/screens/portal/modals/RequestRenewalDialog.js
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-
-import { portalApi } from '../../../services/portal/portal.api';
-import { usePortal } from '../../../services/portal/portal.hooks';
-import { formatDate } from '../../../services/portal/portal.normalize';
-import { useToast } from '../../../components/ui/ToastHost';
+import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
+import {
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  Crown,
+  GraduationCap,
+  Target,
+  Zap,
+} from 'lucide-react-native';
 
 import { PortalModal } from '../../../components/portal/PortalModal';
-import { PortalButton, PortalCard, InlineError, StickyBar, PortalRow, Pill } from '../../../components/portal/PortalPrimitives';
-import { Field, Input, TextArea, Segmented } from '../../../components/portal/PortalForm';
+import { PortalButton, PortalCard, PortalRow, StickyBar } from '../../../components/portal/PortalPrimitives';
+import { Field, Input, TextArea } from '../../../components/portal/PortalForm';
+import { useToast } from '../../../components/ui/ToastHost';
+import { useTranslation } from '../../../services/i18n/i18n';
+import { portalApi } from '../../../services/portal/portal.api';
+import { usePlayerPortal } from '../../../services/portal/portal.hooks';
 import { colors, spacing, radius, typography, alphaBg } from '../../../theme/portal.styles';
-
-const toISO = (d) => {
-  if (!d) return '';
-  const x = new Date(d);
-  if (Number.isNaN(x.getTime())) return '';
-  const yyyy = x.getFullYear();
-  const mm = String(x.getMonth() + 1).padStart(2, '0');
-  const dd = String(x.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-};
-
-const parseISO = (s) => {
-  if (!s) return null;
-  const x = new Date(s);
-  return Number.isNaN(x.getTime()) ? null : x;
-};
 
 const DAY_MAP = {
   sunday: 0,
@@ -46,354 +39,779 @@ const DAY_MAP = {
   sat: 6,
 };
 
-const countSessionsBetween = (startDate, endDate, schedule = []) => {
-  const start = parseISO(startDate);
-  const end = parseISO(endDate);
-  if (!start || !end || end < start) return null;
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const toISO = (date) => {
+  if (!date) return '';
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const fromISO = (value) => {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const addMonths = (date, count) => {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + count);
+  return d;
+};
+
+const addDays = (date, count) => {
+  const d = new Date(date);
+  d.setDate(d.getDate() + count);
+  return d;
+};
+
+const isISO = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+
+const iso = (value) => {
+  if (!value) return '';
+  if (isISO(value)) return value;
+  return toISO(value);
+};
+
+const minISO = (a, b) => {
+  if (!a) return b || '';
+  if (!b) return a || '';
+  return a <= b ? a : b;
+};
+
+const maxISO = (a, b) => {
+  if (!a) return b || '';
+  if (!b) return a || '';
+  return a >= b ? a : b;
+};
+
+const clampISO = (value, min, max) => {
+  if (!value) return value;
+  let next = value;
+  if (min) next = maxISO(next, min);
+  if (max) next = minISO(next, max);
+  return next;
+};
+
+const sameStr = (a, b) => String(a || '') === String(b || '');
+
+const scheduleDaysFromGroup = (group) => {
+  const schedule = Array.isArray(group?.schedule) ? group.schedule : [];
   const days = schedule
-    .map((s) => String(s?.day || '').toLowerCase())
+    .map((item) => String(item?.day || item?.weekday || item?.label || '').toLowerCase())
     .map((name) => DAY_MAP[name])
-    .filter((d) => d != null);
-  if (!days.length) return null;
+    .filter((value) => value != null);
+  return new Set(days);
+};
+
+const countSessionsInclusive = (startISO, endISO, daysSet) => {
+  const start = fromISO(startISO);
+  const end = fromISO(endISO);
+  if (!start || !end || end < start) return null;
+  if (!daysSet || daysSet.size === 0) return null;
 
   let count = 0;
-  const cur = new Date(start);
-  while (cur <= end) {
-    if (days.includes(cur.getDay())) count += 1;
-    cur.setDate(cur.getDate() + 1);
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    if (daysSet.has(cursor.getDay())) count += 1;
+    cursor.setDate(cursor.getDate() + 1);
   }
   return count;
 };
 
-export const RequestRenewalModal = ({ visible, onClose }) => {
-  const { overview, refresh } = usePortal();
+const earliestEndForSessions = (startISO, targetSessions, daysSet, hardEndISO) => {
+  const start = fromISO(startISO);
+  const hardEnd = fromISO(hardEndISO);
+  if (!start || !targetSessions || !daysSet || daysSet.size === 0) return null;
+
+  let count = 0;
+  const cursor = new Date(start);
+  const maxDays = 720;
+
+  for (let i = 0; i < maxDays; i += 1) {
+    if (hardEnd && cursor > hardEnd) return toISO(hardEnd);
+    if (daysSet.has(cursor.getDay())) count += 1;
+    if (count >= targetSessions) return toISO(cursor);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return hardEnd ? toISO(hardEnd) : toISO(cursor);
+};
+
+const optionValue = (option) => option?.value ?? option?.id ?? option?.name ?? option?.label ?? option;
+
+const Stepper = ({ steps, currentStep, isRTL }) => (
+  <View style={[styles.stepper, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+  >
+    {steps.map((step, index) => {
+      const active = index === currentStep;
+      const complete = index < currentStep;
+      return (
+        <View key={step.key} style={[styles.stepItem, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+        >
+          <View style={[styles.stepCircle, active && styles.stepCircleActive, complete && styles.stepCircleDone]}>
+            {complete ? (
+              <CheckCircle2 size={16} color={colors.textInverted} />
+            ) : (
+              <Text style={styles.stepIndex}>{index + 1}</Text>
+            )}
+          </View>
+          <View style={{ marginHorizontal: spacing.xs }}>
+            <Text style={[styles.stepLabel, active && styles.stepLabelActive]}>{step.label}</Text>
+          </View>
+          {index < steps.length - 1 && (
+            <View style={[styles.stepDivider, complete && styles.stepDividerActive]} />
+          )}
+        </View>
+      );
+    })}
+  </View>
+);
+
+const CardButton = ({ icon: Icon, title, description, active, onPress, isRTL }) => (
+  <Pressable
+    onPress={onPress}
+    style={({ pressed }) => [
+      styles.cardButton,
+      active && styles.cardButtonActive,
+      pressed && { opacity: 0.9 },
+    ]}
+  >
+    <View style={[styles.cardButtonHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+    >
+      <View style={[styles.iconBadge, active && styles.iconBadgeActive]}>
+        <Icon size={20} color={active ? colors.textPrimary : colors.textSecondary} />
+      </View>
+      <Text style={[styles.cardButtonTitle, { textAlign: isRTL ? 'right' : 'left' }]}>{title}</Text>
+    </View>
+    {!!description && (
+      <Text style={[styles.cardButtonDesc, { textAlign: isRTL ? 'right' : 'left' }]}>{description}</Text>
+    )}
+  </Pressable>
+);
+
+export const RequestRenewalDialog = ({
+  isOpen,
+  onClose,
+  tryOutId,
+  currentReg,
+  currentLevel,
+  levels = [],
+  groupOptions = [],
+  courseOptions = [],
+}) => {
+  const { t, isRTL } = useTranslation();
   const toast = useToast();
+  const { refreshOverview } = usePlayerPortal();
 
   const [step, setStep] = useState(0);
-  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [checkingEligibility, setCheckingEligibility] = useState(false);
   const [error, setError] = useState('');
 
-  const [form, setForm] = useState({
-    renewType: 'subscription',
-    levelId: null,
-    courseId: null,
-    groupId: null,
-    startDate: '',
-    endDate: '',
-    sessions: '',
-    note: '',
-  });
-  const tryOutId = overview?.raw?.registration_info?.try_out_id || overview?.raw?.registration_info?.try_out || null;
+  const [renewType, setRenewType] = useState('subscription');
+  const [courseId, setCourseId] = useState('');
+  const [groupId, setGroupId] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [numSessions, setNumSessions] = useState('');
+  const [playerNote, setPlayerNote] = useState('');
+  const [level, setLevel] = useState('');
+  const [lastEdited, setLastEdited] = useState('none');
 
-  const courses = overview?.available?.courses || [];
-  const groups = overview?.available?.groups || [];
-  const levels = overview?.levels || [];
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
 
-  const selectedCourse = courses.find((c) => String(c.id) === String(form.courseId));
-  const selectedGroup = groups.find((g) => String(g.id) === String(form.groupId));
+  const todayISO = useMemo(() => toISO(new Date()), []);
 
-  const filteredGroups = useMemo(() => {
-    if (form.renewType !== 'course' || !form.courseId) return groups;
-    return groups.filter((g) => String(g.courseId) === String(form.courseId));
-  }, [form.courseId, form.renewType, groups]);
+  const prevStart = iso(currentReg?.start_date || currentReg?.startDate || currentReg?.start_date);
+  const prevEnd = iso(currentReg?.end_date || currentReg?.endDate || currentReg?.end_date);
+  const prevSessions = Number(currentReg?.number_of_sessions || currentReg?.numberOfSessions || currentReg?.sessions || 0) || '';
+  const prevGroupId = currentReg?.group_id || currentReg?.groupId || currentReg?.group?.id || '';
 
-  const clampDates = useCallback((nextForm) => {
-    const prevEnd = overview?.registration?.endDate;
-    const minStart = new Date();
+  const anchorStartISO = useMemo(() => {
     if (prevEnd) {
-      const end = new Date(prevEnd);
-      if (!Number.isNaN(end.getTime())) {
-        end.setDate(end.getDate() + 1);
-        if (end > minStart) minStart.setTime(end.getTime());
-      }
+      const next = addDays(fromISO(prevEnd), 1);
+      return maxISO(todayISO, toISO(next));
     }
+    return todayISO;
+  }, [prevEnd, todayISO]);
 
-    let startDate = nextForm.startDate;
-    let endDate = nextForm.endDate;
+  const anchorISO = prevEnd || todayISO;
 
-    if (startDate) {
-      const start = parseISO(startDate);
-      if (start && start < minStart) startDate = toISO(minStart);
+  const selectedCourse = useMemo(
+    () => courseOptions.find((course) => sameStr(optionValue(course), courseId)) || null,
+    [courseOptions, courseId]
+  );
+
+  const selectedGroup = useMemo(
+    () => groupOptions.find((group) => sameStr(optionValue(group), groupId)) || null,
+    [groupOptions, groupId]
+  );
+
+  const filteredCourseOptions = useMemo(() => courseOptions.filter((course) => {
+    const start = iso(course?.start_date || course?.startDate);
+    const end = iso(course?.end_date || course?.endDate);
+    if (!start && !end) return true;
+    if (start && end) return (start <= anchorISO && anchorISO <= end) || start >= anchorISO;
+    if (start) return start >= anchorISO;
+    return true;
+  }), [anchorISO, courseOptions]);
+
+  const filteredGroupOptions = useMemo(() => {
+    if (renewType === 'course') {
+      return groupOptions.filter((group) => sameStr(group?.course_id || group?.courseId, optionValue(selectedCourse)));
     }
+    return groupOptions.filter((group) => !group?.course_id && !group?.courseId);
+  }, [groupOptions, renewType, selectedCourse]);
 
-    if (nextForm.renewType === 'course' && selectedCourse) {
-      const courseStart = parseISO(selectedCourse.startDate);
-      const courseEnd = parseISO(selectedCourse.endDate);
-      if (courseStart) {
-        const nextStart = parseISO(startDate);
-        if (!nextStart || nextStart < courseStart) startDate = toISO(courseStart);
-      }
-      if (courseEnd && endDate) {
-        const nextEnd = parseISO(endDate);
-        if (nextEnd && nextEnd > courseEnd) endDate = toISO(courseEnd);
-      }
+  const sessionsCap = useMemo(() => {
+    if (renewType === 'course') {
+      const courseSessions = Number(selectedCourse?.num_of_sessions || selectedCourse?.numSessions || 0);
+      return courseSessions > 0 ? courseSessions : 365;
     }
+    return 365;
+  }, [renewType, selectedCourse]);
 
-    return { ...nextForm, startDate, endDate };
-  }, [overview?.registration?.endDate, selectedCourse]);
+  const trainingDays = useMemo(() => scheduleDaysFromGroup(selectedGroup), [selectedGroup]);
 
-  useEffect(() => {
-    if (!visible) return;
+  const startMin = useMemo(() => {
+    if (renewType === 'course' && selectedCourse) {
+      return maxISO(anchorStartISO, iso(selectedCourse?.start_date || selectedCourse?.startDate));
+    }
+    return anchorStartISO;
+  }, [anchorStartISO, renewType, selectedCourse]);
+
+  const startMax = useMemo(() => {
+    if (renewType === 'course' && selectedCourse) {
+      return iso(selectedCourse?.end_date || selectedCourse?.endDate);
+    }
+    return '';
+  }, [renewType, selectedCourse]);
+
+  const endMin = useMemo(() => startDate || startMin, [startDate, startMin]);
+
+  const endMax = useMemo(() => {
+    if (renewType === 'course' && selectedCourse) {
+      return iso(selectedCourse?.end_date || selectedCourse?.endDate);
+    }
+    return '';
+  }, [renewType, selectedCourse]);
+
+  const levelOptions = useMemo(() => levels.map((lvl) => ({
+    value: optionValue(lvl),
+    label: lvl?.label || lvl?.name || lvl?.title || String(lvl),
+  })), [levels]);
+
+  const isLevelValid = useMemo(() => levelOptions.some((opt) => sameStr(opt.value, level)), [level, levelOptions]);
+
+  const canProceedStep1 = isLevelValid && !!groupId && (renewType === 'subscription' || !!courseId);
+
+  const sessionsValue = Number(numSessions);
+  const validSessions = Number.isFinite(sessionsValue) && sessionsValue >= 1 && sessionsValue <= sessionsCap;
+  const validDates = !!startDate && !!endDate && startDate <= endDate;
+  const canProceedStep2 = validDates && validSessions && isLevelValid;
+
+  const canSubmit = canProceedStep1 && canProceedStep2;
+
+  const steps = useMemo(
+    () => [
+      { key: 'type', label: t('player.renewal.step1Title') || 'Type' },
+      { key: 'selection', label: t('player.renewal.step2Title') || 'Selection' },
+      { key: 'dates', label: t('player.renewal.step3Title') || 'Dates' },
+      { key: 'confirm', label: t('player.renewal.step4Title') || 'Confirm' },
+    ],
+    [t]
+  );
+
+  const resetForm = useCallback(() => {
+    const initialLevel = currentLevel || levelOptions[0]?.value || '';
+    const initialCourseId = currentReg?.course_id || currentReg?.courseId || '';
+    const initialGroupId = prevGroupId || '';
+    const initialSessions = prevSessions || 1;
+
     setStep(0);
+    setLoading(false);
     setError('');
-    setForm({
-      renewType: 'subscription',
-      levelId: null,
-      courseId: null,
-      groupId: null,
-      startDate: '',
-      endDate: '',
-      sessions: '',
-      note: '',
-    });
-  }, [visible]);
+    setRenewType('subscription');
+    setCourseId(initialCourseId ? String(initialCourseId) : '');
+    setGroupId(initialGroupId ? String(initialGroupId) : '');
+    setStartDate(anchorStartISO);
+    setEndDate('');
+    setNumSessions(String(initialSessions));
+    setPlayerNote('');
+    setLevel(initialLevel ? String(initialLevel) : '');
+    setLastEdited('none');
+  }, [anchorStartISO, currentLevel, currentReg, levelOptions, prevSessions]);
 
   useEffect(() => {
-    if (!form.startDate || !form.endDate) return;
-    const computed = countSessionsBetween(form.startDate, form.endDate, selectedGroup?.schedule || []);
-    if (computed != null) {
-      setForm((prev) => ({ ...prev, sessions: String(computed) }));
-    }
-  }, [form.startDate, form.endDate, selectedGroup?.schedule]);
+    if (!isOpen) return;
+    resetForm();
+  }, [isOpen, resetForm]);
 
-  const nextStep = () => {
-    setError('');
-    if (step === 1) {
-      if (!form.groupId) {
-        setError('Please select a group.');
-        return;
-      }
-      if (form.renewType === 'course' && !form.courseId) {
-        setError('Please select a course.');
-        return;
-      }
+  useEffect(() => {
+    if (!isOpen) return;
+    if (lastEdited !== 'none') return;
+    const nextSessions = Number(numSessions) || 1;
+    const nextEnd = earliestEndForSessions(startDate || startMin, nextSessions, trainingDays, endMax || null);
+    if (nextEnd && nextEnd !== endDate) {
+      setEndDate(nextEnd);
     }
-    if (step === 2) {
-      if (!form.startDate || !form.endDate) {
-        setError('Please select start and end dates.');
-        return;
-      }
-      const start = parseISO(form.startDate);
-      const end = parseISO(form.endDate);
-      if (start && end && end < start) {
-        setError('End date must be after start date.');
-        return;
-      }
+  }, [endDate, endMax, isOpen, lastEdited, numSessions, startDate, startMin, trainingDays]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (groupId && !filteredGroupOptions.some((group) => sameStr(optionValue(group), groupId))) {
+      setGroupId('');
+    }
+  }, [filteredGroupOptions, groupId, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!startDate) return;
+
+    let nextStart = clampISO(startDate, startMin, startMax);
+    let nextEnd = endDate;
+
+    if (nextStart !== startDate) setStartDate(nextStart);
+    if (nextEnd) {
+      nextEnd = clampISO(nextEnd, nextStart, endMax);
+      if (nextEnd !== endDate) setEndDate(nextEnd);
+    }
+  }, [endMax, endDate, isOpen, startDate, startMax, startMin]);
+
+  const checkEligibility = useCallback(async () => {
+    if (!tryOutId) {
+      const message = t('player.renewal.missingTryOut') || 'Missing try-out information.';
+      toast?.error?.(t('player.renewal.notEligibleTitle') || 'Renewal unavailable', { message });
+      onClose?.(false, message);
+      return false;
+    }
+    setCheckingEligibility(true);
+    try {
+      const res = await portalApi.renewalsEligibility({ try_out: Number(tryOutId) });
+      if (!res?.success) throw res?.error || new Error('Not eligible');
+      return true;
+    } catch (err) {
+      const message = err?.message || t('player.renewal.notEligible') || 'Not eligible for renewal.';
+      toast?.error?.(t('player.renewal.notEligibleTitle') || 'Renewal unavailable', { message });
+      onClose?.(false, message);
+      return false;
+    } finally {
+      setCheckingEligibility(false);
+    }
+  }, [onClose, t, toast, tryOutId]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    checkEligibility();
+  }, [checkEligibility, isOpen]);
+
+  const handleStartChange = useCallback((value) => {
+    const nextStart = clampISO(value, startMin, startMax) || startMin;
+    const nextSessions = clamp(Number(numSessions) || 1, 1, sessionsCap);
+    const nextEnd = earliestEndForSessions(nextStart, nextSessions, trainingDays, endMax || null);
+
+    setStartDate(nextStart);
+    setNumSessions(String(nextSessions));
+    if (nextEnd) setEndDate(nextEnd);
+    setLastEdited('start');
+  }, [endMax, numSessions, sessionsCap, startMax, startMin, trainingDays]);
+
+  const handleEndChange = useCallback((value) => {
+    const nextEnd = clampISO(value, endMin, endMax) || endMin;
+    const nextSessions = countSessionsInclusive(startDate || startMin, nextEnd, trainingDays);
+    setEndDate(nextEnd);
+    if (nextSessions != null) {
+      setNumSessions(String(clamp(nextSessions, 1, sessionsCap)));
+    }
+    setLastEdited('end');
+  }, [endMax, endMin, sessionsCap, startDate, startMin, trainingDays]);
+
+  const handleSessionsChange = useCallback((value) => {
+    const clean = String(value || '').replace(/[^\d]/g, '');
+    const nextSessions = clamp(Number(clean) || 1, 1, sessionsCap);
+    const seedStart = startDate || startMin;
+    const nextEnd = earliestEndForSessions(seedStart, nextSessions, trainingDays, endMax || null);
+
+    setStartDate(seedStart);
+    setNumSessions(String(nextSessions));
+    if (nextEnd) setEndDate(nextEnd);
+    setLastEdited('sessions');
+  }, [endMax, sessionsCap, startDate, startMin, trainingDays]);
+
+  const handleNext = useCallback(() => {
+    setError('');
+    if (step === 1 && !canProceedStep1) {
+      setError(t('player.renewal.step2Error') || 'Please complete the required fields.');
+      return;
+    }
+    if (step === 2 && !canProceedStep2) {
+      setError(t('player.renewal.step3Error') || 'Please provide valid dates and sessions.');
+      return;
     }
     setStep((prev) => Math.min(prev + 1, 3));
-  };
+  }, [canProceedStep1, canProceedStep2, step, t]);
 
-  const prevStep = () => setStep((prev) => Math.max(prev - 1, 0));
+  const handleBack = useCallback(() => setStep((prev) => Math.max(prev - 1, 0)), []);
 
-  const submit = async () => {
-    setBusy(true);
+  const handleSubmit = useCallback(async () => {
+    if (!canSubmit || loading) return;
+    setLoading(true);
     setError('');
+    const toastId = toast?.push?.({
+      variant: 'loading',
+      title: t('player.renewal.submitting') || 'Submitting',
+      description: t('player.renewal.pleaseWait') || 'Please wait while we submit your request.',
+      duration: 0,
+    });
+
     try {
       const payload = {
-        renew_type: form.renewType,
-        level_id: form.levelId ? Number(form.levelId) : null,
-        level: form.levelId ? Number(form.levelId) : null,
-        course_id: form.courseId ? Number(form.courseId) : null,
-        course: form.courseId ? Number(form.courseId) : null,
-        group_id: form.groupId ? Number(form.groupId) : null,
-        group: form.groupId ? Number(form.groupId) : null,
-        start_date: form.startDate || null,
-        end_date: form.endDate || null,
-        number_of_sessions: form.sessions ? Number(form.sessions) : null,
-        player_note: form.note ? String(form.note) : null,
-        registration_id: overview?.registration?.id || null,
-        try_out: tryOutId ? Number(tryOutId) : null,
+        try_out: Number(tryOutId),
+        current_reg: currentReg?.id || null,
+        renew_type: renewType,
+        course: renewType === 'course' ? Number(courseId) : null,
+        group: Number(groupId),
+        start_date: startDate || null,
+        end_date: endDate || null,
+        number_of_sessions: Number(numSessions),
+        level: level || null,
+        player_note: playerNote || null,
       };
 
-      const res = await portalApi.requestRenewal(payload);
+      const res = await portalApi.renewalsRequest(payload);
       if (!res?.success) throw res?.error || new Error('Request failed');
 
-      toast?.success?.('Renewal request submitted', {
-        message: 'Your renewal request has been sent to the academy.',
+      toast?.update?.(toastId, {
+        variant: 'success',
+        title: t('player.renewal.submitted') || 'Renewal submitted',
+        description: t('player.renewal.submittedDesc') || 'Your renewal request has been sent.',
+        duration: 3200,
       });
-      await refresh();
-      onClose?.();
+      await refreshOverview?.();
+      onClose?.(true);
     } catch (err) {
-      const msg = err?.message || 'Failed to submit renewal request.';
-      setError(msg);
-      toast?.error?.('Renewal failed', { message: msg });
+      const message = err?.message || t('player.renewal.submitFailed') || 'Failed to submit renewal.';
+      toast?.update?.(toastId, {
+        variant: 'error',
+        title: t('player.renewal.submitFailed') || 'Submission failed',
+        description: message,
+        duration: 3200,
+      });
+      onClose?.(false, message);
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
-  };
+  }, [canSubmit, courseId, currentReg?.id, endDate, groupId, level, loading, numSessions, onClose, playerNote, refreshOverview, renewType, startDate, t, toast, tryOutId]);
 
-  const stepTitle = ['Type', 'Selection', 'Dates', 'Review'][step];
+  const summaryRows = [
+    { label: t('player.renewal.summaryType') || 'Type', value: renewType },
+    { label: t('player.renewal.summaryCourse') || 'Course', value: selectedCourse?.label || selectedCourse?.name || '—' },
+    { label: t('player.renewal.summaryGroup') || 'Group', value: selectedGroup?.label || selectedGroup?.name || '—' },
+    { label: t('player.renewal.summaryStart') || 'Start date', value: startDate || '—' },
+    { label: t('player.renewal.summaryEnd') || 'End date', value: endDate || '—' },
+    { label: t('player.renewal.summarySessions') || 'Sessions', value: numSessions || '—' },
+    { label: t('player.renewal.summaryLevel') || 'Level', value: level || '—' },
+  ];
 
   return (
     <PortalModal
-      visible={visible}
-      title="Request Renewal"
-      subtitle={`Step ${step + 1} of 4 • ${stepTitle}`}
-      onClose={busy ? null : onClose}
+      visible={isOpen}
+      title={t('player.renewal.title') || 'Request Renewal'}
+      subtitle={t('player.renewal.subtitle') || `Step ${step + 1} of 4`}
+      onClose={loading ? null : onClose}
     >
-      <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
-        {!!error && <InlineError text={error} />}
+      <ScrollView contentContainerStyle={{ paddingBottom: 160 }}>
+        <Stepper steps={steps} currentStep={step} isRTL={isRTL} />
+
+        {!!error && <Text style={styles.errorText}>{error}</Text>}
 
         {step === 0 && (
-          <PortalCard title="Renewal type" subtitle="Choose subscription or course renewal.">
-            <Segmented
-              value={form.renewType}
-              onChange={(v) => setForm((prev) => ({ ...prev, renewType: v, courseId: null, groupId: null }))}
-              options={[
-                { value: 'subscription', label: 'Subscription' },
-                { value: 'course', label: 'Course' },
-              ]}
-            />
-          </PortalCard>
+          <Animated.View entering={FadeInUp} exiting={FadeOutDown}>
+            <PortalCard
+              title={t('player.renewal.step1Heading') || 'Choose renewal type'}
+              subtitle={t('player.renewal.step1Sub') || 'Select how you want to renew your subscription.'}
+            >
+              <View style={{ gap: spacing.md }}>
+                <CardButton
+                  icon={Zap}
+                  title={t('player.renewal.subscription') || 'Subscription'}
+                  description={t('player.renewal.subscriptionDesc') || 'Continue with a flexible subscription plan.'}
+                  active={renewType === 'subscription'}
+                  onPress={() => {
+                    setRenewType('subscription');
+                    setCourseId('');
+                    setGroupId('');
+                  }}
+                  isRTL={isRTL}
+                />
+                <CardButton
+                  icon={Crown}
+                  title={t('player.renewal.course') || 'Course'}
+                  description={t('player.renewal.courseDesc') || 'Renew by choosing a specific course schedule.'}
+                  active={renewType === 'course'}
+                  onPress={() => {
+                    setRenewType('course');
+                    setCourseId('');
+                    setGroupId('');
+                  }}
+                  isRTL={isRTL}
+                />
+              </View>
+            </PortalCard>
+
+            <PortalCard
+              title={t('player.renewal.currentTitle') || 'Current subscription'}
+              subtitle={t('player.renewal.currentSub') || 'Here is your current subscription summary.'}
+              style={{ marginTop: spacing.md }}
+            >
+              <PortalRow
+                title={t('player.renewal.currentType') || 'Type'}
+                value={currentReg?.registration_type || currentReg?.type || '—'}
+              />
+              <PortalRow
+                title={t('player.renewal.currentCourse') || 'Course'}
+                value={currentReg?.course_name || currentReg?.course?.name || '—'}
+              />
+              <PortalRow title={t('player.renewal.currentStart') || 'Start'} value={prevStart || '—'} />
+              <PortalRow title={t('player.renewal.currentEnd') || 'End'} value={prevEnd || '—'} />
+              <PortalRow
+                title={t('player.renewal.currentSessions') || 'Sessions'}
+                value={prevSessions || '—'}
+              />
+              <PortalRow title={t('player.renewal.currentLevel') || 'Level'} value={currentLevel || '—'} />
+            </PortalCard>
+          </Animated.View>
         )}
 
         {step === 1 && (
-          <PortalCard title="Select level, course, and group" subtitle="Pick the best matching option.">
-            {!!levels.length && (
-              <View style={{ marginBottom: spacing.md }}>
-                <Text style={styles.sectionLabel}>Levels</Text>
-                <View style={styles.wrapRow}>
-                  {levels.map((lvl) => (
+          <Animated.View entering={FadeInUp} exiting={FadeOutDown}>
+            <PortalCard
+              title={t('player.renewal.step2Heading') || 'Select level and group'}
+              subtitle={t('player.renewal.step2Sub') || 'Choose your training level and group.'}
+            >
+              <Field label={t('player.renewal.levelLabel') || 'Level'}>
+                <View style={styles.optionWrap}>
+                  {levelOptions.map((option) => (
                     <Pressable
-                      key={String(lvl?.id || lvl)}
-                      onPress={() => setForm((prev) => ({ ...prev, levelId: lvl?.id || lvl }))}
-                      style={({ pressed }) => [styles.selectChip, form.levelId === (lvl?.id || lvl) && styles.selectChipActive, pressed && { opacity: 0.9 }]}
+                      key={String(option.value)}
+                      onPress={() => setLevel(String(option.value))}
+                      style={({ pressed }) => [
+                        styles.optionChip,
+                        sameStr(option.value, level) && styles.optionChipActive,
+                        pressed && { opacity: 0.9 },
+                      ]}
                     >
-                      <Text style={styles.selectChipText}>{lvl?.name || lvl?.label || lvl?.title || String(lvl)}</Text>
+                      <Text style={styles.optionChipText}>{option.label}</Text>
                     </Pressable>
                   ))}
                 </View>
-              </View>
-            )}
+              </Field>
 
-            {form.renewType === 'course' && (
-              <View style={{ marginBottom: spacing.md }}>
-                <Text style={styles.sectionLabel}>Courses</Text>
-                {courses.length ? (
-                  courses.map((course) => (
-                    <PortalRow
-                      key={String(course.id)}
-                      title={course.name || 'Course'}
-                      value={course.startDate && course.endDate ? `${formatDate(course.startDate)} → ${formatDate(course.endDate)}` : '—'}
-                      onPress={() => setForm((prev) => ({ ...prev, courseId: course.id, groupId: null }))}
-                      right={form.courseId === course.id ? <Pill label="Selected" tone="success" small /> : null}
-                    />
-                  ))
-                ) : (
-                  <Text style={styles.muted}>No courses available.</Text>
-                )}
-              </View>
-            )}
+              {renewType === 'course' && (
+                <Field label={t('player.renewal.courseLabel') || 'Course'}>
+                  <View style={{ gap: spacing.sm }}>
+                    {filteredCourseOptions.map((course) => (
+                      <Pressable
+                        key={String(optionValue(course))}
+                        onPress={() => {
+                          setCourseId(String(optionValue(course)));
+                          setGroupId('');
+                        }}
+                        style={({ pressed }) => [
+                          styles.optionCard,
+                          sameStr(optionValue(course), courseId) && styles.optionCardActive,
+                          pressed && { opacity: 0.9 },
+                        ]}
+                      >
+                        <View style={styles.optionCardHeader}>
+                          <GraduationCap size={18} color={colors.textSecondary} />
+                          <Text style={styles.optionCardTitle}>{course.label || course.name}</Text>
+                        </View>
+                        <Text style={styles.optionCardDesc}>
+                          {iso(course?.start_date || course?.startDate)}
+                          {course?.end_date || course?.endDate ? ` → ${iso(course?.end_date || course?.endDate)}` : ''}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </Field>
+              )}
 
-            <Text style={styles.sectionLabel}>Groups</Text>
-            {filteredGroups.length ? (
-              filteredGroups.map((group) => (
-                <PortalRow
-                  key={String(group.id)}
-                  title={group.name || 'Group'}
-                  value={group.schedule?.length ? group.schedule.map((s) => s.label || `${s.day} ${s.time}`).join(', ') : 'Schedule not available'}
-                  onPress={() => setForm((prev) => ({ ...prev, groupId: group.id }))}
-                  right={form.groupId === group.id ? <Pill label="Selected" tone="success" small /> : null}
-                />
-              ))
-            ) : (
-              <Text style={styles.muted}>No groups available.</Text>
-            )}
-          </PortalCard>
+              <Field label={t('player.renewal.groupLabel') || 'Group'}>
+                <View style={{ gap: spacing.sm }}>
+                  {filteredGroupOptions.map((group) => (
+                    <Pressable
+                      key={String(optionValue(group))}
+                      onPress={() => setGroupId(String(optionValue(group)))}
+                      style={({ pressed }) => [
+                        styles.optionCard,
+                        sameStr(optionValue(group), groupId) && styles.optionCardActive,
+                        pressed && { opacity: 0.9 },
+                      ]}
+                    >
+                      <View style={styles.optionCardHeader}>
+                        <Target size={18} color={colors.textSecondary} />
+                        <Text style={styles.optionCardTitle}>{group.label || group.name}</Text>
+                      </View>
+                      {!!group?.schedule?.length && (
+                        <Text style={styles.optionCardDesc}>
+                          {group.schedule.map((s) => s.label || `${s.day} ${s.time || ''}`).join(', ')}
+                        </Text>
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              </Field>
+            </PortalCard>
+          </Animated.View>
         )}
 
         {step === 2 && (
-          <PortalCard title="Dates & sessions" subtitle="Pick your renewal dates and sessions.">
-            <Field label="Start date">
-              <Pressable
-                onPress={() => setForm((prev) => ({ ...prev, _pickStart: true }))}
-                style={({ pressed }) => [styles.dateBtn, pressed && { opacity: 0.9 }]}
+          <Animated.View entering={FadeInUp} exiting={FadeOutDown}>
+            <PortalCard
+              title={t('player.renewal.step3Heading') || 'Dates and sessions'}
+              subtitle={t('player.renewal.step3Sub') || 'Pick the schedule that works for you.'}
+            >
+              <Field label={t('player.renewal.startDate') || 'Start date'}>
+                <Pressable
+                  onPress={() => setShowStartPicker(true)}
+                  style={({ pressed }) => [styles.dateButton, pressed && { opacity: 0.9 }]}
+                >
+                  <CalendarDays size={18} color={colors.textSecondary} />
+                  <Text style={styles.dateText}>{startDate || startMin || todayISO}</Text>
+                </Pressable>
+                {showStartPicker && (
+                  <DateTimePicker
+                    value={fromISO(startDate) || fromISO(startMin) || new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    minimumDate={fromISO(startMin) || undefined}
+                    maximumDate={fromISO(startMax) || undefined}
+                    onChange={(_, date) => {
+                      if (Platform.OS !== 'ios') setShowStartPicker(false);
+                      if (date) handleStartChange(toISO(date));
+                    }}
+                  />
+                )}
+                {Platform.OS === 'ios' && showStartPicker ? (
+                  <PortalButton
+                    title={t('player.renewal.done') || 'Done'}
+                    tone="secondary"
+                    onPress={() => setShowStartPicker(false)}
+                    style={{ marginTop: spacing.sm }}
+                  />
+                ) : null}
+              </Field>
+
+              <Field label={t('player.renewal.endDate') || 'End date'}>
+                <Pressable
+                  onPress={() => setShowEndPicker(true)}
+                  style={({ pressed }) => [styles.dateButton, pressed && { opacity: 0.9 }]}
+                >
+                  <CalendarDays size={18} color={colors.textSecondary} />
+                  <Text style={styles.dateText}>{endDate || endMin || todayISO}</Text>
+                </Pressable>
+                {showEndPicker && (
+                  <DateTimePicker
+                    value={fromISO(endDate) || fromISO(endMin) || new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    minimumDate={fromISO(endMin) || undefined}
+                    maximumDate={fromISO(endMax) || undefined}
+                    onChange={(_, date) => {
+                      if (Platform.OS !== 'ios') setShowEndPicker(false);
+                      if (date) handleEndChange(toISO(date));
+                    }}
+                  />
+                )}
+                {Platform.OS === 'ios' && showEndPicker ? (
+                  <PortalButton
+                    title={t('player.renewal.done') || 'Done'}
+                    tone="secondary"
+                    onPress={() => setShowEndPicker(false)}
+                    style={{ marginTop: spacing.sm }}
+                  />
+                ) : null}
+              </Field>
+
+              <Field
+                label={t('player.renewal.sessionsLabel') || 'Number of sessions'}
+                hint={`${t('player.renewal.sessionsCap') || 'Max'}: ${sessionsCap}`}
               >
-                <Text style={styles.dateText}>{form.startDate || 'Pick a date'}</Text>
-              </Pressable>
-              {form._pickStart ? (
-                <DateTimePicker
-                  value={parseISO(form.startDate) || new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(_, d) => {
-                    if (Platform.OS !== 'ios') setForm((prev) => ({ ...prev, _pickStart: false }));
-                    if (d) setForm((prev) => clampDates({ ...prev, startDate: toISO(d), _pickStart: Platform.OS === 'ios' }));
-                  }}
+                <Input
+                  value={String(numSessions)}
+                  onChangeText={handleSessionsChange}
+                  keyboardType="number-pad"
+                  placeholder="0"
                 />
-              ) : null}
-              {Platform.OS === 'ios' && form._pickStart ? (
-                <PortalButton title="Done" tone="secondary" onPress={() => setForm((prev) => ({ ...prev, _pickStart: false }))} />
-              ) : null}
-            </Field>
+              </Field>
 
-            <Field label="End date">
-              <Pressable
-                onPress={() => setForm((prev) => ({ ...prev, _pickEnd: true }))}
-                style={({ pressed }) => [styles.dateBtn, pressed && { opacity: 0.9 }]}
-              >
-                <Text style={styles.dateText}>{form.endDate || 'Pick a date'}</Text>
-              </Pressable>
-              {form._pickEnd ? (
-                <DateTimePicker
-                  value={parseISO(form.endDate) || parseISO(form.startDate) || new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(_, d) => {
-                    if (Platform.OS !== 'ios') setForm((prev) => ({ ...prev, _pickEnd: false }));
-                    if (d) setForm((prev) => clampDates({ ...prev, endDate: toISO(d), _pickEnd: Platform.OS === 'ios' }));
-                  }}
-                />
-              ) : null}
-              {Platform.OS === 'ios' && form._pickEnd ? (
-                <PortalButton title="Done" tone="secondary" onPress={() => setForm((prev) => ({ ...prev, _pickEnd: false }))} />
-              ) : null}
-            </Field>
-
-            <Field label="Number of sessions">
-              <Input
-                value={form.sessions}
-                onChangeText={(v) => setForm((prev) => ({ ...prev, sessions: v.replace(/[^\d]/g, '') }))}
-                placeholder="e.g. 12"
-                keyboardType="number-pad"
-              />
-            </Field>
-
-            <Field label="Notes (optional)">
-              <TextArea
-                value={form.note}
-                onChangeText={(v) => setForm((prev) => ({ ...prev, note: v }))}
-                placeholder="Any preference or note for the academy…"
-              />
-            </Field>
-          </PortalCard>
+              {!isLevelValid && (
+                <Field label={t('player.renewal.levelLabel') || 'Level'}>
+                  <Input
+                    value={level}
+                    onChangeText={setLevel}
+                    placeholder={t('player.renewal.levelPlaceholder') || 'Select a level'}
+                  />
+                </Field>
+              )}
+            </PortalCard>
+          </Animated.View>
         )}
 
         {step === 3 && (
-          <PortalCard title="Review" subtitle="Confirm your renewal request details.">
-            <PortalRow title="Type" value={form.renewType} />
-            <PortalRow title="Course" value={selectedCourse?.name || '—'} />
-            <PortalRow title="Group" value={selectedGroup?.name || '—'} />
-            <PortalRow title="Start" value={form.startDate ? formatDate(form.startDate) : '—'} />
-            <PortalRow title="End" value={form.endDate ? formatDate(form.endDate) : '—'} />
-            <PortalRow title="Sessions" value={form.sessions || '—'} />
-            {!!form.note && <PortalRow title="Notes" value={form.note} />}
-          </PortalCard>
+          <Animated.View entering={FadeInUp} exiting={FadeOutDown}>
+            <PortalCard
+              title={t('player.renewal.step4Heading') || 'Confirm renewal'}
+              subtitle={t('player.renewal.step4Sub') || 'Review your request before submitting.'}
+            >
+              {summaryRows.map((row) => (
+                <PortalRow key={row.label} title={row.label} value={row.value} />
+              ))}
+
+              <Field label={t('player.renewal.noteLabel') || 'Player note'}>
+                <TextArea
+                  value={playerNote}
+                  onChangeText={setPlayerNote}
+                  placeholder={t('player.renewal.notePlaceholder') || 'Add a note for the academy (optional)'}
+                />
+              </Field>
+            </PortalCard>
+          </Animated.View>
         )}
       </ScrollView>
 
       <StickyBar>
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', gap: spacing.sm }}>
           {step > 0 ? (
             <View style={{ flex: 1 }}>
-              <PortalButton title="Back" tone="secondary" onPress={prevStep} disabled={busy} />
+              <PortalButton
+                title={t('player.renewal.back') || 'Back'}
+                tone="secondary"
+                onPress={handleBack}
+                disabled={loading || checkingEligibility}
+              />
             </View>
           ) : null}
           <View style={{ flex: 1 }}>
             {step < 3 ? (
-              <PortalButton title="Next" onPress={nextStep} disabled={busy} />
+              <PortalButton
+                title={t('player.renewal.next') || 'Next'}
+                onPress={handleNext}
+                disabled={loading || checkingEligibility || (step === 1 && !canProceedStep1) || (step === 2 && !canProceedStep2)}
+              />
             ) : (
-              <PortalButton title={busy ? 'Submitting…' : 'Submit'} onPress={submit} disabled={busy} />
+              <PortalButton
+                title={loading ? t('player.renewal.submitting') || 'Submitting…' : t('player.renewal.submit') || 'Submit'}
+                onPress={handleSubmit}
+                disabled={loading || checkingEligibility || !canSubmit}
+              />
             )}
           </View>
         </View>
@@ -403,47 +821,160 @@ export const RequestRenewalModal = ({ visible, onClose }) => {
 };
 
 const styles = StyleSheet.create({
-  muted: {
-    color: colors.textSecondary,
-    fontFamily: typography.family.regular,
-    fontSize: typography.sizes.sm,
-  },
-  sectionLabel: {
-    marginBottom: 6,
-    color: colors.textTertiary,
-    fontFamily: typography.family.medium,
-    fontSize: typography.sizes.xs,
-  },
-  wrapRow: {
-    flexDirection: 'row',
+  stepper: {
+    marginBottom: spacing.md,
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  selectChip: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: radius.round,
-    backgroundColor: colors.backgroundElevated,
+  stepItem: {
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  stepCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.borderMedium,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.backgroundElevated,
   },
-  selectChipActive: {
-    backgroundColor: alphaBg(colors.primary, 0.18),
-    borderColor: alphaBg(colors.primary, 0.4),
+  stepCircleActive: {
+    borderColor: colors.primary,
   },
-  selectChipText: {
+  stepCircleDone: {
+    backgroundColor: colors.success,
+    borderColor: colors.success,
+  },
+  stepIndex: {
     color: colors.textPrimary,
     fontFamily: typography.family.medium,
     fontSize: typography.sizes.sm,
   },
-  dateBtn: {
+  stepLabel: {
+    color: colors.textSecondary,
+    fontFamily: typography.family.medium,
+    fontSize: typography.sizes.xs,
+  },
+  stepLabelActive: {
+    color: colors.textPrimary,
+  },
+  stepDivider: {
+    width: 28,
+    height: 2,
+    backgroundColor: colors.borderMedium,
+    marginHorizontal: spacing.xs,
+  },
+  stepDividerActive: {
+    backgroundColor: colors.primary,
+  },
+  errorText: {
+    color: colors.error,
+    fontFamily: typography.family.medium,
+    fontSize: typography.sizes.sm,
+    marginBottom: spacing.sm,
+  },
+  cardButton: {
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderMedium,
+    backgroundColor: colors.backgroundElevated,
+  },
+  cardButtonActive: {
+    borderColor: colors.primary,
+    backgroundColor: alphaBg(colors.primary, 0.16),
+  },
+  cardButtonHeader: {
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  iconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.borderMedium,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.backgroundCard,
+  },
+  iconBadgeActive: {
+    borderColor: colors.primary,
+    backgroundColor: alphaBg(colors.primary, 0.25),
+  },
+  cardButtonTitle: {
+    color: colors.textPrimary,
+    fontFamily: typography.family.bold,
+    fontSize: typography.sizes.base,
+  },
+  cardButtonDesc: {
+    color: colors.textSecondary,
+    fontFamily: typography.family.regular,
+    fontSize: typography.sizes.sm,
+    marginTop: spacing.xs,
+    lineHeight: typography.sizes.sm * 1.4,
+  },
+  optionWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  optionChip: {
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.round,
+    borderWidth: 1,
+    borderColor: colors.borderMedium,
+    backgroundColor: colors.backgroundElevated,
+  },
+  optionChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: alphaBg(colors.primary, 0.18),
+  },
+  optionChipText: {
+    color: colors.textPrimary,
+    fontFamily: typography.family.medium,
+    fontSize: typography.sizes.sm,
+  },
+  optionCard: {
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderMedium,
+    backgroundColor: colors.backgroundElevated,
+  },
+  optionCardActive: {
+    borderColor: colors.primary,
+    backgroundColor: alphaBg(colors.primary, 0.16),
+  },
+  optionCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  optionCardTitle: {
+    color: colors.textPrimary,
+    fontFamily: typography.family.medium,
+    fontSize: typography.sizes.base,
+  },
+  optionCardDesc: {
+    marginTop: spacing.xs,
+    color: colors.textSecondary,
+    fontFamily: typography.family.regular,
+    fontSize: typography.sizes.sm,
+  },
+  dateButton: {
     height: 48,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.backgroundElevated,
     borderWidth: 1,
     borderColor: colors.borderMedium,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   dateText: {
     color: colors.textPrimary,
