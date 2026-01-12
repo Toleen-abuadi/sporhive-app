@@ -86,37 +86,8 @@ export function PortalProvider({ children }) {
 
   const restoreSession = useCallback(async () => {
     try {
-      const authTokens = await storage.getItem(PORTAL_KEYS.AUTH_TOKENS);
       const academyIdRaw = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);
-      const session = await storage.getItem(PORTAL_KEYS.SESSION);
-
       const academyId = academyIdRaw ? Number(academyIdRaw) : null;
-      const tokens = authTokens && typeof authTokens === 'string' ? safeJsonParse(authTokens) : authTokens;
-      const token = tokens?.access || tokens?.token || tokens?.access_token || null;
-
-      if (!token || !academyId) {
-        setState({ ...INITIAL_STATE, isLoading: false, academyId: academyId || null });
-        return { success: false };
-      }
-
-      const me = await portalApi.authMe({ academyId });
-
-      if (me.success) {
-        setState({
-          isAuthenticated: true,
-          isLoading: false,
-          academyId,
-          authTokens: tokens,
-          token,
-          tryOutId: session?.tryOutId || null,
-          player: session?.player || me.data?.player || null,
-          error: null,
-        });
-        await portalStore.loadOverview({ academyId, silent: true });
-        return { success: true };
-      }
-
-      await clearStorage();
       setState({ ...INITIAL_STATE, isLoading: false, academyId: academyId || null });
       return { success: false };
     } catch (error) {
@@ -155,6 +126,12 @@ export function PortalProvider({ children }) {
     const result = await portalApi.login({ academyId: id, username, password });
 
     if (result.success) {
+      if (storage.setPortalCredentials) {
+        await storage.setPortalCredentials({ username, password });
+      } else {
+        await storage.setItem(PORTAL_KEYS.USERNAME, String(username || ''));
+        await storage.setItem(PORTAL_KEYS.PASSWORD, String(password || ''));
+      }
       const data = result.data || {};
       const tokens = data.tokens || data;
       const token = tokens?.access || tokens?.token || tokens?.access_token || null;

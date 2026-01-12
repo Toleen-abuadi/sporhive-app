@@ -13,6 +13,7 @@ import { PortalCard } from '../../components/portal/PortalCard';
 import { AcademyPicker } from '../../components/portal/AcademyPicker';
 import { portalApi } from '../../services/portal/portal.api';
 import { usePortalAuth } from '../../services/portal/portal.hooks';
+import { storage } from '../../services/storage/storage';
 import { spacing } from '../../theme/tokens';
 
 export function PortalLoginScreen() {
@@ -64,6 +65,21 @@ export function PortalLoginScreen() {
     };
 
     loadAcademies();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadCredentials = async () => {
+      if (!storage.getPortalCredentials) return;
+      const credentials = await storage.getPortalCredentials();
+      if (!isMounted) return;
+      if (credentials?.username) setUsername(credentials.username);
+      if (credentials?.password) setPassword(credentials.password);
+    };
+    loadCredentials();
     return () => {
       isMounted = false;
     };
