@@ -40,6 +40,32 @@ export function PortalProfileScreen() {
   });
 
   const player = overview?.player || {};
+  const health = overview?.health || {};
+  const registration = overview?.registration || {};
+
+  useEffect(() => {
+    if (overview?.player) {
+      const player = overview.player;
+      const health = overview.health || {};
+
+      setForm({
+        first_eng_name: player.firstEngName || '',
+        middle_eng_name: player.middleEngName || '',
+        last_eng_name: player.lastEngName || '',
+        first_ar_name: player.firstArName || '',
+        middle_ar_name: player.middleArName || '',
+        last_ar_name: player.lastArName || '',
+        phone1: player.phone || '',
+        phone2: player.phone2 || '',
+        date_of_birth: player.dateOfBirth || '',
+        address: registration.address || '',
+        google_maps_location: registration.googleMapsLocation || '',
+        height: String(health.height || ''),
+        weight: String(health.weight || ''),
+        image_base64: player.imageBase64 || '',
+      });
+    }
+  }, [overview]);
 
   useEffect(() => {
     if (profile) {
@@ -133,7 +159,7 @@ export function PortalProfileScreen() {
               {t('portal.profile.phone1')}
             </Text>
             <Text variant="bodySmall" color={colors.textPrimary}>
-              {profile?.phone1 || player?.phone || '—'}
+              {player?.phone || '—'}
             </Text>
           </View>
           <View>
@@ -141,17 +167,18 @@ export function PortalProfileScreen() {
               {t('portal.profile.phone2')}
             </Text>
             <Text variant="bodySmall" color={colors.textPrimary}>
-              {profile?.phone2 || player?.phone2 || '—'}
+              {player?.phone2 || '—'}
             </Text>
           </View>
         </View>
+
         <View style={styles.infoRow}>
           <View>
             <Text variant="caption" color={colors.textMuted}>
               {t('portal.profile.dob')}
             </Text>
             <Text variant="bodySmall" color={colors.textPrimary}>
-              {profile?.date_of_birth || '—'}
+              {player?.dateOfBirth || '—'}
             </Text>
           </View>
           <View>
@@ -159,21 +186,18 @@ export function PortalProfileScreen() {
               {t('portal.profile.heightWeight')}
             </Text>
             <Text variant="bodySmall" color={colors.textPrimary}>
-              {profile?.height || '—'} cm • {profile?.weight || '—'} kg
+              {health?.height || '—'} cm • {health?.weight || '—'} kg
             </Text>
           </View>
         </View>
       </PortalCard>
 
       <PortalCard style={styles.card}>
-        <Text variant="body" weight="semibold" color={colors.textPrimary}>
-          {t('portal.profile.address')}
-        </Text>
         <Text variant="bodySmall" color={colors.textSecondary} style={styles.meta}>
-          {profile?.address || t('portal.profile.noAddress')}
+          {registration?.address || t('portal.profile.noAddress')}
         </Text>
         <Text variant="caption" color={colors.textMuted} style={styles.meta}>
-          {profile?.google_maps_location || t('portal.profile.noMap')}
+          {registration?.googleMapsLocation || t('portal.profile.noMap')}
         </Text>
         <Button variant="secondary" style={styles.logoutButton} onPress={handleLogout}>
           {t('portal.profile.logout')}

@@ -22,103 +22,95 @@ const safeNumber = (v, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-export const normalizePortalOverview = (raw) => {
-  const data = raw?.data ?? raw ?? {};
-  const root = data?.player_data ? data : { ...data, player_data: data };
-  const playerData = pick(root, ['player_data'], {}) || {};
+export const normalizePortalOverview = (data) => {
+  if (!data) return null;
 
-  const playerInfo = pick(playerData, ['player_info', 'profile.player_info', 'playerInfo'], {}) || {};
-  const registrationInfo = pick(playerData, ['registration_info', 'registration'], {}) || {};
-  const healthInfo = pick(playerData, ['health_info', 'health'], {}) || {};
+  const playerData = data.player_data || {};
+  const playerInfo = playerData.player_info || {};
+  const registrationInfo = playerData.registration_info || {};
+  const healthInfo = playerData.health_info || {};
+  const profileImage = playerData.profile_image || {};
+  const paymentInfo = playerData.payment_info || [];
+  const subscriptionHistory = playerData.subscription_history || [];
+  const credits = playerData.credits || {};
+  const performance = playerData.performance_feedback || {};
 
-  const phoneNumbers = pick(playerInfo, ['phone_numbers'], {}) || {};
-  const phone1 = phoneNumbers?.['1'] || phoneNumbers?.[1] || pick(playerInfo, ['phone_number_1', 'phone1', 'phone'], '');
-  const phone2 = phoneNumbers?.['2'] || phoneNumbers?.[2] || pick(playerInfo, ['phone_number_2', 'phone2'], '');
+  // Extract phone numbers safely
+  const phoneNumbers = playerInfo.phone_numbers || {};
 
-  const profileImage = pick(playerData, ['profile_image', 'profileImage'], null);
-  const imgB64 =
-    pick(profileImage, ['image'], '') ||
-    pick(playerInfo, ['image', 'image_base64', 'imageBase64'], '') ||
-    pick(playerData, ['image', 'image_base64', 'imageBase64'], '');
-  const imgMime = pick(profileImage, ['image_type', 'mime', 'mime_type'], '') || 'image/jpeg';
-  const imgDataUri = imgB64
-    ? String(imgB64).startsWith('data:')
-      ? String(imgB64)
-      : `data:${imgMime};base64,${imgB64}`
-    : '';
-
-  const academyName = pick(root, ['academy_name'], pick(data, ['academy_name', 'academyName', 'academy.name'], ''));
-
+  // Create player object
   const player = {
-    id: pick(playerInfo, ['id'], pick(playerData, ['player_id', 'playerId'], null)),
-    firstName: pick(playerInfo, ['first_eng_name', 'first_name', 'firstName'], ''),
-    lastName: pick(playerInfo, ['last_eng_name', 'last_name', 'lastName'], ''),
-    fullName:
-      [
-        pick(playerInfo, ['first_eng_name'], ''),
-        pick(playerInfo, ['middle_eng_name'], ''),
-        pick(playerInfo, ['last_eng_name'], ''),
-      ]
-        .filter(Boolean)
-        .join(' ') ||
-      [
-        pick(playerInfo, ['first_ar_name'], ''),
-        pick(playerInfo, ['middle_ar_name'], ''),
-        pick(playerInfo, ['last_ar_name'], ''),
-      ]
-        .filter(Boolean)
-        .join(' ') ||
-      pick(playerInfo, ['full_name', 'fullName'], ''),
-    phone: safeStr(phone1),
-    phone2: safeStr(phone2),
-    imageBase64: imgDataUri,
-    imageMime: imgMime,
-    academyName,
+    id: playerInfo.id,
+    fullName: `${playerInfo.first_eng_name || ''} ${playerInfo.last_eng_name || ''}`.trim() ||
+      `${playerInfo.first_ar_name || ''} ${playerInfo.last_ar_name || ''}`.trim(),
+    firstEngName: playerInfo.first_eng_name || '',
+    middleEngName: playerInfo.middle_eng_name || '',
+    lastEngName: playerInfo.last_eng_name || '',
+    firstArName: playerInfo.first_ar_name || '',
+    middleArName: playerInfo.middle_ar_name || '',
+    lastArName: playerInfo.last_ar_name || '',
+    phone: phoneNumbers['1'] || '',
+    phone2: phoneNumbers['2'] || '',
+    dateOfBirth: playerInfo.date_of_birth || '',
+    email: playerInfo.email || '',
+    createdAt: playerInfo.created_at || '',
+    imageBase64: profileImage.image || null,
+    imageType: profileImage.image_type || null,
+    imageSize: profileImage.image_size || 0,
   };
 
+  // Create registration object
   const registration = {
-    try_out_id: pick(registrationInfo, ['try_out_id'], null),
-    registration_type: pick(registrationInfo, ['registration_type'], ''),
-    groupName: pick(registrationInfo, ['group_name', 'groupName'], ''),
-    courseName: pick(registrationInfo, ['course_name', 'courseName'], ''),
-    level: pick(registrationInfo, ['level'], ''),
-    schedulePreview: toArray(pick(registrationInfo, ['schedule', 'schedule_preview'], [])),
-    startDate: pick(registrationInfo, ['start_date'], null),
-    endDate: pick(registrationInfo, ['end_date'], null),
-    totalSessions: safeNumber(pick(registrationInfo, ['number_of_sessions', 'num_of_sessions'], 0), 0),
-    remainingSessions: safeNumber(pick(root, ['performance_feedback.metrics.remaining_sessions'], 0), 0),
-    address: pick(registrationInfo, ['address'], ''),
-    google_maps_location: pick(registrationInfo, ['google_maps_location'], ''),
-    availableCourses: toArray(pick(registrationInfo, ['available_courses', 'courses'], [])),
-    availableGroups: toArray(pick(registrationInfo, ['available_groups', 'groups'], [])),
+    id: registrationInfo.id,
+    registrationType: registrationInfo.registration_type || '',
+    level: registrationInfo.level || '',
+    startDate: registrationInfo.start_date || '',
+    endDate: registrationInfo.end_date || '',
+    numberOfSessions: registrationInfo.number_of_sessions || 0,
+    totalSessions: registrationInfo.number_of_sessions || 0,
+    remainingSessions: performance?.metrics?.remaining_sessions || 0,
+    address: registrationInfo.address || '',
+    groupName: registrationInfo.group?.group_name || '',
+    courseName: registrationInfo.course?.course_name || '',
+    group: registrationInfo.group || {},
+    course: registrationInfo.course || {},
+    availableCourses: registrationInfo.available_courses || [],
+    availableGroups: registrationInfo.available_groups || [],
+    googleMapsLocation: registrationInfo.google_maps_location || '',
   };
 
-  const payments = toArray(pick(root, ['payment_info', 'payments'], []));
-  const subscriptionHistory = toArray(pick(root, ['subscription_history', 'history'], []));
+  // Create payments array with proper formatting
+  const payments = paymentInfo.map(payment => ({
+    id: payment.id,
+    type: payment.type || '',
+    subType: payment.sub_type || '',
+    status: payment.status || 'pending',
+    amount: payment.amount || '0',
+    dueDate: payment.due_date || '',
+    paymentMethod: payment.payment_method || '',
+    paidOn: payment.paid_on || '',
+    invoiceId: payment.invoice_id || null,
+    fees: payment.fees || {},
+  }));
 
-  const creditsData = pick(data, ['credits'], {}) || {};
-  const credits = {
-    totalRemaining: safeNumber(pick(creditsData, ['total_remaining', 'remaining', 'total'], 0), 0),
-    nextExpiry: pick(creditsData, ['next_expiry', 'next_expiry_at', 'nextExpiry'], ''),
-    active: toArray(pick(creditsData, ['active', 'items', 'credits'], [])),
+  // Create health object
+  const health = {
+    height: healthInfo.height || null,
+    weight: healthInfo.weight || null,
+    timestamp: healthInfo.timestamp || '',
   };
-
-  const performance = {
-    summary: pick(data, ['performance_feedback.summary'], ''),
-    metrics: pick(data, ['performance_feedback.metrics'], {}) || {},
-  };
-  const levels = toArray(pick(data, ['levels'], []));
 
   return {
-    academyName,
     player,
     registration,
     payments,
+    health,
     subscriptionHistory,
-    health: healthInfo,
     credits,
     performance,
-    levels,
-    raw: data,
+    academyName: data.academy_name || '',
+    levels: data.levels || [],
+    // Raw data for debugging
+    _raw: data,
   };
 };

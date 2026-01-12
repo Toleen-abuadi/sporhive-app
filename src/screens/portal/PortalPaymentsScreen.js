@@ -29,83 +29,87 @@ export function PortalPaymentsScreen() {
   const [downloadingId, setDownloadingId] = useState(null);
 
   const payments = useMemo(() => {
-    const list = Array.isArray(overview?.payments) ? overview.payments : [];
-    return list;
+    // overview.payments is already normalized by normalizePortalOverview
+    return Array.isArray(overview?.payments) ? overview.payments : [];
   }, [overview?.payments]);
 
-  const handlePrint = async (payment) => {
-    try {
-      setDownloadingId(payment?.id || 'loading');
-      const res = await portalApi.printInvoice({ invoice_id: payment?.id });
-      if (!res?.success) return;
-      const base64 = arrayBufferToBase64(res.data);
-      const fileUri = `${FileSystem.cacheDirectory}invoice-${payment?.id || Date.now()}.pdf`;
-      await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri);
-      } else {
-        await Linking.openURL(fileUri);
-      }
-    } finally {
-      setDownloadingId(null);
-    }
-  };
-
-  return (
-    <Screen scroll contentContainerStyle={styles.scroll}>
-      <PortalHeader title="Payments" subtitle="Invoices, receipts, and schedules" />
-
-      {payments.length === 0 ? (
-        <PortalEmptyState
-          icon="credit-card"
-          title="No invoices yet"
-          description="Your upcoming invoices will appear here once generated."
-        />
-      ) : (
-        <View style={styles.list}>
-          {payments.map((payment, index) => (
-            <PortalCard key={payment?.id ?? index} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text variant="body" weight="semibold" color={colors.textPrimary}>
-                    {payment?.title || 'Monthly invoice'}
-                  </Text>
-                  <Text variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>
-                    Due {payment?.dueDate || 'Soon'}
-                  </Text>
-                </View>
-                <Text variant="body" weight="semibold" color={colors.textPrimary}>
-                  {payment?.amount || '—'}
-                </Text>
-              </View>
-              <View style={styles.statusRow}>
-                <Text variant="caption" color={colors.textMuted}>
-                  Status
-                </Text>
-                <Text variant="bodySmall" color={colors.textPrimary}>
-                  {payment?.status || 'Pending'}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => handlePrint(payment)} disabled={downloadingId === payment?.id}>
-                <LinearGradient
-                  colors={[colors.accentOrange, colors.accentOrangeLight || colors.accentOrange]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.cta}
-                >
-                  <Text variant="bodySmall" weight="semibold" color={colors.white}>
-                    {downloadingId === payment?.id ? 'Preparing PDF…' : 'Print invoice'}
-                  </Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </PortalCard>
-          ))}
+  // Update the display to show proper status and amounts
+  {
+    payments.map((payment, index) => (
+      <PortalCard key={payment?.id ?? index} style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View>
+            <Text variant="body" weight="semibold" color={colors.textPrimary}>
+              {payment?.type === 'full' ? 'Full Payment' :
+                payment?.type === 'installment' ? 'Installment' :
+                  payment?.type || 'Payment'}
+              {payment?.subType ? ` (${payment.subType})` : ''}
+            </Text>
+            <Text variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>
+              Due {payment?.dueDate || 'Soon'}
+              {payment?.status === 'paid' ? ` • Paid on ${payment?.paidOn}` : ''}
+            </Text>
+          </View>
+          <Text variant="body" weight="semibold" color={
+            payment?.status === 'paid' ? colors.success :
+              payment?.status === 'pending' ? colors.warning :
+                colors.textPrimary
+          }>
+            ${payment?.amount || '0.00'}
+          </Text>
         </View>
-      )}
-    </Screen>
-  );
+        <View style={styles.statusRow}>
+          <Text variant="caption" color={colors.textMuted}>
+            Status
+          </Text>
+          <View style={[styles.statusBadge, {
+            backgroundColor: payment?.status === 'paid' ? colors.success + '20' :
+              payment?.status === 'pending' ? colors.warning + '20' :
+                colors.border
+          }]}>
+            <Text variant="caption" weight="medium" color={
+              payment?.status === 'paid' ? colors.success :
+                payment?.status === 'pending' ? colors.warning :
+                  colors.textMuted
+            }>
+              {payment?.status?.toUpperCase() || 'PENDING'}
+            </Text>
+          </View>
+        </View>
+        {payment?.status !== 'paid' && (
+          <TouchableOpacity onPress={() => handlePrint(payment)} disabled={downloadingId === payment?.id}>
+            <LinearGradient
+              colors={[colors.accentOrange, colors.accentOrangeLight || colors.accentOrange]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.cta}
+            >
+              <Text variant="bodySmall" weight="semibold" color={colors.white}>
+                {downloadingId === payment?.id ? 'Preparing PDF…' : 'Print invoice'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+      </PortalCard>
+    ))
+  }
 }
+
+export const getPaymentStatusInfo = (status) => {
+  const statusLower = (status || '').toLowerCase();
+  
+  if (statusLower.includes('paid')) {
+    return { label: 'PAID', color: 'success', isActionable: false };
+  }
+  if (statusLower.includes('pending') || statusLower.includes('due')) {
+    return { label: 'PENDING', color: 'warning', isActionable: true };
+  }
+  if (statusLower.includes('overdue')) {
+    return { label: 'OVERDUE', color: 'error', isActionable: true };
+  }
+  
+  return { label: status?.toUpperCase() || 'UNKNOWN', color: 'muted', isActionable: false };
+};
 
 const styles = StyleSheet.create({
   scroll: {
@@ -135,5 +139,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: 16,
     alignItems: 'center',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
 });

@@ -90,10 +90,10 @@ export const endpoints = {
       apiClient.post('/player-portal-external-proxy/registration/freezes/request', payload),
 
     renewalsEligibility: (payload = {}) =>
-      apiClient.post('/player-portal/registration/renewals/eligibility', payload),
+      apiClient.post('/player-portal-external-proxy/registration/renewals/eligibility', payload),
 
     renewalsRequest: (payload = {}) =>
-      apiClient.post('/player-portal/registration/renewals/request', payload),
+      apiClient.post('/player-portal-external-proxy/registration/renewals/request', payload),
 
     // -----------------------
     // Player Profile

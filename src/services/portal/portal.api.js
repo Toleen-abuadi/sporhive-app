@@ -135,7 +135,7 @@ export const portalApi = {
   async renewalsEligibility(payload = {}, options = {}) {
     return wrapApi(async () => {
       const { body, headers } = await withAcademyPayload(payload, options);
-      return apiClient.post('/player-portal/registration/renewals/eligibility', body, { headers });
+      return apiClient.post('/player-portal-external-proxy/registration/renewals/eligibility', body, { headers });
     }, 'Failed to check renewal eligibility');
   },
 
@@ -146,7 +146,7 @@ export const portalApi = {
   async renewalsRequest(payload = {}, options = {}) {
     return wrapApi(async () => {
       const { body, headers } = await withAcademyPayload(payload, options);
-      return apiClient.post('/player-portal/registration/renewals/request', body, { headers });
+      return apiClient.post('/player-portal-external-proxy/registration/renewals/request', body, { headers });
     }, 'Renewal request failed');
   },
 
