@@ -1,121 +1,106 @@
-import React, { useMemo } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { Image, StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MapPin, Star } from 'lucide-react-native';
 
-import { useTheme } from '../../theme/ThemeProvider';
-import { Text } from '../ui/Text';
-import { Badge } from '../ui/Badge';
-import { spacing, borderRadius, shadows } from '../../theme/tokens';
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-export function VenueCard({ venue, onPress }) {
-  const { colors, isDark } = useTheme();
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const heroGradient = useMemo(
-    () => (isDark ? ['#111827', '#1F2937'] : ['#EFF6FF', '#FDE68A']),
-    [isDark]
-  );
-
-  const imageUri = venue?.image || venue?.cover || null;
-  const rating = venue?.rating ?? 4.8;
+export const VenueCard = ({ venue, onPress }) => {
+  const scheme = useColorScheme();
+  const colors = scheme === 'dark'
+    ? ['#1F2338', '#141725']
+    : ['#FFFFFF', '#F3F7FF'];
 
   return (
-    <AnimatedPressable
-      onPress={() => onPress?.(venue)}
-      onPressIn={() => {
-        scale.value = withSpring(0.98, { damping: 18 });
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, { damping: 18 });
-      }}
-      style={[styles.card, animatedStyle, { backgroundColor: colors.surface }]}
-    >
-      <View style={styles.imageWrap}>
-        <LinearGradient colors={heroGradient} style={StyleSheet.absoluteFill} />
-        {imageUri ? (
-          <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        ) : null}
-        <LinearGradient
-          colors={['rgba(0,0,0,0.45)', 'rgba(0,0,0,0)']}
-          style={StyleSheet.absoluteFill}
-        />
-        <Badge style={styles.ratingBadge}>
-          <Star size={12} color={colors.accentOrange} />
-          <Text variant="caption" weight="bold" style={styles.ratingText}>
-            {rating.toFixed(1)}
-          </Text>
-        </Badge>
-      </View>
-      <View style={styles.content}>
-        <Text variant="h4" weight="bold" style={[styles.title, { color: colors.textPrimary }]}>
-          {venue?.name || 'Skyline Arena'}
-        </Text>
-        <View style={styles.locationRow}>
-          <MapPin size={14} color={colors.textSecondary} />
-          <Text variant="bodySmall" color={colors.textSecondary}>
-            {venue?.location || 'Dubai, UAE'}
-          </Text>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
+      <LinearGradient colors={colors} style={styles.card}>
+        <View style={styles.imageWrap}>
+          {venue?.image ? (
+            <Image source={{ uri: venue.image }} style={styles.image} />
+          ) : (
+            <View style={styles.placeholder}>
+              <Text style={styles.placeholderText}>Playground</Text>
+            </View>
+          )}
         </View>
-        <View style={styles.metaRow}>
-          <Text variant="bodySmall" weight="medium" color={colors.accentOrange}>
-            {venue?.price || 'AED 120 / hour'}
-          </Text>
-          <Text variant="caption" color={colors.textMuted}>
-            {venue?.surface || 'Indoor · Pro Turf'}
-          </Text>
+        <View style={styles.meta}>
+          <Text style={styles.title}>{venue?.name || 'Premium Arena'}</Text>
+          <Text style={styles.subtitle}>{venue?.city || 'Amman'} · {venue?.sport || 'Football'}</Text>
+          <View style={styles.badgeRow}>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{venue?.rating || '4.8'}</Text>
+            </View>
+            <Text style={styles.price}>{venue?.price || '15 JOD / hr'}</Text>
+          </View>
         </View>
-      </View>
-    </AnimatedPressable>
+      </LinearGradient>
+    </TouchableOpacity>
   );
-}
+};
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    marginBottom: spacing.lg,
-    ...shadows.md,
+    borderRadius: 18,
+    padding: 12,
+    flexDirection: 'row',
+    marginBottom: 16,
+    shadowColor: '#0B1A33',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    elevation: 3,
   },
   imageWrap: {
-    height: 160,
-    position: 'relative',
+    width: 80,
+    height: 80,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#E6EDF8',
   },
-  ratingBadge: {
-    position: 'absolute',
-    right: spacing.md,
-    top: spacing.md,
-    flexDirection: 'row',
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  placeholder: {
+    flex: 1,
     alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+    justifyContent: 'center',
   },
-  ratingText: {
-    color: '#1F2937',
+  placeholderText: {
+    fontSize: 11,
+    color: '#7A8BA8',
   },
-  content: {
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  title: {},
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  metaRow: {
-    flexDirection: 'row',
+  meta: {
+    flex: 1,
+    marginLeft: 12,
     justifyContent: 'space-between',
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#11223A',
+  },
+  subtitle: {
+    fontSize: 12,
+    color: '#6C7A92',
+    marginTop: 4,
+  },
+  badgeRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  badge: {
+    backgroundColor: '#E8F0FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#335AA6',
+  },
+  price: {
+    fontSize: 12,
+    color: '#2D3E5E',
+    fontWeight: '600',
   },
 });

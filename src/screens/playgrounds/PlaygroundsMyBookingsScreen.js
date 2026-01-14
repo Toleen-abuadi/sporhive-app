@@ -1,236 +1,207 @@
-// Playgrounds bookings list with status tabs and navigation into booking details.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
-
-import { Screen } from '../../components/ui/Screen';
-import { Text } from '../../components/ui/Text';
-import { LoadingState } from '../../components/ui/LoadingState';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { useTheme } from '../../theme/ThemeProvider';
-import { spacing, borderRadius, shadows } from '../../theme/tokens';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { goToBookingDetails } from '../../navigation/playgrounds.routes';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
-import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
-import { normalizeBookings } from '../../services/playgrounds/playgrounds.normalize';
-import { usePlaygroundsRouter } from '../../navigation/playgrounds.routes';
+import { usePlaygroundsAuth } from '../../services/playgrounds/playgrounds.store';
 
-const STATUS_TABS = [
+const statusTabs = [
   { key: 'pending', label: 'Pending' },
   { key: 'approved', label: 'Approved' },
   { key: 'rejected', label: 'Rejected' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
-const normalizeStatus = (status) => String(status || '').toLowerCase();
+const normalizeStatus = (status = '') => String(status || '').toLowerCase();
 
-function BookingCard({ booking, onPress }) {
-  const { colors } = useTheme();
-
-  return (
-    <Pressable onPress={onPress} style={[styles.card, { backgroundColor: colors.surface }]}>
-      <View style={styles.cardHeader}>
-        <Text variant="body" weight="bold">
-          {booking?.venue_name || booking?.venue || 'Skyline Arena'}
-        </Text>
-        <View style={[styles.statusPill, { backgroundColor: 'rgba(249,115,22,0.12)' }]}>
-          <Text variant="caption" weight="bold" color={colors.accentOrange}>
-            {booking?.status || 'Pending'}
-          </Text>
-        </View>
-      </View>
-      <Text variant="caption" color={colors.textMuted}>
-        {booking?.date || booking?.booking_date || 'Sat, 12 Apr'} · {booking?.time || booking?.start_time || '7:30 PM'}
-      </Text>
-      <View style={styles.cardMeta}>
-        <Text variant="caption" color={colors.textMuted}>
-          Code: {booking?.booking_code || booking?.code || '—'}
-        </Text>
-        <Text variant="caption" color={colors.textMuted}>
-          {booking?.payment_method || booking?.payment_type || 'Cash'}
-        </Text>
-      </View>
-      <View style={styles.cardFooter}>
-        <Text variant="bodySmall" weight="semibold" color={colors.textPrimary}>
-          {booking?.price || booking?.total_price || 'AED 240'}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
-
-export function PlaygroundsMyBookingsScreen() {
-  const { colors } = useTheme();
-  const { goToBookingDetails, goToPlaygroundsHome } = usePlaygroundsRouter();
-  const [activeStatus, setActiveStatus] = useState('pending');
+export const PlaygroundsMyBookingsScreen = () => {
+  const router = useRouter();
+  const { publicUserId } = usePlaygroundsAuth();
+  const [activeStatus, setActiveStatus] = useState(statusTabs[0].key);
   const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
-
-  const loadBookings = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    const userId = await playgroundsStore.getPublicUserId();
-    const response = await playgroundsApi.listBookings({ user_id: userId });
-    if (!response?.success) {
-      setError(response?.error?.message || 'We could not load your bookings right now.');
-    }
-    const data = response?.success ? normalizeBookings(response.data) : [];
-    setBookings(data);
-    setLoading(false);
-    setRefreshing(false);
-  }, []);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    loadBookings();
-  }, [loadBookings]);
+    let active = true;
+    const load = async () => {
+      if (!publicUserId) return;
+      setLoading(true);
+      const res = await playgroundsApi.listBookings({ user_id: publicUserId });
+      if (!active) return;
+      if (!res?.success) {
+        setError('Unable to load bookings.');
+        setBookings([]);
+      } else {
+        setError(null);
+        setBookings(Array.isArray(res.data) ? res.data : res.data?.items || []);
+      }
+      setLoading(false);
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [publicUserId]);
 
   const filteredBookings = useMemo(() => {
-    const statusKey = normalizeStatus(activeStatus);
-    return bookings.filter((booking) => normalizeStatus(booking?.status) === statusKey);
+    return bookings.filter((booking) => normalizeStatus(booking?.status) === activeStatus);
   }, [bookings, activeStatus]);
 
-  const counts = useMemo(() => {
-    return STATUS_TABS.reduce((acc, tab) => {
-      acc[tab.key] = bookings.filter((booking) => normalizeStatus(booking?.status) === tab.key).length;
-      return acc;
-    }, {});
-  }, [bookings]);
-
   return (
-    <Screen scroll={false}>
-      <Animated.FlatList
-        data={filteredBookings}
-        keyExtractor={(item, index) => item.id?.toString?.() || `booking-${index}`}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {
-          setRefreshing(true);
-          loadBookings();
-        }} />}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <Text variant="h3" weight="bold">
-              My bookings
-            </Text>
-            <Text variant="body" color={colors.textSecondary}>
-              Track every booking and receipt in one place.
-            </Text>
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>My Bookings</Text>
+        <View style={styles.tabsRow}>
+          {statusTabs.map((tab) => (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.tabChip, activeStatus === tab.key && styles.tabChipActive]}
+              onPress={() => setActiveStatus(tab.key)}
+            >
+              <Text style={[styles.tabText, activeStatus === tab.key && styles.tabTextActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-            <View style={styles.tabsRow}>
-              {STATUS_TABS.map((tab) => {
-                const active = tab.key === activeStatus;
-                return (
-                  <Pressable
-                    key={tab.key}
-                    onPress={() => setActiveStatus(tab.key)}
-                    style={[
-                      styles.tab,
-                      {
-                        backgroundColor: active ? colors.accentOrange : colors.surface,
-                        borderColor: active ? colors.accentOrange : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text variant="caption" weight="semibold" color={active ? colors.white : colors.textPrimary}>
-                      {tab.label}
-                    </Text>
-                    <Text variant="caption" color={active ? colors.white : colors.textMuted}>
-                      {counts[tab.key] || 0}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+        {loading ? <Text style={styles.helper}>Loading bookings...</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {filteredBookings.length ? filteredBookings.map((booking) => (
+          <TouchableOpacity
+            key={booking.id || booking.booking_id}
+            style={styles.card}
+            onPress={() => goToBookingDetails(router, booking.id || booking.booking_id)}
+          >
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>{booking?.venue_name || booking?.venue || 'Playground'}</Text>
+              <Text style={styles.cardStatus}>{booking?.status || activeStatus}</Text>
             </View>
+            <Text style={styles.cardMeta}>Date: {booking?.date || 'TBD'}</Text>
+            <Text style={styles.cardMeta}>Time: {booking?.time || booking?.slot_time || 'TBD'}</Text>
+            <View style={styles.cardFooter}>
+              <Text style={styles.cardMeta}>Code: {booking?.code || booking?.booking_code || '—'}</Text>
+              <Text style={styles.cardPrice}>{booking?.price || booking?.total_price || '—'} JOD</Text>
+            </View>
+            <Text style={styles.cardMeta}>Payment: {booking?.payment_method || booking?.payment_type || '—'}</Text>
+          </TouchableOpacity>
+        )) : (!loading && !error ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>No {activeStatus} bookings</Text>
+            <Text style={styles.emptySubtitle}>Try another status tab.</Text>
           </View>
-        }
-        renderItem={({ item, index }) => (
-          <Animated.View entering={FadeInDown.delay(index * 40).duration(240)} layout={Layout.springify()}>
-            <BookingCard
-              booking={item}
-              onPress={() =>
-                goToBookingDetails(item.id || item.booking_id, {
-                  bookingId: String(item.id || item.booking_id),
-                  booking: JSON.stringify(item),
-                })
-              }
-            />
-          </Animated.View>
-        )}
-        ListEmptyComponent={
-          loading ? (
-            <LoadingState message="Loading your bookings..." />
-          ) : error ? (
-            <EmptyState
-              title="Unable to load bookings"
-              message={error}
-              actionLabel="Retry"
-              onAction={loadBookings}
-            />
-          ) : (
-            <EmptyState
-              title="No bookings yet"
-              message="Your confirmed games will appear here."
-              actionLabel="Explore venues"
-              onAction={() => goToPlaygroundsHome()}
-            />
-          )
-        }
-      />
-    </Screen>
+        ) : null)}
+      </ScrollView>
+    </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  listContent: {
-    paddingBottom: spacing.xxxl,
+  safe: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
   },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    gap: spacing.xs,
+  container: {
+    padding: 16,
+    paddingBottom: 24,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#11223A',
+    marginBottom: 12,
   },
   tabsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
+    gap: 8,
+    marginBottom: 16,
   },
-  tab: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
+  tabChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#F1F4FA',
+  },
+  tabChipActive: {
+    backgroundColor: '#4F6AD7',
+  },
+  tabText: {
+    fontSize: 12,
+    color: '#6C7A92',
+    fontWeight: '600',
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+  },
+  helper: {
+    fontSize: 12,
+    color: '#6C7A92',
+    marginBottom: 12,
+  },
+  error: {
+    fontSize: 12,
+    color: '#D64545',
+    marginBottom: 12,
   },
   card: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    gap: spacing.sm,
-    ...shadows.md,
+    borderRadius: 18,
+    padding: 16,
+    backgroundColor: '#F7F9FF',
+    marginBottom: 12,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.sm,
   },
-  statusPill: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#11223A',
+  },
+  cardStatus: {
+    fontSize: 12,
+    color: '#4F6AD7',
+    fontWeight: '600',
   },
   cardMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    fontSize: 12,
+    color: '#6C7A92',
+    marginTop: 6,
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  cardPrice: {
+    fontSize: 13,
+    color: '#11223A',
+    fontWeight: '700',
+  },
+  empty: {
+    padding: 18,
+    borderRadius: 18,
+    backgroundColor: '#F4F7FF',
     alignItems: 'center',
-    marginTop: spacing.sm,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#11223A',
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: '#6C7A92',
+    marginTop: 6,
   },
 });

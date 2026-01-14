@@ -22,6 +22,16 @@
       "expo-web-browser",
       "@react-native-community/datetimepicker"
     ],
+    "extra": {
+      "router": {
+        "origin": "myapp://",
+        "links": [
+          {
+            "path": "playgrounds/r/:token"
+          }
+        ]
+      }
+    },
     "experiments": {
       "typedRoutes": true
     }

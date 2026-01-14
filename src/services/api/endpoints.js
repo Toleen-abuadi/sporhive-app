@@ -35,13 +35,6 @@ export const endpoints = {
       apiClient.post(`/public/academy-join/submit/${encodeURIComponent(slug)}`, payload),
   },
 
-  playgrounds: {
-    getAll: (params) => apiClient.get('/playgrounds', { params }),
-    getById: (id) => apiClient.get(`/playgrounds/${id}`),
-    getAvailability: (id, date) =>
-      apiClient.get(`/playgrounds/${id}/availability`, { params: { date } }),
-  },
-
   bookings: {
     create: (bookingData) => apiClient.post('/bookings', bookingData),
     getAll: (params) => apiClient.get('/bookings', { params }),

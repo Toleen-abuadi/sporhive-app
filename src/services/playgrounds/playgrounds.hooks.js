@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { playgroundsStore } from './playgrounds.store';
+import { playgroundsStore, usePlaygroundsContext } from './playgrounds.store';
 
 const initialState = { data: null, loading: false, error: null };
 
@@ -33,8 +33,9 @@ export const useSlider = () => {
   return useAsyncResource(loadSlider);
 };
 
-export const useVenueSearch = () => {
-  const [filters, setFilters] = useState(null);
+export const useSearch = () => {
+  const context = usePlaygroundsContext();
+  const [filters, setFilters] = useState(context?.filters || null);
   const loader = useCallback((nextFilters) => playgroundsStore.searchVenues(nextFilters), []);
   const state = useAsyncResource(loader);
 
@@ -57,7 +58,7 @@ export const useVenueSearch = () => {
   return { ...state, filters, updateFilters };
 };
 
-export const useVenueDetails = (venueId) => {
+export const useVenue = (venueId) => {
   const loader = useCallback(() => playgroundsStore.fetchVenueDetails(venueId), [venueId]);
   return useAsyncResource(loader, [venueId]);
 };
@@ -89,14 +90,14 @@ export const useBookingStepper = () => {
   };
 };
 
-export const useBookingsList = () => {
+export const useMyBookings = () => {
   const loader = useCallback((params) => playgroundsStore.listBookings(params), []);
   return useAsyncResource(loader);
 };
 
 export const useBookingDetails = (bookingId) => {
   const [details, setDetails] = useState(null);
-  const listHook = useBookingsList();
+  const listHook = useMyBookings();
 
   useEffect(() => {
     if (!bookingId || !listHook.data) return;

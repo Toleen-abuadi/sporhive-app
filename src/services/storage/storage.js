@@ -207,6 +207,20 @@ class StorageService {
     await this.setItem(PORTAL_KEYS.PASSWORD, String(password || ''));
   }
 
+  async getPlaygroundsPublicUserId() {
+    const v = await this.getItem(PLAYGROUNDS_KEYS.PUBLIC_USER_ID);
+    return typeof v === 'string' ? v : null;
+  }
+
+  async setPlaygroundsPublicUserId(publicUserId) {
+    if (!publicUserId) return this.removeItem(PLAYGROUNDS_KEYS.PUBLIC_USER_ID);
+    return this.setItem(PLAYGROUNDS_KEYS.PUBLIC_USER_ID, String(publicUserId));
+  }
+
+  async clearPlaygroundsData() {
+    await this.removeMany([PLAYGROUNDS_KEYS.PUBLIC_USER_ID, PLAYGROUNDS_KEYS.LAST_FILTERS]);
+  }
+
   /**
    * Logout portal ONLY (doesn't touch main app auth token)
    */

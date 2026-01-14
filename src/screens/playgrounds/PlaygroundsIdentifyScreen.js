@@ -1,188 +1,152 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Mail, Phone } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
+import { goToHome } from '../../navigation/playgrounds.routes';
 
-import { Screen } from '../../components/ui/Screen';
-import { Text } from '../../components/ui/Text';
-import { Input } from '../../components/ui/Input';
-import { Button } from '../../components/ui/Button';
-import { useTheme } from '../../theme/ThemeProvider';
-import { spacing, borderRadius, shadows } from '../../theme/tokens';
-import { validators } from '../../utils/validators';
-import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
-import { usePlaygroundsRouter } from '../../navigation/playgrounds.routes';
-
-const MODES = [
-  { key: 'phone', label: 'Phone', icon: Phone },
-  { key: 'email', label: 'Email', icon: Mail },
-];
-
-export function PlaygroundsIdentifyScreen() {
-  const { colors, isDark } = useTheme();
-  const { goToPlaygroundsHome } = usePlaygroundsRouter();
-  const [mode, setMode] = useState('phone');
-  const [value, setValue] = useState('');
-  const [error, setError] = useState('');
+export const PlaygroundsIdentifyScreen = () => {
+  const playgrounds = usePlaygroundsStore();
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState(null);
 
-  const gradient = useMemo(
-    () => (isDark ? ['#0B1220', '#1F2937'] : ['#FFF7ED', '#E0F2FE']),
-    [isDark]
-  );
+  const canSubmit = useMemo(() => email.length > 3 || phone.length > 6, [email, phone]);
 
-  useEffect(() => {
-    let isMounted = true;
-    playgroundsStore.getPublicUserId().then((publicUserId) => {
-      if (!isMounted) return;
-      if (publicUserId) {
-        goToPlaygroundsHome({ method: 'replace' });
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, [goToPlaygroundsHome]);
-
-  const handleSubmit = async () => {
-    const trimmed = value.trim();
-    const valid = mode === 'phone' ? validators.phone(trimmed) : validators.email(trimmed);
-
-    if (!valid) {
-      setError(mode === 'phone' ? 'Enter a valid phone number.' : 'Enter a valid email address.');
-      return;
-    }
-
-    setError('');
+  const handleIdentify = async () => {
+    if (!canSubmit || !playgrounds?.identifyPublicUser) return;
     setLoading(true);
-
-    const payload = mode === 'phone' ? { phone: trimmed } : { email: trimmed };
-    const result = await playgroundsStore.identifyPublicUser(payload);
-
+    const res = await playgrounds.identifyPublicUser({ email, phone });
+    const nextStatus = res?.success ? 'success' : 'error';
+    setStatus(nextStatus);
     setLoading(false);
-
-    if (!result?.success) {
-      setError('We could not verify your contact. Try again.');
-      return;
+    if (nextStatus === 'success') {
+      goToHome(router);
     }
-
-    const stored = await playgroundsStore.getPublicUserId();
-    if (!stored) {
-      setError('We could not save your access. Try again.');
-      return;
-    }
-
-    goToPlaygroundsHome({ method: 'replace' });
   };
 
   return (
-    <Screen scroll contentContainerStyle={styles.scrollContent}>
-      <View style={styles.hero}>
-        <LinearGradient colors={gradient} style={StyleSheet.absoluteFill} />
-        <View style={styles.heroContent}>
-          <Text variant="h2" weight="bold">
-            Welcome to Playgrounds
-          </Text>
-          <Text variant="body" color={colors.textSecondary}>
-            Tell us where to send confirmations and receipts.
-          </Text>
-        </View>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: colors.surface }]}>
-        <Text variant="body" weight="semibold">
-          Identify yourself
+    <SafeAreaView style={styles.safe}>
+      <LinearGradient colors={['#F8FAFF', '#FFFFFF']} style={styles.container}>
+        <Text style={styles.title}>Welcome to Playgrounds</Text>
+        <Text style={styles.subtitle}>
+          Identify yourself to save bookings and get exclusive offers.
         </Text>
-        <Text variant="caption" color={colors.textMuted}>
-          We use this to match your bookings across devices.
-        </Text>
-
-        <View style={styles.modeRow}>
-          {MODES.map((item) => {
-            const active = mode === item.key;
-            const Icon = item.icon;
-            return (
-              <Pressable
-                key={item.key}
-                onPress={() => {
-                  setMode(item.key);
-                  setValue('');
-                  setError('');
-                }}
-                style={[
-                  styles.modeButton,
-                  {
-                    backgroundColor: active ? colors.accentOrange : colors.surface,
-                    borderColor: active ? colors.accentOrange : colors.border,
-                  },
-                ]}
-              >
-                <View style={styles.modeContent}>
-                  <Icon size={16} color={active ? colors.white : colors.textPrimary} />
-                  <Text variant="caption" weight="semibold" color={active ? colors.white : colors.textPrimary}>
-                    {item.label}
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          })}
+        <View style={styles.card}>
+          <Text style={styles.helper}>
+            Use email or phone. We will generate a unique public ID for your bookings.
+          </Text>
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            style={styles.input}
+          />
+          <Text style={styles.label}>Phone</Text>
+          <TextInput
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="+962"
+            keyboardType="phone-pad"
+            style={styles.input}
+          />
+          <TouchableOpacity
+            style={[styles.button, (!canSubmit || loading) && styles.buttonDisabled]}
+            onPress={handleIdentify}
+            disabled={!canSubmit || loading}
+          >
+            <Text style={styles.buttonText}>{loading ? 'Saving...' : 'Continue'}</Text>
+          </TouchableOpacity>
+          {status ? (
+            <Text style={styles.status}>
+              {status === 'success' ? 'Profile saved.' : 'Unable to verify. Try again.'}
+            </Text>
+          ) : null}
         </View>
-
-        <Input
-          label={mode === 'phone' ? 'Phone number' : 'Email address'}
-          placeholder={mode === 'phone' ? '+971 50 123 4567' : 'you@email.com'}
-          keyboardType={mode === 'phone' ? 'phone-pad' : 'email-address'}
-          value={value}
-          onChangeText={setValue}
-          error={error}
-        />
-
-        <Button onPress={handleSubmit} loading={loading} style={styles.submitButton}>
-          Continue
-        </Button>
-      </View>
-    </Screen>
+      </LinearGradient>
+    </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: spacing.xxxl,
+  safe: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
   },
-  hero: {
-    margin: spacing.lg,
-    borderRadius: 24,
-    overflow: 'hidden',
-    padding: spacing.xl,
+  container: {
+    flex: 1,
+    padding: 20,
   },
-  heroContent: {
-    gap: spacing.sm,
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#11223A',
+    marginTop: 12,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#6C7A92',
+    marginTop: 8,
   },
   card: {
-    marginHorizontal: spacing.lg,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    gap: spacing.md,
-    ...shadows.md,
+    marginTop: 24,
+    padding: 20,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#0B1A33',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 16,
+    elevation: 2,
   },
-  modeRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
+  helper: {
+    fontSize: 12,
+    color: '#6C7A92',
+    marginBottom: 16,
+    lineHeight: 18,
   },
-  modeButton: {
-    flex: 1,
-    borderRadius: borderRadius.md,
+  label: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#44516C',
+    marginBottom: 6,
+  },
+  input: {
     borderWidth: 1,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: '#E0E6F0',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
+    fontSize: 14,
   },
-  modeContent: {
-    flexDirection: 'row',
+  button: {
+    backgroundColor: '#4F6AD7',
+    borderRadius: 16,
+    paddingVertical: 12,
     alignItems: 'center',
-    gap: spacing.xs,
   },
-  submitButton: {
-    marginTop: spacing.sm,
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  status: {
+    marginTop: 12,
+    fontSize: 12,
+    color: '#4F6AD7',
   },
 });

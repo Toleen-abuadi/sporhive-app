@@ -1,78 +1,51 @@
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { CheckCircle2 } from 'lucide-react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { Text } from '../ui/Text';
-import { useTheme } from '../../theme/ThemeProvider';
-import { spacing, borderRadius, shadows } from '../../theme/tokens';
-
-export function SuccessReceiptSheet({ title, subtitle, items = [] }) {
-  const { colors } = useTheme();
-  const list = items.length
-    ? items
-    : [
-        { label: 'Venue', value: 'Skyline Arena' },
-        { label: 'Date', value: 'Sat, 12 Apr' },
-        { label: 'Total', value: 'AED 240' },
-      ];
+export const SuccessReceiptSheet = ({ booking }) => {
+  if (!booking) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface }]}>
-      <View style={styles.header}>
-        <View style={[styles.iconWrap, { backgroundColor: 'rgba(16,185,129,0.12)' }]}>
-          <CheckCircle2 size={22} color={colors.success || '#10B981'} />
-        </View>
-        <View>
-          <Text variant="h4" weight="bold">
-            {title || 'Booking confirmed'}
-          </Text>
-          <Text variant="bodySmall" color={colors.textMuted}>
-            {subtitle || 'Your court is secured and ready'}
-          </Text>
-        </View>
-      </View>
+    <View style={styles.sheet}>
+      <Text style={styles.title}>Booking Confirmed</Text>
+      <Text style={styles.subtitle}>Receipt #{booking?.id || '0001'}</Text>
       <View style={styles.divider} />
-      {list.map((row) => (
-        <View key={row.label} style={styles.row}>
-          <Text variant="caption" color={colors.textMuted}>
-            {row.label}
-          </Text>
-          <Text variant="body" weight="bold">
-            {row.value}
-          </Text>
-        </View>
-      ))}
+      <Text style={styles.detail}>Venue: {booking?.venue || 'Premium Arena'}</Text>
+      <Text style={styles.detail}>Time: {booking?.time || '7:00 PM - 8:00 PM'}</Text>
+      <Text style={styles.detail}>Amount: {booking?.amount || '15 JOD'}</Text>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: {
-    marginHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    gap: spacing.md,
-    ...shadows.sm,
+  sheet: {
+    marginHorizontal: 16,
+    marginTop: 20,
+    padding: 18,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#0B1A33',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 20,
+    elevation: 3,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+  title: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#11223A',
   },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+  subtitle: {
+    fontSize: 12,
+    color: '#6C7A92',
+    marginTop: 6,
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(148,163,184,0.25)',
+    backgroundColor: '#E8EDF5',
+    marginVertical: 12,
   },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  detail: {
+    fontSize: 13,
+    color: '#46556E',
+    marginTop: 6,
   },
 });

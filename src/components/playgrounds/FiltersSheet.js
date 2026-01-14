@@ -1,61 +1,89 @@
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SlidersHorizontal } from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { useTheme } from '../../theme/ThemeProvider';
-import { Text } from '../ui/Text';
-import { spacing, borderRadius, shadows } from '../../theme/tokens';
+const chips = [
+  { key: 'priceRange', label: 'Price' },
+  { key: 'city', label: 'City' },
+  { key: 'sport', label: 'Sport' },
+  { key: 'amenities', label: 'Amenities' },
+];
 
-export function FiltersSheet({ activeFilters = {}, children }) {
-  const { colors, isDark } = useTheme();
-
+export const FiltersSheet = ({ activeFilters = {}, onChange, onReset }) => {
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface }]}>
-      <LinearGradient
-        colors={isDark ? ['#0F172A', '#111827'] : ['#F8FAFC', '#EEF2FF']}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={styles.headerRow}>
-        <View style={styles.iconWrap}>
-          <SlidersHorizontal size={16} color={colors.accentOrange} />
-        </View>
-        <View>
-          <Text variant="body" weight="bold">
-            Curate your playground
-          </Text>
-          <Text variant="caption" color={colors.textMuted}>
-            {activeFilters?.city || 'All cities'} · {activeFilters?.sport || 'All sports'}
-          </Text>
-        </View>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Filters</Text>
+        <TouchableOpacity onPress={onReset}>
+          <Text style={styles.reset}>Reset</Text>
+        </TouchableOpacity>
       </View>
-      <View style={styles.content}>{children}</View>
+      <View style={styles.chips}>
+        {chips.map((chip) => {
+          const isActive = Boolean(activeFilters?.[chip.key]);
+          return (
+            <TouchableOpacity
+              key={chip.key}
+              style={[styles.chip, isActive && styles.chipActive]}
+              onPress={() => onChange?.(chip.key)}
+            >
+              <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                {chip.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-    ...shadows.sm,
+    marginHorizontal: 16,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#0B1A33',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 16,
+    elevation: 2,
   },
-  headerRow: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(249,115,22,0.12)',
+  title: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#11223A',
   },
-  content: {
-    marginTop: spacing.md,
+  reset: {
+    fontSize: 12,
+    color: '#4F6AD7',
+    fontWeight: '600',
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#F1F4FA',
+  },
+  chipActive: {
+    backgroundColor: '#DDE7FF',
+  },
+  chipText: {
+    fontSize: 12,
+    color: '#55637D',
+  },
+  chipTextActive: {
+    color: '#2F55C6',
+    fontWeight: '600',
   },
 });

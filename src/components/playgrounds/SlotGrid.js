@@ -1,64 +1,65 @@
-import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '../ui/Text';
-import { useTheme } from '../../theme/ThemeProvider';
-import { spacing, borderRadius } from '../../theme/tokens';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export function SlotGrid({ slots = [], selectedSlot, onSelect }) {
-  const { colors } = useTheme();
-
-  const data = slots.length
-    ? slots
-    : [
-        { id: '1', label: '6:00 PM', price: 'AED 100' },
-        { id: '2', label: '7:30 PM', price: 'AED 120' },
-        { id: '3', label: '9:00 PM', price: 'AED 140' },
-      ];
+export const SlotGrid = ({ slots = [], selectedSlotId, onSelect }) => {
+  if (!slots.length) {
+    return (
+      <View style={styles.empty}>
+        <Text style={styles.emptyText}>No slots available yet.</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.grid}>
-      {data.map((slot) => {
-        const active = selectedSlot?.id === slot.id;
+      {slots.map((slot) => {
+        const id = slot?.id || slot?.time || slot;
+        const label = slot?.label || slot?.time || slot?.start_time || 'Slot';
+        const isSelected = String(selectedSlotId) === String(id);
         return (
-          <Pressable
-            key={slot.id}
+          <TouchableOpacity
+            key={id}
             onPress={() => onSelect?.(slot)}
-            style={[
-              styles.slot,
-              {
-                backgroundColor: active ? colors.accentOrange : colors.surface,
-                borderColor: active ? colors.accentOrange : colors.border,
-              },
-            ]}
+            style={[styles.slot, isSelected && styles.slotSelected]}
           >
-            <Text variant="body" weight="bold" color={active ? colors.white : colors.textPrimary}>
-              {slot.label}
-            </Text>
-            <Text variant="caption" color={active ? colors.white : colors.textMuted}>
-              {slot.price}
-            </Text>
-          </Pressable>
+            <Text style={[styles.slotText, isSelected && styles.slotTextSelected]}>{label}</Text>
+          </TouchableOpacity>
         );
       })}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
+    gap: 10,
+    paddingHorizontal: 16,
+    marginTop: 16,
   },
   slot: {
-    width: '30%',
-    minWidth: 100,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: spacing.xs,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#F4F6FB',
+  },
+  slotSelected: {
+    backgroundColor: '#DDE7FF',
+  },
+  slotText: {
+    fontSize: 12,
+    color: '#5A6B86',
+    fontWeight: '600',
+  },
+  slotTextSelected: {
+    color: '#2F55C6',
+  },
+  empty: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+  },
+  emptyText: {
+    color: '#7A8BA8',
+    fontSize: 13,
   },
 });

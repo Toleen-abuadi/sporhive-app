@@ -1,4 +1,11 @@
-import { useEffect, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { storage, PLAYGROUNDS_KEYS } from '../storage/storage';
 import { playgroundsApi } from './playgrounds.api';
 import {
@@ -22,87 +29,66 @@ const DEFAULT_FILTERS = {
 };
 
 let cachedPublicUserId = null;
-let cachedFilters = null;
-const authListeners = new Set();
+let cachedFilters = { ...DEFAULT_FILTERS };
+let isHydrated = false;
+const listeners = new Set();
 
-const readFilters = async () => {
-  if (cachedFilters) return cachedFilters;
-  const stored = await storage.getItem(PLAYGROUNDS_KEYS.LAST_FILTERS);
-  if (stored && typeof stored === 'object') {
-    cachedFilters = { ...DEFAULT_FILTERS, ...stored };
-    return cachedFilters;
-  }
-  cachedFilters = { ...DEFAULT_FILTERS };
-  return cachedFilters;
+const emit = () => {
+  const snapshot = {
+    publicUserId: cachedPublicUserId,
+    filters: cachedFilters,
+    isInitialized: isHydrated,
+  };
+  listeners.forEach((listener) => listener(snapshot));
 };
 
-const persistFilters = async (filters) => {
-  const next = { ...DEFAULT_FILTERS, ...(filters || {}) };
-  cachedFilters = next;
-  await storage.setItem(PLAYGROUNDS_KEYS.LAST_FILTERS, next);
-  return next;
-};
+const hydrate = async () => {
+  if (isHydrated) return { publicUserId: cachedPublicUserId, filters: cachedFilters };
+  const storedId = await storage.getPlaygroundsPublicUserId();
+  cachedPublicUserId = storedId || null;
 
-const resolvePublicUserId = async () => {
-  if (cachedPublicUserId) return cachedPublicUserId;
-  const stored = await storage.getItem(PLAYGROUNDS_KEYS.PUBLIC_USER_ID);
-  if (stored) {
-    cachedPublicUserId = stored;
-    return stored;
-  }
-  return null;
-};
+  const storedFilters = await storage.getItem(PLAYGROUNDS_KEYS.LAST_FILTERS);
+  cachedFilters = storedFilters && typeof storedFilters === 'object'
+    ? { ...DEFAULT_FILTERS, ...storedFilters }
+    : { ...DEFAULT_FILTERS };
 
-const setPublicUserId = async (publicUserId) => {
-  if (!publicUserId) return null;
-  cachedPublicUserId = publicUserId;
-  await storage.setItem(PLAYGROUNDS_KEYS.PUBLIC_USER_ID, publicUserId);
-  authListeners.forEach((listener) => listener(publicUserId));
-  return publicUserId;
+  isHydrated = true;
+  emit();
+  return { publicUserId: cachedPublicUserId, filters: cachedFilters };
 };
 
 const withPublicUser = async (payload = {}) => {
-  const publicUserId = await resolvePublicUserId();
+  const publicUserId = await playgroundsStore.getPublicUserId();
   if (!publicUserId) return { ...payload };
   return { ...payload, public_user_id: publicUserId, user_id: publicUserId };
 };
 
-export const usePlaygroundsAuth = () => {
-  const [publicUserId, setPublicUserIdState] = useState(cachedPublicUserId);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    resolvePublicUserId().then((id) => {
-      if (!mounted) return;
-      setPublicUserIdState(id);
-      setIsInitialized(true);
-    });
-
-    const listener = (id) => {
-      setPublicUserIdState(id);
-      setIsInitialized(true);
-    };
-    authListeners.add(listener);
-
-    return () => {
-      mounted = false;
-      authListeners.delete(listener);
-    };
-  }, []);
-
-  return {
-    publicUserId,
-    isAuthenticated: Boolean(publicUserId),
-    isInitialized,
-  };
-};
-
 export const playgroundsStore = {
-  getFilters: readFilters,
-  setFilters: persistFilters,
-  getPublicUserId: resolvePublicUserId,
-  setPublicUserId,
+  subscribe: (listener) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  },
+  getFilters: async () => {
+    if (!isHydrated) await hydrate();
+    return cachedFilters;
+  },
+  setFilters: async (filters) => {
+    const next = { ...DEFAULT_FILTERS, ...(filters || {}) };
+    cachedFilters = next;
+    await storage.setItem(PLAYGROUNDS_KEYS.LAST_FILTERS, next);
+    emit();
+    return next;
+  },
+  getPublicUserId: async () => {
+    if (!isHydrated) await hydrate();
+    return cachedPublicUserId;
+  },
+  setPublicUserId: async (publicUserId) => {
+    cachedPublicUserId = publicUserId || null;
+    await storage.setPlaygroundsPublicUserId(publicUserId);
+    emit();
+    return cachedPublicUserId;
+  },
 
   async fetchSlider(params = {}) {
     const res = await playgroundsApi.fetchSlider(params);
@@ -111,7 +97,7 @@ export const playgroundsStore = {
   },
 
   async searchVenues(filters = {}) {
-    const nextFilters = await persistFilters(filters);
+    const nextFilters = await playgroundsStore.setFilters(filters);
     const res = await playgroundsApi.searchVenues(nextFilters);
     if (!res.success) return res;
     return { success: true, data: normalizeVenueList(res.data) };
@@ -174,7 +160,7 @@ export const playgroundsStore = {
       data.id ||
       null;
     if (publicUserId) {
-      await setPublicUserId(publicUserId);
+      await playgroundsStore.setPublicUserId(publicUserId);
     }
     return { success: true, data: { ...data, publicUserId } };
   },
@@ -192,3 +178,70 @@ export const playgroundsStore = {
     return { success: true, data: normalizeRating(res.data) };
   },
 };
+
+const PlaygroundsContext = createContext(null);
+
+export const usePlaygroundsContext = () => useContext(PlaygroundsContext);
+export const usePlaygroundsStore = () => usePlaygroundsContext();
+
+export const usePlaygroundsAuth = () => {
+  const context = usePlaygroundsContext();
+  const publicUserId = context?.publicUserId ?? cachedPublicUserId;
+  const isInitialized = context?.isInitialized ?? isHydrated;
+
+  return {
+    publicUserId,
+    isAuthenticated: Boolean(publicUserId),
+    isInitialized,
+  };
+};
+
+export function PlaygroundsProvider({ children }) {
+  const [state, setState] = useState({
+    publicUserId: cachedPublicUserId,
+    filters: cachedFilters,
+    isInitialized: isHydrated,
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    hydrate().then(() => {
+      if (!mounted) return;
+      setState({
+        publicUserId: cachedPublicUserId,
+        filters: cachedFilters,
+        isInitialized: true,
+      });
+    });
+    const unsubscribe = playgroundsStore.subscribe((next) => {
+      if (!mounted) return;
+      setState({
+        publicUserId: next.publicUserId,
+        filters: next.filters,
+        isInitialized: next.isInitialized,
+      });
+    });
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
+
+  const identifyPublicUser = useCallback(async (payload) => {
+    return playgroundsStore.identifyPublicUser(payload);
+  }, []);
+
+  const value = useMemo(() => ({
+    ...state,
+    setFilters: playgroundsStore.setFilters,
+    identifyPublicUser,
+    setPublicUserId: playgroundsStore.setPublicUserId,
+    refreshFilters: playgroundsStore.getFilters,
+  }), [state, identifyPublicUser]);
+
+  return (
+    <PlaygroundsContext.Provider value={value}>
+      {children}
+    </PlaygroundsContext.Provider>
+  );
+}
