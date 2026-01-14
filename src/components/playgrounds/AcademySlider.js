@@ -1,136 +1,96 @@
-import React, { useMemo } from 'react';
-import { Dimensions, Image, Pressable, StyleSheet, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import { useEffect, useMemo, useRef } from 'react';
+import {
+  Animated,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useColorScheme,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Sparkles } from 'lucide-react-native';
 
-import { Text } from '../ui/Text';
-import { useTheme } from '../../theme/ThemeProvider';
-import { spacing, borderRadius, shadows } from '../../theme/tokens';
+const fallbackSlides = [
+  {
+    id: 'premium',
+    title: 'Premium Playgrounds',
+    subtitle: 'Handpicked venues, prime times, instant booking.',
+  },
+  {
+    id: 'flexible',
+    title: 'Flexible Scheduling',
+    subtitle: 'Move fast with real-time availability updates.',
+  },
+];
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = width * 0.74;
+export const AcademySlider = ({ items = fallbackSlides }) => {
+  const scheme = useColorScheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
 
-function SliderCard({ item, onPress }) {
-  const { colors, isDark } = useTheme();
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const themeGradient = useMemo(
-    () => (isDark ? ['#0F172A', '#1E293B'] : ['#F8FAFC', '#FDE68A']),
-    [isDark]
-  );
-
-  return (
-    <AnimatedPressable
-      onPress={() => onPress?.(item)}
-      onPressIn={() => {
-        scale.value = withSpring(0.98, { damping: 18 });
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, { damping: 18 });
-      }}
-      style={[styles.card, animatedStyle]}
-    >
-      <View style={[styles.cardInner, { backgroundColor: colors.surface }]}>
-        <LinearGradient
-          colors={themeGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        {item?.image ? (
-          <Image source={{ uri: item.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        ) : null}
-        <LinearGradient
-          colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0.05)']}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={styles.badgeRow}>
-          <Sparkles size={14} color={colors.white} />
-          <Text variant="caption" weight="bold" style={{ color: colors.white }}>
-            {item?.badge || 'Featured'}
-          </Text>
-        </View>
-        <View style={styles.content}>
-          <Text variant="h4" weight="bold" style={styles.title}>
-            {item?.title || 'Elite Court Experience'}
-          </Text>
-          <Text variant="bodySmall" style={styles.subtitle}>
-            {item?.subtitle || 'Premium courts with curated services'}
-          </Text>
-        </View>
-      </View>
-    </AnimatedPressable>
-  );
-}
-
-export function AcademySlider({ items = [], onPress }) {
-  const data = items.length
-    ? items
-    : [
-        { id: '1', title: 'Desert Sky Arena', subtitle: 'Sunset slots and lounge' },
-        { id: '2', title: 'Coastal Paddle Club', subtitle: 'Ocean breeze sessions' },
-      ];
+  const gradientColors = useMemo(() => (
+    scheme === 'dark'
+      ? ['#2D2A4A', '#1C1B2A']
+      : ['#EAF3FF', '#FFFFFF']
+  ), [scheme]);
 
   return (
-    <View>
-      <Animated.FlatList
-        data={data}
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}> 
+      <ScrollView
         horizontal
-        keyExtractor={(item, index) => item.id?.toString?.() || `slide-${index}`}
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => <SliderCard item={item} onPress={onPress} />}
-      />
-    </View>
+        contentContainerStyle={styles.scrollContent}
+      >
+        {items.map((slide) => (
+          <LinearGradient
+            key={slide.id || slide.title}
+            colors={gradientColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.card}
+          >
+            <Text style={styles.title}>{slide.title}</Text>
+            <Text style={styles.subtitle}>{slide.subtitle}</Text>
+          </LinearGradient>
+        ))}
+      </ScrollView>
+    </Animated.View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  listContent: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+  container: {
+    marginVertical: 16,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    gap: 12,
   },
   card: {
-    width: CARD_WIDTH,
-    borderRadius: borderRadius.xl,
-    overflow: 'hidden',
-    ...shadows.md,
-  },
-  cardInner: {
-    height: 190,
-    justifyContent: 'space-between',
-  },
-  badgeRow: {
-    marginTop: spacing.md,
-    marginLeft: spacing.md,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  content: {
-    padding: spacing.lg,
+    width: 280,
+    padding: 20,
+    borderRadius: 20,
+    shadowColor: '#0B1A33',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 16,
+    elevation: 4,
   },
   title: {
-    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#122B52',
+    marginBottom: 6,
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.75)',
-    marginTop: spacing.xs,
+    fontSize: 14,
+    color: '#51607A',
+    lineHeight: 20,
   },
 });

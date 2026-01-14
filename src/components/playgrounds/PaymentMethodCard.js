@@ -1,61 +1,67 @@
-import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { CreditCard } from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { Text } from '../ui/Text';
-import { useTheme } from '../../theme/ThemeProvider';
-import { spacing, borderRadius, shadows } from '../../theme/tokens';
-
-export function PaymentMethodCard({ title, subtitle, active, onPress }) {
-  const { colors } = useTheme();
-
+export const PaymentMethodCard = ({ title, subtitle, selected, onPress }) => {
   return (
-    <Pressable
-      onPress={onPress}
-      style={[
-        styles.card,
-        {
-          backgroundColor: active ? colors.accentOrange : colors.surface,
-          borderColor: active ? colors.accentOrange : colors.border,
-        },
-      ]}
-    >
-      <View style={styles.iconWrap}>
-        <CreditCard size={20} color={active ? colors.white : colors.accentOrange} />
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
+      <View style={[styles.card, selected && styles.cardSelected]}>
+        <View style={styles.circle}>
+          {selected ? <View style={styles.circleInner} /> : null}
+        </View>
+        <View style={styles.meta}>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
+        </View>
       </View>
-      <View style={styles.content}>
-        <Text variant="body" weight="bold" color={active ? colors.white : colors.textPrimary}>
-          {title || 'Card on file'}
-        </Text>
-        <Text variant="caption" color={active ? colors.white : colors.textMuted}>
-          {subtitle || 'Visa ·•••• 2341'}
-        </Text>
-      </View>
-    </Pressable>
+    </TouchableOpacity>
   );
-}
+};
 
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.lg,
-    marginHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    ...shadows.sm,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 12,
+    shadowColor: '#0B1A33',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    elevation: 2,
   },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.md,
+  cardSelected: {
+    borderWidth: 1,
+    borderColor: '#4F6AD7',
+  },
+  circle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#4F6AD7',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    marginRight: 12,
   },
-  content: {
+  circleInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#4F6AD7',
+  },
+  meta: {
     flex: 1,
-    gap: spacing.xs,
+  },
+  title: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#11223A',
+  },
+  subtitle: {
+    fontSize: 12,
+    color: '#6C7A92',
+    marginTop: 4,
   },
 });

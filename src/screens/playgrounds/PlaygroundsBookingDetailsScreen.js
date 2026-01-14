@@ -1,339 +1,351 @@
-// Playgrounds booking detail view with update/cancel management flows.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { useLocalSearchParams } from 'expo-router';
-
-import { Screen } from '../../components/ui/Screen';
-import { Text } from '../../components/ui/Text';
-import { Button } from '../../components/ui/Button';
-import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
-import { useTheme } from '../../theme/ThemeProvider';
-import { spacing, borderRadius, shadows } from '../../theme/tokens';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Modal,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { goToRate } from '../../navigation/playgrounds.routes';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
-import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
-import { normalizeBookings } from '../../services/playgrounds/playgrounds.normalize';
-import { usePlaygroundsRouter } from '../../navigation/playgrounds.routes';
+import { usePlaygroundsAuth } from '../../services/playgrounds/playgrounds.store';
 
-const formatDate = (date) => date.toISOString().split('T')[0];
-
-function DetailRow({ label, value }) {
-  const { colors } = useTheme();
-  return (
-    <View style={styles.detailRow}>
-      <Text variant="caption" color={colors.textMuted}>
-        {label}
-      </Text>
-      <Text variant="bodySmall" weight="semibold">
-        {value}
-      </Text>
+const BookingActionSheet = ({
+  visible,
+  title,
+  children,
+  onClose,
+}) => (
+  <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
+    <View style={styles.sheetOverlay}>
+      <Pressable style={styles.sheetBackdrop} onPress={onClose} />
+      <View style={styles.sheet}>
+        <Text style={styles.sheetTitle}>{title}</Text>
+        {children}
+      </View>
     </View>
-  );
-}
+  </Modal>
+);
 
-export function PlaygroundsBookingDetailsScreen({ bookingId: bookingIdProp }) {
-  const { colors } = useTheme();
-  const { goToMyBookings, goToRate } = usePlaygroundsRouter();
-  const params = useLocalSearchParams();
-  const bookingId = bookingIdProp || params?.bookingId || params?.id || null;
-  const bookingParam = typeof params?.booking === 'string' ? params.booking : null;
-  const [booking, setBooking] = useState(() => {
-    if (!bookingParam) return null;
-    try {
-      return JSON.parse(bookingParam);
-    } catch {
-      return null;
-    }
-  });
-  const [loading, setLoading] = useState(!booking);
-  const [error, setError] = useState('');
-  const [confirmCancel, setConfirmCancel] = useState(false);
-  const [showUpdate, setShowUpdate] = useState(false);
-  const [checkingSlots, setCheckingSlots] = useState(false);
-  const [updating, setUpdating] = useState(false);
-  const [message, setMessage] = useState('');
-  const [newDate, setNewDate] = useState(new Date());
-  const [newTime, setNewTime] = useState(new Date());
+export const PlaygroundsBookingDetailsScreen = () => {
+  const { bookingId } = useLocalSearchParams();
+  const router = useRouter();
+  const { publicUserId } = usePlaygroundsAuth();
+  const [booking, setBooking] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [updateOpen, setUpdateOpen] = useState(false);
+  const [newDate, setNewDate] = useState('');
+  const [newTime, setNewTime] = useState('');
+  const [slots, setSlots] = useState([]);
 
-  const userIdPromise = useMemo(() => playgroundsStore.getPublicUserId(), []);
-
-  const loadBooking = useCallback(async () => {
-    if (!bookingId) return;
-    setLoading(true);
-    const userId = await userIdPromise;
-    const response = await playgroundsApi.listBookings({ user_id: userId });
-    if (!response?.success) {
-      setError(response?.error?.message || 'Failed to load booking.');
-      setLoading(false);
-      return;
-    }
-    const list = normalizeBookings(response.data);
-    const match = list.find((item) => String(item.id || item.booking_id) === String(bookingId));
-    setBooking(match || null);
-    setLoading(false);
-  }, [bookingId, userIdPromise]);
+  const resolvedBookingId = Array.isArray(bookingId) ? bookingId[0] : bookingId;
 
   useEffect(() => {
-    if (!booking) {
-      loadBooking();
-    }
-  }, [booking, loadBooking]);
+    let active = true;
+    const load = async () => {
+      if (!publicUserId) return;
+      setLoading(true);
+      const res = await playgroundsApi.listBookings({ user_id: publicUserId });
+      if (!active) return;
+      if (!res?.success) {
+        setError('Unable to load booking.');
+        setBooking(null);
+      } else {
+        const list = Array.isArray(res.data) ? res.data : res.data?.items || [];
+        const found = list.find((item) => String(item.id || item.booking_id) === String(resolvedBookingId));
+        setBooking(found || null);
+        setError(null);
+      }
+      setLoading(false);
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [publicUserId, resolvedBookingId]);
 
   const handleCancel = async () => {
-    setError('');
-    setMessage('');
-    const userId = await userIdPromise;
-    const response = await playgroundsApi.cancelBooking({ booking_id: bookingId, user_id: userId });
-    if (!response?.success) {
-      setError(response?.error?.message || 'Could not cancel booking.');
-      return;
+    if (!publicUserId || !resolvedBookingId) return;
+    setLoading(true);
+    const res = await playgroundsApi.cancelBooking({ booking_id: resolvedBookingId, user_id: publicUserId });
+    if (!res?.success) {
+      setError('Unable to cancel booking.');
+    } else {
+      setBooking((prev) => prev ? { ...prev, status: 'cancelled' } : prev);
+      setCancelOpen(false);
     }
-    setMessage('Booking cancelled successfully.');
-    setConfirmCancel(false);
-    await loadBooking();
+    setLoading(false);
   };
 
   const handleUpdate = async () => {
-    if (!booking) return;
-    setError('');
-    setMessage('');
-    setCheckingSlots(true);
-    const dateValue = formatDate(newDate);
-    const timeValue = newTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    const slotsResponse = await playgroundsApi.fetchSlots({
-      venue_id: booking?.venue_id || booking?.venueId,
-      date: dateValue,
-      duration_minutes: booking?.duration_minutes || booking?.duration || booking?.duration_minutes,
-    });
-    const slots = slotsResponse?.success ? slotsResponse.data?.slots || slotsResponse.data || [] : [];
-    const hasSlot = slots.some((slot) => {
-      const slotTime = slot.start_time || slot.time || slot.label;
-      return slotTime === timeValue;
-    });
-    setCheckingSlots(false);
-
-    if (!hasSlot) {
-      setError('Selected time is no longer available. Please choose another.');
+    if (!publicUserId || !resolvedBookingId) return;
+    if (!newDate || !newTime) {
+      setError('Select a new date and time.');
       return;
     }
-
-    setUpdating(true);
-    const userId = await userIdPromise;
-    const response = await playgroundsApi.updateBooking({
-      booking_id: bookingId,
-      user_id: userId,
-      new_date: dateValue,
-      new_start_time: timeValue,
+    setLoading(true);
+    const res = await playgroundsApi.updateBooking({
+      booking_id: resolvedBookingId,
+      user_id: publicUserId,
+      new_date: newDate,
+      new_start_time: newTime,
     });
-    setUpdating(false);
-
-    if (!response?.success) {
-      setError(response?.error?.message || 'Could not update booking.');
-      return;
+    if (!res?.success) {
+      setError('Unable to update booking.');
+    } else {
+      setBooking((prev) => prev ? { ...prev, date: newDate, time: newTime } : prev);
+      setUpdateOpen(false);
     }
-
-    setMessage('Booking updated successfully.');
-    setShowUpdate(false);
-    await loadBooking();
+    setLoading(false);
   };
 
-  if (loading) {
-    return (
-      <Screen>
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.accentOrange} />
-          <Text variant="body" color={colors.textSecondary}>
-            Loading booking details...
-          </Text>
-        </View>
-      </Screen>
-    );
-  }
+  const handleFetchSlots = async () => {
+    if (!booking?.venue_id || !newDate) return;
+    const res = await playgroundsApi.fetchSlots({
+      venue_id: booking?.venue_id,
+      date: newDate,
+      duration_minutes: booking?.duration_minutes || 60,
+    });
+    if (!res?.success) {
+      setError('Unable to load slots.');
+      setSlots([]);
+      return;
+    }
+    setSlots(res.data || []);
+  };
 
-  if (!booking) {
-    return (
-      <Screen>
-        <View style={styles.loadingWrap}>
-          <Text variant="body" color={colors.textSecondary}>
-            Booking not found.
-          </Text>
-          <Button onPress={loadBooking} variant="secondary">
-            Retry
-          </Button>
-          <Button onPress={() => goToMyBookings({ method: 'replace' })}>
-            Back to bookings
-          </Button>
-        </View>
-      </Screen>
-    );
-  }
+  const bookingDetails = useMemo(() => ({
+    venue: booking?.venue_name || booking?.venue || 'Playground',
+    date: booking?.date || 'TBD',
+    time: booking?.time || booking?.slot_time || 'TBD',
+    players: booking?.players || booking?.players_count || '—',
+    total: booking?.total_price || booking?.price || '—',
+    payment: booking?.payment_method || booking?.payment_type || '—',
+    code: booking?.code || booking?.booking_code || '—',
+    status: booking?.status || 'pending',
+  }), [booking]);
 
   return (
-    <Screen scroll contentContainerStyle={styles.scrollContent}>
-      <View style={[styles.card, { backgroundColor: colors.surface }]}>
-        <Text variant="h3" weight="bold">
-          {booking?.venue_name || booking?.venue || 'Venue'}
-        </Text>
-        <Text variant="body" color={colors.textSecondary}>
-          Booking code: {booking?.booking_code || booking?.code || '—'}
-        </Text>
-        {message ? (
-          <Text variant="bodySmall" color={colors.accentOrange}>
-            {message}
-          </Text>
-        ) : null}
-        {error ? (
-          <Text variant="bodySmall" color={colors.error}>
-            {error}
-          </Text>
-        ) : null}
-        <View style={[styles.detailsCard, { borderColor: colors.border }]}>
-          <DetailRow label="Date" value={booking?.date || booking?.booking_date || '—'} />
-          <DetailRow label="Time" value={booking?.time || booking?.start_time || '—'} />
-          <DetailRow label="Players" value={booking?.players_count || booking?.players || '—'} />
-          <DetailRow label="Duration" value={booking?.duration_minutes ? `${booking.duration_minutes} min` : '—'} />
-          <DetailRow label="Payment" value={booking?.payment_method || booking?.payment_type || '—'} />
-          <DetailRow label="Total" value={booking?.total_price || booking?.price || 'AED 0'} />
-          <DetailRow label="Status" value={booking?.status || '—'} />
-        </View>
-      </View>
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>Booking Details</Text>
+        {loading ? <Text style={styles.helper}>Loading...</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <View style={styles.actionsRow}>
-        <Button variant="secondary" onPress={() => setShowUpdate(true)} style={styles.actionButton}>
-          Update booking
-        </Button>
-        <Button variant="danger" onPress={() => setConfirmCancel(true)} style={styles.actionButton}>
-          Cancel booking
-        </Button>
-      </View>
-
-      <View style={styles.rateRow}>
-        <Button onPress={() => goToRate()} style={styles.rateButton}>
-          Rate this booking
-        </Button>
-      </View>
-
-      <BottomSheetModal visible={confirmCancel} onClose={() => setConfirmCancel(false)}>
-        <View style={styles.modalContent}>
-          <Text variant="h4" weight="bold">
-            Cancel booking?
-          </Text>
-          <Text variant="body" color={colors.textSecondary}>
-            This action cannot be undone. You&apos;ll lose your reserved slot.
-          </Text>
-          <View style={styles.modalActions}>
-            <Button variant="secondary" onPress={() => setConfirmCancel(false)} style={styles.modalButton}>
-              Keep booking
-            </Button>
-            <Button variant="danger" onPress={handleCancel} style={styles.modalButton}>
-              Confirm cancel
-            </Button>
+        {booking ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{bookingDetails.venue}</Text>
+            <Text style={styles.cardMeta}>Date: {bookingDetails.date}</Text>
+            <Text style={styles.cardMeta}>Time: {bookingDetails.time}</Text>
+            <Text style={styles.cardMeta}>Players: {bookingDetails.players}</Text>
+            <Text style={styles.cardMeta}>Payment: {bookingDetails.payment}</Text>
+            <Text style={styles.cardMeta}>Code: {bookingDetails.code}</Text>
+            <Text style={styles.cardMeta}>Status: {bookingDetails.status}</Text>
+            <Text style={styles.total}>Total: {bookingDetails.total} JOD</Text>
           </View>
-        </View>
-      </BottomSheetModal>
+        ) : null}
 
-      <BottomSheetModal visible={showUpdate} onClose={() => setShowUpdate(false)}>
-        <View style={styles.modalContent}>
-          <Text variant="h4" weight="bold">
-            Update booking
-          </Text>
-          <Text variant="bodySmall" color={colors.textMuted}>
-            Select a new date and start time. We&apos;ll check availability before updating.
-          </Text>
-          <DateTimePicker
-            value={newDate}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(_, date) => date && setNewDate(date)}
-          />
-          <DateTimePicker
-            value={newTime}
-            mode="time"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(_, time) => time && setNewTime(time)}
-          />
-          {checkingSlots ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={colors.accentOrange} />
-              <Text variant="caption" color={colors.textMuted}>
-                Checking availability...
-              </Text>
-            </View>
-          ) : null}
-          <View style={styles.modalActions}>
-            <Button variant="secondary" onPress={() => setShowUpdate(false)} style={styles.modalButton}>
-              Close
-            </Button>
-            <Button onPress={handleUpdate} loading={updating} style={styles.modalButton}>
-              Confirm update
-            </Button>
-          </View>
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => setUpdateOpen(true)}>
+            <Text style={styles.secondaryButtonText}>Update Date/Time</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => goToRate(router)}>
+            <Text style={styles.secondaryButtonText}>Rate</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.dangerButton} onPress={() => setCancelOpen(true)}>
+            <Text style={styles.dangerButtonText}>Cancel Booking</Text>
+          </TouchableOpacity>
         </View>
-      </BottomSheetModal>
-    </Screen>
+      </ScrollView>
+
+      <BookingActionSheet
+        visible={cancelOpen}
+        title="Cancel booking?"
+        onClose={() => setCancelOpen(false)}
+      >
+        <Text style={styles.sheetText}>This action cannot be undone.</Text>
+        <TouchableOpacity style={styles.dangerButton} onPress={handleCancel}>
+          <Text style={styles.dangerButtonText}>Confirm Cancel</Text>
+        </TouchableOpacity>
+      </BookingActionSheet>
+
+      <BookingActionSheet
+        visible={updateOpen}
+        title="Update booking"
+        onClose={() => setUpdateOpen(false)}
+      >
+        <TextInput
+          placeholder="New date (YYYY-MM-DD)"
+          value={newDate}
+          onChangeText={setNewDate}
+          style={styles.input}
+        />
+        <TouchableOpacity style={styles.secondaryButton} onPress={handleFetchSlots}>
+          <Text style={styles.secondaryButtonText}>Load Slots</Text>
+        </TouchableOpacity>
+        {slots.length ? (
+          <View style={styles.slotList}>
+            {slots.map((slot) => (
+              <TouchableOpacity
+                key={slot.id || slot.time}
+                style={[styles.slotChip, newTime === (slot.time || slot.label) && styles.slotChipActive]}
+                onPress={() => setNewTime(slot.time || slot.label)}
+              >
+                <Text style={[styles.slotChipText, newTime === (slot.time || slot.label) && styles.slotChipTextActive]}>
+                  {slot.label || slot.time}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
+        <TouchableOpacity style={styles.primaryButton} onPress={handleUpdate}>
+          <Text style={styles.primaryButtonText}>Update Booking</Text>
+        </TouchableOpacity>
+      </BookingActionSheet>
+    </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: spacing.xxxl,
-  },
-  loadingWrap: {
+  safe: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.xl,
+    backgroundColor: '#FFFFFF',
+  },
+  container: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#11223A',
+    marginBottom: 12,
+  },
+  helper: {
+    fontSize: 12,
+    color: '#6C7A92',
+    marginBottom: 12,
+  },
+  error: {
+    fontSize: 12,
+    color: '#D64545',
+    marginBottom: 12,
   },
   card: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    gap: spacing.sm,
-    ...shadows.md,
+    backgroundColor: '#F7F9FF',
+    borderRadius: 18,
+    padding: 16,
   },
-  detailsCard: {
-    marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#11223A',
+  },
+  cardMeta: {
+    fontSize: 12,
+    color: '#6C7A92',
+    marginTop: 6,
+  },
+  total: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#11223A',
+    marginTop: 12,
+  },
+  actions: {
+    marginTop: 20,
+    gap: 10,
+  },
+  secondaryButton: {
+    backgroundColor: '#EFF3FF',
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: '#4F6AD7',
+    fontWeight: '600',
+  },
+  dangerButton: {
+    backgroundColor: '#FFECEE',
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  dangerButtonText: {
+    color: '#D64545',
+    fontWeight: '600',
+  },
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(10, 18, 36, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  sheetBackdrop: {
+    flex: 1,
+  },
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#11223A',
+    marginBottom: 12,
+  },
+  sheetText: {
+    fontSize: 12,
+    color: '#6C7A92',
+    marginBottom: 12,
+  },
+  input: {
     borderWidth: 1,
-    gap: spacing.sm,
+    borderColor: '#E0E6F0',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
   },
-  detailRow: {
+  slotList: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  slotChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: '#F1F4FA',
+  },
+  slotChipActive: {
+    backgroundColor: '#4F6AD7',
+  },
+  slotChipText: {
+    fontSize: 12,
+    color: '#6C7A92',
+  },
+  slotChipTextActive: {
+    color: '#FFFFFF',
+  },
+  primaryButton: {
+    backgroundColor: '#4F6AD7',
+    borderRadius: 16,
+    paddingVertical: 12,
     alignItems: 'center',
   },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-  },
-  actionButton: {
-    flex: 1,
-  },
-  rateRow: {
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.md,
-  },
-  rateButton: {
-    width: '100%',
-  },
-  modalContent: {
-    gap: spacing.md,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  modalButton: {
-    flex: 1,
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });

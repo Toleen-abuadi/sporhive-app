@@ -1,61 +1,69 @@
-import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { UploadCloud } from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { Text } from '../ui/Text';
-import { useTheme } from '../../theme/ThemeProvider';
-import { spacing, borderRadius } from '../../theme/tokens';
-
-export function CliqUploadCard({ title, subtitle, onPress }) {
-  const { colors } = useTheme();
-
+export const CliqUploadCard = ({ uploading = false, onUpload }) => {
   return (
-    <Pressable onPress={onPress} style={[styles.container, { borderColor: colors.border }]}>
-      <View style={[styles.iconWrap, { backgroundColor: 'rgba(59,130,246,0.12)' }]}>
-        <UploadCloud size={18} color={colors.accentOrange} />
+    <View style={styles.card}>
+      <View style={styles.row}>
+        <View style={styles.badge} />
+        <View style={styles.meta}>
+          <Text style={styles.title}>Upload CliQ Receipt</Text>
+          <Text style={styles.subtitle}>Attach proof of payment to complete booking.</Text>
+        </View>
       </View>
-      <View style={styles.content}>
-        <Text variant="body" weight="bold">
-          {title || 'Upload CliQ receipt'}
-        </Text>
-        <Text variant="caption" color={colors.textMuted}>
-          {subtitle || 'Drag or tap to add payment proof'}
-        </Text>
-      </View>
-      <View style={[styles.action, { backgroundColor: colors.surface }]}>
-        <Text variant="caption" weight="bold" color={colors.textPrimary}>
-          Choose file
-        </Text>
-      </View>
-    </Pressable>
+      <TouchableOpacity
+        onPress={onUpload}
+        style={[styles.button, uploading && styles.buttonDisabled]}
+        disabled={uploading}
+      >
+        <Text style={styles.buttonText}>{uploading ? 'Uploading...' : 'Choose File'}</Text>
+      </TouchableOpacity>
+    </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: {
-    marginHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    padding: spacing.lg,
+  card: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFF',
+  },
+  row: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+    marginBottom: 12,
   },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+  badge: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#E0E8FF',
+    marginRight: 12,
   },
-  content: {
+  meta: {
     flex: 1,
-    gap: spacing.xs,
   },
-  action: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
+  title: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#11223A',
+  },
+  subtitle: {
+    fontSize: 12,
+    color: '#6C7A92',
+    marginTop: 4,
+  },
+  button: {
+    backgroundColor: '#4F6AD7',
+    paddingVertical: 10,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });

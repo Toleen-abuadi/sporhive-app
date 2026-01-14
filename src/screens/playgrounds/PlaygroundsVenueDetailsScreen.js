@@ -1,257 +1,276 @@
-// Playgrounds venue details screen with gallery, highlights, and booking CTA.
-import React, { useMemo, useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  Dimensions,
+  FlatList,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams } from 'expo-router';
-import { MapPin } from 'lucide-react-native';
+import Animated, {
+  Extrapolate,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { SlotGrid } from '../../components/playgrounds/SlotGrid';
+import { goToBook } from '../../navigation/playgrounds.routes';
+import { useVenue } from '../../services/playgrounds/playgrounds.hooks';
 
-import { Screen } from '../../components/ui/Screen';
-import { Text } from '../../components/ui/Text';
-import { Button } from '../../components/ui/Button';
-import { useTheme } from '../../theme/ThemeProvider';
-import { spacing, borderRadius, shadows } from '../../theme/tokens';
-import { useVenueDetails } from '../../services/playgrounds/playgrounds.hooks';
-import { usePlaygroundsRouter } from '../../navigation/playgrounds.routes';
+const { width } = Dimensions.get('window');
 
-const fallbackDurations = [
+const defaultGallery = [
+  'https://images.unsplash.com/photo-1508606572321-901ea443707f?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=1200&q=80',
+];
+
+const durations = [
   { id: '60', minutes: 60, label: '60 min' },
   { id: '90', minutes: 90, label: '90 min' },
   { id: '120', minutes: 120, label: '120 min' },
 ];
 
-export function PlaygroundsVenueDetailsScreen({ venueId: venueIdProp }) {
-  const { colors } = useTheme();
-  const { goToBook } = usePlaygroundsRouter();
-  const params = useLocalSearchParams();
-  const venueId = venueIdProp || params?.venueId || params?.id || null;
-  const venueParam = typeof params?.venue === 'string' ? params.venue : null;
-  let venueFallback = null;
-  if (venueParam) {
-    try {
-      venueFallback = JSON.parse(venueParam);
-    } catch {
-      venueFallback = null;
-    }
-  }
-  const venue = useVenueDetails(venueId);
-  const data = venue.data || venueFallback || {};
-  const [selectedDuration, setSelectedDuration] = useState(null);
-
-  const gallery = useMemo(() => {
-    const images = [
-      ...(data?.images || []),
-      ...(data?.gallery || []),
-      data?.image,
-      data?.cover,
-    ].filter(Boolean);
-    return images.slice(0, 3);
-  }, [data]);
-
-  const durations = useMemo(() => {
-    const raw = data?.durations || data?.duration_options || data?.session_durations || [];
-    const mapped = raw.map((item, index) => ({
-      id: item.id?.toString?.() || `${item.minutes || item.duration || index}`,
-      minutes: item.minutes || item.duration || item.duration_minutes || 60,
-      label: item.label || `${item.minutes || item.duration || 60} min`,
-    }));
-    return mapped.length ? mapped : fallbackDurations;
-  }, [data]);
-
-  const selected = selectedDuration || durations[0];
+const GalleryImage = ({ uri, index, scrollX }) => {
+  const animatedStyle = useAnimatedStyle(() => {
+    const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
+    const scale = interpolate(scrollX.value, inputRange, [0.92, 1, 0.92], Extrapolate.CLAMP);
+    return {
+      transform: [{ scale }],
+    };
+  });
 
   return (
-    <Screen scroll contentContainerStyle={styles.scrollContent}>
-      <View style={styles.hero}>
-        <FlatList
-          data={gallery.length ? gallery : ['placeholder']}
-          horizontal
-          pagingEnabled
-          keyExtractor={(item, index) => `${item}-${index}`}
-          showsHorizontalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <View style={styles.heroImage}>
-              {item !== 'placeholder' ? (
-                <Image source={{ uri: item }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-              ) : (
-                <LinearGradient
-                  colors={['#0F172A', '#1F2937']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-              )}
-              <LinearGradient
-                colors={['rgba(0,0,0,0.65)', 'rgba(0,0,0,0.05)']}
-                style={StyleSheet.absoluteFill}
-              />
+    <Animated.View style={[styles.galleryCard, animatedStyle]}>
+      <Animated.Image source={{ uri }} style={styles.galleryImage} />
+    </Animated.View>
+  );
+};
+
+export const PlaygroundsVenueDetailsScreen = () => {
+  const { venueId } = useLocalSearchParams();
+  const router = useRouter();
+  const { data } = useVenue(venueId);
+  const [selectedDuration, setSelectedDuration] = useState(durations[0]);
+  const scrollX = useSharedValue(0);
+
+  const venue = useMemo(() => data || {}, [data]);
+  const gallery = venue?.gallery?.length ? venue.gallery.slice(0, 3) : defaultGallery;
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollX.value = event.contentOffset.x;
+    },
+  });
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <FlatList
+        data={gallery}
+        keyExtractor={(item, index) => `${item}-${index}`}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        renderItem={({ item, index }) => (
+          <GalleryImage uri={item} index={index} scrollX={scrollX} />
+        )}
+        style={styles.galleryList}
+      />
+
+      <View style={styles.content}>
+        <LinearGradient colors={['#F4F7FF', '#FFFFFF']} style={styles.hero}>
+          <Text style={styles.title}>{venue?.name || 'Skyline Arena'}</Text>
+          <Text style={styles.subtitle}>{venue?.city || 'Amman'} · {venue?.sport || 'Football'}</Text>
+          <Text style={styles.meta}>{venue?.description || 'Indoor premium pitch with lounge area.'}</Text>
+          {venue?.offer ? (
+            <View style={styles.offerPill}>
+              <Text style={styles.offerText}>{venue.offer}</Text>
             </View>
-          )}
-        />
-        <View style={styles.heroContent}>
-          <Text variant="h3" weight="bold" style={styles.heroTitle}>
-            {data?.name || 'Skyline Arena'}
-          </Text>
-          <View style={styles.locationRow}>
-            <MapPin size={16} color="rgba(255,255,255,0.85)" />
-            <Text variant="bodySmall" style={styles.heroSubtitle}>
-              {data?.location || 'Downtown Dubai · Indoor'}
-            </Text>
+          ) : null}
+        </LinearGradient>
+
+        <View style={styles.infoGrid}>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoLabel}>Size</Text>
+            <Text style={styles.infoValue}>{venue?.size || '5v5'}</Text>
+          </View>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoLabel}>Players</Text>
+            <Text style={styles.infoValue}>{venue?.min_players || 6} - {venue?.max_players || 14}</Text>
+          </View>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoLabel}>Location</Text>
+            <Text style={styles.infoValue}>{venue?.location || 'Abdoun'}</Text>
           </View>
         </View>
-      </View>
 
-      <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
-        <Text variant="h4" weight="bold">
-          Venue highlights
-        </Text>
-        <Text variant="bodySmall" color={colors.textSecondary}>
-          {data?.description || 'Premium turf, curated lighting, and onsite hospitality built for next-level games.'}
-        </Text>
-        <View style={styles.infoRow}>
-          <Text variant="caption" color={colors.textMuted}>
-            Court size
-          </Text>
-          <Text variant="bodySmall" weight="semibold">
-            {data?.size || 'Premium 40m x 20m'}
-          </Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text variant="caption" color={colors.textMuted}>
-            Players
-          </Text>
-          <Text variant="bodySmall" weight="semibold">
-            {data?.min_players || data?.minPlayers || 4} - {data?.max_players || data?.maxPlayers || 12}
-          </Text>
-        </View>
-        {data?.special_offer || data?.offer ? (
-          <View style={[styles.offerPill, { backgroundColor: 'rgba(249,115,22,0.12)' }]}>
-            <Text variant="caption" weight="bold" color={colors.accentOrange}>
-              {data?.special_offer || data?.offer}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      <View style={styles.section}>
-        <Text variant="h4" weight="bold">
-          Choose duration
-        </Text>
-        <Text variant="bodySmall" color={colors.textMuted}>
-          Select how long you want the court.
-        </Text>
+        <Text style={styles.sectionTitle}>Choose Duration</Text>
         <View style={styles.durationRow}>
           {durations.map((duration) => {
-            const active = selected?.id === duration.id;
+            const isSelected = selectedDuration?.id === duration.id;
             return (
-              <Pressable
+              <TouchableOpacity
                 key={duration.id}
+                style={[styles.durationChip, isSelected && styles.durationChipActive]}
                 onPress={() => setSelectedDuration(duration)}
-                style={[
-                  styles.durationChip,
-                  {
-                    backgroundColor: active ? colors.accentOrange : colors.surface,
-                    borderColor: active ? colors.accentOrange : colors.border,
-                  },
-                ]}
               >
-                <Text variant="bodySmall" weight="bold" color={active ? colors.white : colors.textPrimary}>
+                <Text style={[styles.durationText, isSelected && styles.durationTextActive]}>
                   {duration.label}
                 </Text>
-                <Text variant="caption" color={active ? colors.white : colors.textMuted}>
-                  {data?.price ? `${data.price}` : 'From AED 120'}
-                </Text>
-              </Pressable>
+              </TouchableOpacity>
             );
           })}
         </View>
-      </View>
 
-      <View style={styles.ctaWrap}>
-        <Button
-          onPress={() =>
-            goToBook(String(data?.id || venueId || ''), {
-              venueId: String(data?.id || venueId || ''),
-              durationId: selected?.id,
-              durationMinutes: selected?.minutes,
-            })
-          }
+        <Text style={styles.sectionTitle}>Popular Slots</Text>
+        <SlotGrid
+          slots={venue?.slots || [{ id: '1', label: '6:00 PM' }, { id: '2', label: '7:00 PM' }]}
+          selectedSlotId={null}
+        />
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => goToBook(router, venueId || '1')}
         >
-          Book Now
-        </Button>
+          <Text style={styles.buttonText}>Book Now</Text>
+        </TouchableOpacity>
       </View>
-    </Screen>
+    </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: spacing.xxxl,
+  safe: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  galleryList: {
+    flexGrow: 0,
+  },
+  galleryCard: {
+    width,
+    height: 240,
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+  },
+  galleryImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
+  },
+  content: {
+    flex: 1,
+    paddingBottom: 24,
   },
   hero: {
-    height: 280,
-    borderBottomLeftRadius: borderRadius.xl,
-    borderBottomRightRadius: borderRadius.xl,
-    overflow: 'hidden',
+    marginHorizontal: 16,
+    marginTop: -32,
+    padding: 20,
+    borderRadius: 24,
+    shadowColor: '#0B1A33',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 16,
+    elevation: 2,
   },
-  heroImage: {
-    width: '100%',
-    height: 280,
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#11223A',
   },
-  heroContent: {
-    position: 'absolute',
-    bottom: spacing.lg,
-    left: spacing.lg,
-    right: spacing.lg,
-    gap: spacing.xs,
+  subtitle: {
+    fontSize: 13,
+    color: '#6C7A92',
+    marginTop: 6,
   },
-  heroTitle: {
-    color: '#FFFFFF',
-  },
-  heroSubtitle: {
-    color: 'rgba(255,255,255,0.75)',
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  infoCard: {
-    marginHorizontal: spacing.lg,
-    marginTop: -spacing.lg,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    gap: spacing.sm,
-    ...shadows.md,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  meta: {
+    fontSize: 12,
+    color: '#7A8BA8',
+    marginTop: 10,
+    lineHeight: 18,
   },
   offerPill: {
+    marginTop: 12,
     alignSelf: 'flex-start',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+    backgroundColor: '#E6F5FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
-  section: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    gap: spacing.sm,
+  offerText: {
+    fontSize: 12,
+    color: '#2E6BA6',
+    fontWeight: '600',
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingHorizontal: 16,
+  },
+  infoCard: {
+    flex: 1,
+    backgroundColor: '#F4F7FF',
+    borderRadius: 16,
+    padding: 12,
+    marginHorizontal: 4,
+  },
+  infoLabel: {
+    fontSize: 11,
+    color: '#6C7A92',
+  },
+  infoValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#11223A',
+    marginTop: 6,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#11223A',
+    marginTop: 20,
+    paddingHorizontal: 16,
   },
   durationRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: 10,
+    paddingHorizontal: 16,
+    marginTop: 12,
   },
   durationChip: {
-    width: '47%',
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    gap: spacing.xs,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: '#EFF3FF',
   },
-  ctaWrap: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+  durationChipActive: {
+    backgroundColor: '#4F6AD7',
+  },
+  durationText: {
+    fontSize: 12,
+    color: '#4F6AD7',
+    fontWeight: '600',
+  },
+  durationTextActive: {
+    color: '#FFFFFF',
+  },
+  button: {
+    marginTop: 24,
+    marginHorizontal: 16,
+    backgroundColor: '#4F6AD7',
+    borderRadius: 18,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 });

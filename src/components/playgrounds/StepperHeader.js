@@ -1,49 +1,56 @@
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useMemo, useRef } from 'react';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 
-import { Text } from '../ui/Text';
-import { useTheme } from '../../theme/ThemeProvider';
-import { spacing, borderRadius } from '../../theme/tokens';
+export const StepperHeader = ({ steps = [], currentStep = 0 }) => {
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const percentage = steps.length > 1 ? (currentStep / (steps.length - 1)) : 0;
 
-export function StepperHeader({ step = 0, steps = [] }) {
-  const { colors, isDark } = useTheme();
-  const total = steps.length || 4;
-  const progress = Math.min((step + 1) / total, 1);
+  useEffect(() => {
+    Animated.spring(progressAnim, {
+      toValue: percentage,
+      friction: 8,
+      tension: 60,
+      useNativeDriver: false,
+    }).start();
+  }, [percentage, progressAnim]);
+
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
+  const currentLabel = useMemo(() => steps[currentStep] || 'Details', [steps, currentStep]);
 
   return (
     <View style={styles.container}>
-      <Text variant="h4" weight="bold">
-        {steps[step] || 'Complete your booking'}
-      </Text>
-      <Text variant="bodySmall" color={colors.textMuted}>
-        Step {step + 1} of {total}
-      </Text>
-      <View style={[styles.track, { backgroundColor: colors.surface }]}>
-        <LinearGradient
-          colors={isDark ? ['#22D3EE', '#38BDF8'] : ['#FB923C', '#FDE68A']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.progress, { width: `${progress * 100}%` }]}
-        />
+      <Text style={styles.label}>{currentLabel}</Text>
+      <View style={styles.track}>
+        <Animated.View style={[styles.progress, { width: progressWidth }]} />
       </View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    gap: spacing.sm,
+    paddingHorizontal: 16,
+    marginTop: 16,
+  },
+  label: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#11223A',
+    marginBottom: 12,
   },
   track: {
-    height: 8,
-    borderRadius: borderRadius.full,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: '#E7ECF6',
     overflow: 'hidden',
   },
   progress: {
-    height: '100%',
-    borderRadius: borderRadius.full,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: '#4F6AD7',
   },
 });

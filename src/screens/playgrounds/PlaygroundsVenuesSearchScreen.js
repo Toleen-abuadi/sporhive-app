@@ -1,445 +1,282 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
-import { SlidersHorizontal } from 'lucide-react-native';
-
-import { Screen } from '../../components/ui/Screen';
-import { Text } from '../../components/ui/Text';
-import { Input } from '../../components/ui/Input';
-import { Button } from '../../components/ui/Button';
-import { LoadingState } from '../../components/ui/LoadingState';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
+import { useMemo, useState } from 'react';
+import {
+  FlatList,
+  Modal,
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useRouter } from 'expo-router';
 import { VenueCard } from '../../components/playgrounds/VenueCard';
-import { FiltersSheet } from '../../components/playgrounds/FiltersSheet';
-import { useTheme } from '../../theme/ThemeProvider';
-import { spacing, borderRadius } from '../../theme/tokens';
-import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
-import { normalizeVenueList } from '../../services/playgrounds/playgrounds.normalize';
-import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
-import { usePlaygroundsRouter } from '../../navigation/playgrounds.routes';
+import { goToVenue } from '../../navigation/playgrounds.routes';
+import { useSearch } from '../../services/playgrounds/playgrounds.hooks';
+import { usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 
-const PAGE_SIZE = 10;
+const filterConfig = [
+  { key: 'activity', label: 'Activity', options: ['Football', 'Padel', 'Basketball'] },
+  { key: 'date', label: 'Date', options: ['Today', 'Tomorrow', 'Weekend'] },
+  { key: 'players', label: 'Players', options: ['2-4', '5-8', '9+'] },
+  { key: 'duration', label: 'Duration', options: ['60 min', '90 min', '120 min'] },
+  { key: 'location', label: 'Location', options: ['Amman', 'Zarqa', 'Irbid'] },
+  { key: 'offers', label: 'Offers', options: ['Discounted', 'Top Rated', 'Instant'] },
+  { key: 'sort', label: 'Sort', options: ['Recommended', 'Price low', 'Price high'] },
+];
 
-const FILTER_OPTIONS = {
-  activity: ['Padel', 'Football', 'Tennis', 'Basketball'],
-  date: ['Today', 'Tomorrow', 'This weekend', 'Next week'],
-  players: ['2 players', '4 players', '6 players', '8+ players'],
-  duration: ['60 min', '90 min', '120 min'],
-  location: ['Dubai', 'Abu Dhabi', 'Sharjah'],
-  academy: ['All academies', 'Elite Club', 'Skyline Arena', 'Coastal Club'],
-  specialOffer: ['Only offers', 'All venues'],
-  sort: ['Recommended', 'Price: low to high', 'Top rated', 'Closest'],
-};
+const skeletonItems = Array.from({ length: 4 }).map((_, index) => ({ id: `skeleton-${index}` }));
 
-const defaultFilters = {
-  query: '',
-  activity: 'Padel',
-  date: 'Today',
-  players: '4 players',
-  duration: '90 min',
-  location: 'Dubai',
-  academy: 'All academies',
-  specialOffer: false,
-  sort: 'Recommended',
-};
-
-function FilterChip({ label, value, onPress }) {
-  const { colors } = useTheme();
-  const isActive = Boolean(value);
-
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.chip,
-        {
-          backgroundColor: isActive ? colors.accentOrange : colors.surface,
-          borderColor: isActive ? colors.accentOrange : colors.border,
-          opacity: pressed ? 0.9 : 1,
-        },
-      ]}
-    >
-      <Text variant="caption" weight="semibold" color={isActive ? colors.white : colors.textPrimary}>
-        {label}
-      </Text>
-      <Text variant="caption" color={isActive ? colors.white : colors.textMuted}>
-        {value || 'Any'}
-      </Text>
-    </Pressable>
-  );
-}
-
-function FilterSheetContent({ title, options, activeValue, onSelect }) {
-  const { colors } = useTheme();
-
-  return (
-    <View style={styles.sheetContent}>
-      <Text variant="h4" weight="bold">
-        {title}
-      </Text>
-      <View style={styles.sheetOptions}>
-        {options.map((option) => {
-          const active = activeValue === option;
-          return (
-            <Pressable
-              key={option}
-              onPress={() => onSelect(option)}
-              style={[
-                styles.sheetOption,
-                {
-                  backgroundColor: active ? colors.accentOrange : colors.surface,
-                  borderColor: active ? colors.accentOrange : colors.border,
-                },
-              ]}
-            >
-              <Text variant="body" weight="semibold" color={active ? colors.white : colors.textPrimary}>
-                {option}
-              </Text>
-            </Pressable>
-          );
-        })}
+const FilterSheet = ({ visible, title, options = [], onSelect, onClose }) => (
+  <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
+    <View style={styles.sheetOverlay}>
+      <Pressable style={styles.sheetBackdrop} onPress={onClose} />
+      <View style={styles.sheet}>
+        <Text style={styles.sheetTitle}>{title}</Text>
+        {options.map((option) => (
+          <TouchableOpacity key={option} style={styles.sheetOption} onPress={() => onSelect(option)}>
+            <Text style={styles.sheetOptionText}>{option}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
     </View>
-  );
-}
+  </Modal>
+);
 
-export function PlaygroundsVenuesSearchScreen() {
-  const { colors } = useTheme();
-  const { goToVenue } = usePlaygroundsRouter();
-  const [filters, setFilters] = useState(defaultFilters);
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+export const PlaygroundsVenuesSearchScreen = () => {
+  const router = useRouter();
+  const playgrounds = usePlaygroundsStore();
+  const { data, loading, filters, updateFilters, load } = useSearch();
+  const [query, setQuery] = useState(filters?.query || '');
   const [activeSheet, setActiveSheet] = useState(null);
+  const [viewMode, setViewMode] = useState('list');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const summary = useMemo(
-    () => `${filters.activity} · ${filters.location} · ${filters.sort}`,
-    [filters]
-  );
+  const venues = useMemo(() => data || [], [data]);
+  const activeFilters = filters || playgrounds?.filters || {};
 
-  const loadVenues = useCallback(
-    async ({ pageToLoad = 1, append = false, nextFilters = filters } = {}) => {
-      if (pageToLoad === 1) {
-        setLoading(!append && !refreshing);
-      } else {
-        setLoadingMore(true);
-      }
+  const handleQueryChange = (value) => {
+    setQuery(value);
+    updateFilters({ ...activeFilters, query: value, page: 1 });
+  };
 
-      const response = await playgroundsApi.searchVenues({
-        ...nextFilters,
-        page: pageToLoad,
-        per_page: PAGE_SIZE,
-      });
+  const handleFilterSelect = (key, value) => {
+    setActiveSheet(null);
+    updateFilters({ ...activeFilters, [key]: value, page: 1 });
+  };
 
-      const payload = response?.data || {};
-      const data = response?.success ? normalizeVenueList(payload) : [];
-      const meta = payload.meta || payload.pagination || {};
-      const inferredHasMore =
-        meta.has_more ??
-        meta.hasMore ??
-        (meta.next_page != null ? true : data.length === PAGE_SIZE);
-
-      setHasMore(Boolean(inferredHasMore));
-      setPage(pageToLoad);
-      setResults((prev) => (append ? [...prev, ...data] : data));
-      setLoading(false);
-      setLoadingMore(false);
-      setRefreshing(false);
-    },
-    [filters, refreshing]
-  );
-
-  const updateFilters = useCallback(
-    async (next) => {
-      const updated = { ...filters, ...next };
-      setFilters(updated);
-      await playgroundsStore.setFilters(updated);
-      loadVenues({ pageToLoad: 1, nextFilters: updated });
-    },
-    [filters, loadVenues]
-  );
-
-  useEffect(() => {
-    let isMounted = true;
-    playgroundsStore.getFilters().then((stored) => {
-      if (!isMounted) return;
-      const merged = { ...defaultFilters, ...(stored || {}) };
-      setFilters(merged);
-      loadVenues({ pageToLoad: 1, nextFilters: merged });
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, [loadVenues]);
-
-  const handleRefresh = useCallback(() => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    loadVenues({ pageToLoad: 1 });
-  }, [loadVenues]);
+    await load(activeFilters);
+    setRefreshing(false);
+  };
 
-  const handleLoadMore = useCallback(() => {
-    if (!hasMore || loadingMore || loading) return;
-    loadVenues({ pageToLoad: page + 1, append: true });
-  }, [hasMore, loadingMore, loading, page, loadVenues]);
+  const handleEndReached = () => {
+    if (!venues.length) return;
+    const nextPage = (activeFilters.page || 1) + 1;
+    updateFilters({ ...activeFilters, page: nextPage });
+  };
+
+  const renderItem = ({ item }) => (
+    <View style={viewMode === 'grid' ? styles.gridItem : undefined}>
+      <VenueCard
+        venue={item}
+        onPress={() => goToVenue(router, item.id || '1')}
+      />
+    </View>
+  );
 
   return (
-    <Screen scroll={false}>
-      <Animated.FlatList
-        data={results}
-        keyExtractor={(item, index) => item.id?.toString?.() || `venue-${index}`}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Search Venues</Text>
+        <TextInput
+          placeholder="Search city, sport, or venue"
+          style={styles.search}
+          value={query}
+          onChangeText={handleQueryChange}
+        />
+      </View>
+
+      <View style={styles.filterBar}>
+        <FlatList
+          data={filterConfig}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.key}
+          contentContainerStyle={styles.filterRow}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.filterChip}
+              onPress={() => setActiveSheet(item.key)}
+            >
+              <Text style={styles.filterChipText}>
+                {item.label}
+                {activeFilters?.[item.key] ? ` · ${activeFilters[item.key]}` : ''}
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
+        <View style={styles.viewToggle}>
+          <TouchableOpacity onPress={() => setViewMode('list')}>
+            <Text style={[styles.toggleText, viewMode === 'list' && styles.toggleTextActive]}>List</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setViewMode('grid')}>
+            <Text style={[styles.toggleText, viewMode === 'grid' && styles.toggleTextActive]}>Grid</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <FlatList
+        data={loading ? skeletonItems : venues}
+        key={viewMode}
+        numColumns={viewMode === 'grid' ? 2 : 1}
+        keyExtractor={(item) => String(item.id || item.name || item)}
+        renderItem={loading ? () => <View style={styles.skeletonCard} /> : renderItem}
         contentContainerStyle={styles.listContent}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.4}
-        ListHeaderComponent={
-          <View>
-            <View style={styles.header}>
-              <Text variant="h3" weight="bold">
-                Search venues
-              </Text>
-              <Text variant="body" color={colors.textSecondary}>
-                {summary}
-              </Text>
-            </View>
-
-            <View style={styles.searchRow}>
-              <Input
-                placeholder="Search by venue or academy"
-                value={filters.query}
-                onChangeText={(value) => updateFilters({ query: value })}
-                leftIcon="search"
-                style={styles.searchInput}
-              />
-              <Pressable
-                onPress={() => setActiveSheet('sort')}
-                style={[styles.filterButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
-              >
-                <SlidersHorizontal size={18} color={colors.accentOrange} />
-              </Pressable>
-            </View>
-
-            <FiltersSheet activeFilters={filters}>
-              <View style={styles.chipGrid}>
-                <FilterChip label="Activity" value={filters.activity} onPress={() => setActiveSheet('activity')} />
-                <FilterChip label="Date" value={filters.date} onPress={() => setActiveSheet('date')} />
-                <FilterChip label="Players" value={filters.players} onPress={() => setActiveSheet('players')} />
-                <FilterChip label="Duration" value={filters.duration} onPress={() => setActiveSheet('duration')} />
-                <FilterChip label="Location" value={filters.location} onPress={() => setActiveSheet('location')} />
-                <FilterChip label="Academy" value={filters.academy} onPress={() => setActiveSheet('academy')} />
-                <FilterChip
-                  label="Offers"
-                  value={filters.specialOffer ? 'Only offers' : 'All venues'}
-                  onPress={() => setActiveSheet('specialOffer')}
-                />
-                <FilterChip label="Sort" value={filters.sort} onPress={() => setActiveSheet('sort')} />
-              </View>
-            </FiltersSheet>
-
-            <View style={styles.resultsHeader}>
-              <Text variant="body" weight="bold">
-                {results.length} curated matches
-              </Text>
-              <Button variant="ghost" onPress={() => updateFilters(defaultFilters)}>
-                Reset
-              </Button>
-            </View>
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#4F6AD7" />
+        }
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.6}
+        ListEmptyComponent={!loading ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>No venues yet</Text>
+            <Text style={styles.emptyText}>Adjust filters or try another city.</Text>
           </View>
-        }
-        renderItem={({ item, index }) => (
-          <Animated.View
-            entering={FadeInDown.delay(index * 40).duration(240)}
-            layout={Layout.springify()}
-          >
-            <VenueCard
-              venue={item}
-              onPress={(venue) => goToVenue(venue?.id, { venue: JSON.stringify(venue) })}
-            />
-          </Animated.View>
-        )}
-        ListEmptyComponent={
-          loading ? (
-            <LoadingState message="Finding the perfect court..." />
-          ) : (
-            <EmptyState
-              title="No venues yet"
-              message="Try adjusting your filters or broadening your search."
-              actionLabel="Reset filters"
-              onAction={() => updateFilters(defaultFilters)}
-            />
-          )
-        }
-        ListFooterComponent={
-          loadingMore ? (
-            <View style={styles.loadingMore}>
-              <LoadingState message="Loading more venues..." size="small" />
-            </View>
-          ) : null
-        }
+        ) : null}
       />
 
-      <BottomSheetModal visible={activeSheet === 'activity'} onClose={() => setActiveSheet(null)}>
-        <FilterSheetContent
-          title="Choose activity"
-          options={FILTER_OPTIONS.activity}
-          activeValue={filters.activity}
-          onSelect={(value) => {
-            updateFilters({ activity: value });
-            setActiveSheet(null);
-          }}
+      {filterConfig.map((filter) => (
+        <FilterSheet
+          key={filter.key}
+          visible={activeSheet === filter.key}
+          title={filter.label}
+          options={filter.options}
+          onSelect={(option) => handleFilterSelect(filter.key, option)}
+          onClose={() => setActiveSheet(null)}
         />
-      </BottomSheetModal>
-
-      <BottomSheetModal visible={activeSheet === 'date'} onClose={() => setActiveSheet(null)}>
-        <FilterSheetContent
-          title="Select date"
-          options={FILTER_OPTIONS.date}
-          activeValue={filters.date}
-          onSelect={(value) => {
-            updateFilters({ date: value });
-            setActiveSheet(null);
-          }}
-        />
-      </BottomSheetModal>
-
-      <BottomSheetModal visible={activeSheet === 'players'} onClose={() => setActiveSheet(null)}>
-        <FilterSheetContent
-          title="Players"
-          options={FILTER_OPTIONS.players}
-          activeValue={filters.players}
-          onSelect={(value) => {
-            updateFilters({ players: value });
-            setActiveSheet(null);
-          }}
-        />
-      </BottomSheetModal>
-
-      <BottomSheetModal visible={activeSheet === 'duration'} onClose={() => setActiveSheet(null)}>
-        <FilterSheetContent
-          title="Session duration"
-          options={FILTER_OPTIONS.duration}
-          activeValue={filters.duration}
-          onSelect={(value) => {
-            updateFilters({ duration: value });
-            setActiveSheet(null);
-          }}
-        />
-      </BottomSheetModal>
-
-      <BottomSheetModal visible={activeSheet === 'location'} onClose={() => setActiveSheet(null)}>
-        <FilterSheetContent
-          title="Location"
-          options={FILTER_OPTIONS.location}
-          activeValue={filters.location}
-          onSelect={(value) => {
-            updateFilters({ location: value });
-            setActiveSheet(null);
-          }}
-        />
-      </BottomSheetModal>
-
-      <BottomSheetModal visible={activeSheet === 'academy'} onClose={() => setActiveSheet(null)}>
-        <FilterSheetContent
-          title="Academy"
-          options={FILTER_OPTIONS.academy}
-          activeValue={filters.academy}
-          onSelect={(value) => {
-            updateFilters({ academy: value });
-            setActiveSheet(null);
-          }}
-        />
-      </BottomSheetModal>
-
-      <BottomSheetModal visible={activeSheet === 'specialOffer'} onClose={() => setActiveSheet(null)}>
-        <FilterSheetContent
-          title="Special offers"
-          options={FILTER_OPTIONS.specialOffer}
-          activeValue={filters.specialOffer ? 'Only offers' : 'All venues'}
-          onSelect={(value) => {
-            updateFilters({ specialOffer: value === 'Only offers' });
-            setActiveSheet(null);
-          }}
-        />
-      </BottomSheetModal>
-
-      <BottomSheetModal visible={activeSheet === 'sort'} onClose={() => setActiveSheet(null)}>
-        <FilterSheetContent
-          title="Sort by"
-          options={FILTER_OPTIONS.sort}
-          activeValue={filters.sort}
-          onSelect={(value) => {
-            updateFilters({ sort: value });
-            setActiveSheet(null);
-          }}
-        />
-      </BottomSheetModal>
-    </Screen>
+      ))}
+    </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  listContent: {
-    paddingBottom: spacing.xxxl,
+  safe: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    gap: spacing.xs,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
-  searchRow: {
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#11223A',
+  },
+  search: {
+    marginTop: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E0E6F0',
+  },
+  filterBar: {
+    marginTop: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.md,
+    paddingHorizontal: 16,
   },
-  searchInput: {
+  filterRow: {
+    gap: 10,
+    paddingRight: 12,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: '#EFF3FF',
+  },
+  filterChipText: {
+    fontSize: 12,
+    color: '#4F6AD7',
+    fontWeight: '600',
+  },
+  viewToggle: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  toggleText: {
+    fontSize: 12,
+    color: '#7A8BA8',
+    fontWeight: '600',
+  },
+  toggleTextActive: {
+    color: '#4F6AD7',
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  gridItem: {
+    flex: 1,
+    marginRight: 12,
+  },
+  skeletonCard: {
+    height: 110,
+    borderRadius: 18,
+    backgroundColor: '#EFF3FF',
+    marginBottom: 16,
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: '#F4F7FF',
+    borderRadius: 18,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#11223A',
+  },
+  emptyText: {
+    fontSize: 12,
+    color: '#6C7A92',
+    marginTop: 8,
+  },
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(10, 18, 36, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  sheetBackdrop: {
     flex: 1,
   },
-  filterButton: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
   },
-  chipGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  chip: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    minWidth: 120,
-  },
-  resultsHeader: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  loadingMore: {
-    paddingBottom: spacing.xl,
-  },
-  sheetContent: {
-    gap: spacing.md,
-  },
-  sheetOptions: {
-    gap: spacing.sm,
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#11223A',
+    marginBottom: 12,
   },
   sheetOption: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEF1F7',
+  },
+  sheetOptionText: {
+    fontSize: 14,
+    color: '#2F3B52',
   },
 });

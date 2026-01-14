@@ -1,145 +1,136 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useMemo } from 'react';
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Search, Ticket } from 'lucide-react-native';
-
-import { Screen } from '../../components/ui/Screen';
-import { Text } from '../../components/ui/Text';
-import { Button } from '../../components/ui/Button';
+import { useRouter } from 'expo-router';
 import { AcademySlider } from '../../components/playgrounds/AcademySlider';
-import { useTheme } from '../../theme/ThemeProvider';
-import { spacing } from '../../theme/tokens';
-import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
-import { normalizeSliderItems } from '../../services/playgrounds/playgrounds.normalize';
-import { LoadingState } from '../../components/ui/LoadingState';
-import { usePlaygroundsRouter } from '../../navigation/playgrounds.routes';
+import { VenueCard } from '../../components/playgrounds/VenueCard';
+import { goToMyBookings, goToSearch } from '../../navigation/playgrounds.routes';
+import { useSlider } from '../../services/playgrounds/playgrounds.hooks';
 
-export function PlaygroundsHomeScreen() {
-  const { colors } = useTheme();
-  const { goToSearch, goToMyBookings, goToVenue } = usePlaygroundsRouter();
-  const [sliderItems, setSliderItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+const featuredVenues = [
+  { id: '1', name: 'Skyline Arena', city: 'Amman', sport: 'Football', rating: '4.9', price: '18 JOD / hr' },
+  { id: '2', name: 'Luna Courts', city: 'Zarqa', sport: 'Padel', rating: '4.7', price: '22 JOD / hr' },
+];
 
-  useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
-    playgroundsApi.fetchSlider().then((res) => {
-      if (!isMounted) return;
-      if (res?.success) {
-        setSliderItems(normalizeSliderItems(res.data));
-      }
-      setLoading(false);
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const heroGradient = useMemo(
-    () => ['rgba(249,115,22,0.15)', 'rgba(14,116,144,0.05)'],
-    []
-  );
+export const PlaygroundsHomeScreen = () => {
+  const router = useRouter();
+  const slider = useSlider();
+  const sliderItems = useMemo(() => slider.data || [], [slider.data]);
 
   return (
-    <Screen scroll contentContainerStyle={styles.scrollContent}>
-      <View style={styles.hero}>
-        <LinearGradient colors={heroGradient} style={StyleSheet.absoluteFill} />
-        <View style={styles.heroContent}>
-          <Text variant="h2" weight="bold">
-            Book next-level courts
-          </Text>
-          <Text variant="body" color={colors.textSecondary}>
-            Premium playgrounds, handpicked times, and instant booking.
-          </Text>
-          <View style={styles.heroButtons}>
-            <Button onPress={() => goToSearch()} style={styles.heroButton}>
-              Search
-            </Button>
-            <Button
-              onPress={() => goToMyBookings()}
-              variant="secondary"
-              style={styles.heroButton}
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <LinearGradient colors={['#F5F8FF', '#FFFFFF']} style={styles.header}>
+          <Text style={styles.title}>Discover Playgrounds</Text>
+          <Text style={styles.subtitle}>Premium venues with real-time availability.</Text>
+          <TextInput
+            placeholder="Search by city, sport, or venue"
+            style={styles.search}
+          />
+          <View style={styles.ctaRow}>
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => goToSearch(router)}
             >
-              My bookings
-            </Button>
+              <Text style={styles.primaryButtonText}>Search Venues</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => goToMyBookings(router)}
+            >
+              <Text style={styles.secondaryButtonText}>My Bookings</Text>
+            </TouchableOpacity>
           </View>
-        </View>
-        <View style={styles.heroBadges}>
-          <View style={[styles.heroBadge, { backgroundColor: colors.surface }]}>
-            <Search size={16} color={colors.accentOrange} />
-            <Text variant="caption" weight="semibold">
-              Smart search
-            </Text>
-          </View>
-          <View style={[styles.heroBadge, { backgroundColor: colors.surface }]}>
-            <Ticket size={16} color={colors.accentOrange} />
-            <Text variant="caption" weight="semibold">
-              Instant booking
-            </Text>
-          </View>
-        </View>
-      </View>
+        </LinearGradient>
 
-      <View style={styles.sectionHeader}>
-        <Text variant="h4" weight="bold">
-          Featured experiences
-        </Text>
-        <Text variant="bodySmall" color={colors.textMuted}>
-          Trending across padel, football, and racket sports.
-        </Text>
-      </View>
+        <AcademySlider items={sliderItems.length ? sliderItems : undefined} />
 
-      {loading ? (
-        <LoadingState message="Loading curated highlights..." />
-      ) : (
-        <AcademySlider
-          items={sliderItems}
-          onPress={(item) => goToVenue(item?.id, { venue: JSON.stringify(item) })}
-        />
-      )}
-    </Screen>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Featured</Text>
+          {featuredVenues.map((venue) => (
+            <VenueCard key={venue.id} venue={venue} />
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: spacing.xxxl,
-  },
-  hero: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-    borderRadius: 24,
-    padding: spacing.xl,
-    overflow: 'hidden',
-  },
-  heroContent: {
-    gap: spacing.sm,
-  },
-  heroButtons: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  heroButton: {
+  safe: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
-  heroBadges: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
+  container: {
+    paddingBottom: 24,
   },
-  heroBadge: {
+  header: {
+    padding: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#11223A',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#6C7A92',
+    marginTop: 6,
+  },
+  search: {
+    marginTop: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E0E6F0',
+  },
+  ctaRow: {
     flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  primaryButton: {
+    flex: 1,
+    backgroundColor: '#4F6AD7',
+    borderRadius: 16,
+    paddingVertical: 12,
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 999,
   },
-  sectionHeader: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.sm,
-    gap: spacing.xs,
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    flex: 1,
+    backgroundColor: '#EFF3FF',
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: '#4F6AD7',
+    fontWeight: '600',
+  },
+  section: {
+    paddingHorizontal: 16,
+    marginTop: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#11223A',
+    marginBottom: 12,
   },
 });
