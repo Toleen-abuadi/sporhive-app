@@ -9,7 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
-import { usePortalAuth, usePortalOverview, usePortalProfile } from '../../services/portal/portal.hooks';
+import { usePortalAuth, usePortalOverview } from '../../services/portal/portal.hooks';
 import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,9 +18,8 @@ export function PortalProfileScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { t, isRTL } = useTranslation();
-  const { overview } = usePortalOverview();
-  const { profile, saveProfile, loading, refresh } = usePortalProfile();
-  const { logout } = usePortalAuth();
+  const { overview, refresh: refreshOverview } = usePortalOverview();
+  const { logout, updateProfile, isLoading } = usePortalAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
     first_eng_name: '',
@@ -67,16 +66,6 @@ export function PortalProfileScreen() {
     }
   }, [overview]);
 
-  useEffect(() => {
-    if (profile) {
-      setForm((prev) => ({
-        ...prev,
-        ...profile,
-        image_base64: profile.image_base64 || prev.image_base64,
-      }));
-    }
-  }, [profile]);
-
   const initials = useMemo(() => {
     const name = player?.fullName || 'Player';
     return name.slice(0, 1).toUpperCase();
@@ -104,11 +93,12 @@ export function PortalProfileScreen() {
       phone_number_2: form.phone2,
       image_base64: form.image_base64,
     };
-    const res = await saveProfile(payload);
+    const res = await updateProfile(payload);
     if (res?.success) {
-      await refresh();
+      await refreshOverview();
       setIsEditing(false);
     }
+
   };
 
   const handleLogout = async () => {
@@ -256,7 +246,7 @@ export function PortalProfileScreen() {
               <Button variant="secondary" onPress={() => setIsEditing(false)}>
                 {t('common.cancel')}
               </Button>
-              <Button onPress={onSave} loading={loading}>
+              <Button onPress={onSave} loading={isLoading}>
                 {t('portal.profile.save')}
               </Button>
             </View>

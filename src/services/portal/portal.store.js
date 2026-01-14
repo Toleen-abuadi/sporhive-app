@@ -25,6 +25,28 @@ const OVERVIEW_INITIAL = {
   lastUpdated: null,
 };
 
+async function persistTryOutFromOverview(overview, academyId) {
+  const tryOutId = overview?.player?.tryOutId || overview?.player?.id || null;
+  if (!tryOutId) return null;
+
+  try {
+    const existing = (await storage.getItem(PORTAL_KEYS.SESSION)) || {};
+    const next = {
+      ...existing,
+      academyId: academyId ?? existing.academyId ?? null,
+      tryOutId,
+      // keep player cached too if you want (optional)
+      player: overview?.player ? { ...(existing.player || {}), ...overview.player } : existing.player,
+    };
+    await storage.setItem(PORTAL_KEYS.SESSION, next);
+    return tryOutId;
+  } catch (e) {
+    console.warn('persistTryOutFromOverview failed', e);
+    return null;
+  }
+}
+
+
 /**
  * Lightweight in-memory store for caching overview & cross-screen refresh
  */
@@ -65,7 +87,10 @@ export const portalStore = {
     }
     const normalized = normalizePortalOverview(res.data);
     portalStore.setOverview(normalized);
+
+    await persistTryOutFromOverview(normalized, academyId);
     return { success: true, data: normalized };
+
   },
   refreshOverview: async ({ academyId } = {}) => portalStore.loadOverview({ academyId, silent: true }),
 };
@@ -207,9 +232,16 @@ export function PortalProvider({ children }) {
 
   const refreshOverview = useCallback(async () => {
     const result = await portalStore.refreshOverview({ academyId: state.academyId });
-    if (result.success) return result;
+    if (result.success) {
+      const t = result?.data?.player?.tryOutId || result?.data?.player?.id || null;
+      if (t && t !== state.tryOutId) {
+        setState((prev) => ({ ...prev, tryOutId: t }));
+      }
+      return result;
+    }
     return { success: false, error: result.error };
-  }, [state.academyId]);
+  }, [state.academyId, state.tryOutId]);
+
 
   const updateProfile = useCallback(async (payload) => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));

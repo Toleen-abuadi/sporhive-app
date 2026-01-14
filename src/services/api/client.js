@@ -14,19 +14,21 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   async (config) => {
-    // ✅ If caller already set Authorization (portal), NEVER override it.
-    const alreadyHasAuth =
+    const hasAuth =
       !!config.headers?.Authorization || !!config.headers?.authorization;
 
-    if (!alreadyHasAuth) {
-      const token = await storage.getAuthToken(); // app auth token (academy/admin side)
-      if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (!hasAuth) {
+      const token = await storage.getAuthToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
 
     return config;
   },
   (error) => Promise.reject(error)
 );
+
 
 apiClient.interceptors.response.use(
   (response) => response.data,

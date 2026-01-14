@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { portalApi } from './portal.api';
 import { portalStore, usePortal as usePortalContext } from './portal.store';
+import { normalizeUniformOrders } from './portal.normalize';
 
 export function usePortalAuth() {
   return usePortalContext();
@@ -44,33 +45,6 @@ export function usePortalRefresh() {
   }, []);
 
   return { refreshing, onRefresh };
-}
-
-export function usePortalProfile() {
-  const { updateProfile } = usePortalAuth();
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const loadProfile = useCallback(async () => {
-    setLoading(true);
-    const res = await portalApi.getProfile();
-    if (res?.success) setProfile(res.data?.data || res.data);
-    setLoading(false);
-    return res;
-  }, []);
-
-  const saveProfile = useCallback(async (payload) => {
-    setLoading(true);
-    const res = await updateProfile(payload);
-    setLoading(false);
-    return res;
-  }, [updateProfile]);
-
-  useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
-
-  return { profile, loading, refresh: loadProfile, saveProfile };
 }
 
 export function usePortalRenewals() {
@@ -129,16 +103,28 @@ export function usePortalFreezes() {
 }
 
 export function usePortalPayments() {
-  const [loading, setLoading] = useState(false);
+  const { overview, loading, error, refresh } = usePortalOverview();
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+
+  const payments = useMemo(() => {
+    return overview?.payments || [];
+  }, [overview]);
 
   const printInvoice = useCallback(async (payload) => {
-    setLoading(true);
+    setInvoiceLoading(true);
     const res = await portalApi.printInvoice(payload);
-    setLoading(false);
+    setInvoiceLoading(false);
     return res;
   }, []);
 
-  return { loading, printInvoice };
+  return { 
+    payments, 
+    loading, 
+    error, 
+    reload: refresh, 
+    printInvoice,
+    invoiceLoading 
+  };
 }
 
 export function usePortalPerformance() {
@@ -175,7 +161,7 @@ export function usePortalOrders() {
   useEffect(() => {
     const load = async () => {
       const res = await portalApi.listMyUniformOrders();
-      if (res?.success) setOrders(res.data?.data || res.data || []);
+      if (res?.success) setOrders(normalizeUniformOrders(res.data));
     };
     load();
   }, []);
@@ -189,7 +175,17 @@ export function usePortalNews() {
   useEffect(() => {
     const load = async () => {
       const res = await portalApi.listNews();
-      if (res?.success) setNews(res.data?.data || res.data || []);
+      if (res?.success) {
+        const raw = res.data;
+        const list =
+          Array.isArray(raw) ? raw :
+            Array.isArray(raw?.news) ? raw.news :
+              Array.isArray(raw?.data?.news) ? raw.data.news :
+                Array.isArray(raw?.data) ? raw.data :
+                  [];
+        setNews(list);
+      }
+
     };
     load();
   }, []);
@@ -289,3 +285,4 @@ export function useAcademies() {
     refresh: load,
   };
 }
+

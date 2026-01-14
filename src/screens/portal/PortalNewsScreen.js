@@ -1,6 +1,6 @@
 // Portal News Screen: academy updates and announcements.
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native'; // ✅ add Image + ScrollView
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
@@ -10,6 +10,8 @@ import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
 import { portalApi } from '../../services/portal/portal.api';
 import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
+import { storage, PORTAL_KEYS } from '../../services/storage/storage';
+
 
 export function PortalNewsScreen() {
   const { colors } = useTheme();
@@ -18,15 +20,86 @@ export function PortalNewsScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const [academyId, setAcademyId] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        // Prefer dedicated helpers if your storage wrapper has them
+        let id = null;
+
+        if (storage.getPortalAcademyId) {
+          id = await storage.getPortalAcademyId();
+        }
+
+        if (!id) {
+          const rawId = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);
+          if (rawId) id = rawId;
+        }
+
+        if (!id) {
+          const sess = await storage.getItem(PORTAL_KEYS.SESSION);
+          const parsed = typeof sess === 'string' ? JSON.parse(sess) : sess;
+          id = parsed?.academyId;
+        }
+
+        const n = Number(id);
+        setAcademyId(Number.isFinite(n) ? n : null);
+      } catch (e) {
+        setAcademyId(null);
+      }
+    })();
+  }, []);
+
+
+  // ✅ Build absolute image URL from the relative image_url returned by API
+const resolveNewsImageUrl = useCallback((imageUrl) => {
+  if (!imageUrl || typeof imageUrl !== 'string') return null;
+
+  // If backend already sends absolute URL, keep it
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+
+  // Expect: "/news/10/images/15"
+  const match = imageUrl.match(/^\/?news\/(\d+)\/images\/(\d+)/);
+  if (!match) {
+    // fallback: attempt to use direct (may fail if needs auth)
+    const base = (portalApi?.baseUrl || '').replace(/\/$/, '');
+    const path = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+    return `${base}${path}`;
+  }
+
+  const [, newsId, imageId] = match;
+
+  // Proxy endpoint (GET):
+  // /api/v1/player-portal-external-proxy/news/<newsId>/images/<imageId>?academy_id=1
+  const base = (portalApi?.baseUrl || '').replace(/\/$/, '');
+  const proxyPath = `/player-portal-external-proxy/news/${newsId}/images/${imageId}`;
+  const academyQ = academyId ? `?academy_id=${academyId}` : '';
+
+  return `${base}${proxyPath}${academyQ}`;
+}, [academyId]);
+
+
   const loadNews = useCallback(async () => {
     setLoading(true);
     setError('');
     const res = await portalApi.fetchNews();
+
     if (res?.success) {
-      setNews(res.data?.data || res.data || []);
+      const raw = res.data;
+
+      const list =
+        Array.isArray(raw) ? raw :
+          Array.isArray(raw?.news) ? raw.news :
+            Array.isArray(raw?.data?.news) ? raw.data.news :
+              Array.isArray(raw?.data) ? raw.data :
+                [];
+
+      setNews(list);
     } else {
       setError(res?.error?.message || t('portal.news.error'));
     }
+
     setLoading(false);
   }, [t]);
 
@@ -53,21 +126,48 @@ export function PortalNewsScreen() {
         />
       ) : news?.length ? (
         <View style={styles.list}>
-          {news.map((item, index) => (
-            <TouchableOpacity key={item?.id ?? index}>
-              <PortalCard style={styles.card}>
-                <Text variant="body" weight="semibold" color={colors.textPrimary}>
-                  {item?.title || t('portal.news.defaultTitle')}
-                </Text>
-                <Text variant="caption" color={colors.textMuted} style={styles.meta}>
-                  {item?.date || item?.created_at || '—'}
-                </Text>
-                <Text variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>
-                  {item?.summary || item?.excerpt || t('portal.news.defaultDescription')}
-                </Text>
-              </PortalCard>
-            </TouchableOpacity>
-          ))}
+          {news.map((item, index) => {
+            const images = Array.isArray(item?.images) ? item.images : [];
+            const imageUris = images
+              .map((img) => resolveNewsImageUrl(img?.image_url))
+              .filter(Boolean);
+
+            return (
+              <TouchableOpacity key={item?.id ?? index}>
+                <PortalCard style={styles.card}>
+                  <Text variant="body" weight="semibold" color={colors.textPrimary}>
+                    {item?.title || t('portal.news.defaultTitle')}
+                  </Text>
+
+                  <Text variant="caption" color={colors.textMuted} style={styles.meta}>
+                    {item?.created_at || '—'}
+                  </Text>
+
+                  {!!imageUris.length && (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.imagesRow}
+                    >
+                      {imageUris.map((uri, i) => (
+                        <Image
+                          key={`${item?.id || index}-img-${i}`}
+                          source={{ uri }}
+                          style={styles.newsImage}
+                          resizeMode="cover"
+                          onError={(e) => console.log('NEWS IMG ERROR:', uri, e.nativeEvent?.error)}
+                        />
+                      ))}
+                    </ScrollView>
+                  )}
+
+                  <Text variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>
+                    {item?.description || t('portal.news.defaultDescription')}
+                  </Text>
+                </PortalCard>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       ) : loading ? (
         <PortalEmptyState
@@ -87,28 +187,29 @@ export function PortalNewsScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: {
-    padding: spacing.lg,
+  scroll: { padding: spacing.lg },
+  list: { gap: spacing.md },
+  card: { marginBottom: spacing.md },
+  meta: { marginTop: spacing.xs },
+  subtitle: { marginTop: spacing.xs },
+
+  // ✅ image row
+  imagesRow: {
+    marginTop: spacing.sm,
+    paddingBottom: 2,
   },
-  list: {
-    gap: spacing.md,
+  newsImage: {
+    width: 220,
+    height: 130,
+    borderRadius: 14,
+    marginRight: spacing.sm,
   },
-  card: {
-    marginBottom: spacing.md,
-  },
-  meta: {
-    marginTop: spacing.xs,
-  },
-  subtitle: {
-    marginTop: spacing.xs,
-  },
+
   retryButton: {
     marginTop: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: 14,
     alignItems: 'center',
   },
-  rtl: {
-    direction: 'rtl',
-  },
+  rtl: { direction: 'rtl' },
 });

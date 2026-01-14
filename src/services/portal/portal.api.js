@@ -44,14 +44,28 @@ const resolveLanguage = async (override) => {
   return lang || 'en';
 };
 
-const buildHeaders = async ({ academyId, token, language } = {}) => {
+const resolveTryOutId = async (override) => {
+  if (override != null) return Number(override);
+
+  if (storage.getPortalSession) {
+    const session = await storage.getPortalSession();
+    const id = session?.tryOutId ?? session?.try_out_id ?? null;
+    return id != null ? Number(id) : null;
+  }
+
+  const session = await storage.getItem(PORTAL_KEYS.SESSION);
+  const id = session?.tryOutId ?? session?.try_out_id ?? null;
+  return id != null ? Number(id) : null;
+};
+
+
+const buildHeaders = async ({ academyId, token, language, tryOutId } = {}) => {
   const resolvedToken = await resolveToken(token);
   const resolvedAcademyId = await resolveAcademyId(academyId);
   const resolvedLanguage = await resolveLanguage(language);
+  const resolvedTryOutId = await resolveTryOutId(tryOutId);
 
-  const headers = {
-    'Accept-Language': resolvedLanguage,
-  };
+  const headers = { 'Accept-Language': resolvedLanguage };
 
   if (resolvedToken) {
     headers.Authorization = `Bearer ${resolvedToken}`;
@@ -62,11 +76,12 @@ const buildHeaders = async ({ academyId, token, language } = {}) => {
     headers['X-Academy-Id'] = String(resolvedAcademyId);
   }
 
-  return { headers, academyId: resolvedAcademyId };
+  return { headers, academyId: resolvedAcademyId, tryOutId: resolvedTryOutId };
 };
 
+
 const withAcademyPayload = async (payload = {}, options = {}) => {
-  const { headers, academyId } = await buildHeaders(options);
+  const { headers, academyId, tryOutId } = await buildHeaders(options);
   const body = { ...(payload || {}) };
 
   if (academyId) {
@@ -74,8 +89,17 @@ const withAcademyPayload = async (payload = {}, options = {}) => {
     body.academy_id = academyId;
   }
 
+  if (tryOutId != null && body.try_out == null) {
+    body.try_out = tryOutId;
+  }
+
+  if (tryOutId != null && body.tryout_id == null && body.try_out_id == null) {
+    body.tryout_id = tryOutId;
+  }
+
   return { body, headers };
 };
+
 
 export const portalApi = {
   baseUrl: API_BASE_URL,
@@ -116,13 +140,6 @@ export const portalApi = {
       const { body, headers } = await withAcademyPayload({}, { academyId });
       return apiClient.post('/player-portal-external-proxy/player-profile/overview', body, { headers });
     }, 'Failed to fetch overview');
-  },
-
-  async getProfile({ academyId } = {}) {
-    return wrapApi(async () => {
-      const { body, headers } = await withAcademyPayload({}, { academyId });
-      return apiClient.post('/player-portal-external-proxy/player-profile/profile/get', body, { headers });
-    }, 'Failed to fetch profile');
   },
 
   async updateProfile(payload = {}, options = {}) {

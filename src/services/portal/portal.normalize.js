@@ -41,6 +41,7 @@ export const normalizePortalOverview = (data) => {
   // Create player object
   const player = {
     id: playerInfo.id,
+    tryOutId: playerInfo.id,
     fullName: `${playerInfo.first_eng_name || ''} ${playerInfo.last_eng_name || ''}`.trim() ||
       `${playerInfo.first_ar_name || ''} ${playerInfo.last_ar_name || ''}`.trim(),
     firstEngName: playerInfo.first_eng_name || '',
@@ -113,4 +114,29 @@ export const normalizePortalOverview = (data) => {
     // Raw data for debugging
     _raw: data,
   };
+};
+
+export const normalizeUniformOrders = (raw) => {
+  // raw is whatever portalApi returns in res.data
+  // Try common shapes, return [] if nothing matches.
+  if (Array.isArray(raw)) return raw;
+
+  const candidates = [
+    raw?.orders,
+    raw?.data,
+    raw?.data?.orders,
+    raw?.data?.data,
+    raw?.data?.data?.orders,
+    raw?.result,
+    raw?.result?.orders,
+  ];
+
+  for (const c of candidates) {
+    if (Array.isArray(c)) return c;
+  }
+
+  // If backend returns a single object sometimes, wrap it
+  if (raw && typeof raw === 'object' && (raw.id || raw.reference)) return [raw];
+
+  return [];
 };
