@@ -1,4 +1,3 @@
-// Playgrounds public user identification screen.
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';

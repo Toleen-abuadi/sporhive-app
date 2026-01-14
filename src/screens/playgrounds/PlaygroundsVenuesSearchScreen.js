@@ -1,4 +1,3 @@
-// Playgrounds venue search screen with filters and animated results.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
@@ -19,7 +18,6 @@ import { spacing, borderRadius } from '../../theme/tokens';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
 import { normalizeVenueList } from '../../services/playgrounds/playgrounds.normalize';
 import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
-import { goToVenue } from '../../navigation/playgrounds.routes';
 
 const PAGE_SIZE = 10;
 
@@ -279,7 +277,7 @@ export function PlaygroundsVenuesSearchScreen() {
             entering={FadeInDown.delay(index * 40).duration(240)}
             layout={Layout.springify()}
           >
-            <VenueCard venue={item} onPress={() => goToVenue(router, item.id || item.venue_id)} />
+            <VenueCard venue={item} />
           </Animated.View>
         )}
         ListEmptyComponent={

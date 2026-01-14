@@ -13,7 +13,6 @@ import { spacing, borderRadius, shadows } from '../../theme/tokens';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
 import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { normalizeBookings } from '../../services/playgrounds/playgrounds.normalize';
-import { goToMyBookings } from '../../navigation/playgrounds.routes';
 
 const formatDate = (date) => date.toISOString().split('T')[0];
 
@@ -188,7 +187,7 @@ export function PlaygroundsBookingDetailsScreen() {
           <Button onPress={loadBooking} variant="secondary">
             Retry
           </Button>
-          <Button onPress={() => goToMyBookings(router)}>
+          <Button onPress={() => router.replace('/playgrounds/my-bookings')}>
             Back to bookings
           </Button>
         </View>
@@ -227,13 +226,6 @@ export function PlaygroundsBookingDetailsScreen() {
       </View>
 
       <View style={styles.actionsRow}>
-        <Button
-          variant="secondary"
-          onPress={() => router.push({ pathname: '/playgrounds/rate', params: { bookingId: String(bookingId) } })}
-          style={styles.actionButton}
-        >
-          Rate booking
-        </Button>
         <Button variant="secondary" onPress={() => setShowUpdate(true)} style={styles.actionButton}>
           Update booking
         </Button>

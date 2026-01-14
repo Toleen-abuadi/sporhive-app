@@ -13,7 +13,6 @@ import { spacing, borderRadius, shadows } from '../../theme/tokens';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
 import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { normalizeBookings } from '../../services/playgrounds/playgrounds.normalize';
-import { goToBookingDetails } from '../../navigation/playgrounds.routes';
 
 const STATUS_TABS = [
   { key: 'pending', label: 'Pending' },
@@ -171,9 +170,12 @@ export function PlaygroundsMyBookingsScreen() {
           <Animated.View entering={FadeInDown.delay(index * 40).duration(240)} layout={Layout.springify()}>
             <BookingCard
               booking={item}
-              onPress={() => {
-                goToBookingDetails(router, item.id || item.booking_id);
-              }}
+              onPress={() =>
+                router.push({
+                  pathname: '/playgrounds/booking/[bookingId]',
+                  params: { bookingId: String(item.id || item.booking_id), booking: JSON.stringify(item) },
+                })
+              }
             />
           </Animated.View>
         )}

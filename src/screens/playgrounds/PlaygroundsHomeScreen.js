@@ -1,4 +1,3 @@
-// Playgrounds home marketing screen with slider and CTAs.
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,7 +14,6 @@ import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
 import { normalizeSliderItems } from '../../services/playgrounds/playgrounds.normalize';
 import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { LoadingState } from '../../components/ui/LoadingState';
-import { goToMyBookings, goToSearch } from '../../navigation/playgrounds.routes';
 
 export function PlaygroundsHomeScreen() {
   const { colors } = useTheme();
@@ -78,11 +76,11 @@ export function PlaygroundsHomeScreen() {
             Premium playgrounds, handpicked times, and instant booking.
           </Text>
           <View style={styles.heroButtons}>
-            <Button onPress={() => goToSearch(router)} style={styles.heroButton}>
+            <Button onPress={() => router.push('/playgrounds/search')} style={styles.heroButton}>
               Search
             </Button>
             <Button
-              onPress={() => goToMyBookings(router)}
+              onPress={() => router.push('/playgrounds/my-bookings')}
               variant="secondary"
               style={styles.heroButton}
             >

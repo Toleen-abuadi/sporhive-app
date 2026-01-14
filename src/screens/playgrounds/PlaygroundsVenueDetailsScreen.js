@@ -13,7 +13,6 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, borderRadius, shadows } from '../../theme/tokens';
 import { useVenueDetails } from '../../services/playgrounds/playgrounds.hooks';
 import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
-import { goToBook } from '../../navigation/playgrounds.routes';
 
 const fallbackDurations = [
   { id: '60', minutes: 60, label: '60 min' },
@@ -194,9 +193,13 @@ export function PlaygroundsVenueDetailsScreen() {
       <View style={styles.ctaWrap}>
         <Button
           onPress={() =>
-            goToBook(router, data?.id || venueId || '', {
-              durationId: selected?.id,
-              durationMinutes: selected?.minutes,
+            router.push({
+              pathname: '/playgrounds/book/[venueId]',
+              params: {
+                venueId: String(data?.id || venueId || ''),
+                durationId: selected?.id,
+                durationMinutes: selected?.minutes,
+              },
             })
           }
         >

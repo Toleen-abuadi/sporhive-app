@@ -1,4 +1,4 @@
-// Playgrounds rating flow driven by deep-link token resolution or manual entry.
+// Playgrounds rating flow driven by deep-link token resolution.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
@@ -13,7 +13,6 @@ import { LoadingState } from '../../components/ui/LoadingState';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, borderRadius, shadows } from '../../theme/tokens';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
-import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
 
 const criteriaList = [
   { key: 'cleanliness', label: 'Cleanliness' },
@@ -73,7 +72,6 @@ export function PlaygroundsRatingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const token = params?.token || params?.id || null;
-  const manualBookingId = params?.bookingId || null;
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);
   const [message, setMessage] = useState('');
@@ -92,35 +90,12 @@ export function PlaygroundsRatingScreen() {
   const canSubmit = useMemo(() => overall > 0 && allowed && !submitting, [overall, allowed, submitting]);
 
   const resolveRating = useCallback(async () => {
-    setMessage('');
-    if (!token && !manualBookingId) {
+    if (!token) {
       setLoading(false);
       setMessage('Invalid rating link.');
       return;
     }
     setLoading(true);
-
-    if (!token && manualBookingId) {
-      const publicUserId = await playgroundsStore.getPublicUserId();
-      if (!publicUserId) {
-        router.replace('/playgrounds/identify');
-        setLoading(false);
-        return;
-      }
-      setBookingId(manualBookingId);
-      setUserId(publicUserId);
-      const canRate = await playgroundsApi.canRate({ booking_id: manualBookingId, user_id: publicUserId });
-      if (!canRate?.success || canRate?.data?.allowed === false || canRate?.data?.can_rate === false) {
-        setAllowed(false);
-        setMessage(canRate?.data?.message || 'This booking is not eligible for rating.');
-        setLoading(false);
-        return;
-      }
-      setAllowed(true);
-      setLoading(false);
-      return;
-    }
-
     const resolved = await playgroundsApi.resolveRatingToken(token);
     if (!resolved?.success) {
       setMessage(resolved?.error?.message || 'Unable to resolve rating link.');
@@ -142,7 +117,7 @@ export function PlaygroundsRatingScreen() {
     }
     setAllowed(true);
     setLoading(false);
-  }, [token, manualBookingId, router]);
+  }, [token]);
 
   useEffect(() => {
     resolveRating();

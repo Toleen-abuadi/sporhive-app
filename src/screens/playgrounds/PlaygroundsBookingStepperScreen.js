@@ -438,23 +438,6 @@ export function PlaygroundsBookingStepperScreen() {
                 { label: 'Total', value: bookingResponse?.total_price || 'AED 240' },
               ]}
             />
-            <View style={styles.successActions}>
-              <Button variant="secondary" onPress={() => router.replace('/playgrounds/my-bookings')}>
-                View bookings
-              </Button>
-              {bookingResponse?.id || bookingResponse?.booking_id ? (
-                <Button
-                  onPress={() =>
-                    router.replace({
-                      pathname: '/playgrounds/booking/[bookingId]',
-                      params: { bookingId: String(bookingResponse?.id || bookingResponse?.booking_id) },
-                    })
-                  }
-                >
-                  View booking
-                </Button>
-              ) : null}
-            </View>
           </View>
         );
       default:
@@ -546,9 +529,6 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  successActions: {
-    gap: spacing.sm,
   },
   footer: {
     flexDirection: 'row',
