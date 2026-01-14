@@ -16,6 +16,12 @@ export const PORTAL_KEYS = {
   PASSWORD: '@sporhive/portal/password',
 };
 
+// ✅ Playgrounds scoped keys
+export const PLAYGROUNDS_KEYS = {
+  PUBLIC_USER_ID: '@sporhive/playgrounds/public_user_id',
+  LAST_FILTERS: '@sporhive/playgrounds/last_filters',
+};
+
 class StorageService {
   // -------------------------
   // Low-level helpers
