@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { SlidersHorizontal } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
 
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
@@ -18,6 +17,7 @@ import { spacing, borderRadius } from '../../theme/tokens';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
 import { normalizeVenueList } from '../../services/playgrounds/playgrounds.normalize';
 import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
+import { usePlaygroundsRouter } from '../../navigation/playgrounds.routes';
 
 const PAGE_SIZE = 10;
 
@@ -106,7 +106,7 @@ function FilterSheetContent({ title, options, activeValue, onSelect }) {
 
 export function PlaygroundsVenuesSearchScreen() {
   const { colors } = useTheme();
-  const router = useRouter();
+  const { goToVenue } = usePlaygroundsRouter();
   const [filters, setFilters] = useState(defaultFilters);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +115,6 @@ export function PlaygroundsVenuesSearchScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [activeSheet, setActiveSheet] = useState(null);
-  const [checkingIdentity, setCheckingIdentity] = useState(true);
 
   const summary = useMemo(
     () => `${filters.activity} · ${filters.location} · ${filters.sort}`,
@@ -166,20 +165,6 @@ export function PlaygroundsVenuesSearchScreen() {
 
   useEffect(() => {
     let isMounted = true;
-    playgroundsStore.getPublicUserId().then((publicUserId) => {
-      if (!isMounted) return;
-      if (!publicUserId) {
-        router.replace('/playgrounds/identify');
-      }
-      setCheckingIdentity(false);
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
-
-  useEffect(() => {
-    let isMounted = true;
     playgroundsStore.getFilters().then((stored) => {
       if (!isMounted) return;
       const merged = { ...defaultFilters, ...(stored || {}) };
@@ -200,14 +185,6 @@ export function PlaygroundsVenuesSearchScreen() {
     if (!hasMore || loadingMore || loading) return;
     loadVenues({ pageToLoad: page + 1, append: true });
   }, [hasMore, loadingMore, loading, page, loadVenues]);
-
-  if (checkingIdentity) {
-    return (
-      <Screen>
-        <LoadingState message="Preparing your search..." />
-      </Screen>
-    );
-  }
 
   return (
     <Screen scroll={false}>
@@ -277,7 +254,10 @@ export function PlaygroundsVenuesSearchScreen() {
             entering={FadeInDown.delay(index * 40).duration(240)}
             layout={Layout.springify()}
           >
-            <VenueCard venue={item} />
+            <VenueCard
+              venue={item}
+              onPress={(venue) => goToVenue(venue?.id, { venue: JSON.stringify(venue) })}
+            />
           </Animated.View>
         )}
         ListEmptyComponent={

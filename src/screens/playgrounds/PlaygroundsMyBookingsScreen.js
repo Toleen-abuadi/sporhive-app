@@ -1,7 +1,6 @@
 // Playgrounds bookings list with status tabs and navigation into booking details.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 
 import { Screen } from '../../components/ui/Screen';
@@ -13,6 +12,7 @@ import { spacing, borderRadius, shadows } from '../../theme/tokens';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
 import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { normalizeBookings } from '../../services/playgrounds/playgrounds.normalize';
+import { usePlaygroundsRouter } from '../../navigation/playgrounds.routes';
 
 const STATUS_TABS = [
   { key: 'pending', label: 'Pending' },
@@ -60,27 +60,12 @@ function BookingCard({ booking, onPress }) {
 
 export function PlaygroundsMyBookingsScreen() {
   const { colors } = useTheme();
-  const router = useRouter();
+  const { goToBookingDetails, goToPlaygroundsHome } = usePlaygroundsRouter();
   const [activeStatus, setActiveStatus] = useState('pending');
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  const [checkingIdentity, setCheckingIdentity] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-    playgroundsStore.getPublicUserId().then((publicUserId) => {
-      if (!mounted) return;
-      if (!publicUserId) {
-        router.replace('/playgrounds/identify');
-      }
-      setCheckingIdentity(false);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, [router]);
 
   const loadBookings = useCallback(async () => {
     setLoading(true);
@@ -111,14 +96,6 @@ export function PlaygroundsMyBookingsScreen() {
       return acc;
     }, {});
   }, [bookings]);
-
-  if (checkingIdentity) {
-    return (
-      <Screen>
-        <LoadingState message="Preparing your bookings..." />
-      </Screen>
-    );
-  }
 
   return (
     <Screen scroll={false}>
@@ -171,9 +148,9 @@ export function PlaygroundsMyBookingsScreen() {
             <BookingCard
               booking={item}
               onPress={() =>
-                router.push({
-                  pathname: '/playgrounds/booking/[bookingId]',
-                  params: { bookingId: String(item.id || item.booking_id), booking: JSON.stringify(item) },
+                goToBookingDetails(item.id || item.booking_id, {
+                  bookingId: String(item.id || item.booking_id),
+                  booking: JSON.stringify(item),
                 })
               }
             />
@@ -194,7 +171,7 @@ export function PlaygroundsMyBookingsScreen() {
               title="No bookings yet"
               message="Your confirmed games will appear here."
               actionLabel="Explore venues"
-              onAction={() => router.push('/playgrounds')}
+              onAction={() => goToPlaygroundsHome()}
             />
           )
         }

@@ -1,16 +1,15 @@
 // Playgrounds booking stepper flow with validation and animated transitions.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Animated, { FadeInRight, FadeOutLeft, Layout } from 'react-native-reanimated';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { launchImageLibrary } from 'react-native-image-picker';
 
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { LoadingState } from '../../components/ui/LoadingState';
 import { StepperHeader } from '../../components/playgrounds/StepperHeader';
 import { SlotGrid } from '../../components/playgrounds/SlotGrid';
 import { PaymentMethodCard } from '../../components/playgrounds/PaymentMethodCard';
@@ -19,7 +18,7 @@ import { SuccessReceiptSheet } from '../../components/playgrounds/SuccessReceipt
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, borderRadius, shadows } from '../../theme/tokens';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
-import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
+import { usePlaygroundsRouter } from '../../navigation/playgrounds.routes';
 
 const STEPS = [
   'Pick a date',
@@ -44,11 +43,11 @@ const paymentOptions = [
   { key: 'cliq', label: 'CliQ transfer' },
 ];
 
-export function PlaygroundsBookingStepperScreen() {
+export function PlaygroundsBookingStepperScreen({ venueId: venueIdProp }) {
   const { colors } = useTheme();
-  const router = useRouter();
+  const { goToMyBookings, goToBookingDetails } = usePlaygroundsRouter();
   const params = useLocalSearchParams();
-  const venueId = params?.venueId || params?.id || null;
+  const venueId = venueIdProp || params?.venueId || params?.id || null;
   const durationMinutesParam = params?.durationMinutes ? Number(params.durationMinutes) : null;
   const durationIdParam = params?.durationId || null;
 
@@ -69,26 +68,11 @@ export function PlaygroundsBookingStepperScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [bookingResponse, setBookingResponse] = useState(null);
   const [validationStep, setValidationStep] = useState(null);
-  const [checkingIdentity, setCheckingIdentity] = useState(true);
 
   const formattedDate = useMemo(
     () => selectedDate.toISOString().split('T')[0],
     [selectedDate]
   );
-
-  useEffect(() => {
-    let mounted = true;
-    playgroundsStore.getPublicUserId().then((publicUserId) => {
-      if (!mounted) return;
-      if (!publicUserId) {
-        router.replace('/playgrounds/identify');
-      }
-      setCheckingIdentity(false);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, [router]);
 
   const loadSlots = useCallback(async () => {
     if (!venueId || !duration?.minutes) return;
@@ -199,14 +183,6 @@ export function PlaygroundsBookingStepperScreen() {
 
     setSubmitting(false);
   };
-
-  if (checkingIdentity) {
-    return (
-      <Screen>
-        <LoadingState message="Preparing your booking..." />
-      </Screen>
-    );
-  }
 
   const renderStepContent = () => {
     switch (step) {
@@ -438,6 +414,22 @@ export function PlaygroundsBookingStepperScreen() {
                 { label: 'Total', value: bookingResponse?.total_price || 'AED 240' },
               ]}
             />
+            <View style={styles.successActions}>
+              <Button variant="secondary" onPress={() => goToMyBookings()}>
+                View my bookings
+              </Button>
+              <Button
+                onPress={() =>
+                  goToBookingDetails(bookingResponse?.booking_id || bookingResponse?.id, {
+                    bookingId: String(bookingResponse?.booking_id || bookingResponse?.id || ''),
+                    booking: bookingResponse ? JSON.stringify(bookingResponse) : undefined,
+                  })
+                }
+                disabled={!bookingResponse?.booking_id && !bookingResponse?.id}
+              >
+                View booking details
+              </Button>
+            </View>
           </View>
         );
       default:
@@ -518,6 +510,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   paymentStack: {
+    gap: spacing.sm,
+  },
+  successActions: {
     gap: spacing.sm,
   },
   summaryCard: {

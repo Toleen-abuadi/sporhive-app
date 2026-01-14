@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { Mail, Phone } from 'lucide-react-native';
 
 import { Screen } from '../../components/ui/Screen';
@@ -12,6 +11,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, borderRadius, shadows } from '../../theme/tokens';
 import { validators } from '../../utils/validators';
 import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
+import { usePlaygroundsRouter } from '../../navigation/playgrounds.routes';
 
 const MODES = [
   { key: 'phone', label: 'Phone', icon: Phone },
@@ -20,7 +20,7 @@ const MODES = [
 
 export function PlaygroundsIdentifyScreen() {
   const { colors, isDark } = useTheme();
-  const router = useRouter();
+  const { goToPlaygroundsHome } = usePlaygroundsRouter();
   const [mode, setMode] = useState('phone');
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
@@ -36,13 +36,13 @@ export function PlaygroundsIdentifyScreen() {
     playgroundsStore.getPublicUserId().then((publicUserId) => {
       if (!isMounted) return;
       if (publicUserId) {
-        router.replace('/playgrounds');
+        goToPlaygroundsHome({ method: 'replace' });
       }
     });
     return () => {
       isMounted = false;
     };
-  }, [router]);
+  }, [goToPlaygroundsHome]);
 
   const handleSubmit = async () => {
     const trimmed = value.trim();
@@ -72,7 +72,7 @@ export function PlaygroundsIdentifyScreen() {
       return;
     }
 
-    router.replace('/playgrounds');
+    goToPlaygroundsHome({ method: 'replace' });
   };
 
   return (

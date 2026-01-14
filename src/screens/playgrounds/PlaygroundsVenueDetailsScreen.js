@@ -1,18 +1,17 @@
 // Playgrounds venue details screen with gallery, highlights, and booking CTA.
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { MapPin } from 'lucide-react-native';
 
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
-import { LoadingState } from '../../components/ui/LoadingState';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, borderRadius, shadows } from '../../theme/tokens';
 import { useVenueDetails } from '../../services/playgrounds/playgrounds.hooks';
-import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
+import { usePlaygroundsRouter } from '../../navigation/playgrounds.routes';
 
 const fallbackDurations = [
   { id: '60', minutes: 60, label: '60 min' },
@@ -20,11 +19,11 @@ const fallbackDurations = [
   { id: '120', minutes: 120, label: '120 min' },
 ];
 
-export function PlaygroundsVenueDetailsScreen() {
+export function PlaygroundsVenueDetailsScreen({ venueId: venueIdProp }) {
   const { colors } = useTheme();
-  const router = useRouter();
+  const { goToBook } = usePlaygroundsRouter();
   const params = useLocalSearchParams();
-  const venueId = params?.venueId || params?.id || null;
+  const venueId = venueIdProp || params?.venueId || params?.id || null;
   const venueParam = typeof params?.venue === 'string' ? params.venue : null;
   let venueFallback = null;
   if (venueParam) {
@@ -37,21 +36,6 @@ export function PlaygroundsVenueDetailsScreen() {
   const venue = useVenueDetails(venueId);
   const data = venue.data || venueFallback || {};
   const [selectedDuration, setSelectedDuration] = useState(null);
-  const [checkingIdentity, setCheckingIdentity] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-    playgroundsStore.getPublicUserId().then((publicUserId) => {
-      if (!mounted) return;
-      if (!publicUserId) {
-        router.replace('/playgrounds/identify');
-      }
-      setCheckingIdentity(false);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, [router]);
 
   const gallery = useMemo(() => {
     const images = [
@@ -74,14 +58,6 @@ export function PlaygroundsVenueDetailsScreen() {
   }, [data]);
 
   const selected = selectedDuration || durations[0];
-
-  if (checkingIdentity) {
-    return (
-      <Screen>
-        <LoadingState message="Preparing venue details..." />
-      </Screen>
-    );
-  }
 
   return (
     <Screen scroll contentContainerStyle={styles.scrollContent}>
@@ -193,13 +169,10 @@ export function PlaygroundsVenueDetailsScreen() {
       <View style={styles.ctaWrap}>
         <Button
           onPress={() =>
-            router.push({
-              pathname: '/playgrounds/book/[venueId]',
-              params: {
-                venueId: String(data?.id || venueId || ''),
-                durationId: selected?.id,
-                durationMinutes: selected?.minutes,
-              },
+            goToBook(String(data?.id || venueId || ''), {
+              venueId: String(data?.id || venueId || ''),
+              durationId: selected?.id,
+              durationMinutes: selected?.minutes,
             })
           }
         >
