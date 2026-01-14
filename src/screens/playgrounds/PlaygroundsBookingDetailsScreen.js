@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
@@ -13,6 +13,7 @@ import { spacing, borderRadius, shadows } from '../../theme/tokens';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
 import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { normalizeBookings } from '../../services/playgrounds/playgrounds.normalize';
+import { usePlaygroundsRouter } from '../../navigation/playgrounds.routes';
 
 const formatDate = (date) => date.toISOString().split('T')[0];
 
@@ -30,11 +31,11 @@ function DetailRow({ label, value }) {
   );
 }
 
-export function PlaygroundsBookingDetailsScreen() {
+export function PlaygroundsBookingDetailsScreen({ bookingId: bookingIdProp }) {
   const { colors } = useTheme();
-  const router = useRouter();
+  const { goToMyBookings, goToRate } = usePlaygroundsRouter();
   const params = useLocalSearchParams();
-  const bookingId = params?.bookingId || params?.id || null;
+  const bookingId = bookingIdProp || params?.bookingId || params?.id || null;
   const bookingParam = typeof params?.booking === 'string' ? params.booking : null;
   const [booking, setBooking] = useState(() => {
     if (!bookingParam) return null;
@@ -53,23 +54,8 @@ export function PlaygroundsBookingDetailsScreen() {
   const [message, setMessage] = useState('');
   const [newDate, setNewDate] = useState(new Date());
   const [newTime, setNewTime] = useState(new Date());
-  const [checkingIdentity, setCheckingIdentity] = useState(true);
 
   const userIdPromise = useMemo(() => playgroundsStore.getPublicUserId(), []);
-
-  useEffect(() => {
-    let mounted = true;
-    userIdPromise.then((publicUserId) => {
-      if (!mounted) return;
-      if (!publicUserId) {
-        router.replace('/playgrounds/identify');
-      }
-      setCheckingIdentity(false);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, [router, userIdPromise]);
 
   const loadBooking = useCallback(async () => {
     if (!bookingId) return;
@@ -151,19 +137,6 @@ export function PlaygroundsBookingDetailsScreen() {
     await loadBooking();
   };
 
-  if (checkingIdentity) {
-    return (
-      <Screen>
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.accentOrange} />
-          <Text variant="body" color={colors.textSecondary}>
-            Preparing your booking...
-          </Text>
-        </View>
-      </Screen>
-    );
-  }
-
   if (loading) {
     return (
       <Screen>
@@ -187,7 +160,7 @@ export function PlaygroundsBookingDetailsScreen() {
           <Button onPress={loadBooking} variant="secondary">
             Retry
           </Button>
-          <Button onPress={() => router.replace('/playgrounds/my-bookings')}>
+          <Button onPress={() => goToMyBookings({ method: 'replace' })}>
             Back to bookings
           </Button>
         </View>
@@ -231,6 +204,12 @@ export function PlaygroundsBookingDetailsScreen() {
         </Button>
         <Button variant="danger" onPress={() => setConfirmCancel(true)} style={styles.actionButton}>
           Cancel booking
+        </Button>
+      </View>
+
+      <View style={styles.rateRow}>
+        <Button onPress={() => goToRate()} style={styles.rateButton}>
+          Rate this booking
         </Button>
       </View>
 
@@ -334,6 +313,13 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  rateRow: {
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.md,
+  },
+  rateButton: {
+    width: '100%',
   },
   modalContent: {
     gap: spacing.md,

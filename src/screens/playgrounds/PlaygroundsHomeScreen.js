@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { Search, Ticket } from 'lucide-react-native';
 
 import { Screen } from '../../components/ui/Screen';
@@ -12,29 +11,14 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
 import { normalizeSliderItems } from '../../services/playgrounds/playgrounds.normalize';
-import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { LoadingState } from '../../components/ui/LoadingState';
+import { usePlaygroundsRouter } from '../../navigation/playgrounds.routes';
 
 export function PlaygroundsHomeScreen() {
   const { colors } = useTheme();
-  const router = useRouter();
+  const { goToSearch, goToMyBookings, goToVenue } = usePlaygroundsRouter();
   const [sliderItems, setSliderItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [checkingIdentity, setCheckingIdentity] = useState(true);
-
-  useEffect(() => {
-    let isMounted = true;
-    playgroundsStore.getPublicUserId().then((publicUserId) => {
-      if (!isMounted) return;
-      if (!publicUserId) {
-        router.replace('/playgrounds/identify');
-      }
-      setCheckingIdentity(false);
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
 
   useEffect(() => {
     let isMounted = true;
@@ -56,14 +40,6 @@ export function PlaygroundsHomeScreen() {
     []
   );
 
-  if (checkingIdentity) {
-    return (
-      <Screen>
-        <LoadingState message="Preparing your experience..." />
-      </Screen>
-    );
-  }
-
   return (
     <Screen scroll contentContainerStyle={styles.scrollContent}>
       <View style={styles.hero}>
@@ -76,11 +52,11 @@ export function PlaygroundsHomeScreen() {
             Premium playgrounds, handpicked times, and instant booking.
           </Text>
           <View style={styles.heroButtons}>
-            <Button onPress={() => router.push('/playgrounds/search')} style={styles.heroButton}>
+            <Button onPress={() => goToSearch()} style={styles.heroButton}>
               Search
             </Button>
             <Button
-              onPress={() => router.push('/playgrounds/my-bookings')}
+              onPress={() => goToMyBookings()}
               variant="secondary"
               style={styles.heroButton}
             >
@@ -116,7 +92,10 @@ export function PlaygroundsHomeScreen() {
       {loading ? (
         <LoadingState message="Loading curated highlights..." />
       ) : (
-        <AcademySlider items={sliderItems} />
+        <AcademySlider
+          items={sliderItems}
+          onPress={(item) => goToVenue(item?.id, { venue: JSON.stringify(item) })}
+        />
       )}
     </Screen>
   );

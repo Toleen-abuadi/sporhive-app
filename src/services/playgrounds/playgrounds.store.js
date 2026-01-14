@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { storage, PLAYGROUNDS_KEYS } from '../storage/storage';
 import { playgroundsApi } from './playgrounds.api';
 import {
@@ -22,6 +23,7 @@ const DEFAULT_FILTERS = {
 
 let cachedPublicUserId = null;
 let cachedFilters = null;
+const authListeners = new Set();
 
 const readFilters = async () => {
   if (cachedFilters) return cachedFilters;
@@ -55,6 +57,7 @@ const setPublicUserId = async (publicUserId) => {
   if (!publicUserId) return null;
   cachedPublicUserId = publicUserId;
   await storage.setItem(PLAYGROUNDS_KEYS.PUBLIC_USER_ID, publicUserId);
+  authListeners.forEach((listener) => listener(publicUserId));
   return publicUserId;
 };
 
@@ -62,6 +65,37 @@ const withPublicUser = async (payload = {}) => {
   const publicUserId = await resolvePublicUserId();
   if (!publicUserId) return { ...payload };
   return { ...payload, public_user_id: publicUserId, user_id: publicUserId };
+};
+
+export const usePlaygroundsAuth = () => {
+  const [publicUserId, setPublicUserIdState] = useState(cachedPublicUserId);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    resolvePublicUserId().then((id) => {
+      if (!mounted) return;
+      setPublicUserIdState(id);
+      setIsInitialized(true);
+    });
+
+    const listener = (id) => {
+      setPublicUserIdState(id);
+      setIsInitialized(true);
+    };
+    authListeners.add(listener);
+
+    return () => {
+      mounted = false;
+      authListeners.delete(listener);
+    };
+  }, []);
+
+  return {
+    publicUserId,
+    isAuthenticated: Boolean(publicUserId),
+    isInitialized,
+  };
 };
 
 export const playgroundsStore = {

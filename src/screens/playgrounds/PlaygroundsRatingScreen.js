@@ -1,8 +1,8 @@
 // Playgrounds rating flow driven by deep-link token resolution.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Star } from 'lucide-react-native';
 
 import { Screen } from '../../components/ui/Screen';
@@ -10,9 +10,13 @@ import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { LoadingState } from '../../components/ui/LoadingState';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing, borderRadius, shadows } from '../../theme/tokens';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
+import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
+import { useBookingsList } from '../../services/playgrounds/playgrounds.hooks';
+import { usePlaygroundsRouter } from '../../navigation/playgrounds.routes';
 
 const criteriaList = [
   { key: 'cleanliness', label: 'Cleanliness' },
@@ -67,16 +71,86 @@ function RatingRow({ label, value, onChange }) {
   );
 }
 
-export function PlaygroundsRatingScreen() {
+function ManualBookingPicker({ selectedBookingId, onSelect }) {
   const { colors } = useTheme();
-  const router = useRouter();
+  const { data, loading, error, load } = useBookingsList();
+
+  if (loading) {
+    return <LoadingState message="Loading your bookings..." />;
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <EmptyState
+        title="No bookings available"
+        message="Book a court before leaving a rating."
+        actionLabel="Refresh"
+        onAction={load}
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <EmptyState
+        title="Unable to load bookings"
+        message={error?.message || 'Try again to load your bookings.'}
+        actionLabel="Retry"
+        onAction={load}
+      />
+    );
+  }
+
+  return (
+    <View style={styles.bookingList}>
+      {data.map((booking, index) => {
+        const id = booking?.id || booking?.booking_id || index;
+        const isActive = String(id) === String(selectedBookingId);
+        return (
+          <Pressable
+            key={`booking-${id}`}
+            onPress={() => onSelect(booking)}
+            style={[
+              styles.bookingCard,
+              {
+                backgroundColor: isActive ? colors.accentOrange : colors.surface,
+                borderColor: isActive ? colors.accentOrange : colors.border,
+              },
+            ]}
+          >
+            <View style={styles.bookingHeader}>
+              <Text variant="body" weight="bold" color={isActive ? colors.white : colors.textPrimary}>
+                {booking?.venue_name || booking?.venue || 'Venue'}
+              </Text>
+              <Text variant="caption" color={isActive ? colors.white : colors.textMuted}>
+                {booking?.status || 'Booking'}
+              </Text>
+            </View>
+            <Text variant="caption" color={isActive ? colors.white : colors.textMuted}>
+              {booking?.date || booking?.booking_date || 'Upcoming'} · {booking?.time || booking?.start_time || 'Time'}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export function PlaygroundsRatingScreen({ mode = 'token', token: tokenProp, preflight }) {
+  const { colors } = useTheme();
+  const { goToMyBookings, goToPlaygroundsHome } = usePlaygroundsRouter();
   const params = useLocalSearchParams();
-  const token = params?.token || params?.id || null;
-  const [loading, setLoading] = useState(true);
-  const [allowed, setAllowed] = useState(false);
-  const [message, setMessage] = useState('');
-  const [bookingId, setBookingId] = useState(null);
-  const [userId, setUserId] = useState(null);
+  const tokenParam = typeof params?.token === 'string' ? params.token : Array.isArray(params?.token) ? params.token[0] : null;
+  const token = tokenProp || tokenParam || params?.id || null;
+  const isTokenMode = mode !== 'manual';
+
+  const [loading, setLoading] = useState(isTokenMode && !preflight);
+  const [allowed, setAllowed] = useState(Boolean(preflight?.allowed));
+  const [message, setMessage] = useState(preflight?.message || '');
+  const [bookingId, setBookingId] = useState(preflight?.bookingId || null);
+  const [userId, setUserId] = useState(preflight?.userId || null);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [selectionLoading, setSelectionLoading] = useState(false);
   const [overall, setOverall] = useState(5);
   const [criteriaScores, setCriteriaScores] = useState(() => ({
     cleanliness: 5,
@@ -87,7 +161,10 @@ export function PlaygroundsRatingScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const canSubmit = useMemo(() => overall > 0 && allowed && !submitting, [overall, allowed, submitting]);
+  const canSubmit = useMemo(
+    () => overall > 0 && allowed && Boolean(bookingId) && !submitting,
+    [overall, allowed, bookingId, submitting]
+  );
 
   const resolveRating = useCallback(async () => {
     if (!token) {
@@ -116,12 +193,46 @@ export function PlaygroundsRatingScreen() {
       return;
     }
     setAllowed(true);
+    setMessage('');
     setLoading(false);
   }, [token]);
 
   useEffect(() => {
+    if (!isTokenMode || preflight) return;
     resolveRating();
-  }, [resolveRating]);
+  }, [resolveRating, isTokenMode, preflight]);
+
+  useEffect(() => {
+    if (!isTokenMode || !preflight) return;
+    setLoading(Boolean(preflight.loading));
+    setAllowed(Boolean(preflight.allowed));
+    setMessage(preflight.message || '');
+    setBookingId(preflight.bookingId || null);
+    setUserId(preflight.userId || null);
+  }, [isTokenMode, preflight]);
+
+  const handleManualSelect = useCallback(async (booking) => {
+    if (!booking) return;
+    setSelectedBooking(booking);
+    setSelectionLoading(true);
+    setAllowed(false);
+    setMessage('');
+
+    const resolvedUserId = userId || (await playgroundsStore.getPublicUserId());
+    const resolvedBookingId = booking?.id || booking?.booking_id || null;
+    setUserId(resolvedUserId);
+    setBookingId(resolvedBookingId);
+
+    const canRate = await playgroundsApi.canRate({ booking_id: resolvedBookingId, user_id: resolvedUserId });
+    if (!canRate?.success || canRate?.data?.allowed === false || canRate?.data?.can_rate === false) {
+      setAllowed(false);
+      setMessage(canRate?.data?.message || 'This booking is not eligible for rating.');
+      setSelectionLoading(false);
+      return;
+    }
+    setAllowed(true);
+    setSelectionLoading(false);
+  }, [userId]);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -142,7 +253,7 @@ export function PlaygroundsRatingScreen() {
     setSubmitting(false);
   };
 
-  if (loading) {
+  if (isTokenMode && loading) {
     return (
       <Screen>
         <LoadingState message="Preparing your rating..." />
@@ -160,13 +271,24 @@ export function PlaygroundsRatingScreen() {
           <Text variant="body" color={colors.textSecondary}>
             Your rating helps the community book better experiences.
           </Text>
-          <Button onPress={() => router.replace('/playgrounds/my-bookings')}>
+          <Button onPress={() => goToMyBookings({ method: 'replace' })}>
             Back to bookings
           </Button>
         </View>
       </Screen>
     );
   }
+
+  const showEligibilityBlock = !allowed && (isTokenMode || selectedBooking);
+  const handleRetry = () => {
+    if (isTokenMode) {
+      resolveRating();
+      return;
+    }
+    if (selectedBooking) {
+      handleManualSelect(selectedBooking);
+    }
+  };
 
   return (
     <Screen scroll contentContainerStyle={styles.scrollContent}>
@@ -183,19 +305,38 @@ export function PlaygroundsRatingScreen() {
           </Text>
         ) : null}
 
-        {!allowed ? (
+        {!isTokenMode ? (
+          <View style={styles.manualBlock}>
+            <Text variant="body" weight="semibold">
+              Choose a booking to rate
+            </Text>
+            <ManualBookingPicker selectedBookingId={bookingId} onSelect={handleManualSelect} />
+            {selectionLoading ? (
+              <View style={styles.inlineLoading}>
+                <ActivityIndicator size="small" color={colors.accentOrange} />
+                <Text variant="caption" color={colors.textMuted}>
+                  Checking eligibility...
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {showEligibilityBlock ? (
           <View style={styles.infoBlock}>
             <Text variant="body" color={colors.textSecondary}>
               {message || 'This booking can no longer be rated.'}
             </Text>
-            <Button variant="secondary" onPress={resolveRating}>
+            <Button variant="secondary" onPress={handleRetry}>
               Retry
             </Button>
-            <Button variant="secondary" onPress={() => router.replace('/playgrounds')}>
+            <Button variant="secondary" onPress={() => goToPlaygroundsHome({ method: 'replace' })}>
               Go home
             </Button>
           </View>
-        ) : (
+        ) : null}
+
+        {allowed ? (
           <>
             <RatingRow label="Overall" value={overall} onChange={setOverall} />
             <View style={styles.criteriaBlock}>
@@ -226,7 +367,7 @@ export function PlaygroundsRatingScreen() {
               Submit rating
             </Button>
           </>
-        )}
+        ) : null}
       </View>
     </Screen>
   );
@@ -245,20 +386,42 @@ const styles = StyleSheet.create({
     ...shadows.md,
   },
   ratingRow: {
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   starRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   criteriaBlock: {
     gap: spacing.md,
   },
+  infoBlock: {
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
   textArea: {
     minHeight: 120,
   },
-  infoBlock: {
+  manualBlock: {
     gap: spacing.md,
-    paddingVertical: spacing.md,
+  },
+  bookingList: {
+    gap: spacing.sm,
+  },
+  bookingCard: {
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.xs,
+    ...shadows.sm,
+  },
+  bookingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  inlineLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
 });
