@@ -39,6 +39,11 @@ let cachedPublicClient = null;
 let cachedFilters = { ...DEFAULT_FILTERS };
 let isHydrated = false;
 
+let cachedVenues = [];
+let cachedVenuesById = new Map();
+let cachedAcademies = [];
+
+
 const listeners = new Set();
 
 const emit = () => {
@@ -90,6 +95,83 @@ const withPublicUser = async (payload = {}) => {
   const publicUserId = await playgroundsStore.getPublicUserId();
   if (!publicUserId) return { ...payload };
   return { ...payload, public_user_id: publicUserId, user_id: publicUserId };
+};
+
+const cacheVenues = (list = []) => {
+  cachedVenues = Array.isArray(list) ? list : [];
+  cachedVenuesById = new Map(cachedVenues.map((v) => [String(v.id), v]));
+};
+
+const cacheAcademies = (list = []) => {
+  cachedAcademies = Array.isArray(list) ? list : [];
+};
+
+const mapUiFiltersToBackend = (filters = {}) => {
+  const next = { ...(filters || {}) };
+
+  // Map UI filter names to backend expected names
+  const filterMapping = {
+    'activity': 'sport',
+    'location': 'city',
+    'players': 'players',
+    'duration': 'duration_minutes',
+    'offers': 'has_special_offer',
+    'sort': 'sort_by',
+    'query': 'search',
+  };
+
+  // Apply mapping
+  Object.keys(filterMapping).forEach(uiKey => {
+    if (next[uiKey] !== undefined) {
+      const backendKey = filterMapping[uiKey];
+      next[backendKey] = next[uiKey];
+      delete next[uiKey];
+    }
+  });
+
+  // Handle specific value mappings
+  if (next.sport) {
+    // Map activity names to IDs or keep as is
+    const sportMap = {
+      'Football': '9a83bd0a-463a-4005-8720-f6ed8ab5010c',
+      'Padel': 'padel',
+      'Basketball': 'basketball',
+      'Tennis': 'd9740933-c3d1-4746-85fa-6432eaf4f20c',
+    };
+    next.sport = sportMap[next.sport] || next.sport;
+  }
+
+  if (next.city) {
+    const cityMap = {
+      'Amman': 'amma',
+      'Zarqa': 'zarqa',
+      'Irbid': 'irbid',
+    };
+    next.city = cityMap[next.city] || next.city;
+  }
+
+  // Handle duration mapping
+  if (next.duration_minutes) {
+    const durationMap = {
+      '60 min': 60,
+      '90 min': 90,
+      '120 min': 120,
+    };
+    next.duration_minutes = durationMap[next.duration_minutes] || parseInt(next.duration_minutes);
+  }
+
+  // Handle special offers
+  if (next.has_special_offer === 'Discounted') {
+    next.has_special_offer = true;
+  }
+
+  // Remove UI-specific fields that backend doesn't need
+  delete next.page;
+  delete next.key;
+  delete next.label;
+  delete next.options;
+
+  return next;
 };
 
 export const playgroundsStore = {
@@ -208,20 +290,49 @@ export const playgroundsStore = {
   async fetchSlider(params = {}) {
     const res = await playgroundsApi.fetchSlider(params);
     if (!res?.success) return res;
-    return { success: true, data: normalizeSliderItems(res.data) };
+    const items = normalizeSliderItems(res.data);
+    cacheAcademies(items);
+    return { success: true, data: items };
   },
 
   async searchVenues(filters = {}) {
-    const nextFilters = await playgroundsStore.setFilters(filters);
-    const res = await playgroundsApi.searchVenues(nextFilters);
-    if (!res?.success) return res;
-    return { success: true, data: normalizeVenueList(res.data) };
+    const backendFilters = mapUiFiltersToBackend(filters);
+
+    // Store the UI filters for display
+    await playgroundsStore.setFilters(filters);
+
+    const res = await playgroundsApi.listVenues(backendFilters);
+    if (!res?.success) {
+      console.error('Search venues failed:', res?.error);
+      return { success: false, error: res?.error, data: [] };
+    }
+
+    const list = normalizeVenueList(res.data);
+    cacheVenues(list);
+
+    return { success: true, data: list };
   },
 
   async fetchVenueDetails(venueId) {
-    const res = await playgroundsApi.fetchVenueDetails(venueId);
-    if (!res?.success) return res;
-    return { success: true, data: normalizeVenueDetails(res.data) };
+    const id = String(venueId || '');
+    if (!id) return { success: true, data: null };
+
+    // First try to get from cache
+    const cached = cachedVenuesById.get(id);
+    if (cached) {
+      return { success: true, data: cached };
+    }
+
+    // Fallback: search for the venue
+    const res = await playgroundsApi.listVenues({});
+    if (!res?.success) {
+      return { success: true, data: null };
+    }
+
+    const list = normalizeVenueList(res.data);
+    const found = list.find(v => v.id === id);
+
+    return { success: true, data: found || null };
   },
 
   async fetchSlots(venueId, params = {}) {

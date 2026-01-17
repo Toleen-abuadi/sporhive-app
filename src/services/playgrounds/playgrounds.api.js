@@ -129,8 +129,12 @@ export const playgroundsApi = {
    */
   async createBooking(payload = {}, options = {}) {
     return wrapApi(async () => {
-      const headers = await buildHeaders(options);
-      // ✅ correct backend endpoint
+      const isFormData = typeof FormData !== 'undefined' && payload instanceof FormData;
+      const headers = await buildHeaders({
+        ...options,
+        contentType: isFormData ? 'multipart/form-data' : (options?.contentType || 'application/json'),
+      });
+
       return playgroundsClient.post('/public/bookings/create', payload, { headers });
     }, 'Failed to create booking');
   },

@@ -7,15 +7,10 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Image,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-  Extrapolate,
-  interpolate,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SlotGrid } from '../../components/playgrounds/SlotGrid';
 import { goToBook } from '../../navigation/playgrounds.routes';
@@ -23,90 +18,133 @@ import { useVenue } from '../../services/playgrounds/playgrounds.hooks';
 
 const { width } = Dimensions.get('window');
 
-const defaultGallery = [
-  'https://images.unsplash.com/photo-1508606572321-901ea443707f?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=1200&q=80',
-];
-
 const durations = [
   { id: '60', minutes: 60, label: '60 min' },
   { id: '90', minutes: 90, label: '90 min' },
   { id: '120', minutes: 120, label: '120 min' },
 ];
 
-const GalleryImage = ({ uri, index, scrollX }) => {
-  const animatedStyle = useAnimatedStyle(() => {
-    const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
-    const scale = interpolate(scrollX.value, inputRange, [0.92, 1, 0.92], Extrapolate.CLAMP);
-    return {
-      transform: [{ scale }],
-    };
-  });
-
-  return (
-    <Animated.View style={[styles.galleryCard, animatedStyle]}>
-      <Animated.Image source={{ uri }} style={styles.galleryImage} />
-    </Animated.View>
-  );
-};
-
 export const PlaygroundsVenueDetailsScreen = () => {
   const { venueId } = useLocalSearchParams();
   const router = useRouter();
-  const { data } = useVenue(venueId);
+  const { data, loading, error } = useVenue(venueId);
   const [selectedDuration, setSelectedDuration] = useState(durations[0]);
-  const scrollX = useSharedValue(0);
 
-  const venue = useMemo(() => data || {}, [data]);
-  const gallery = venue?.gallery?.length ? venue.gallery.slice(0, 3) : defaultGallery;
+  const venue = useMemo(() => {
+    if (!data) return {};
+    
+    return {
+      id: data.id || venueId,
+      name: data.name || 'Skyline Arena',
+      city: data.city || 'Amman',
+      sport: data.sport || 'Football',
+      description: data.description || 'Premium sports venue with excellent facilities.',
+      price_per_hour: data.price_per_hour || 15,
+      size: data.size || '5v5',
+      min_players: data.min_players || 6,
+      max_players: data.max_players || 14,
+      location: data.location || 'Abdoun',
+      has_special_offer: data.has_special_offer || false,
+      offer: data.special_offer_note || '10% off on weekends',
+      image: data.image,
+      gallery: data.gallery || [
+        data.image,
+        'https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=1200&q=80',
+      ],
+      slots: data.slots || [
+        { id: '1', label: '6:00 PM', time: '18:00' },
+        { id: '2', label: '7:00 PM', time: '19:00' },
+        { id: '3', label: '8:00 PM', time: '20:00' },
+        { id: '4', label: '9:00 PM', time: '21:00' },
+      ],
+    };
+  }, [data, venueId]);
 
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollX.value = event.contentOffset.x;
-    },
-  });
+  const renderGallery = () => {
+    if (!venue.gallery || venue.gallery.length === 0) {
+      return (
+        <View style={styles.galleryPlaceholder}>
+          <Text style={styles.placeholderText}>No images available</Text>
+        </View>
+      );
+    }
 
-  return (
-    <SafeAreaView style={styles.safe}>
+    return (
       <FlatList
-        data={gallery}
+        data={venue.gallery}
         keyExtractor={(item, index) => `${item}-${index}`}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        renderItem={({ item, index }) => (
-          <GalleryImage uri={item} index={index} scrollX={scrollX} />
+        renderItem={({ item }) => (
+          <View style={styles.galleryCard}>
+            <Image 
+              source={{ uri: item }} 
+              style={styles.galleryImage}
+              resizeMode="cover"
+            />
+          </View>
         )}
         style={styles.galleryList}
       />
+    );
+  };
 
-      <View style={styles.content}>
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.loadingContainer}>
+          <Text>Loading venue details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Failed to load venue details</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {renderGallery()}
+
         <LinearGradient colors={['#F4F7FF', '#FFFFFF']} style={styles.hero}>
-          <Text style={styles.title}>{venue?.name || 'Skyline Arena'}</Text>
-          <Text style={styles.subtitle}>{venue?.city || 'Amman'} · {venue?.sport || 'Football'}</Text>
-          <Text style={styles.meta}>{venue?.description || 'Indoor premium pitch with lounge area.'}</Text>
-          {venue?.offer ? (
+          <Text style={styles.title}>{venue.name}</Text>
+          <Text style={styles.subtitle}>{venue.city} · {venue.sport}</Text>
+          <Text style={styles.meta}>{venue.description}</Text>
+          
+          {venue.has_special_offer && venue.offer && (
             <View style={styles.offerPill}>
               <Text style={styles.offerText}>{venue.offer}</Text>
             </View>
-          ) : null}
+          )}
         </LinearGradient>
 
         <View style={styles.infoGrid}>
           <View style={styles.infoCard}>
             <Text style={styles.infoLabel}>Size</Text>
-            <Text style={styles.infoValue}>{venue?.size || '5v5'}</Text>
+            <Text style={styles.infoValue}>{venue.size}</Text>
           </View>
           <View style={styles.infoCard}>
             <Text style={styles.infoLabel}>Players</Text>
-            <Text style={styles.infoValue}>{venue?.min_players || 6} - {venue?.max_players || 14}</Text>
+            <Text style={styles.infoValue}>
+              {venue.min_players} - {venue.max_players}
+            </Text>
           </View>
           <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Location</Text>
-            <Text style={styles.infoValue}>{venue?.location || 'Abdoun'}</Text>
+            <Text style={styles.infoLabel}>Price</Text>
+            <Text style={styles.infoValue}>{venue.price_per_hour} JOD/hr</Text>
           </View>
         </View>
 
@@ -128,19 +166,20 @@ export const PlaygroundsVenueDetailsScreen = () => {
           })}
         </View>
 
-        <Text style={styles.sectionTitle}>Popular Slots</Text>
+        <Text style={styles.sectionTitle}>Available Slots</Text>
         <SlotGrid
-          slots={venue?.slots || [{ id: '1', label: '6:00 PM' }, { id: '2', label: '7:00 PM' }]}
+          slots={venue.slots}
           selectedSlotId={null}
+          onSelect={(slot) => console.log('Selected slot:', slot)}
         />
 
         <TouchableOpacity
           style={styles.button}
-          onPress={() => goToBook(router, venueId || '1')}
+          onPress={() => goToBook(router, venue.id || venueId)}
         >
           <Text style={styles.buttonText}>Book Now</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -150,29 +189,56 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: '#D64545',
+    fontSize: 16,
+  },
+  content: {
+    paddingBottom: 24,
+  },
   galleryList: {
-    flexGrow: 0,
+    height: 240,
   },
   galleryCard: {
     width,
     height: 240,
     paddingHorizontal: 12,
-    paddingVertical: 16,
   },
   galleryImage: {
     width: '100%',
     height: '100%',
     borderRadius: 24,
   },
-  content: {
-    flex: 1,
-    paddingBottom: 24,
+  galleryPlaceholder: {
+    width,
+    height: 240,
+    backgroundColor: '#F4F7FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 24,
+    marginHorizontal: 12,
+  },
+  placeholderText: {
+    color: '#6C7A92',
+    fontSize: 14,
   },
   hero: {
     marginHorizontal: 16,
-    marginTop: -32,
+    marginTop: 20,
     padding: 20,
     borderRadius: 24,
+    backgroundColor: '#FFFFFF',
     shadowColor: '#0B1A33',
     shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 8 },
@@ -183,16 +249,16 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     color: '#11223A',
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 13,
     color: '#6C7A92',
-    marginTop: 6,
+    marginBottom: 12,
   },
   meta: {
     fontSize: 12,
     color: '#7A8BA8',
-    marginTop: 10,
     lineHeight: 18,
   },
   offerPill: {
@@ -213,23 +279,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 16,
     paddingHorizontal: 16,
+    gap: 8,
   },
   infoCard: {
     flex: 1,
     backgroundColor: '#F4F7FF',
     borderRadius: 16,
     padding: 12,
-    marginHorizontal: 4,
+    alignItems: 'center',
   },
   infoLabel: {
     fontSize: 11,
     color: '#6C7A92',
+    marginBottom: 4,
   },
   infoValue: {
     fontSize: 13,
     fontWeight: '700',
     color: '#11223A',
-    marginTop: 6,
   },
   sectionTitle: {
     fontSize: 16,
@@ -272,5 +339,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFFFFF',
     fontWeight: '700',
+    fontSize: 16,
   },
 });
