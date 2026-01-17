@@ -141,6 +141,7 @@ export function HomeServicesScreen() {
       icon: 'map-pin',
       color: '#10B981',
       screen: 'Book',
+      href: '/playgrounds',
     },
     {
       id: 'portal',

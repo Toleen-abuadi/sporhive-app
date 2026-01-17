@@ -1,6 +1,6 @@
 // Route entry for Playgrounds Identify screen.
-import { PlaygroundsIdentifyScreen } from '../../src/screens/playgrounds/PlaygroundsIdentifyScreen';
+import { PlaygroundsAuthScreen } from '../../src/screens/playgrounds/PlaygroundsAuthScreen';
 
 export default function PlaygroundsIdentifyRoute() {
-  return <PlaygroundsIdentifyScreen />;
+  return <PlaygroundsAuthScreen />;
 }
