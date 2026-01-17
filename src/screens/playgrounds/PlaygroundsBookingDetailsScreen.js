@@ -1,3 +1,6 @@
+// API fields used: booking.date, booking.start_time, booking.end_time, booking.number_of_players,
+// booking.status, booking.booking_code, booking.academy.public_name, booking.academy.location_text,
+// booking.activity.name, booking.venue.name, booking.duration.minutes, booking.duration.base_price.
 import { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
@@ -13,7 +16,8 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { goToRate } from '../../navigation/playgrounds.routes';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
-import { usePlaygroundsAuth } from '../../services/playgrounds/playgrounds.store';
+import { playgroundsStore, usePlaygroundsAuth } from '../../services/playgrounds/playgrounds.store';
+import { useBookingDetails } from '../../services/playgrounds/playgrounds.hooks';
 
 const BookingActionSheet = ({
   visible,
@@ -32,65 +36,43 @@ const BookingActionSheet = ({
   </Modal>
 );
 
+const formatTimeRange = (booking) => {
+  if (booking?.start_time && booking?.end_time) {
+    return `${booking.start_time} - ${booking.end_time}`;
+  }
+  return booking?.start_time || booking?.end_time || 'TBD';
+};
+
 export const PlaygroundsBookingDetailsScreen = () => {
   const { bookingId } = useLocalSearchParams();
   const router = useRouter();
   const { publicUserId } = usePlaygroundsAuth();
-  const [booking, setBooking] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const resolvedBookingId = Array.isArray(bookingId) ? bookingId[0] : bookingId;
+  const { data: booking, loading, error } = useBookingDetails(resolvedBookingId);
+
   const [cancelOpen, setCancelOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
   const [slots, setSlots] = useState([]);
-
-  const resolvedBookingId = Array.isArray(bookingId) ? bookingId[0] : bookingId;
-
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      if (!publicUserId) return;
-      setLoading(true);
-      const res = await playgroundsApi.listBookings({ user_id: publicUserId });
-      if (!active) return;
-      if (!res?.success) {
-        setError('Unable to load booking.');
-        setBooking(null);
-      } else {
-        const list = Array.isArray(res.data) ? res.data : res.data?.items || [];
-        const found = list.find((item) => String(item.id || item.booking_id) === String(resolvedBookingId));
-        setBooking(found || null);
-        setError(null);
-      }
-      setLoading(false);
-    };
-    load();
-    return () => {
-      active = false;
-    };
-  }, [publicUserId, resolvedBookingId]);
+  const [actionError, setActionError] = useState(null);
 
   const handleCancel = async () => {
     if (!publicUserId || !resolvedBookingId) return;
-    setLoading(true);
     const res = await playgroundsApi.cancelBooking({ booking_id: resolvedBookingId, user_id: publicUserId });
     if (!res?.success) {
-      setError('Unable to cancel booking.');
+      setActionError('Unable to cancel booking.');
     } else {
-      setBooking((prev) => prev ? { ...prev, status: 'cancelled' } : prev);
       setCancelOpen(false);
     }
-    setLoading(false);
   };
 
   const handleUpdate = async () => {
     if (!publicUserId || !resolvedBookingId) return;
     if (!newDate || !newTime) {
-      setError('Select a new date and time.');
+      setActionError('Select a new date and time.');
       return;
     }
-    setLoading(true);
     const res = await playgroundsApi.updateBooking({
       booking_id: resolvedBookingId,
       user_id: publicUserId,
@@ -98,37 +80,37 @@ export const PlaygroundsBookingDetailsScreen = () => {
       new_start_time: newTime,
     });
     if (!res?.success) {
-      setError('Unable to update booking.');
+      setActionError('Unable to update booking.');
     } else {
-      setBooking((prev) => prev ? { ...prev, date: newDate, time: newTime } : prev);
       setUpdateOpen(false);
     }
-    setLoading(false);
   };
 
   const handleFetchSlots = async () => {
-    if (!booking?.venue_id || !newDate) return;
-    const res = await playgroundsApi.fetchSlots({
-      venue_id: booking?.venue_id,
+    if (!booking?.venue?.id || !newDate) return;
+    const res = await playgroundsStore.fetchSlots(booking?.venue?.id, {
       date: newDate,
-      duration_minutes: booking?.duration_minutes || 60,
+      duration_minutes: booking?.duration?.minutes || 60,
     });
     if (!res?.success) {
-      setError('Unable to load slots.');
+      setActionError('Unable to load slots.');
       setSlots([]);
       return;
     }
-    setSlots(res.data || []);
+    setSlots(Array.isArray(res.data) ? res.data : []);
   };
 
   const bookingDetails = useMemo(() => ({
-    venue: booking?.venue_name || booking?.venue || 'Playground',
+    venue: booking?.venue?.name || 'Playground',
+    academy: booking?.academy?.public_name || 'N/A',
+    academyLocation: booking?.academy?.location_text || 'N/A',
+    sport: booking?.activity?.name || 'N/A',
     date: booking?.date || 'TBD',
-    time: booking?.time || booking?.slot_time || 'TBD',
-    players: booking?.players || booking?.players_count || '—',
-    total: booking?.total_price || booking?.price || '—',
-    payment: booking?.payment_method || booking?.payment_type || '—',
-    code: booking?.code || booking?.booking_code || '—',
+    time: formatTimeRange(booking),
+    players: booking?.number_of_players ?? '—',
+    total: booking?.duration?.base_price ?? '—',
+    payment: booking?.payment_type || booking?.payment_method || '—',
+    code: booking?.booking_code || '—',
     status: booking?.status || 'pending',
   }), [booking]);
 
@@ -137,11 +119,15 @@ export const PlaygroundsBookingDetailsScreen = () => {
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Booking Details</Text>
         {loading ? <Text style={styles.helper}>Loading...</Text> : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text style={styles.error}>{error.message || 'Unable to load booking.'}</Text> : null}
+        {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
 
         {booking ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{bookingDetails.venue}</Text>
+            <Text style={styles.cardMeta}>Academy: {bookingDetails.academy}</Text>
+            <Text style={styles.cardMeta}>Location: {bookingDetails.academyLocation}</Text>
+            <Text style={styles.cardMeta}>Sport: {bookingDetails.sport}</Text>
             <Text style={styles.cardMeta}>Date: {bookingDetails.date}</Text>
             <Text style={styles.cardMeta}>Time: {bookingDetails.time}</Text>
             <Text style={styles.cardMeta}>Players: {bookingDetails.players}</Text>
@@ -192,17 +178,22 @@ export const PlaygroundsBookingDetailsScreen = () => {
         </TouchableOpacity>
         {slots.length ? (
           <View style={styles.slotList}>
-            {slots.map((slot) => (
-              <TouchableOpacity
-                key={slot.id || slot.time}
-                style={[styles.slotChip, newTime === (slot.time || slot.label) && styles.slotChipActive]}
-                onPress={() => setNewTime(slot.time || slot.label)}
-              >
-                <Text style={[styles.slotChipText, newTime === (slot.time || slot.label) && styles.slotChipTextActive]}>
-                  {slot.label || slot.time}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {slots.map((slot) => {
+              const slotLabel = slot?.start_time && slot?.end_time
+                ? `${slot.start_time} - ${slot.end_time}`
+                : slot?.start_time || slot?.end_time || 'Slot';
+              return (
+                <TouchableOpacity
+                  key={slot.id || slotLabel}
+                  style={[styles.slotChip, newTime === slot?.start_time && styles.slotChipActive]}
+                  onPress={() => setNewTime(slot?.start_time)}
+                >
+                  <Text style={[styles.slotChipText, newTime === slot?.start_time && styles.slotChipTextActive]}>
+                    {slotLabel}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         ) : null}
         <TouchableOpacity style={styles.primaryButton} onPress={handleUpdate}>
@@ -260,7 +251,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   actions: {
-    marginTop: 20,
+    marginTop: 16,
     gap: 10,
   },
   secondaryButton: {
@@ -274,7 +265,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   dangerButton: {
-    backgroundColor: '#FFECEE',
+    backgroundColor: '#FCE8E8',
     borderRadius: 16,
     paddingVertical: 12,
     alignItems: 'center',
@@ -285,11 +276,11 @@ const styles = StyleSheet.create({
   },
   sheetOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(10, 18, 36, 0.4)',
     justifyContent: 'flex-end',
   },
   sheetBackdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   sheet: {
     backgroundColor: '#FFFFFF',
@@ -300,7 +291,6 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#11223A',
     marginBottom: 12,
   },
   sheetText: {
@@ -311,9 +301,9 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: '#E0E6F0',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     marginBottom: 12,
   },
   slotList: {
@@ -323,7 +313,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   slotChip: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 14,
     backgroundColor: '#F1F4FA',
@@ -346,6 +336,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

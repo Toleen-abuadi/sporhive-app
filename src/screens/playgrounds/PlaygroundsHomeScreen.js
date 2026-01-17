@@ -1,3 +1,5 @@
+// API fields used: academies slider (public_name, location_text, hero_image, tags),
+// venues list (name, base_location, images, price, duration, avg_rating, ratings_count).
 import { useMemo } from 'react';
 import {
   SafeAreaView,
@@ -13,42 +15,42 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { VenueCard } from '../../components/playgrounds/VenueCard';
 import { goToMyBookings, goToSearch } from '../../navigation/playgrounds.routes';
-import { useSlider } from '../../services/playgrounds/playgrounds.hooks';
+import { useSearch, useSlider } from '../../services/playgrounds/playgrounds.hooks';
+
+const resolveHeroImage = (heroImage) => {
+  if (!heroImage) return null;
+  if (heroImage.startsWith?.('data:image')) return heroImage;
+  const trimmed = heroImage.trim();
+  const isBase64 = /^[A-Za-z0-9+/=]+$/.test(trimmed);
+  if (!isBase64) return heroImage;
+  let mime = 'image/jpeg';
+  if (trimmed.startsWith('iVBOR')) mime = 'image/png';
+  if (trimmed.startsWith('R0lGOD')) mime = 'image/gif';
+  if (trimmed.startsWith('UklGR')) mime = 'image/webp';
+  return `data:${mime};base64,${trimmed}`;
+};
 
 export const PlaygroundsHomeScreen = () => {
   const router = useRouter();
   const slider = useSlider();
-  
+  const venuesSearch = useSearch();
+
   const sliderItems = useMemo(() => {
     if (!slider.data || !Array.isArray(slider.data)) return [];
-    
+
     return slider.data.map(item => ({
-      id: item.id || item.academy_profile_id || 'unknown',
-      title: item.public_name || 'Academy',
-      location: item.location_text || '',
-      image: item.hero_image || item.image,
+      id: item.academy_profile_id || item.academy_id || item.id || 'unknown',
+      public_name: item.public_name || 'Academy',
+      location_text: item.location_text || '',
+      hero_image: resolveHeroImage(item.hero_image),
       tags: item.tags || [],
-    })).slice(0, 5); // Limit to 5 items
+    })).slice(0, 5);
   }, [slider.data]);
 
-  const featuredVenues = useMemo(() => [
-    { 
-      id: '1', 
-      name: 'Skyline Arena', 
-      city: 'Amman', 
-      sport: 'Football', 
-      rating: '4.9', 
-      price: '18 JOD / hr' 
-    },
-    { 
-      id: '2', 
-      name: 'Luna Courts', 
-      city: 'Zarqa', 
-      sport: 'Padel', 
-      rating: '4.7', 
-      price: '22 JOD / hr' 
-    },
-  ], []);
+  const featuredVenues = useMemo(() => {
+    if (!venuesSearch.data || !Array.isArray(venuesSearch.data)) return [];
+    return venuesSearch.data.slice(0, 3);
+  }, [venuesSearch.data]);
 
   const renderSlider = () => {
     if (slider.loading) {
@@ -73,23 +75,23 @@ export const PlaygroundsHomeScreen = () => {
         >
           {sliderItems.map((item) => (
             <TouchableOpacity key={item.id} style={styles.sliderCard}>
-              {item.image ? (
+              {item.hero_image ? (
                 <Image 
-                  source={{ uri: item.image }} 
+                  source={{ uri: item.hero_image }} 
                   style={styles.sliderImage}
                   resizeMode="cover"
                 />
               ) : (
                 <View style={[styles.sliderImage, styles.sliderImagePlaceholder]}>
-                  <Text style={styles.placeholderText}>{item.title.charAt(0)}</Text>
+                  <Text style={styles.placeholderText}>{item.public_name.charAt(0)}</Text>
                 </View>
               )}
               <View style={styles.sliderTextContainer}>
                 <Text style={styles.sliderTitle} numberOfLines={1}>
-                  {item.title}
+                  {item.public_name}
                 </Text>
                 <Text style={styles.sliderLocation} numberOfLines={1}>
-                  {item.location}
+                  {item.location_text}
                 </Text>
                 {item.tags && item.tags.length > 0 && (
                   <View style={styles.tagsContainer}>
@@ -150,9 +152,13 @@ export const PlaygroundsHomeScreen = () => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Featured Venues</Text>
-          {featuredVenues.map((venue) => (
-            <VenueCard key={venue.id} venue={venue} />
-          ))}
+          {featuredVenues.length ? (
+            featuredVenues.map((venue) => (
+              <VenueCard key={venue.id} venue={venue} />
+            ))
+          ) : (
+            <Text style={styles.emptyText}>No venues available yet.</Text>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -284,11 +290,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
-    backgroundColor: '#EFF3FF',
+    backgroundColor: '#FFE7CC',
   },
   tagText: {
     fontSize: 10,
-    color: '#4F6AD7',
+    color: '#D56B00',
     fontWeight: '600',
   },
   section: {
@@ -300,5 +306,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#11223A',
     marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: 12,
+    color: '#6C7A92',
   },
 });

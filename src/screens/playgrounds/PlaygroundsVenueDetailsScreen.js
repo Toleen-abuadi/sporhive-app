@@ -1,3 +1,6 @@
+// API fields used: name, base_location, pitch_size, area_size, min_players, max_players,
+// avg_rating, ratings_count, price, duration, images, has_special_offer, special_offer_note,
+// academy_profile.public_name, academy_profile.location_text, academy_profile.tags.
 import { useMemo, useState } from 'react';
 import {
   Dimensions,
@@ -18,51 +21,43 @@ import { useVenue } from '../../services/playgrounds/playgrounds.hooks';
 
 const { width } = Dimensions.get('window');
 
-const durations = [
-  { id: '60', minutes: 60, label: '60 min' },
-  { id: '90', minutes: 90, label: '90 min' },
-  { id: '120', minutes: 120, label: '120 min' },
-];
+const resolveImageUri = (image) => {
+  if (!image) return null;
+  if (typeof image === 'string') return image;
+  if (image?.url) return image.url;
+  if (image?.uri) return image.uri;
+  return null;
+};
+
+const buildGallery = (images = []) => {
+  if (!Array.isArray(images)) return [];
+  return images
+    .map((img) => resolveImageUri(img))
+    .filter(Boolean);
+};
+
+const resolvePrice = (venue) => {
+  if (venue?.price != null && venue?.price !== '') return venue.price;
+  const duration = Array.isArray(venue?.duration) ? venue.duration : [];
+  return duration[0]?.base_price ?? null;
+};
 
 export const PlaygroundsVenueDetailsScreen = () => {
   const { venueId } = useLocalSearchParams();
   const router = useRouter();
   const { data, loading, error } = useVenue(venueId);
-  const [selectedDuration, setSelectedDuration] = useState(durations[0]);
+  const [selectedDuration, setSelectedDuration] = useState(null);
 
-  const venue = useMemo(() => {
-    if (!data) return {};
-    
-    return {
-      id: data.id || venueId,
-      name: data.name || 'Skyline Arena',
-      city: data.city || 'Amman',
-      sport: data.sport || 'Football',
-      description: data.description || 'Premium sports venue with excellent facilities.',
-      price_per_hour: data.price_per_hour || 15,
-      size: data.size || '5v5',
-      min_players: data.min_players || 6,
-      max_players: data.max_players || 14,
-      location: data.location || 'Abdoun',
-      has_special_offer: data.has_special_offer || false,
-      offer: data.special_offer_note || '10% off on weekends',
-      image: data.image,
-      gallery: data.gallery || [
-        data.image,
-        'https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=1200&q=80',
-        'https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=1200&q=80',
-      ],
-      slots: data.slots || [
-        { id: '1', label: '6:00 PM', time: '18:00' },
-        { id: '2', label: '7:00 PM', time: '19:00' },
-        { id: '3', label: '8:00 PM', time: '20:00' },
-        { id: '4', label: '9:00 PM', time: '21:00' },
-      ],
-    };
-  }, [data, venueId]);
+  const venue = useMemo(() => data || {}, [data]);
+  const gallery = useMemo(() => buildGallery(venue?.images), [venue?.images]);
+  const durations = useMemo(() => (
+    Array.isArray(venue?.duration) ? venue.duration : []
+  ), [venue?.duration]);
+
+  const effectiveDuration = selectedDuration || durations[0] || null;
 
   const renderGallery = () => {
-    if (!venue.gallery || venue.gallery.length === 0) {
+    if (!gallery.length) {
       return (
         <View style={styles.galleryPlaceholder}>
           <Text style={styles.placeholderText}>No images available</Text>
@@ -72,7 +67,7 @@ export const PlaygroundsVenueDetailsScreen = () => {
 
     return (
       <FlatList
-        data={venue.gallery}
+        data={gallery}
         keyExtractor={(item, index) => `${item}-${index}`}
         horizontal
         pagingEnabled
@@ -111,6 +106,8 @@ export const PlaygroundsVenueDetailsScreen = () => {
     );
   }
 
+  const priceValue = resolvePrice(venue);
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView 
@@ -120,62 +117,79 @@ export const PlaygroundsVenueDetailsScreen = () => {
         {renderGallery()}
 
         <LinearGradient colors={['#F4F7FF', '#FFFFFF']} style={styles.hero}>
-          <Text style={styles.title}>{venue.name}</Text>
-          <Text style={styles.subtitle}>{venue.city} · {venue.sport}</Text>
-          <Text style={styles.meta}>{venue.description}</Text>
-          
-          {venue.has_special_offer && venue.offer && (
+          <Text style={styles.title}>{venue?.name || 'Venue'}</Text>
+          <Text style={styles.subtitle}>{venue?.base_location || venue?.academy_profile?.location_text || 'N/A'}</Text>
+          {venue?.academy_profile?.public_name ? (
+            <Text style={styles.meta}>Academy: {venue.academy_profile.public_name}</Text>
+          ) : null}
+          {venue?.has_special_offer && venue?.special_offer_note ? (
             <View style={styles.offerPill}>
-              <Text style={styles.offerText}>{venue.offer}</Text>
+              <Text style={styles.offerText}>{venue.special_offer_note}</Text>
             </View>
-          )}
+          ) : null}
         </LinearGradient>
 
         <View style={styles.infoGrid}>
           <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Size</Text>
-            <Text style={styles.infoValue}>{venue.size}</Text>
+            <Text style={styles.infoLabel}>Pitch Size</Text>
+            <Text style={styles.infoValue}>{venue?.pitch_size || 'N/A'}</Text>
+          </View>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoLabel}>Area Size</Text>
+            <Text style={styles.infoValue}>{venue?.area_size || 'N/A'}</Text>
           </View>
           <View style={styles.infoCard}>
             <Text style={styles.infoLabel}>Players</Text>
             <Text style={styles.infoValue}>
-              {venue.min_players} - {venue.max_players}
+              {venue?.min_players ?? 'N/A'} - {venue?.max_players ?? 'N/A'}
+            </Text>
+          </View>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoLabel}>Rating</Text>
+            <Text style={styles.infoValue}>
+              {venue?.avg_rating ?? 'N/A'} ({venue?.ratings_count ?? 0})
             </Text>
           </View>
           <View style={styles.infoCard}>
             <Text style={styles.infoLabel}>Price</Text>
-            <Text style={styles.infoValue}>{venue.price_per_hour} JOD/hr</Text>
+            <Text style={styles.infoValue}>
+              {priceValue != null ? `${priceValue} JOD` : 'N/A'}
+            </Text>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Choose Duration</Text>
-        <View style={styles.durationRow}>
-          {durations.map((duration) => {
-            const isSelected = selectedDuration?.id === duration.id;
-            return (
-              <TouchableOpacity
-                key={duration.id}
-                style={[styles.durationChip, isSelected && styles.durationChipActive]}
-                onPress={() => setSelectedDuration(duration)}
-              >
-                <Text style={[styles.durationText, isSelected && styles.durationTextActive]}>
-                  {duration.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {durations.length ? (
+          <>
+            <Text style={styles.sectionTitle}>Choose Duration</Text>
+            <View style={styles.durationRow}>
+              {durations.map((duration) => {
+                const isSelected = effectiveDuration?.id === duration.id;
+                return (
+                  <TouchableOpacity
+                    key={duration.id}
+                    style={[styles.durationChip, isSelected && styles.durationChipActive]}
+                    onPress={() => setSelectedDuration(duration)}
+                  >
+                    <Text style={[styles.durationText, isSelected && styles.durationTextActive]}>
+                      {duration?.minutes ? `${duration.minutes} min` : 'Duration'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
 
         <Text style={styles.sectionTitle}>Available Slots</Text>
         <SlotGrid
-          slots={venue.slots}
+          slots={[]}
           selectedSlotId={null}
           onSelect={(slot) => console.log('Selected slot:', slot)}
         />
 
         <TouchableOpacity
           style={styles.button}
-          onPress={() => goToBook(router, venue.id || venueId)}
+          onPress={() => goToBook(router, venue?.id || venueId)}
         >
           <Text style={styles.buttonText}>Book Now</Text>
         </TouchableOpacity>
@@ -254,91 +268,90 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     color: '#6C7A92',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   meta: {
     fontSize: 12,
-    color: '#7A8BA8',
-    lineHeight: 18,
+    color: '#6C7A92',
   },
   offerPill: {
-    marginTop: 12,
     alignSelf: 'flex-start',
-    backgroundColor: '#E6F5FF',
+    marginTop: 10,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: 14,
+    backgroundColor: '#FFE7CC',
   },
   offerText: {
-    fontSize: 12,
-    color: '#2E6BA6',
-    fontWeight: '600',
+    color: '#D56B00',
+    fontWeight: '700',
+    fontSize: 11,
   },
   infoGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
     marginTop: 16,
     paddingHorizontal: 16,
-    gap: 8,
   },
   infoCard: {
-    flex: 1,
-    backgroundColor: '#F4F7FF',
-    borderRadius: 16,
+    flexBasis: '48%',
+    backgroundColor: '#F7F9FF',
     padding: 12,
-    alignItems: 'center',
+    borderRadius: 16,
   },
   infoLabel: {
     fontSize: 11,
     color: '#6C7A92',
-    marginBottom: 4,
   },
   infoValue: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: '#11223A',
+    marginTop: 4,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#11223A',
     marginTop: 20,
+    marginBottom: 12,
     paddingHorizontal: 16,
   },
   durationRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     paddingHorizontal: 16,
-    marginTop: 12,
   },
   durationChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: '#EFF3FF',
+    backgroundColor: '#F1F4FA',
   },
   durationChipActive: {
     backgroundColor: '#4F6AD7',
   },
   durationText: {
     fontSize: 12,
-    color: '#4F6AD7',
+    color: '#6C7A92',
     fontWeight: '600',
   },
   durationTextActive: {
     color: '#FFFFFF',
   },
   button: {
-    marginTop: 24,
+    marginTop: 20,
     marginHorizontal: 16,
     backgroundColor: '#4F6AD7',
-    borderRadius: 18,
     paddingVertical: 14,
+    borderRadius: 16,
     alignItems: 'center',
   },
   buttonText: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: 14,
   },
 });

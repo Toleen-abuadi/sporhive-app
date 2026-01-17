@@ -1,3 +1,6 @@
+// API fields used: venues list entries from searchVenues (name, base_location, pitch_size, area_size,
+// min_players, max_players, avg_rating, ratings_count, price, duration, images, has_special_offer,
+// special_offer_note, academy_profile.*).
 import { useMemo, useState, useEffect } from 'react';
 import {
   FlatList,
@@ -61,15 +64,7 @@ export const PlaygroundsVenuesSearchScreen = () => {
 
   const venues = useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
-    return data.map(venue => ({
-      id: venue.id || String(venue.academy_profile_id) || 'unknown',
-      name: venue.name || 'Unknown Venue',
-      city: venue.city || venue.location_text || 'Unknown',
-      sport: venue.sport || 'Sports',
-      rating: venue.rating || '0.0',
-      price: venue.price || 'Price on request',
-      image: venue.image || null,
-    }));
+    return data;
   }, [data]);
 
   const activeFilters = filters || playgrounds?.filters || {};
