@@ -1,3 +1,6 @@
+// API fields used: venue.duration (id, minutes, base_price), slots (start_time, end_time),
+// booking payload fields: academy_profile_id, user_id, activity_id, venue_id, duration_id,
+// booking_date, start_time, number_of_players, payment_type, cash_payment_on_date, cliq_image.
 import { useEffect, useMemo, useState } from 'react';
 import {
   SafeAreaView,
@@ -16,16 +19,11 @@ import { SlotGrid } from '../../components/playgrounds/SlotGrid';
 import { StepperHeader } from '../../components/playgrounds/StepperHeader';
 import { SuccessReceiptSheet } from '../../components/playgrounds/SuccessReceiptSheet';
 import { goToMyBookings } from '../../navigation/playgrounds.routes';
-import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
+import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
+import { usePlaygroundsAuth } from '../../services/playgrounds/playgrounds.store';
 import { useVenue } from '../../services/playgrounds/playgrounds.hooks';
 
 const steps = ['Duration & Time', 'Players', 'Payment', 'Review', 'Success'];
-
-const durationOptions = [
-  { id: '60', minutes: 60, label: '60 min' },
-  { id: '90', minutes: 90, label: '90 min' },
-  { id: '120', minutes: 120, label: '120 min' },
-];
 
 const paymentOptions = [
   { id: 'cash', title: 'Cash', subtitle: 'Pay in person' },
@@ -33,20 +31,32 @@ const paymentOptions = [
   { id: 'cliq', title: 'CliQ Transfer', subtitle: 'Upload receipt after payment' },
 ];
 
+const formatSlotLabel = (slot) => {
+  if (!slot) return 'Slot';
+  if (slot?.start_time && slot?.end_time) return `${slot.start_time} - ${slot.end_time}`;
+  return slot?.start_time || slot?.end_time || 'Slot';
+};
+
 export const PlaygroundsBookingStepperScreen = () => {
   const { venueId } = useLocalSearchParams();
   const router = useRouter();
+  const { publicUserId } = usePlaygroundsAuth();
   const { data: venueData } = useVenue(venueId);
   const venue = venueData || {};
   const resolvedVenueId = Array.isArray(venueId) ? venueId[0] : venueId;
 
+  const durations = useMemo(() => (
+    Array.isArray(venue?.duration) ? venue.duration : []
+  ), [venue?.duration]);
+
   const [step, setStep] = useState(0);
-  const [duration, setDuration] = useState(durationOptions[0]);
+  const [duration, setDuration] = useState(durations[0] || null);
   const [date, setDate] = useState('');
   const [slots, setSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [players, setPlayers] = useState('');
   const [paymentType, setPaymentType] = useState('');
+  const [cashOnDateFlag, setCashOnDateFlag] = useState(false);
   const [cliqImage, setCliqImage] = useState(null);
   const [totalPrice, setTotalPrice] = useState(0);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -55,14 +65,17 @@ export const PlaygroundsBookingStepperScreen = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
 
-  const pricePerHour = venue?.price_per_hour || 15;
+  useEffect(() => {
+    if (durations.length && !duration) {
+      setDuration(durations[0]);
+    }
+  }, [durations, duration]);
 
   useEffect(() => {
     if (!duration?.minutes || !date) return;
     let active = true;
     setLoadingSlots(true);
-    playgroundsApi.fetchSlots({
-      venue_id: resolvedVenueId,
+    playgroundsStore.fetchSlots(resolvedVenueId, {
       date,
       duration_minutes: duration.minutes,
     }).then((res) => {
@@ -72,20 +85,29 @@ export const PlaygroundsBookingStepperScreen = () => {
         setSlots([]);
       } else {
         setError(null);
-        setSlots(res.data || []);
+        setSlots(Array.isArray(res.data) ? res.data : []);
       }
       setLoadingSlots(false);
     });
     return () => {
       active = false;
     };
-  }, [date, duration, venueId]);
+  }, [date, duration, resolvedVenueId]);
 
   useEffect(() => {
     const hours = duration?.minutes ? duration.minutes / 60 : 0;
-    const nextTotal = hours * pricePerHour;
+    const price = duration?.base_price ?? venue?.price ?? 0;
+    const nextTotal = Number(price) * hours;
     setTotalPrice(Number.isFinite(nextTotal) ? nextTotal : 0);
-  }, [duration, pricePerHour]);
+  }, [duration, venue?.price]);
+
+  useEffect(() => {
+    if (paymentType === 'cash_payment_on_date') {
+      setCashOnDateFlag(true);
+    } else {
+      setCashOnDateFlag(false);
+    }
+  }, [paymentType]);
 
   const canProceedStep = useMemo(() => {
     if (step === 0) return duration && date && selectedSlot;
@@ -115,12 +137,17 @@ export const PlaygroundsBookingStepperScreen = () => {
     setError(null);
     try {
       const payload = {
-        venue_id: resolvedVenueId,
-        date,
-        duration_minutes: duration?.minutes,
-        slot_id: selectedSlot?.id || selectedSlot?.slot_id,
-        players: Number(players),
+        academy_profile_id: venue?.academy_profile_id,
+        user_id: publicUserId,
+        activity_id: venue?.activity_id,
+        venue_id: venue?.id || resolvedVenueId,
+        duration_id: duration?.id,
+        booking_date: date,
+        start_time: selectedSlot?.start_time,
+        number_of_players: Number(players),
         payment_type: paymentType,
+        cash_payment_on_date: cashOnDateFlag,
+        cliq_image: paymentType === 'cliq' ? cliqImage : null,
       };
 
       let res;
@@ -129,14 +156,14 @@ export const PlaygroundsBookingStepperScreen = () => {
         Object.entries(payload).forEach(([key, value]) => {
           if (value != null) formData.append(key, String(value));
         });
-        formData.append('receipt', {
+        formData.append('cliq_image', {
           uri: cliqImage,
           name: 'cliq-receipt.jpg',
           type: 'image/jpeg',
         });
-        res = await playgroundsApi.createBooking(formData, { contentType: 'multipart/form-data' });
+        res = await playgroundsStore.createBooking(formData);
       } else {
-        res = await playgroundsApi.createBooking(payload);
+        res = await playgroundsStore.createBooking(payload);
       }
 
       if (!res?.success) {
@@ -147,7 +174,7 @@ export const PlaygroundsBookingStepperScreen = () => {
       setSuccessBooking({
         id: res?.data?.id || res?.data?.booking_id || '0001',
         venue: venue?.name || 'Playground',
-        time: selectedSlot?.label || selectedSlot?.time || 'TBD',
+        time: formatSlotLabel(selectedSlot),
         amount: `${totalPrice} JOD`,
         payment: paymentType,
       });
@@ -174,7 +201,7 @@ export const PlaygroundsBookingStepperScreen = () => {
         <View>
           <Text style={styles.sectionTitle}>Choose Duration</Text>
           <View style={styles.durationRow}>
-            {durationOptions.map((option) => {
+            {durations.map((option) => {
               const isSelected = duration?.id === option.id;
               return (
                 <TouchableOpacity
@@ -183,8 +210,9 @@ export const PlaygroundsBookingStepperScreen = () => {
                   onPress={() => setDuration(option)}
                 >
                   <Text style={[styles.durationText, isSelected && styles.durationTextActive]}>
-                    {option.label}
+                    {option?.minutes ? `${option.minutes} min` : 'Duration'}
                   </Text>
+                  <Text style={styles.durationSubText}>{option?.base_price ?? 'N/A'} JOD</Text>
                 </TouchableOpacity>
               );
             })}
@@ -201,8 +229,8 @@ export const PlaygroundsBookingStepperScreen = () => {
           <Text style={styles.sectionTitle}>Available Slots</Text>
           {loadingSlots ? <Text style={styles.helper}>Loading slots...</Text> : null}
           <SlotGrid
-            slots={slots.length ? slots : [{ id: '1', label: '6:00 PM' }, { id: '2', label: '7:00 PM' }]}
-            selectedSlotId={selectedSlot?.id}
+            slots={slots}
+            selectedSlotId={selectedSlot?.id || selectedSlot?.start_time}
             onSelect={setSelectedSlot}
           />
         </View>
@@ -253,9 +281,9 @@ export const PlaygroundsBookingStepperScreen = () => {
           <Text style={styles.sectionTitle}>Review</Text>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryItem}>Venue: {venue?.name || 'Playground'}</Text>
-            <Text style={styles.summaryItem}>Date: {date}</Text>
-            <Text style={styles.summaryItem}>Time: {selectedSlot?.label || selectedSlot?.time || 'TBD'}</Text>
-            <Text style={styles.summaryItem}>Duration: {duration?.label}</Text>
+            <Text style={styles.summaryItem}>Date: {date || 'N/A'}</Text>
+            <Text style={styles.summaryItem}>Time: {formatSlotLabel(selectedSlot)}</Text>
+            <Text style={styles.summaryItem}>Duration: {duration?.minutes ? `${duration.minutes} min` : 'N/A'}</Text>
             <Text style={styles.summaryItem}>Players: {players}</Text>
             <Text style={styles.summaryItem}>Payment: {paymentType}</Text>
             <Text style={styles.summaryTotal}>Total: {totalPrice} JOD</Text>
@@ -323,70 +351,75 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#11223A',
-    marginTop: 20,
+    marginTop: 18,
+    marginBottom: 10,
     paddingHorizontal: 16,
   },
   durationRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     paddingHorizontal: 16,
-    marginTop: 12,
   },
   durationChip: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: '#EFF3FF',
+    backgroundColor: '#F1F4FA',
   },
   durationChipActive: {
     backgroundColor: '#4F6AD7',
   },
   durationText: {
     fontSize: 12,
-    color: '#4F6AD7',
+    color: '#6C7A92',
     fontWeight: '600',
+  },
+  durationSubText: {
+    fontSize: 11,
+    color: '#6C7A92',
+    marginTop: 2,
   },
   durationTextActive: {
     color: '#FFFFFF',
   },
   input: {
-    marginTop: 12,
     marginHorizontal: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E0E6F0',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#11223A',
   },
   helper: {
-    paddingHorizontal: 16,
-    marginTop: 8,
     fontSize: 12,
     color: '#6C7A92',
+    marginLeft: 16,
   },
   summaryCard: {
-    marginTop: 12,
     marginHorizontal: 16,
-    padding: 16,
+    backgroundColor: '#F7F9FF',
     borderRadius: 18,
-    backgroundColor: '#F4F7FF',
+    padding: 16,
   },
   summaryItem: {
-    fontSize: 13,
-    color: '#2E3A52',
-    marginBottom: 8,
+    fontSize: 12,
+    color: '#6C7A92',
+    marginBottom: 6,
   },
   summaryTotal: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#11223A',
     marginTop: 8,
   },
   actions: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    marginTop: 24,
+    marginTop: 16,
   },
   actionPrimary: {
     flex: 1,
@@ -395,42 +428,43 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
   },
+  disabledButton: {
+    opacity: 0.6,
+  },
   primaryButton: {
+    marginTop: 16,
+    marginHorizontal: 16,
     backgroundColor: '#4F6AD7',
     borderRadius: 16,
     paddingVertical: 12,
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 20,
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   secondaryButton: {
-    flex: 1,
+    marginRight: 12,
     backgroundColor: '#EFF3FF',
     borderRadius: 16,
     paddingVertical: 12,
+    paddingHorizontal: 16,
     alignItems: 'center',
   },
   secondaryButtonText: {
     color: '#4F6AD7',
     fontWeight: '600',
   },
-  disabledButton: {
-    opacity: 0.6,
-  },
   validation: {
-    marginTop: 12,
-    marginHorizontal: 16,
-    color: '#6C7A92',
     fontSize: 12,
+    color: '#D64545',
+    paddingHorizontal: 16,
+    marginTop: 10,
   },
   error: {
-    marginTop: 12,
-    marginHorizontal: 16,
-    color: '#D64545',
     fontSize: 12,
+    color: '#D64545',
+    paddingHorizontal: 16,
+    marginTop: 10,
   },
 });

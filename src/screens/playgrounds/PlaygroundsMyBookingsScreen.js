@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+// API fields used: booking.date, booking.start_time, booking.end_time, booking.number_of_players,
+// booking.status, booking.booking_code, booking.academy.public_name, booking.academy.location_text,
+// booking.activity.name, booking.venue.name, booking.duration.minutes, booking.duration.base_price.
+import { useMemo, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -9,8 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { goToBookingDetails } from '../../navigation/playgrounds.routes';
-import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
-import { usePlaygroundsAuth } from '../../services/playgrounds/playgrounds.store';
+import { useMyBookings } from '../../services/playgrounds/playgrounds.hooks';
 
 const statusTabs = [
   { key: 'pending', label: 'Pending' },
@@ -21,35 +23,19 @@ const statusTabs = [
 
 const normalizeStatus = (status = '') => String(status || '').toLowerCase();
 
+const formatTimeRange = (booking) => {
+  if (booking?.start_time && booking?.end_time) {
+    return `${booking.start_time} - ${booking.end_time}`;
+  }
+  return booking?.start_time || booking?.end_time || 'TBD';
+};
+
 export const PlaygroundsMyBookingsScreen = () => {
   const router = useRouter();
-  const { publicUserId } = usePlaygroundsAuth();
+  const { data, loading, error } = useMyBookings();
   const [activeStatus, setActiveStatus] = useState(statusTabs[0].key);
-  const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      if (!publicUserId) return;
-      setLoading(true);
-      const res = await playgroundsApi.listBookings({ user_id: publicUserId });
-      if (!active) return;
-      if (!res?.success) {
-        setError('Unable to load bookings.');
-        setBookings([]);
-      } else {
-        setError(null);
-        setBookings(Array.isArray(res.data) ? res.data : res.data?.items || []);
-      }
-      setLoading(false);
-    };
-    load();
-    return () => {
-      active = false;
-    };
-  }, [publicUserId]);
+  const bookings = Array.isArray(data) ? data : [];
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((booking) => normalizeStatus(booking?.status) === activeStatus);
@@ -74,7 +60,7 @@ export const PlaygroundsMyBookingsScreen = () => {
         </View>
 
         {loading ? <Text style={styles.helper}>Loading bookings...</Text> : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text style={styles.error}>{error.message || 'Unable to load bookings.'}</Text> : null}
 
         {filteredBookings.length ? filteredBookings.map((booking) => (
           <TouchableOpacity
@@ -83,16 +69,20 @@ export const PlaygroundsMyBookingsScreen = () => {
             onPress={() => goToBookingDetails(router, booking.id || booking.booking_id)}
           >
             <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>{booking?.venue_name || booking?.venue || 'Playground'}</Text>
+              <Text style={styles.cardTitle}>{booking?.venue?.name || booking?.venue_name || 'Playground'}</Text>
               <Text style={styles.cardStatus}>{booking?.status || activeStatus}</Text>
             </View>
+            <Text style={styles.cardMeta}>Academy: {booking?.academy?.public_name || 'N/A'}</Text>
+            <Text style={styles.cardMeta}>Location: {booking?.academy?.location_text || 'N/A'}</Text>
+            <Text style={styles.cardMeta}>Sport: {booking?.activity?.name || 'N/A'}</Text>
             <Text style={styles.cardMeta}>Date: {booking?.date || 'TBD'}</Text>
-            <Text style={styles.cardMeta}>Time: {booking?.time || booking?.slot_time || 'TBD'}</Text>
+            <Text style={styles.cardMeta}>Time: {formatTimeRange(booking)}</Text>
+            <Text style={styles.cardMeta}>Players: {booking?.number_of_players ?? 'N/A'}</Text>
             <View style={styles.cardFooter}>
-              <Text style={styles.cardMeta}>Code: {booking?.code || booking?.booking_code || '—'}</Text>
-              <Text style={styles.cardPrice}>{booking?.price || booking?.total_price || '—'} JOD</Text>
+              <Text style={styles.cardMeta}>Code: {booking?.booking_code || '—'}</Text>
+              <Text style={styles.cardPrice}>{booking?.duration?.base_price ?? '—'} JOD</Text>
             </View>
-            <Text style={styles.cardMeta}>Payment: {booking?.payment_method || booking?.payment_type || '—'}</Text>
+            <Text style={styles.cardMeta}>Duration: {booking?.duration?.minutes ?? '—'} min</Text>
           </TouchableOpacity>
         )) : (!loading && !error ? (
           <View style={styles.empty}>

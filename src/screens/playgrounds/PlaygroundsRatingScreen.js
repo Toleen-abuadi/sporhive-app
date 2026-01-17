@@ -1,3 +1,5 @@
+// API fields used: booking.activity.name, booking.venue.name, booking_id from token resolve,
+// rating payload fields: overall, criteria_scores, comment.
 import { useEffect, useMemo, useState } from 'react';
 import {
   SafeAreaView,
@@ -11,6 +13,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { goToMyBookings } from '../../navigation/playgrounds.routes';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
+import { useMyBookings } from '../../services/playgrounds/playgrounds.hooks';
 import { usePlaygroundsAuth } from '../../services/playgrounds/playgrounds.store';
 
 const criteria = [
@@ -33,7 +36,7 @@ export const PlaygroundsRatingScreen = () => {
   const { token } = useLocalSearchParams();
   const router = useRouter();
   const { publicUserId } = usePlaygroundsAuth();
-  const [bookingOptions, setBookingOptions] = useState([]);
+  const { data: bookings, loading: bookingsLoading } = useMyBookings();
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [overall, setOverall] = useState(0);
   const [criteriaScores, setCriteriaScores] = useState({});
@@ -43,27 +46,7 @@ export const PlaygroundsRatingScreen = () => {
   const [error, setError] = useState(null);
 
   const resolvedToken = Array.isArray(token) ? token[0] : token;
-
-  useEffect(() => {
-    let active = true;
-    const loadBookings = async () => {
-      if (!publicUserId || resolvedToken) return;
-      setLoading(true);
-      const res = await playgroundsApi.listBookings({ user_id: publicUserId });
-      if (!active) return;
-      if (!res?.success) {
-        setError('Unable to load bookings.');
-      } else {
-        const list = Array.isArray(res.data) ? res.data : res.data?.items || [];
-        setBookingOptions(list.filter((booking) => booking?.can_rate || booking?.status === 'completed'));
-      }
-      setLoading(false);
-    };
-    loadBookings();
-    return () => {
-      active = false;
-    };
-  }, [publicUserId, resolvedToken]);
+  const selectedBookingId = selectedBooking?.id || selectedBooking?.booking_id;
 
   useEffect(() => {
     let active = true;
@@ -77,7 +60,7 @@ export const PlaygroundsRatingScreen = () => {
         setLoading(false);
         return;
       }
-      const bookingId = resolved?.data?.booking_id || resolved?.data?.bookingId;
+      const bookingId = resolved?.data?.booking_id;
       const userId = resolved?.data?.user_id || publicUserId;
       const canRate = await playgroundsApi.canRate({ booking_id: bookingId, user_id: userId });
       if (!canRate?.success) {
@@ -90,7 +73,7 @@ export const PlaygroundsRatingScreen = () => {
         setLoading(false);
         return;
       }
-      setSelectedBooking({ id: bookingId, user_id: userId });
+      setSelectedBooking({ booking_id: bookingId, user_id: userId });
       setLoading(false);
     };
     resolveToken();
@@ -115,7 +98,7 @@ export const PlaygroundsRatingScreen = () => {
     setLoading(true);
     setError(null);
     const payload = {
-      booking_id: selectedBooking?.id || selectedBooking?.booking_id,
+      booking_id: selectedBooking?.booking_id || selectedBooking?.id,
       user_id: selectedBooking?.user_id || publicUserId,
       overall,
       criteria_scores: criteriaScores,
@@ -132,9 +115,16 @@ export const PlaygroundsRatingScreen = () => {
     setTimeout(() => goToMyBookings(router), 800);
   };
 
+  const bookingOptions = useMemo(() => {
+    if (!Array.isArray(bookings)) return [];
+    return bookings.filter((booking) => booking?.can_rate || booking?.status === 'completed');
+  }, [bookings]);
+
   const bookingLabel = useMemo(() => {
     if (!selectedBooking) return null;
-    return selectedBooking?.venue_name || selectedBooking?.venue || `Booking #${selectedBooking?.id}`;
+    const venueName = selectedBooking?.venue?.name || selectedBooking?.venue_name;
+    const activityName = selectedBooking?.activity?.name;
+    return [activityName, venueName].filter(Boolean).join(' · ') || `Booking #${selectedBooking?.booking_id || selectedBooking?.id}`;
   }, [selectedBooking]);
 
   return (
@@ -143,7 +133,7 @@ export const PlaygroundsRatingScreen = () => {
         <Text style={styles.title}>Rate Your Booking</Text>
         <Text style={styles.subtitle}>Share quick feedback to help us improve.</Text>
 
-        {loading ? <Text style={styles.helper}>Loading...</Text> : null}
+        {(loading || bookingsLoading) ? <Text style={styles.helper}>Loading...</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {status === 'success' ? <Text style={styles.success}>Thanks for your feedback!</Text> : null}
 
@@ -153,11 +143,11 @@ export const PlaygroundsRatingScreen = () => {
             {bookingOptions.map((booking) => (
               <TouchableOpacity
                 key={booking.id || booking.booking_id}
-                style={[styles.bookingChip, selectedBooking?.id === booking.id && styles.bookingChipActive]}
+                style={[styles.bookingChip, selectedBookingId === (booking.id || booking.booking_id) && styles.bookingChipActive]}
                 onPress={() => setSelectedBooking(booking)}
               >
-                <Text style={[styles.bookingChipText, selectedBooking?.id === booking.id && styles.bookingChipTextActive]}>
-                  {booking?.venue_name || booking?.venue || `Booking #${booking.id}`}
+                <Text style={[styles.bookingChipText, selectedBookingId === (booking.id || booking.booking_id) && styles.bookingChipTextActive]}>
+                  {booking?.activity?.name || 'Activity'} · {booking?.venue?.name || 'Venue'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -266,28 +256,30 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   selectedBooking: {
+    marginTop: 8,
     fontSize: 12,
     color: '#4F6AD7',
-    marginTop: 8,
+    fontWeight: '600',
   },
   starRow: {
     flexDirection: 'row',
     gap: 8,
   },
   starChip: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F4FA',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#F1F4FA',
   },
   starText: {
+    fontSize: 14,
     color: '#6C7A92',
-    fontWeight: '600',
   },
   starTextActive: {
     color: '#4F6AD7',
+    fontWeight: '700',
   },
   criteriaRow: {
     marginBottom: 12,
@@ -295,19 +287,19 @@ const styles = StyleSheet.create({
   criteriaLabel: {
     fontSize: 12,
     color: '#6C7A92',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   textArea: {
     borderWidth: 1,
     borderColor: '#E0E6F0',
-    borderRadius: 14,
-    paddingHorizontal: 14,
+    borderRadius: 12,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     minHeight: 100,
     textAlignVertical: 'top',
   },
   primaryButton: {
-    marginTop: 20,
+    marginTop: 16,
     backgroundColor: '#4F6AD7',
     borderRadius: 16,
     paddingVertical: 12,
@@ -315,6 +307,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
