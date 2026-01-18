@@ -341,6 +341,19 @@ export const playgroundsStore = {
     return { success: true, data: normalizeSlots(res.data) };
   },
 
+  async fetchVenueDurations(venueId) {
+    if (!venueId) return { success: true, data: [] };
+    const res = await playgroundsApi.fetchVenueDurations(venueId);
+    if (!res?.success) return res;
+    const payload = res.data;
+    const durations = Array.isArray(payload?.durations)
+      ? payload.durations
+      : Array.isArray(payload)
+        ? payload
+        : [];
+    return { success: true, data: durations };
+  },
+
   async createBooking(payload = {}) {
     const body = await withPublicUser(payload);
     const res = await playgroundsApi.createBooking(body);

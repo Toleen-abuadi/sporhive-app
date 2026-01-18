@@ -122,6 +122,17 @@ export const playgroundsApi = {
     }, 'Failed to fetch playground slots');
   },
 
+  async fetchVenueDurations(venueId, options = {}) {
+    return wrapApi(async () => {
+      const headers = await buildHeaders(options);
+      return playgroundsClient.post(
+        '/admin/venues/durations/list',
+        { venue_id: venueId },
+        { headers }
+      );
+    }, 'Failed to fetch playground venue durations');
+  },
+
   // ------- BOOKINGS -------
 
   /**
