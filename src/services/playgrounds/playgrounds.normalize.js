@@ -64,3 +64,19 @@ export const normalizeRating = (payload) => {
   if (!payload) return null;
   return payload.rating || payload.data || payload;
 };
+
+export const normalizeActivities = (payload) => {
+  if (!payload) return [];
+  const list = Array.isArray(payload)
+    ? payload
+    : ensureArray(payload.activities || payload.items || payload.data || []);
+  return list.filter(Boolean);
+};
+
+export const normalizeDurations = (payload) => {
+  if (!payload) return [];
+  const list = Array.isArray(payload)
+    ? payload
+    : ensureArray(payload.durations || payload.items || payload.data || []);
+  return list.filter(Boolean);
+};

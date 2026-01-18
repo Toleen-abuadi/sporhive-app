@@ -1,6 +1,6 @@
 // API fields used: name, base_location, pitch_size, area_size, min_players, max_players,
 // avg_rating, ratings_count, price, duration, images, has_special_offer, special_offer_note,
-// academy_profile.public_name, academy_profile.location_text, academy_profile.tags.
+// academy_profile.public_name, academy_profile.location_text, academy_profile.tags, academy_profile.logo.
 import { useMemo, useState } from 'react';
 import {
   Dimensions,
@@ -12,12 +12,14 @@ import {
   View,
   Image,
   ScrollView,
+  useColorScheme,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SlotGrid } from '../../components/playgrounds/SlotGrid';
+import { StickyFooterCTA } from '../../components/playgrounds/StickyFooterCTA';
 import { goToBook } from '../../navigation/playgrounds.routes';
 import { useVenue } from '../../services/playgrounds/playgrounds.hooks';
+import { getPlaygroundsTheme } from '../../theme/playgroundsTheme';
 
 const { width } = Dimensions.get('window');
 
@@ -31,9 +33,7 @@ const resolveImageUri = (image) => {
 
 const buildGallery = (images = []) => {
   if (!Array.isArray(images)) return [];
-  return images
-    .map((img) => resolveImageUri(img))
-    .filter(Boolean);
+  return images.map((img) => resolveImageUri(img)).filter(Boolean);
 };
 
 const resolvePrice = (venue) => {
@@ -42,55 +42,132 @@ const resolvePrice = (venue) => {
   return duration[0]?.base_price ?? null;
 };
 
+const getInitials = (value = '') =>
+  value
+    .split(' ')
+    .map((part) => part.charAt(0))
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+const resolvePaymentMethods = (venue) => {
+  const raw =
+    venue?.academy_profile?.payment_methods ||
+    venue?.payment_methods ||
+    venue?.payment_type ||
+    [];
+  const methods = new Set();
+  if (Array.isArray(raw)) {
+    raw.forEach((method) => methods.add(String(method).toLowerCase()));
+  } else if (typeof raw === 'string') {
+    methods.add(raw.toLowerCase());
+  }
+
+  if (venue?.academy_profile?.allow_cash || venue?.allow_cash) methods.add('cash');
+  if (venue?.academy_profile?.allow_cliq || venue?.allow_cliq) methods.add('cliq');
+  if (venue?.academy_profile?.allow_cash_payment_on_date || venue?.allow_cash_payment_on_date) {
+    methods.add('cash_payment_on_date');
+  }
+
+  if (methods.size === 0) {
+    return ['cash', 'cash_payment_on_date', 'cliq'];
+  }
+
+  return Array.from(methods);
+};
+
 export const PlaygroundsVenueDetailsScreen = () => {
   const { venueId } = useLocalSearchParams();
   const router = useRouter();
+  const scheme = useColorScheme();
+  const theme = getPlaygroundsTheme(scheme);
   const { data, loading, error } = useVenue(venueId);
   const [selectedDuration, setSelectedDuration] = useState(null);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const venue = useMemo(() => data || {}, [data]);
   const gallery = useMemo(() => buildGallery(venue?.images), [venue?.images]);
-  const durations = useMemo(() => (
-    Array.isArray(venue?.duration) ? venue.duration : []
-  ), [venue?.duration]);
-
+  const durations = useMemo(
+    () => (Array.isArray(venue?.duration) ? venue.duration : []),
+    [venue?.duration],
+  );
   const effectiveDuration = selectedDuration || durations[0] || null;
+  const priceValue = resolvePrice(venue);
+  const academyName = venue?.academy_profile?.public_name || venue?.name || 'Academy';
+  const academyLogo = venue?.academy_profile?.logo || venue?.academy_profile?.image || null;
+  const tags = Array.isArray(venue?.academy_profile?.tags) ? venue.academy_profile.tags : [];
+  const paymentMethods = useMemo(() => resolvePaymentMethods(venue), [venue]);
 
   const renderGallery = () => {
     if (!gallery.length) {
       return (
-        <View style={styles.galleryPlaceholder}>
-          <Text style={styles.placeholderText}>No images available</Text>
+        <View style={[styles.galleryPlaceholder, { backgroundColor: theme.colors.surface }]}>
+          <Text style={[styles.placeholderText, { color: theme.colors.textMuted }]}>
+            No images available
+          </Text>
         </View>
       );
     }
 
     return (
-      <FlatList
-        data={gallery}
-        keyExtractor={(item, index) => `${item}-${index}`}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <View style={styles.galleryCard}>
-            <Image 
-              source={{ uri: item }} 
-              style={styles.galleryImage}
-              resizeMode="cover"
+      <View>
+        <FlatList
+          data={gallery}
+          keyExtractor={(item, index) => `${item}-${index}`}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(event) => {
+            const nextIndex = Math.round(event.nativeEvent.contentOffset.x / width);
+            setActiveIndex(nextIndex);
+          }}
+          renderItem={({ item }) => (
+            <View style={styles.galleryCard}>
+              <Image source={{ uri: item }} style={styles.galleryImage} resizeMode="cover" />
+              <LinearGradient colors={['transparent', theme.colors.overlay]} style={styles.galleryOverlay} />
+              <View style={styles.galleryMeta}>
+                <View style={[styles.logoBadge, { borderColor: theme.colors.border }]}>
+                  {academyLogo ? (
+                    <Image source={{ uri: academyLogo }} style={styles.logoImage} />
+                  ) : (
+                    <Text style={[styles.logoText, { color: theme.colors.textPrimary }]}>
+                      {getInitials(academyName)}
+                    </Text>
+                  )}
+                </View>
+                <View style={[styles.ratingPill, { backgroundColor: theme.colors.card }]}>
+                  <Text style={[styles.ratingText, { color: theme.colors.textPrimary }]}>
+                    {Number(venue?.avg_rating || 0).toFixed(1)} ★ ({venue?.ratings_count || 0})
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+          style={styles.galleryList}
+        />
+        <View style={styles.dotsRow}>
+          {gallery.map((_, index) => (
+            <View
+              key={`dot-${index}`}
+              style={[
+                styles.dot,
+                {
+                  backgroundColor:
+                    activeIndex === index ? theme.colors.primary : theme.colors.border,
+                },
+              ]}
             />
-          </View>
-        )}
-        style={styles.galleryList}
-      />
+          ))}
+        </View>
+      </View>
     );
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
         <View style={styles.loadingContainer}>
-          <Text>Loading venue details...</Text>
+          <Text style={{ color: theme.colors.textMuted }}>Loading venue details...</Text>
         </View>
       </SafeAreaView>
     );
@@ -98,102 +175,140 @@ export const PlaygroundsVenueDetailsScreen = () => {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load venue details</Text>
+          <Text style={[styles.errorText, { color: theme.colors.error }]}>Failed to load venue details</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  const priceValue = resolvePrice(venue);
-
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView 
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {renderGallery()}
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
+      <View style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {renderGallery()}
 
-        <LinearGradient colors={['#F4F7FF', '#FFFFFF']} style={styles.hero}>
-          <Text style={styles.title}>{venue?.name || 'Venue'}</Text>
-          <Text style={styles.subtitle}>{venue?.base_location || venue?.academy_profile?.location_text || 'N/A'}</Text>
-          {venue?.academy_profile?.public_name ? (
-            <Text style={styles.meta}>Academy: {venue.academy_profile.public_name}</Text>
-          ) : null}
-          {venue?.has_special_offer && venue?.special_offer_note ? (
-            <View style={styles.offerPill}>
-              <Text style={styles.offerText}>{venue.special_offer_note}</Text>
-            </View>
-          ) : null}
-        </LinearGradient>
+          <View style={[styles.hero, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+            <Text style={[styles.title, { color: theme.colors.textPrimary }]}>{venue?.name || 'Venue'}</Text>
+            <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
+              {venue?.base_location || venue?.academy_profile?.location_text || 'N/A'}
+            </Text>
+            <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
+              {academyName}
+            </Text>
+            {venue?.has_special_offer && venue?.special_offer_note ? (
+              <View style={[styles.offerPill, { backgroundColor: theme.colors.primarySoft }]}>
+                <Text style={[styles.offerText, { color: theme.colors.primary }]}>
+                  {venue.special_offer_note}
+                </Text>
+              </View>
+            ) : null}
+          </View>
 
-        <View style={styles.infoGrid}>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Pitch Size</Text>
-            <Text style={styles.infoValue}>{venue?.pitch_size || 'N/A'}</Text>
+          <View style={styles.infoGrid}>
+            {[
+              { label: 'Pitch Size', value: venue?.pitch_size || 'N/A' },
+              { label: 'Area Size', value: venue?.area_size || 'N/A' },
+              {
+                label: 'Players',
+                value: `${venue?.min_players ?? 'N/A'} - ${venue?.max_players ?? 'N/A'}`,
+              },
+              { label: 'Rating', value: `${venue?.avg_rating ?? 'N/A'}` },
+              { label: 'Price', value: priceValue != null ? `${priceValue} JOD` : 'N/A' },
+            ].map((item) => (
+              <View key={item.label} style={[styles.infoCard, { backgroundColor: theme.colors.surface }]}>
+                <Text style={[styles.infoLabel, { color: theme.colors.textMuted }]}>{item.label}</Text>
+                <Text style={[styles.infoValue, { color: theme.colors.textPrimary }]}>{item.value}</Text>
+              </View>
+            ))}
           </View>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Area Size</Text>
-            <Text style={styles.infoValue}>{venue?.area_size || 'N/A'}</Text>
-          </View>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Players</Text>
-            <Text style={styles.infoValue}>
-              {venue?.min_players ?? 'N/A'} - {venue?.max_players ?? 'N/A'}
-            </Text>
-          </View>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Rating</Text>
-            <Text style={styles.infoValue}>
-              {venue?.avg_rating ?? 'N/A'} ({venue?.ratings_count ?? 0})
-            </Text>
-          </View>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Price</Text>
-            <Text style={styles.infoValue}>
-              {priceValue != null ? `${priceValue} JOD` : 'N/A'}
-            </Text>
-          </View>
-        </View>
 
-        {durations.length ? (
-          <>
-            <Text style={styles.sectionTitle}>Choose Duration</Text>
-            <View style={styles.durationRow}>
-              {durations.map((duration) => {
-                const isSelected = effectiveDuration?.id === duration.id;
-                return (
-                  <TouchableOpacity
-                    key={duration.id}
-                    style={[styles.durationChip, isSelected && styles.durationChipActive]}
-                    onPress={() => setSelectedDuration(duration)}
+          {tags.length ? (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Features</Text>
+              <View style={styles.tagsRow}>
+                {tags.slice(0, 6).map((tag) => (
+                  <View
+                    key={tag}
+                    style={[styles.tagChip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
                   >
-                    <Text style={[styles.durationText, isSelected && styles.durationTextActive]}>
-                      {duration?.minutes ? `${duration.minutes} min` : 'Duration'}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                    <Text style={[styles.tagText, { color: theme.colors.textPrimary }]}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
-          </>
-        ) : null}
+          ) : null}
 
-        <Text style={styles.sectionTitle}>Available Slots</Text>
-        <SlotGrid
-          slots={[]}
-          selectedSlotId={null}
-          onSelect={(slot) => console.log('Selected slot:', slot)}
-        />
+          {durations.length ? (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Choose Duration</Text>
+              <View style={styles.durationRow}>
+                {durations.map((duration) => {
+                  const isSelected = effectiveDuration?.id === duration.id;
+                  return (
+                    <TouchableOpacity
+                      key={duration.id}
+                      style={[
+                        styles.durationChip,
+                        {
+                          backgroundColor: isSelected ? theme.colors.primary : theme.colors.surface,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => setSelectedDuration(duration)}
+                    >
+                      <Text
+                        style={[
+                          styles.durationText,
+                          { color: isSelected ? '#FFFFFF' : theme.colors.textPrimary },
+                        ]}
+                      >
+                        {duration?.minutes || duration?.duration_minutes
+                          ? `${duration?.minutes ?? duration?.duration_minutes} min`
+                          : 'Duration'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
 
-        <TouchableOpacity
-          style={styles.button}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Payment Methods</Text>
+            <View style={styles.tagsRow}>
+              {paymentMethods.map((method) => (
+                <View
+                  key={method}
+                  style={[styles.tagChip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+                >
+                  <Text style={[styles.tagText, { color: theme.colors.textPrimary }]}>
+                    {method.replace(/_/g, ' ')}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Availability</Text>
+            <View style={[styles.notice, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+              <Text style={[styles.noticeText, { color: theme.colors.textMuted }]}>
+                Check availability during booking to view time slots.
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+
+        <StickyFooterCTA
+          priceLabel="From"
+          priceValue={priceValue != null ? `${priceValue} JOD` : 'Price N/A'}
+          buttonLabel="Book Now"
           onPress={() => goToBook(router, venue?.id || venueId)}
-        >
-          <Text style={styles.buttonText}>Book Now</Text>
-        </TouchableOpacity>
-      </ScrollView>
+          helperText="Taxes included"
+        />
+      </View>
     </SafeAreaView>
   );
 };
@@ -201,7 +316,9 @@ export const PlaygroundsVenueDetailsScreen = () => {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+  },
+  flex: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -215,18 +332,17 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    color: '#D64545',
     fontSize: 16,
   },
   content: {
     paddingBottom: 24,
   },
   galleryList: {
-    height: 240,
+    height: 260,
   },
   galleryCard: {
     width,
-    height: 240,
+    height: 260,
     paddingHorizontal: 12,
   },
   galleryImage: {
@@ -234,17 +350,71 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 24,
   },
+  galleryOverlay: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 0,
+    height: 90,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  galleryMeta: {
+    position: 'absolute',
+    top: 20,
+    left: 24,
+    right: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  logoBadge: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  logoText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  ratingPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  ratingText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
   galleryPlaceholder: {
     width,
     height: 240,
-    backgroundColor: '#F4F7FF',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 24,
     marginHorizontal: 12,
   },
   placeholderText: {
-    color: '#6C7A92',
     fontSize: 14,
   },
   hero: {
@@ -252,27 +422,19 @@ const styles = StyleSheet.create({
     marginTop: 20,
     padding: 20,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#0B1A33',
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 16,
-    elevation: 2,
+    borderWidth: 1,
   },
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#11223A',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 13,
-    color: '#6C7A92',
     marginBottom: 6,
   },
   meta: {
     fontSize: 12,
-    color: '#6C7A92',
   },
   offerPill: {
     alignSelf: 'flex-start',
@@ -280,10 +442,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: '#FFE7CC',
   },
   offerText: {
-    color: '#D56B00',
     fontWeight: '700',
     fontSize: 11,
   },
@@ -296,27 +456,41 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     flexBasis: '48%',
-    backgroundColor: '#F7F9FF',
     padding: 12,
     borderRadius: 16,
   },
   infoLabel: {
     fontSize: 11,
-    color: '#6C7A92',
   },
   infoValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#11223A',
     marginTop: 4,
+  },
+  section: {
+    marginTop: 20,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#11223A',
-    marginTop: 20,
     marginBottom: 12,
     paddingHorizontal: 16,
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  tagChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  tagText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   durationRow: {
     flexDirection: 'row',
@@ -328,30 +502,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: '#F1F4FA',
-  },
-  durationChipActive: {
-    backgroundColor: '#4F6AD7',
+    borderWidth: 1,
   },
   durationText: {
     fontSize: 12,
-    color: '#6C7A92',
     fontWeight: '600',
   },
-  durationTextActive: {
-    color: '#FFFFFF',
-  },
-  button: {
-    marginTop: 20,
+  notice: {
     marginHorizontal: 16,
-    backgroundColor: '#4F6AD7',
-    paddingVertical: 14,
+    padding: 14,
     borderRadius: 16,
-    alignItems: 'center',
+    borderWidth: 1,
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
+  noticeText: {
+    fontSize: 12,
   },
 });

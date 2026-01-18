@@ -2,20 +2,25 @@
 // venues list (name, base_location, images, price, duration, avg_rating, ratings_count).
 import { useMemo } from 'react';
 import {
+  FlatList,
+  Image,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  Image,
+  useColorScheme,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { CategoryPillsRow } from '../../components/playgrounds/CategoryPillsRow';
+import { PlaygroundsHeader } from '../../components/playgrounds/PlaygroundsHeader';
+import { SectionSkeleton, VenueCardSkeleton } from '../../components/playgrounds/Skeletons';
 import { VenueCard } from '../../components/playgrounds/VenueCard';
-import { goToMyBookings, goToSearch } from '../../navigation/playgrounds.routes';
+import { goToMyBookings, goToSearch, goToVenue } from '../../navigation/playgrounds.routes';
 import { useSearch, useSlider } from '../../services/playgrounds/playgrounds.hooks';
+import { getPlaygroundsTheme } from '../../theme/playgroundsTheme';
 
 const resolveHeroImage = (heroImage) => {
   if (!heroImage) return null;
@@ -30,137 +35,149 @@ const resolveHeroImage = (heroImage) => {
   return `data:${mime};base64,${trimmed}`;
 };
 
+const getActivityOptions = (venues = []) => {
+  const map = new Map();
+  venues.forEach((venue) => {
+    const value =
+      venue?.activity_id ||
+      venue?.activity?.id ||
+      venue?.activity?.name ||
+      venue?.activity_name;
+    const label = venue?.activity?.name || venue?.activity_name || 'Activity';
+    if (value && !map.has(String(value))) {
+      map.set(String(value), { value, label });
+    }
+  });
+  return Array.from(map.values());
+};
+
 export const PlaygroundsHomeScreen = () => {
   const router = useRouter();
+  const scheme = useColorScheme();
+  const theme = getPlaygroundsTheme(scheme);
   const slider = useSlider();
   const venuesSearch = useSearch();
 
   const sliderItems = useMemo(() => {
     if (!slider.data || !Array.isArray(slider.data)) return [];
 
-    return slider.data.map(item => ({
-      id: item.academy_profile_id || item.academy_id || item.id || 'unknown',
-      public_name: item.public_name || 'Academy',
-      location_text: item.location_text || '',
-      hero_image: resolveHeroImage(item.hero_image),
-      tags: item.tags || [],
-    })).slice(0, 5);
+    return slider.data
+      .map((item) => ({
+        id: item.academy_profile_id || item.academy_id || item.id || 'unknown',
+        public_name: item.public_name || 'Academy',
+        location_text: item.location_text || '',
+        hero_image: resolveHeroImage(item.hero_image),
+        tags: item.tags || [],
+      }))
+      .slice(0, 5);
   }, [slider.data]);
 
   const featuredVenues = useMemo(() => {
     if (!venuesSearch.data || !Array.isArray(venuesSearch.data)) return [];
-    return venuesSearch.data.slice(0, 3);
+    return venuesSearch.data.slice(0, 6);
   }, [venuesSearch.data]);
 
-  const renderSlider = () => {
-    if (slider.loading) {
-      return (
-        <View style={styles.sliderContainer}>
-          <View style={styles.skeletonSlider} />
-        </View>
-      );
-    }
+  const activityOptions = useMemo(
+    () => getActivityOptions(venuesSearch.data || []),
+    [venuesSearch.data],
+  );
 
-    if (sliderItems.length === 0) {
-      return null;
-    }
-
-    return (
-      <View style={styles.sliderContainer}>
-        <Text style={styles.sectionTitle}>Top Academies</Text>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.sliderContent}
-        >
-          {sliderItems.map((item) => (
-            <TouchableOpacity key={item.id} style={styles.sliderCard}>
-              {item.hero_image ? (
-                <Image 
-                  source={{ uri: item.hero_image }} 
-                  style={styles.sliderImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={[styles.sliderImage, styles.sliderImagePlaceholder]}>
-                  <Text style={styles.placeholderText}>{item.public_name.charAt(0)}</Text>
-                </View>
-              )}
-              <View style={styles.sliderTextContainer}>
-                <Text style={styles.sliderTitle} numberOfLines={1}>
-                  {item.public_name}
-                </Text>
-                <Text style={styles.sliderLocation} numberOfLines={1}>
-                  {item.location_text}
-                </Text>
-                {item.tags && item.tags.length > 0 && (
-                  <View style={styles.tagsContainer}>
-                    {item.tags.slice(0, 2).map((tag, index) => (
-                      <View key={index} style={styles.tag}>
-                        <Text style={styles.tagText}>{tag}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+  const renderSliderItem = ({ item }) => (
+    <TouchableOpacity style={styles.sliderCard} activeOpacity={0.88}>
+      {item.hero_image ? (
+        <Image source={{ uri: item.hero_image }} style={styles.sliderImage} />
+      ) : (
+        <View style={[styles.sliderImage, { backgroundColor: theme.colors.surface }]} />
+      )}
+      <LinearGradient colors={['transparent', theme.colors.overlay]} style={styles.sliderGradient} />
+      <View style={styles.sliderMeta}>
+        <Text style={[styles.sliderTitle, { color: '#FFFFFF' }]} numberOfLines={1}>
+          {item.public_name}
+        </Text>
+        <Text style={[styles.sliderLocation, { color: '#FFFFFF' }]} numberOfLines={1}>
+          {item.location_text}
+        </Text>
       </View>
-    );
-  };
+    </TouchableOpacity>
+  );
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView 
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        <LinearGradient colors={['#F5F8FF', '#FFFFFF']} style={styles.header}>
-          <Text style={styles.title}>Discover Playgrounds</Text>
-          <Text style={styles.subtitle}>Premium venues with real-time availability.</Text>
-          
-          <TouchableOpacity
-            style={styles.searchInputContainer}
-            onPress={() => goToSearch(router)}
-          >
-            <TextInput
-              placeholder="Search by city, sport, or venue"
-              style={styles.search}
-              editable={false}
-              pointerEvents="none"
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
+      <FlatList
+        data={featuredVenues}
+        keyExtractor={(item) => String(item.id || item.name)}
+        ListHeaderComponent={(
+          <>
+            <PlaygroundsHeader
+              title="Book premium playgrounds"
+              subtitle="Find verified academies and real-time availability."
+              rightLabel="Bookings"
+              onRightPress={() => goToMyBookings(router)}
             />
-          </TouchableOpacity>
-          
-          <View style={styles.ctaRow}>
             <TouchableOpacity
-              style={styles.primaryButton}
+              style={[styles.searchBar, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
               onPress={() => goToSearch(router)}
             >
-              <Text style={styles.primaryButtonText}>Search Venues</Text>
+              <TextInput
+                placeholder="Search city, sport, or venue"
+                placeholderTextColor={theme.colors.textMuted}
+                style={[styles.searchInput, { color: theme.colors.textPrimary }]}
+                editable={false}
+                pointerEvents="none"
+              />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => goToMyBookings(router)}
-            >
-              <Text style={styles.secondaryButtonText}>My Bookings</Text>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
-
-        {renderSlider()}
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Featured Venues</Text>
-          {featuredVenues.length ? (
-            featuredVenues.map((venue) => (
-              <VenueCard key={venue.id} venue={venue} />
-            ))
+            <CategoryPillsRow
+              categories={activityOptions}
+              onSelect={() => goToSearch(router)}
+            />
+            {slider.loading ? (
+              <View style={{ paddingVertical: 12 }}>
+                <SectionSkeleton />
+              </View>
+            ) : sliderItems.length ? (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Top Academies</Text>
+                </View>
+                <FlatList
+                  horizontal
+                  data={sliderItems}
+                  keyExtractor={(item) => String(item.id)}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.sliderRow}
+                  renderItem={renderSliderItem}
+                />
+              </View>
+            ) : null}
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Recommended venues</Text>
+              <TouchableOpacity onPress={() => goToSearch(router)}>
+                <Text style={[styles.sectionAction, { color: theme.colors.primary }]}>View All</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+        renderItem={({ item }) => (
+          <VenueCard venue={item} onPress={() => goToVenue(router, item.id)} />
+        )}
+        ListEmptyComponent={
+          venuesSearch.loading ? (
+            <>
+              <VenueCardSkeleton />
+              <VenueCardSkeleton />
+            </>
           ) : (
-            <Text style={styles.emptyText}>No venues available yet.</Text>
-          )}
-        </View>
-      </ScrollView>
+            <View style={[styles.emptyState, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+              <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>No venues yet</Text>
+              <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>
+                We are onboarding premium academies in your area.
+              </Text>
+            </View>
+          )
+        }
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      />
     </SafeAreaView>
   );
 };
@@ -168,147 +185,87 @@ export const PlaygroundsHomeScreen = () => {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
-  container: {
-    paddingBottom: 24,
-  },
-  header: {
-    padding: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#11223A',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#6C7A92',
+  searchBar: {
+    marginHorizontal: 16,
     marginTop: 6,
-    marginBottom: 16,
-  },
-  searchInputContainer: {
-    marginBottom: 16,
-  },
-  search: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#E0E6F0',
+  },
+  searchInput: {
     fontSize: 14,
-    color: '#6C7A92',
-  },
-  ctaRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: '#4F6AD7',
-    borderRadius: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  secondaryButton: {
-    flex: 1,
-    backgroundColor: '#EFF3FF',
-    borderRadius: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: '#4F6AD7',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  sliderContainer: {
-    marginTop: 20,
-    paddingHorizontal: 16,
-  },
-  skeletonSlider: {
-    height: 150,
-    backgroundColor: '#EFF3FF',
-    borderRadius: 18,
-  },
-  sliderContent: {
-    gap: 12,
-    paddingRight: 16,
-  },
-  sliderCard: {
-    width: 200,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#0B1A33',
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    elevation: 2,
-    overflow: 'hidden',
-  },
-  sliderImage: {
-    width: '100%',
-    height: 120,
-    backgroundColor: '#F4F7FF',
-  },
-  sliderImagePlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholderText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#4F6AD7',
-  },
-  sliderTextContainer: {
-    padding: 12,
-  },
-  sliderTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#11223A',
-    marginBottom: 4,
-  },
-  sliderLocation: {
-    fontSize: 12,
-    color: '#6C7A92',
-    marginBottom: 8,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  tag: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    backgroundColor: '#FFE7CC',
-  },
-  tagText: {
-    fontSize: 10,
-    color: '#D56B00',
-    fontWeight: '600',
   },
   section: {
-    paddingHorizontal: 16,
+    marginTop: 18,
+  },
+  sectionHeader: {
     marginTop: 20,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#11223A',
-    marginBottom: 12,
+  },
+  sectionAction: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  sliderRow: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 12,
+  },
+  sliderCard: {
+    width: 220,
+    height: 140,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  sliderImage: {
+    width: '100%',
+    height: '100%',
+  },
+  sliderGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 70,
+  },
+  sliderMeta: {
+    position: 'absolute',
+    left: 12,
+    bottom: 12,
+  },
+  sliderTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  sliderLocation: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  listContent: {
+    paddingBottom: 32,
+    paddingHorizontal: 16,
+  },
+  emptyState: {
+    padding: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
   },
   emptyText: {
     fontSize: 12,
-    color: '#6C7A92',
+    marginTop: 6,
   },
 });

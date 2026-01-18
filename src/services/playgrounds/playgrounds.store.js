@@ -12,6 +12,8 @@ import { publicUsersApi } from './publicUsers.api';
 import {
   normalizeBookings,
   normalizeBookingDetails,
+  normalizeActivities,
+  normalizeDurations,
   normalizeRating,
   normalizeSliderItems,
   normalizeSlots,
@@ -116,6 +118,7 @@ const mapUiFiltersToBackend = (filters = {}) => {
     'players': 'players',
     'duration': 'duration_minutes',
     'offers': 'has_special_offer',
+    'rating': 'rating',
     'sort': 'sort_by',
     'query': 'search',
   };
@@ -139,6 +142,10 @@ const mapUiFiltersToBackend = (filters = {}) => {
       'Tennis': 'd9740933-c3d1-4746-85fa-6432eaf4f20c',
     };
     next.sport = sportMap[next.sport] || next.sport;
+  }
+
+  if (next.rating) {
+    next.rating = parseFloat(next.rating);
   }
 
   if (next.city) {
@@ -355,6 +362,20 @@ export const playgroundsStore = {
     return { success: true, data: normalizeBookings(res.data) };
   },
 
+  async fetchActivities(customerId) {
+    const payload = { customer_id: customerId };
+    const res = await playgroundsApi.listActivities(payload);
+    if (!res?.success) return res;
+    return { success: true, data: normalizeActivities(res.data) };
+  },
+
+  async fetchVenueDurations(venueId) {
+    const payload = { venue_id: venueId };
+    const res = await playgroundsApi.listVenueDurations(payload);
+    if (!res?.success) return res;
+    return { success: true, data: normalizeDurations(res.data) };
+  },
+
   async cancelBooking(bookingIdOrPayload) {
     // ensure user_id is attached if caller passes only bookingId
     const enriched = await withPublicUser(
@@ -441,6 +462,15 @@ export const usePlaygroundsStore = () => {
     setFilters: playgroundsStore.setFilters,
     refreshFilters: playgroundsStore.getFilters,
     setPublicUserId: playgroundsStore.setPublicUserId,
+    fetchSlider: playgroundsStore.fetchSlider,
+    searchVenues: playgroundsStore.searchVenues,
+    fetchVenueDetails: playgroundsStore.fetchVenueDetails,
+    fetchSlots: playgroundsStore.fetchSlots,
+    createBooking: playgroundsStore.createBooking,
+    listBookings: playgroundsStore.listBookings,
+    cancelBooking: playgroundsStore.cancelBooking,
+    fetchActivities: playgroundsStore.fetchActivities,
+    fetchVenueDurations: playgroundsStore.fetchVenueDurations,
 
     identifyPublicUser: playgroundsStore.identifyPublicUser,
     loginPublicUser: playgroundsStore.loginPublicUser,
@@ -517,6 +547,15 @@ export function PlaygroundsProvider({ children }) {
     setFilters: playgroundsStore.setFilters,
     refreshFilters: playgroundsStore.getFilters,
     setPublicUserId: playgroundsStore.setPublicUserId,
+    fetchSlider: playgroundsStore.fetchSlider,
+    searchVenues: playgroundsStore.searchVenues,
+    fetchVenueDetails: playgroundsStore.fetchVenueDetails,
+    fetchSlots: playgroundsStore.fetchSlots,
+    createBooking: playgroundsStore.createBooking,
+    listBookings: playgroundsStore.listBookings,
+    cancelBooking: playgroundsStore.cancelBooking,
+    fetchActivities: playgroundsStore.fetchActivities,
+    fetchVenueDurations: playgroundsStore.fetchVenueDurations,
 
     identifyPublicUser,
     loginPublicUser,

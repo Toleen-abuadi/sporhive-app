@@ -222,6 +222,22 @@ export const playgroundsApi = {
     }, 'Failed to identify public user');
   },
 
+  // ------- ADMIN (required by web booking) -------
+
+  async listActivities(payload = {}, options = {}) {
+    return wrapApi(async () => {
+      const headers = await buildHeaders(options);
+      return playgroundsClient.post('/admin/activities/list', payload, { headers });
+    }, 'Failed to fetch playground activities');
+  },
+
+  async listVenueDurations(payload = {}, options = {}) {
+    return wrapApi(async () => {
+      const headers = await buildHeaders(options);
+      return playgroundsClient.post('/admin/venues/durations/list', payload, { headers });
+    }, 'Failed to fetch venue durations');
+  },
+
   // ------- RATINGS (only if backend exists) -------
 
   async resolveRatingToken(payload = {}, options = {}) {

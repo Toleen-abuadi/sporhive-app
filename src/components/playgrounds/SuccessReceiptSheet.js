@@ -1,16 +1,52 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { getPlaygroundsTheme } from '../../theme/playgroundsTheme';
+
+const formatTimeRange = (booking) => {
+  if (booking?.start_time && booking?.end_time) {
+    return `${booking.start_time} - ${booking.end_time}`;
+  }
+  return booking?.start_time || booking?.end_time || booking?.time || 'TBD';
+};
 
 export const SuccessReceiptSheet = ({ booking }) => {
+  const scheme = useColorScheme();
+  const theme = getPlaygroundsTheme(scheme);
+
   if (!booking) return null;
+  const venueName = booking?.venue?.name || booking?.venue_name || booking?.venue || 'Venue';
+  const academyName = booking?.academy?.public_name || booking?.academy_name || booking?.academy || 'Academy';
 
   return (
-    <View style={styles.sheet}>
-      <Text style={styles.title}>Booking Confirmed</Text>
-      <Text style={styles.subtitle}>Receipt #{booking?.id || '0001'}</Text>
-      <View style={styles.divider} />
-      <Text style={styles.detail}>Venue: {booking?.venue || 'Premium Arena'}</Text>
-      <Text style={styles.detail}>Time: {booking?.time || '7:00 PM - 8:00 PM'}</Text>
-      <Text style={styles.detail}>Amount: {booking?.amount || '15 JOD'}</Text>
+    <View style={[styles.sheet, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+      <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Booking Confirmed</Text>
+      <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
+        Booking code #{booking?.booking_code || booking?.code || booking?.id || '—'}
+      </Text>
+      <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
+      <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
+        Venue: {venueName}
+      </Text>
+      <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
+        Academy: {academyName}
+      </Text>
+      <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
+        Date: {booking?.booking_date || booking?.date || 'TBD'}
+      </Text>
+      <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
+        Time: {formatTimeRange(booking)}
+      </Text>
+      <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
+        Duration: {booking?.duration?.minutes || booking?.duration_minutes || '—'} min
+      </Text>
+      <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
+        Payment: {booking?.payment_type || booking?.payment_method || '—'}
+      </Text>
+      <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
+        Status: {booking?.status || 'confirmed'}
+      </Text>
+      <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
+        Amount: {booking?.amount || booking?.total_price || booking?.price || '—'} JOD
+      </Text>
     </View>
   );
 };
@@ -21,31 +57,22 @@ const styles = StyleSheet.create({
     marginTop: 20,
     padding: 18,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#0B1A33',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 10 },
-    shadowRadius: 20,
-    elevation: 3,
+    borderWidth: 1,
   },
   title: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#11223A',
   },
   subtitle: {
     fontSize: 12,
-    color: '#6C7A92',
     marginTop: 6,
   },
   divider: {
     height: 1,
-    backgroundColor: '#E8EDF5',
     marginVertical: 12,
   },
   detail: {
     fontSize: 13,
-    color: '#46556E',
     marginTop: 6,
   },
 });

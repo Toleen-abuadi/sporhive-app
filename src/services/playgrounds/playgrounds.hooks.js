@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { playgroundsStore, usePlaygroundsContext } from './playgrounds.store';
+import { usePlaygroundsContext, usePlaygroundsStore } from './playgrounds.store';
 
 const initialState = { data: null, loading: false, error: null };
 
@@ -29,37 +29,40 @@ const useAsyncResource = (loader, deps = null) => {
 };
 
 export const useSlider = () => {
-  const loadSlider = useCallback((params) => playgroundsStore.fetchSlider(params), []);
+  const store = usePlaygroundsStore();
+  const loadSlider = useCallback((params) => store.fetchSlider(params), [store]);
   return useAsyncResource(loadSlider);
 };
 
 export const useSearch = () => {
   const context = usePlaygroundsContext();
+  const store = usePlaygroundsStore();
   const [filters, setFilters] = useState(context?.filters || null);
-  const loader = useCallback((nextFilters) => playgroundsStore.searchVenues(nextFilters), []);
+  const loader = useCallback((nextFilters) => store.searchVenues(nextFilters), [store]);
   const state = useAsyncResource(loader);
 
   useEffect(() => {
     let mounted = true;
-    playgroundsStore.getFilters().then((stored) => {
+    store.refreshFilters().then((stored) => {
       if (mounted) setFilters(stored);
     });
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [store]);
 
   const updateFilters = useCallback(async (next) => {
-    const updated = await playgroundsStore.setFilters(next);
+    const updated = await store.setFilters(next);
     setFilters(updated);
     return loader(updated);
-  }, [loader]);
+  }, [loader, store]);
 
   return { ...state, filters, updateFilters };
 };
 
 export const useVenue = (venueId) => {
-  const loader = useCallback(() => playgroundsStore.fetchVenueDetails(venueId), [venueId]);
+  const store = usePlaygroundsStore();
+  const loader = useCallback(() => store.fetchVenueDetails(venueId), [store, venueId]);
   return useAsyncResource(loader, [venueId]);
 };
 
@@ -91,7 +94,8 @@ export const useBookingStepper = () => {
 };
 
 export const useMyBookings = () => {
-  const loader = useCallback((params) => playgroundsStore.listBookings(params), []);
+  const store = usePlaygroundsStore();
+  const loader = useCallback((params) => store.listBookings(params), [store]);
   return useAsyncResource(loader);
 };
 

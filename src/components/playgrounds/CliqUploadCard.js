@@ -1,18 +1,33 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
+import { getPlaygroundsTheme } from '../../theme/playgroundsTheme';
 
-export const CliqUploadCard = ({ uploading = false, onUpload }) => {
+export const CliqUploadCard = ({ uploading = false, onUpload, fileName }) => {
+  const scheme = useColorScheme();
+  const theme = getPlaygroundsTheme(scheme);
+
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
       <View style={styles.row}>
-        <View style={styles.badge} />
+        <View style={[styles.badge, { backgroundColor: theme.colors.primarySoft }]} />
         <View style={styles.meta}>
-          <Text style={styles.title}>Upload CliQ Receipt</Text>
-          <Text style={styles.subtitle}>Attach proof of payment to complete booking.</Text>
+          <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Upload CliQ Receipt</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
+            Attach proof of payment to complete booking.
+          </Text>
+          {fileName ? (
+            <Text style={[styles.fileName, { color: theme.colors.textPrimary }]} numberOfLines={1}>
+              Selected: {fileName}
+            </Text>
+          ) : null}
         </View>
       </View>
       <TouchableOpacity
         onPress={onUpload}
-        style={[styles.button, uploading && styles.buttonDisabled]}
+        style={[
+          styles.button,
+          { backgroundColor: theme.colors.primary },
+          uploading && styles.buttonDisabled,
+        ]}
         disabled={uploading}
       >
         <Text style={styles.buttonText}>{uploading ? 'Uploading...' : 'Choose File'}</Text>
@@ -27,7 +42,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     padding: 16,
     borderRadius: 18,
-    backgroundColor: '#F8FAFF',
+    borderWidth: 1,
   },
   row: {
     flexDirection: 'row',
@@ -37,7 +52,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: '#E0E8FF',
     marginRight: 12,
   },
   meta: {
@@ -46,15 +60,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#11223A',
   },
   subtitle: {
     fontSize: 12,
-    color: '#6C7A92',
     marginTop: 4,
   },
+  fileName: {
+    fontSize: 11,
+    marginTop: 6,
+    fontWeight: '600',
+  },
   button: {
-    backgroundColor: '#4F6AD7',
     paddingVertical: 10,
     borderRadius: 14,
     alignItems: 'center',

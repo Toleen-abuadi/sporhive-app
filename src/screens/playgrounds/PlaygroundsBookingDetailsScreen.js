@@ -16,7 +16,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { goToRate } from '../../navigation/playgrounds.routes';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
-import { playgroundsStore, usePlaygroundsAuth } from '../../services/playgrounds/playgrounds.store';
+import { usePlaygroundsAuth, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { useBookingDetails } from '../../services/playgrounds/playgrounds.hooks';
 
 const BookingActionSheet = ({
@@ -46,6 +46,7 @@ const formatTimeRange = (booking) => {
 export const PlaygroundsBookingDetailsScreen = () => {
   const { bookingId } = useLocalSearchParams();
   const router = useRouter();
+  const playgrounds = usePlaygroundsStore();
   const { publicUserId } = usePlaygroundsAuth();
   const resolvedBookingId = Array.isArray(bookingId) ? bookingId[0] : bookingId;
   const { data: booking, loading, error } = useBookingDetails(resolvedBookingId);
@@ -88,7 +89,7 @@ export const PlaygroundsBookingDetailsScreen = () => {
 
   const handleFetchSlots = async () => {
     if (!booking?.venue?.id || !newDate) return;
-    const res = await playgroundsStore.fetchSlots(booking?.venue?.id, {
+    const res = await playgrounds.fetchSlots(booking?.venue?.id, {
       date: newDate,
       duration_minutes: booking?.duration?.minutes || 60,
     });
