@@ -64,18 +64,17 @@ export const PlaygroundsBookingStepperScreen = () => {
   const venue = venueData || {};
   const resolvedVenueId = Array.isArray(venueId) ? venueId[0] : venueId;
 
-  const durations = useMemo(
-    () => (Array.isArray(venue?.duration) ? venue.duration : []),
-    [venue?.duration],
-  );
+  const [durations, setDurations] = useState([]);
+  const [durationsLoading, setDurationsLoading] = useState(false);
+  const [venueDetails, setVenueDetails] = useState({});
   const datePills = useMemo(() => buildDatePills(7), []);
 
   const [step, setStep] = useState(0);
-  const [duration, setDuration] = useState(durations[0] || null);
+  const [duration, setDuration] = useState(null);
   const [date, setDate] = useState(datePills[0]?.value || '');
   const [slots, setSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
-  const [players, setPlayers] = useState(venue?.min_players || 1);
+  const [players, setPlayers] = useState(2); // Default to 2 players
   const [paymentType, setPaymentType] = useState('');
   const [cashOnDateFlag, setCashOnDateFlag] = useState(false);
   const [cliqImage, setCliqImage] = useState(null);
@@ -87,44 +86,93 @@ export const PlaygroundsBookingStepperScreen = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
 
+  // Fetch venue details and durations
   useEffect(() => {
-    if (durations.length && !duration) {
-      setDuration(durations[0]);
-    }
-  }, [durations, duration]);
+    const fetchVenueAndDurations = async () => {
+      if (!resolvedVenueId) return;
 
+      try {
+        // Fetch venue details
+        const venueRes = await playgroundsStore.fetchVenueDetails(resolvedVenueId);
+        if (venueRes?.success) {
+          setVenueDetails(venueRes.data || {});
+          // Set default players based on venue min_players
+          const minPlayers = venueRes.data?.min_players || 2;
+          setPlayers(minPlayers);
+        }
+
+        // Fetch durations for this venue
+        setDurationsLoading(true);
+        const durationsRes = await playgroundsStore.fetchVenueDurations(resolvedVenueId);
+        if (durationsRes?.success && Array.isArray(durationsRes.data)) {
+          const durationsList = durationsRes.data;
+          setDurations(durationsList);
+          
+          // Set default duration
+          if (durationsList.length > 0) {
+            const defaultDuration = durationsList.find(d => d.is_default) || durationsList[0];
+            setDuration(defaultDuration);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching venue data:', err);
+        setError('Failed to load venue information');
+      } finally {
+        setDurationsLoading(false);
+      }
+    };
+
+    fetchVenueAndDurations();
+  }, [resolvedVenueId]);
+
+  // Fetch slots when date or duration changes
   useEffect(() => {
-    if (!duration?.minutes || !date) return;
-    let active = true;
-    setLoadingSlots(true);
-    playgroundsStore
-      .fetchSlots(resolvedVenueId, {
-        date,
-        duration_minutes: duration.minutes,
-      })
-      .then((res) => {
-        if (!active) return;
-        if (!res?.success) {
+    const fetchSlots = async () => {
+      if (!duration?.minutes || !date || !resolvedVenueId) {
+        setSlots([]);
+        return;
+      }
+
+      setLoadingSlots(true);
+      setError(null);
+      
+      try {
+        const res = await playgroundsStore.fetchSlots(resolvedVenueId, {
+          date,
+          duration_minutes: duration.minutes,
+        });
+        
+        if (res?.success) {
+          setSlots(Array.isArray(res.data) ? res.data : []);
+          // Clear selected slot when slots change
+          setSelectedSlot(null);
+        } else {
           setError('Unable to load slots. Please try another date.');
           setSlots([]);
-        } else {
-          setError(null);
-          setSlots(Array.isArray(res.data) ? res.data : []);
         }
+      } catch (err) {
+        console.error('Error fetching slots:', err);
+        setError('Failed to load available slots');
+        setSlots([]);
+      } finally {
         setLoadingSlots(false);
-      });
-    return () => {
-      active = false;
+      }
     };
+
+    fetchSlots();
   }, [date, duration, resolvedVenueId]);
 
+  // Calculate total price
   useEffect(() => {
-    const hours = duration?.minutes ? duration.minutes / 60 : 0;
-    const price = duration?.base_price ?? venue?.price ?? 0;
-    const nextTotal = Number(price) * hours;
-    setTotalPrice(Number.isFinite(nextTotal) ? nextTotal : 0);
-  }, [duration, venue?.price]);
+    if (duration?.base_price) {
+      const basePrice = Number(duration.base_price);
+      setTotalPrice(Number.isFinite(basePrice) ? basePrice : 0);
+    } else {
+      setTotalPrice(0);
+    }
+  }, [duration]);
 
+  // Handle payment type changes
   useEffect(() => {
     if (paymentType === 'cash_payment_on_date') {
       setCashOnDateFlag(true);
@@ -132,6 +180,26 @@ export const PlaygroundsBookingStepperScreen = () => {
       setCashOnDateFlag(false);
     }
   }, [paymentType]);
+
+  // Helper function to fetch venue durations (add this to playgroundsStore if not exists)
+  const fetchVenueDurations = async (venueId) => {
+    try {
+      // Using the correct endpoint from your backend
+      const response = await fetch(`${BASE_URL}/api/v1/playgrounds/admin/venues/durations/list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venue_id: venueId }),
+      });
+      
+      const data = await response.json();
+      if (response.ok && data.durations) {
+        return { success: true, data: data.durations };
+      }
+      return { success: false, error: data.error || 'Failed to fetch durations' };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  };
 
   const canProceedStep = useMemo(() => {
     if (step === 0) return duration && date && selectedSlot;
@@ -157,53 +225,68 @@ export const PlaygroundsBookingStepperScreen = () => {
   }, [step]);
 
   const handleSubmit = async () => {
+    if (!publicUserId) {
+      setError('Please login to book a session');
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
+    
     try {
       const payload = {
-        academy_profile_id: venue?.academy_profile_id,
+        academy_profile_id: venueDetails?.academy_profile_id || venue?.academy_profile_id,
         user_id: publicUserId,
-        activity_id: venue?.activity_id,
-        venue_id: venue?.id || resolvedVenueId,
+        activity_id: venueDetails?.activity_id || venue?.activity_id,
+        venue_id: resolvedVenueId,
         duration_id: duration?.id,
         booking_date: date,
         start_time: selectedSlot?.start_time,
         number_of_players: Number(players),
-        payment_type: paymentType,
+        payment_type: paymentType === 'cash_payment_on_date' ? 'cash' : paymentType,
         cash_payment_on_date: cashOnDateFlag,
-        cliq_image: paymentType === 'cliq' ? cliqImage : null,
       };
 
       let res;
+      
       if (paymentType === 'cliq' && cliqImage) {
         const formData = new FormData();
         Object.entries(payload).forEach(([key, value]) => {
           if (value != null) formData.append(key, String(value));
         });
+        
+        // Add CliQ image
+        const filename = cliqFileName || 'cliq-receipt.jpg';
+        const filetype = filename.match(/\.(jpg|jpeg|png)$/i) ? 'image/jpeg' : 'image/jpeg';
+        
         formData.append('cliq_image', {
           uri: cliqImage,
-          name: cliqFileName || 'cliq-receipt.jpg',
-          type: 'image/jpeg',
+          name: filename,
+          type: filetype,
         });
+        
         res = await playgroundsStore.createBooking(formData);
       } else {
         res = await playgroundsStore.createBooking(payload);
       }
 
       if (!res?.success) {
-        setError('Booking failed. Please review your details.');
+        setError(res?.error?.message || 'Booking failed. Please review your details.');
         return;
       }
 
       setSuccessBooking({
         id: res?.data?.id || res?.data?.booking_id || '0001',
-        venue: venue?.name || 'Playground',
+        venue: venueDetails?.name || venue?.name || 'Playground',
         time: formatSlotLabel(selectedSlot),
         amount: `${totalPrice} JOD`,
         payment: paymentType,
+        bookingCode: res?.data?.booking_code,
+        bookingDate: date,
       });
       setStep(4);
     } catch (err) {
+      console.error('Booking error:', err);
       setError('Booking failed. Please try again.');
     } finally {
       setSubmitting(false);
@@ -217,58 +300,81 @@ export const PlaygroundsBookingStepperScreen = () => {
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+        allowsEditing: true,
+        aspect: [4, 3],
+      });
 
-    if (!result.canceled && result.assets?.length) {
-      setCliqImage(result.assets[0].uri);
-      setCliqFileName(result.assets[0].fileName || 'cliq-receipt.jpg');
+      if (!result.canceled && result.assets?.length) {
+        setCliqImage(result.assets[0].uri);
+        setCliqFileName(result.assets[0].fileName || 'cliq-receipt.jpg');
+      }
+    } catch (err) {
+      console.error('Image picker error:', err);
+      setError('Failed to upload image');
     }
   };
 
   const validationMessage = useMemo(() => {
     if (!showValidation) return null;
-    if (step === 0) return 'Select a duration, date, and slot to continue.';
-    if (step === 1) return 'Enter the number of players.';
+    if (step === 0) {
+      if (!duration) return 'Select a duration to continue.';
+      if (!date) return 'Select a date to continue.';
+      if (!selectedSlot) return 'Select a time slot to continue.';
+    }
+    if (step === 1 && !players) return 'Enter the number of players.';
+    if (step === 2 && !paymentType) return 'Choose a payment method.';
     if (step === 2 && paymentType === 'cliq' && !cliqImage) return 'Upload your CliQ receipt to continue.';
-    if (step === 2) return 'Choose a payment method.';
     return null;
-  }, [showValidation, step, paymentType, cliqImage]);
+  }, [showValidation, step, duration, date, selectedSlot, players, paymentType, cliqImage]);
 
   const renderStep = () => {
     if (step === 0) {
       return (
         <View>
           <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Choose Duration</Text>
-          <View style={styles.durationRow}>
-            {durations.map((option) => {
-              const isSelected = duration?.id === option.id;
-              return (
-                <TouchableOpacity
-                  key={option.id}
-                  style={[
-                    styles.durationChip,
-                    {
-                      backgroundColor: isSelected ? theme.colors.primary : theme.colors.surface,
-                      borderColor: theme.colors.border,
-                    },
-                  ]}
-                  onPress={() => setDuration(option)}
-                >
-                  <Text style={[styles.durationText, { color: isSelected ? '#FFFFFF' : theme.colors.textPrimary }]}>
-                    {option?.minutes ? `${option.minutes} min` : 'Duration'}
-                  </Text>
-                  <Text style={[styles.durationSubText, { color: isSelected ? '#FFFFFF' : theme.colors.textMuted }]}>
-                    {option?.base_price ?? 'N/A'} JOD
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          
+          {durationsLoading ? (
+            <Text style={[styles.loadingText, { color: theme.colors.textMuted }]}>Loading durations...</Text>
+          ) : durations.length === 0 ? (
+            <Text style={[styles.errorText, { color: theme.colors.error }]}>No durations available for this venue</Text>
+          ) : (
+            <View style={styles.durationRow}>
+              {durations.map((option) => {
+                const isSelected = duration?.id === option.id;
+                return (
+                  <TouchableOpacity
+                    key={option.id}
+                    style={[
+                      styles.durationChip,
+                      {
+                        backgroundColor: isSelected ? theme.colors.primary : theme.colors.surface,
+                        borderColor: isSelected ? theme.colors.primary : theme.colors.border,
+                      },
+                    ]}
+                    onPress={() => setDuration(option)}
+                  >
+                    <Text style={[styles.durationText, { color: isSelected ? '#FFFFFF' : theme.colors.textPrimary }]}>
+                      {option?.minutes ? `${option.minutes} min` : 'Duration'}
+                    </Text>
+                    <Text style={[styles.durationSubText, { color: isSelected ? '#FFFFFF' : theme.colors.textMuted }]}>
+                      {option?.base_price ? `${option.base_price} JOD` : 'Price N/A'}
+                    </Text>
+                    {option.is_default && (
+                      <Text style={[styles.defaultBadge, { color: isSelected ? '#FFFFFF' : theme.colors.primary }]}>
+                        Popular
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
 
-          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Select Date</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary, marginTop: 20 }]}>Select Date</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRow}>
             {datePills.map((pill) => {
               const isSelected = date === pill.value;
@@ -279,7 +385,7 @@ export const PlaygroundsBookingStepperScreen = () => {
                     styles.datePill,
                     {
                       backgroundColor: isSelected ? theme.colors.primary : theme.colors.surface,
-                      borderColor: theme.colors.border,
+                      borderColor: isSelected ? theme.colors.primary : theme.colors.border,
                     },
                   ]}
                   onPress={() => setDate(pill.value)}
@@ -299,50 +405,85 @@ export const PlaygroundsBookingStepperScreen = () => {
           </ScrollView>
 
           <View style={styles.sectionRow}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Available Slots</Text>
+            <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Available Time Slots</Text>
             {loadingSlots ? (
               <Text style={[styles.helper, { color: theme.colors.textMuted }]}>Loading slots...</Text>
             ) : null}
           </View>
-          <SlotGrid
-            slots={slots}
-            selectedSlotId={selectedSlot?.id || selectedSlot?.start_time}
-            onSelect={setSelectedSlot}
-          />
+          
+          {slots.length === 0 && !loadingSlots ? (
+            <Text style={[styles.noSlotsText, { color: theme.colors.textMuted }]}>
+              No slots available for the selected date and duration
+            </Text>
+          ) : (
+            <SlotGrid
+              slots={slots}
+              selectedSlotId={selectedSlot?.id || selectedSlot?.start_time}
+              onSelect={setSelectedSlot}
+            />
+          )}
         </View>
       );
     }
 
     if (step === 1) {
-      const minPlayers = venue?.min_players || 1;
-      const maxPlayers = venue?.max_players || 20;
+      const minPlayers = venueDetails?.min_players || venue?.min_players || 1;
+      const maxPlayers = venueDetails?.max_players || venue?.max_players || 20;
+      
       return (
         <View>
-          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Players Count</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Number of Players</Text>
+          
           <View style={[styles.playerCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
             <TouchableOpacity
               style={[styles.stepperButton, { borderColor: theme.colors.border }]}
               onPress={() => setPlayers((prev) => Math.max(minPlayers, Number(prev) - 1))}
+              disabled={players <= minPlayers}
             >
-              <Text style={[styles.stepperText, { color: theme.colors.textPrimary }]}>-</Text>
+              <Text style={[styles.stepperText, { 
+                color: players <= minPlayers ? theme.colors.textMuted : theme.colors.textPrimary 
+              }]}>-</Text>
             </TouchableOpacity>
-            <Text style={[styles.playerValue, { color: theme.colors.textPrimary }]}>{players}</Text>
+            
+            <View style={styles.playerValueContainer}>
+              <Text style={[styles.playerValue, { color: theme.colors.textPrimary }]}>{players}</Text>
+              <Text style={[styles.playerLabel, { color: theme.colors.textMuted }]}>Players</Text>
+            </View>
+            
             <TouchableOpacity
               style={[styles.stepperButton, { borderColor: theme.colors.border }]}
               onPress={() => setPlayers((prev) => Math.min(maxPlayers, Number(prev) + 1))}
+              disabled={players >= maxPlayers}
             >
-              <Text style={[styles.stepperText, { color: theme.colors.textPrimary }]}>+</Text>
+              <Text style={[styles.stepperText, { 
+                color: players >= maxPlayers ? theme.colors.textMuted : theme.colors.textPrimary 
+              }]}>+</Text>
             </TouchableOpacity>
           </View>
-          <Text style={[styles.helper, { color: theme.colors.textMuted }]}>
-            Min {minPlayers} · Max {maxPlayers} players
+          
+          <Text style={[styles.helper, { color: theme.colors.textMuted, marginTop: 8 }]}>
+            Minimum: {minPlayers} players • Maximum: {maxPlayers} players
           </Text>
+          
           <TextInput
-            placeholder="Number of players"
+            placeholder="Or enter number of players"
             keyboardType="number-pad"
             value={String(players)}
-            onChangeText={(value) => setPlayers(value.replace(/[^0-9]/g, ''))}
-            style={[styles.input, { borderColor: theme.colors.border, color: theme.colors.textPrimary }]}
+            onChangeText={(value) => {
+              const numValue = parseInt(value.replace(/[^0-9]/g, '') || minPlayers);
+              if (!isNaN(numValue)) {
+                const clamped = Math.max(minPlayers, Math.min(maxPlayers, numValue));
+                setPlayers(clamped);
+              }
+            }}
+            style={[
+              styles.input, 
+              { 
+                borderColor: theme.colors.border, 
+                color: theme.colors.textPrimary,
+                marginTop: 16,
+              }
+            ]}
             placeholderTextColor={theme.colors.textMuted}
           />
         </View>
@@ -353,22 +494,47 @@ export const PlaygroundsBookingStepperScreen = () => {
       return (
         <View>
           <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Payment Method</Text>
-          {paymentOptions.map((option) => (
-            <PaymentMethodCard
-              key={option.id}
-              title={option.title}
-              subtitle={option.subtitle}
-              selected={paymentType === option.id}
-              onPress={() => setPaymentType(option.id)}
-            />
-          ))}
-          {paymentType === 'cliq' ? (
-            <CliqUploadCard
-              uploading={false}
-              onUpload={handleCliqUpload}
-              fileName={cliqFileName}
-            />
-          ) : null}
+          
+          {paymentOptions.map((option) => {
+            // Only show cash_payment_on_date if venue allows it
+            if (option.id === 'cash_payment_on_date' && !venueDetails?.allow_cash_on_date) {
+              return null;
+            }
+            
+            return (
+              <PaymentMethodCard
+                key={option.id}
+                title={option.title}
+                subtitle={option.subtitle}
+                selected={paymentType === option.id}
+                onPress={() => setPaymentType(option.id)}
+                disabled={
+                  (option.id === 'cliq' && !venueDetails?.allow_cliq) ||
+                  (option.id === 'cash' && !venueDetails?.allow_cash)
+                }
+              />
+            );
+          })}
+          
+          {paymentType === 'cliq' && venueDetails?.allow_cliq && (
+            <>
+              <CliqUploadCard
+                uploading={false}
+                onUpload={handleCliqUpload}
+                fileName={cliqFileName}
+                cliqName={venueDetails?.cliq_name}
+                cliqNumber={venueDetails?.cliq_number}
+              />
+              
+              {venueDetails?.cliq_name || venueDetails?.cliq_number ? (
+                <View style={[styles.cliqInfo, { backgroundColor: theme.colors.primarySoft }]}>
+                  <Text style={[styles.cliqInfoText, { color: theme.colors.textPrimary }]}>
+                    Transfer to: {venueDetails.cliq_name || 'Academy Account'} ({venueDetails.cliq_number || 'N/A'})
+                  </Text>
+                </View>
+              ) : null}
+            </>
+          )}
         </View>
       );
     }
@@ -376,27 +542,73 @@ export const PlaygroundsBookingStepperScreen = () => {
     if (step === 3) {
       return (
         <View>
-          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Review</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Review Your Booking</Text>
+          
           <View style={[styles.summaryCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-            <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>
-              Venue: {venue?.name || 'Playground'}
-            </Text>
-            <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>Date: {date || 'N/A'}</Text>
-            <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>
-              Time: {formatSlotLabel(selectedSlot)}
-            </Text>
-            <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>
-              Duration: {duration?.minutes ? `${duration.minutes} min` : 'N/A'}
-            </Text>
-            <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>Players: {players}</Text>
-            <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>Payment: {paymentType}</Text>
-            <Text style={[styles.summaryTotal, { color: theme.colors.textPrimary }]}>
-              Total: {totalPrice} JOD
-            </Text>
+            <Text style={[styles.summaryTitle, { color: theme.colors.textPrimary }]}>Booking Details</Text>
+            
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: theme.colors.textMuted }]}>Venue:</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.textPrimary }]}>
+                {venueDetails?.name || venue?.name || 'Playground'}
+              </Text>
+            </View>
+            
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: theme.colors.textMuted }]}>Date:</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.textPrimary }]}>
+                {date ? new Date(date).toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                }) : 'N/A'}
+              </Text>
+            </View>
+            
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: theme.colors.textMuted }]}>Time:</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.textPrimary }]}>
+                {formatSlotLabel(selectedSlot)}
+              </Text>
+            </View>
+            
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: theme.colors.textMuted }]}>Duration:</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.textPrimary }]}>
+                {duration?.minutes ? `${duration.minutes} minutes` : 'N/A'}
+              </Text>
+            </View>
+            
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: theme.colors.textMuted }]}>Players:</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.textPrimary }]}>
+                {players} {players === 1 ? 'player' : 'players'}
+              </Text>
+            </View>
+            
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: theme.colors.textMuted }]}>Payment:</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.textPrimary }]}>
+                {paymentType === 'cash_payment_on_date' ? 'Cash on Date' : 
+                 paymentType === 'cliq' ? 'CliQ Transfer' : 
+                 paymentType.charAt(0).toUpperCase() + paymentType.slice(1)}
+              </Text>
+            </View>
+            
+            <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
+            
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryTotalLabel, { color: theme.colors.textPrimary }]}>Total Amount:</Text>
+              <Text style={[styles.summaryTotalValue, { color: theme.colors.primary }]}>
+                {totalPrice.toFixed(2)} JOD
+              </Text>
+            </View>
           </View>
+          
           <View style={[styles.noticeCard, { backgroundColor: theme.colors.primarySoft }]}>
             <Text style={[styles.noticeText, { color: theme.colors.textPrimary }]}>
-              You can cancel up to 24 hours before your booking time.
+              ⓘ Your booking will be confirmed once the academy approves it. You can cancel up to 24 hours before your booking time.
             </Text>
           </View>
         </View>
@@ -406,33 +618,53 @@ export const PlaygroundsBookingStepperScreen = () => {
     return (
       <View>
         <SuccessReceiptSheet booking={successBooking} />
-        <TouchableOpacity
-          style={[styles.primaryButton, { backgroundColor: theme.colors.primary }]}
-          onPress={() => goToMyBookings(router)}
-        >
-          <Text style={styles.primaryButtonText}>Go to My Bookings</Text>
-        </TouchableOpacity>
+        
+        <View style={styles.successButtons}>
+          <TouchableOpacity
+            style={[styles.secondaryButton, { borderColor: theme.colors.primary }]}
+            onPress={() => router.back()}
+          >
+            <Text style={[styles.secondaryButtonText, { color: theme.colors.primary }]}>Back to Venue</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.primaryButton, { backgroundColor: theme.colors.primary }]}
+            onPress={() => goToMyBookings(router)}
+          >
+            <Text style={styles.primaryButtonText}>View My Bookings</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
 
-  const ctaLabel = step === 3 ? (submitting ? 'Submitting...' : 'Submit') : 'Continue';
+  const ctaLabel = step === 3 ? (submitting ? 'Submitting...' : 'Confirm Booking') : 'Continue';
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
       <View style={styles.flex}>
         <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
           <StepperHeader steps={steps} currentStep={step} />
+          
           <Animated.View key={step} entering={FadeInRight} exiting={FadeOutLeft}>
             {renderStep()}
           </Animated.View>
 
-          {validationMessage ? <Text style={[styles.validation, { color: theme.colors.error }]}>{validationMessage}</Text> : null}
-          {error ? <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text> : null}
+          {validationMessage ? (
+            <View style={[styles.validationContainer, { backgroundColor: theme.colors.error + '20' }]}>
+              <Text style={[styles.validation, { color: theme.colors.error }]}>{validationMessage}</Text>
+            </View>
+          ) : null}
+          
+          {error ? (
+            <View style={[styles.errorContainer, { backgroundColor: theme.colors.error + '20' }]}>
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
+            </View>
+          ) : null}
 
           {step > 0 && step < steps.length - 1 ? (
             <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-              <Text style={[styles.backText, { color: theme.colors.textMuted }]}>Back</Text>
+              <Text style={[styles.backText, { color: theme.colors.primary }]}>← Back</Text>
             </TouchableOpacity>
           ) : null}
         </ScrollView>
@@ -440,11 +672,11 @@ export const PlaygroundsBookingStepperScreen = () => {
         {step < steps.length - 1 ? (
           <StickyFooterCTA
             priceLabel="Total"
-            priceValue={`${totalPrice} JOD`}
+            priceValue={`${totalPrice.toFixed(2)} JOD`}
             buttonLabel={ctaLabel}
             onPress={step === 3 ? handleSubmit : handleNext}
             disabled={!canProceedStep || submitting}
-            helperText={step === 0 ? 'Select a slot to continue' : undefined}
+            helperText={step === 0 && !selectedSlot ? 'Select a time slot to continue' : undefined}
           />
         ) : null}
       </View>
@@ -460,14 +692,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    paddingBottom: 32,
+    paddingBottom: 100, // Extra padding for sticky footer
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
-    marginTop: 18,
-    marginBottom: 10,
+    marginTop: 20,
+    marginBottom: 12,
     paddingHorizontal: 16,
+  },
+  loadingText: {
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    marginTop: 10,
   },
   durationRow: {
     flexDirection: 'row',
@@ -476,18 +714,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   durationChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
+    minWidth: 100,
+    alignItems: 'center',
   },
   durationText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
   },
   durationSubText: {
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 12,
+    marginTop: 4,
+  },
+  defaultBadge: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   dateRow: {
     paddingHorizontal: 16,
@@ -495,20 +744,20 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   datePill: {
-    width: 72,
-    paddingVertical: 10,
-    borderRadius: 16,
+    width: 80,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
   },
   dateLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
   dateDay: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
-    marginTop: 2,
+    marginTop: 4,
   },
   dateMonth: {
     fontSize: 11,
@@ -522,94 +771,161 @@ const styles = StyleSheet.create({
   },
   helper: {
     fontSize: 12,
-    marginLeft: 16,
+    paddingHorizontal: 16,
+  },
+  noSlotsText: {
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    marginTop: 10,
   },
   input: {
     marginHorizontal: 16,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
   },
   playerCard: {
     marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 18,
+    padding: 20,
+    borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   stepperButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
+  },
+  playerValueContainer: {
+    alignItems: 'center',
   },
   playerValue: {
-    fontSize: 18,
+    fontSize: 32,
     fontWeight: '700',
   },
-  summaryCard: {
-    marginHorizontal: 16,
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-  },
-  summaryItem: {
+  playerLabel: {
     fontSize: 12,
-    marginBottom: 6,
+    marginTop: 4,
   },
-  summaryTotal: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginTop: 8,
-  },
-  noticeCard: {
+  cliqInfo: {
     marginHorizontal: 16,
     marginTop: 12,
     padding: 12,
+    borderRadius: 12,
+  },
+  cliqInfoText: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  summaryCard: {
+    marginHorizontal: 16,
     borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  summaryLabel: {
+    fontSize: 14,
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  divider: {
+    height: 1,
+    marginVertical: 16,
+  },
+  summaryTotalLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  summaryTotalValue: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  noticeCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
   },
   noticeText: {
     fontSize: 12,
-    fontWeight: '600',
+    lineHeight: 18,
+  },
+  successButtons: {
+    paddingHorizontal: 16,
+    gap: 12,
   },
   primaryButton: {
-    marginTop: 16,
-    marginHorizontal: 16,
-    borderRadius: 16,
-    paddingVertical: 12,
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: 'center',
   },
   primaryButtonText: {
     color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '700',
   },
-  validation: {
-    fontSize: 12,
-    paddingHorizontal: 16,
-    marginTop: 10,
+  secondaryButton: {
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 1,
   },
-  error: {
-    fontSize: 12,
-    paddingHorizontal: 16,
-    marginTop: 10,
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  validationContainer: {
+    marginHorizontal: 16,
+    marginTop: 20,
+    padding: 12,
+    borderRadius: 12,
+  },
+  validation: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    marginHorizontal: 16,
+    marginTop: 20,
+    padding: 12,
+    borderRadius: 12,
+  },
+  errorText: {
+    fontSize: 14,
+    textAlign: 'center',
   },
   backButton: {
-    marginTop: 10,
+    marginTop: 20,
     marginLeft: 16,
+    paddingVertical: 8,
   },
   backText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
   },
 });
