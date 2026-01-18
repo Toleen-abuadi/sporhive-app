@@ -136,10 +136,14 @@ export async function listVenueDurations(venueId: string) {
   return response.durations;
 }
 
-export async function listSlots(payload: { venue_id: string; date: string; duration_minutes: number }) {
+export async function listSlots(
+  payload: { venue_id: string; date: string; duration_minutes: number },
+  options?: { signal?: AbortSignal },
+) {
   const response = await requestJson<{ slots: Slot[] }>(
     '/api/v1/playgrounds/public/slots',
     payload,
+    options,
   );
   return response.slots;
 }
@@ -227,8 +231,16 @@ export async function listMyBookings(payload: { user_id: string }) {
   return response.bookings;
 }
 
+export type ResolveRatingTokenResponse = {
+  booking_id?: string;
+  user_id?: string;
+  [key: string]: unknown;
+};
+
 export async function resolveRatingToken(token: string) {
-  return requestJson(`/api/v1/playgrounds/public/rating/resolve-token/${token}`);
+  return requestJson<ResolveRatingTokenResponse>(
+    `/api/v1/playgrounds/public/rating/resolve-token/${token}`,
+  );
 }
 
 export async function canRateBooking(payload: Record<string, unknown>) {

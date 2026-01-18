@@ -1,13 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../src/components/ui/Screen';
 import { TopBar } from '../../src/components/ui/TopBar';
@@ -17,9 +9,11 @@ import { Chip } from '../../src/components/ui/Chip';
 import { Card } from '../../src/components/ui/Card';
 import { IconButton } from '../../src/components/ui/IconButton';
 import { TextField } from '../../src/components/ui/TextField';
+import { Skeleton } from '../../src/components/ui/Skeleton';
 import { listVenues, Venue } from '../../src/features/playgrounds/api/playgrounds.api';
 import { VenuesFilterSheet } from '../../src/features/playgrounds/components/VenuesFilterSheet';
 import { setVenuesCache } from '../../src/features/playgrounds/store/venuesStore';
+import { formatJodPrice, getErrorMessage, isNetworkError, resolveImageSource } from '../../src/features/playgrounds/utils';
 
 type Filters = {
   activity_id?: string;
@@ -38,6 +32,8 @@ export default function PlaygroundsExploreScreen() {
   const router = useRouter();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const [activeTab, setActiveTab] = useState<'all' | 'offers'>('all');
   const [filtersDraft, setFiltersDraft] = useState<Filters>({
     number_of_players: DEFAULT_PLAYERS,
@@ -67,31 +63,36 @@ export default function PlaygroundsExploreScreen() {
     return baseFilters;
   }, [activeTab, appliedFilters]);
 
+  const fetchVenues = useCallback(async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const response = await listVenues(resolvedFilters);
+      setVenues(response);
+      setVenuesCache(response);
+    } catch (error) {
+      setVenues([]);
+      if (isNetworkError(error)) {
+        setErrorMessage(getErrorMessage(error, 'Network error. Please try again.'));
+      } else {
+        setErrorMessage(getErrorMessage(error, 'Unable to load venues right now.'));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [resolvedFilters]);
+
   useEffect(() => {
     let isMounted = true;
-    const fetchVenues = async () => {
-      setLoading(true);
-      try {
-        const response = await listVenues(resolvedFilters);
-        if (isMounted) {
-          setVenues(response);
-          setVenuesCache(response);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setVenues([]);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
+    const run = async () => {
+      if (!isMounted) return;
+      await fetchVenues();
     };
-    void fetchVenues();
+    void run();
     return () => {
       isMounted = false;
     };
-  }, [resolvedFilters]);
+  }, [fetchVenues, retryKey]);
 
   const handleApplyFilters = (nextFilters: Filters) => {
     setAppliedFilters(nextFilters);
@@ -160,13 +161,35 @@ export default function PlaygroundsExploreScreen() {
         <Text style={styles.sectionTitle}>Recommended</Text>
 
         {loading ? (
-          <View style={styles.loadingState}>
-            <ActivityIndicator />
+          <View style={styles.list}>
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Card key={`venue-skeleton-${index}`} style={styles.card}>
+                <Skeleton height={180} radius={20} />
+                <Skeleton height={16} width="60%" />
+                <Skeleton height={14} width="40%" />
+                <View style={styles.cardFooter}>
+                  <Skeleton height={18} width={120} />
+                  <Skeleton height={44} width={120} radius={16} />
+                </View>
+              </Card>
+            ))}
           </View>
+        ) : errorMessage ? (
+          <Card style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>Unable to load venues</Text>
+            <Text style={styles.emptySubtitle}>{errorMessage}</Text>
+            <PrimaryButton label="Retry" onPress={() => setRetryKey((prev) => prev + 1)} />
+          </Card>
+        ) : venues.length === 0 ? (
+          <Card style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No venues available</Text>
+            <Text style={styles.emptySubtitle}>Try adjusting your filters or search area.</Text>
+          </Card>
         ) : (
           <View style={styles.list}>
             {venues.map((venue) => {
-              const imageSource = venue.image || venue.academy_profile?.hero_image;
+              const imageUri = venue.image || venue.academy_profile?.hero_image;
+              const imageSource = resolveImageSource(imageUri);
               return (
                 <Card key={venue.id} style={styles.card}>
                   <Pressable
@@ -176,7 +199,7 @@ export default function PlaygroundsExploreScreen() {
                   >
                     <View style={styles.imageWrapper}>
                       {imageSource ? (
-                        <Image source={{ uri: imageSource }} style={styles.image} />
+                        <Image source={imageSource} style={styles.image} />
                       ) : (
                         <View style={styles.imageFallback} />
                       )}
@@ -203,7 +226,7 @@ export default function PlaygroundsExploreScreen() {
 
                   <View style={styles.cardFooter}>
                     <Text style={styles.priceText}>
-                      {venue.price ? `From ${venue.price}` : 'From —'}
+                      From {formatJodPrice(venue.price)}
                     </Text>
                     <PrimaryButton
                       label="Book now"
@@ -266,8 +289,18 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.lg,
     fontWeight: '600',
   },
-  loadingState: {
-    paddingVertical: spacing.xl,
+  emptyCard: {
+    gap: spacing.sm,
+  },
+  emptyTitle: {
+    fontSize: typography.size.md,
+    lineHeight: typography.lineHeight.md,
+    fontWeight: '600',
+  },
+  emptySubtitle: {
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+    color: '#64748B',
   },
   list: {
     gap: spacing.lg,

@@ -30,7 +30,11 @@ const normalizeError = async (response: Response): Promise<NormalizedError> => {
   return { message: response.statusText || 'Request failed', status };
 };
 
-export async function requestJson<T>(path: string, body?: Record<string, unknown>): Promise<T> {
+export async function requestJson<T>(
+  path: string,
+  body?: Record<string, unknown>,
+  options?: { signal?: AbortSignal },
+): Promise<T> {
   const response = await fetch(buildUrl(path), {
     method: body ? 'POST' : 'GET',
     headers: {
@@ -38,6 +42,7 @@ export async function requestJson<T>(path: string, body?: Record<string, unknown
       'Content-Type': 'application/json',
     },
     body: body ? JSON.stringify(body) : undefined,
+    signal: options?.signal,
   });
 
   if (!response.ok) {

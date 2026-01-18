@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   Platform,
   Pressable,
@@ -19,6 +18,7 @@ import { spacing, typography } from '../../../src/theme/tokens';
 import { Chip } from '../../../src/components/ui/Chip';
 import { Card } from '../../../src/components/ui/Card';
 import { TextField } from '../../../src/components/ui/TextField';
+import { Skeleton } from '../../../src/components/ui/Skeleton';
 import { STORAGE_KEYS } from '../../../src/services/storage/keys';
 import { getJson, setJson } from '../../../src/services/storage/storage';
 import {
@@ -32,6 +32,7 @@ import {
   type Venue,
 } from '../../../src/features/playgrounds/api/playgrounds.api';
 import { getVenueById } from '../../../src/features/playgrounds/store/venuesStore';
+import { formatJodPrice, formatTime, getErrorMessage, isNetworkError } from '../../../src/features/playgrounds/utils';
 
 const DEFAULT_PLAYERS = 2;
 const TOTAL_STEPS = 3;
@@ -77,6 +78,8 @@ export default function BookingStepperModal() {
     venueId ? getVenueById(venueId) : null,
   );
   const [loading, setLoading] = useState(!venue);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const [currentStep, setCurrentStep] = useState(
     Number.isFinite(initialStep) && initialStep > 0 ? initialStep : 1,
   );
@@ -85,6 +88,9 @@ export default function BookingStepperModal() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
+  const [slotsRetryKey, setSlotsRetryKey] = useState(0);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [players, setPlayers] = useState(DEFAULT_PLAYERS);
   const [paymentType, setPaymentType] = useState<'cash' | 'cliq' | null>(null);
@@ -95,18 +101,25 @@ export default function BookingStepperModal() {
   const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const priceValue = selectedDuration?.base_price ?? venue?.price ?? 0;
+  const priceValue = formatJodPrice(selectedDuration?.base_price ?? venue?.price ?? null);
 
   useEffect(() => {
     if (!venueId || venue) return;
     let isMounted = true;
     const fetchVenue = async () => {
       setLoading(true);
+      setErrorMessage(null);
       try {
         const response = await listVenues({ number_of_players: DEFAULT_PLAYERS });
-        if (isMounted) {
-          const match = response.find((item) => item.id === venueId) ?? null;
-          setVenue(match);
+        if (!isMounted) return;
+        const match = response.find((item) => item.id === venueId) ?? null;
+        setVenue(match);
+      } catch (error) {
+        if (!isMounted) return;
+        if (isNetworkError(error)) {
+          setErrorMessage(getErrorMessage(error, 'Network error. Please try again.'));
+        } else {
+          setErrorMessage(getErrorMessage(error, 'Unable to load booking details.'));
         }
       } finally {
         if (isMounted) {
@@ -118,7 +131,7 @@ export default function BookingStepperModal() {
     return () => {
       isMounted = false;
     };
-  }, [venue, venueId]);
+  }, [venue, venueId, retryKey]);
 
   useEffect(() => {
     if (!venueId) return;
@@ -162,21 +175,42 @@ export default function BookingStepperModal() {
   useEffect(() => {
     if (!selectedDuration || !selectedDate || !venueId) return;
     let isMounted = true;
+    const controller = new AbortController();
     const loadSlots = async () => {
-      const response = await listSlots({
-        venue_id: venueId,
-        date: selectedDate,
-        duration_minutes: selectedDuration.minutes,
-      });
-      if (isMounted) {
-        setSlots(response);
+      setSlotsLoading(true);
+      setSlotsError(null);
+      try {
+        const response = await listSlots(
+          {
+            venue_id: venueId,
+            date: selectedDate,
+            duration_minutes: selectedDuration.minutes,
+          },
+          { signal: controller.signal },
+        );
+        if (isMounted) {
+          setSlots(response);
+        }
+      } catch (error) {
+        if (!isMounted || controller.signal.aborted) return;
+        setSlots([]);
+        if (isNetworkError(error)) {
+          setSlotsError(getErrorMessage(error, 'Network error. Please try again.'));
+        } else {
+          setSlotsError(getErrorMessage(error, 'Unable to load slots.'));
+        }
+      } finally {
+        if (isMounted) {
+          setSlotsLoading(false);
+        }
       }
     };
     void loadSlots();
     return () => {
       isMounted = false;
+      controller.abort();
     };
-  }, [selectedDate, selectedDuration, venueId]);
+  }, [selectedDate, selectedDuration, venueId, slotsRetryKey]);
 
   const handleSelectDate = (date: Date) => {
     setSelectedDate(formatDate(date));
@@ -292,7 +326,22 @@ export default function BookingStepperModal() {
       <Screen>
         <TopBar title="Booking" onBack={() => router.back()} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator />
+          <Skeleton height={220} radius={20} />
+          <Skeleton height={18} width="60%" />
+          <Skeleton height={44} width={160} radius={16} />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <Screen>
+        <TopBar title="Booking" onBack={() => router.back()} />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.helperText}>Unable to load booking details.</Text>
+          <Text style={styles.helperText}>{errorMessage}</Text>
+          <PrimaryButton label="Retry" onPress={() => setRetryKey((prev) => prev + 1)} />
         </View>
       </Screen>
     );
@@ -355,16 +404,37 @@ export default function BookingStepperModal() {
             ) : null}
 
             <Text style={styles.sectionTitle}>Start time</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-              {slots.map((slot) => (
-                <Pressable key={`${slot.start_time}-${slot.end_time}`} onPress={() => setSelectedSlot(slot)}>
-                  <Card style={[styles.slotCard, selectedSlot?.start_time === slot.start_time && styles.slotCardActive]}>
-                    <Text style={styles.slotText}>{slot.start_time}</Text>
-                    <Text style={styles.slotSubtext}>{slot.end_time}</Text>
-                  </Card>
-                </Pressable>
-              ))}
-            </ScrollView>
+            {!selectedDate || !selectedDuration ? (
+              <Card style={styles.emptyCard}>
+                <Text style={styles.helperText}>Select a date to see available slots.</Text>
+              </Card>
+            ) : slotsLoading ? (
+              <View style={styles.row}>
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <Skeleton key={`slot-skeleton-${index}`} height={64} width={110} radius={16} />
+                ))}
+              </View>
+            ) : slotsError ? (
+              <Card style={styles.emptyCard}>
+                <Text style={styles.helperText}>{slotsError}</Text>
+                <PrimaryButton label="Retry" onPress={() => setSlotsRetryKey((prev) => prev + 1)} />
+              </Card>
+            ) : slots.length === 0 ? (
+              <Card style={styles.emptyCard}>
+                <Text style={styles.helperText}>No slots available for this date.</Text>
+              </Card>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+                {slots.map((slot) => (
+                  <Pressable key={`${slot.start_time}-${slot.end_time}`} onPress={() => setSelectedSlot(slot)}>
+                    <Card style={[styles.slotCard, selectedSlot?.start_time === slot.start_time && styles.slotCardActive]}>
+                      <Text style={styles.slotText}>{formatTime(slot.start_time)}</Text>
+                      <Text style={styles.slotSubtext}>{formatTime(slot.end_time)}</Text>
+                    </Card>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
 
             <Text style={styles.sectionTitle}>Players</Text>
             <View style={styles.playersRow}>
@@ -440,7 +510,7 @@ export default function BookingStepperModal() {
       <StickyCTA
         label={currentStep === TOTAL_STEPS ? 'Proceed' : 'Continue'}
         priceLabel="Total"
-        priceValue={`JOD ${priceValue}`}
+        priceValue={priceValue}
         onPress={handleContinue}
         disabled={isPrimaryDisabled}
       />
@@ -458,6 +528,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.md,
   },
   section: {
     gap: spacing.md,
@@ -549,5 +620,9 @@ const styles = StyleSheet.create({
     fontSize: typography.size.xs,
     lineHeight: typography.lineHeight.xs,
     color: '#64748B',
+  },
+  emptyCard: {
+    padding: spacing.md,
+    gap: spacing.sm,
   },
 });
