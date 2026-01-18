@@ -1,0 +1,81 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+
+import { useTheme } from '../../theme/ThemeProvider';
+import { Screen } from '../../components/ui/Screen';
+import { Text } from '../../components/ui/Text';
+import { Button } from '../../components/ui/Button';
+import { endpoints } from '../../services/api/endpoints';
+import { spacing } from '../../theme/tokens';
+
+export function RatingLinkResolverScreen() {
+  const { colors } = useTheme();
+  const router = useRouter();
+  const { token } = useLocalSearchParams();
+
+  const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
+  const [message, setMessage] = useState('Resolving rating link...');
+  const [bookingId, setBookingId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  const resolveToken = useCallback(async () => {
+    setStatus('loading');
+    setMessage('Resolving rating link...');
+    try {
+      const res = await endpoints.playgrounds.ratingResolveToken(token);
+      const payload = res?.data || res;
+      const resolvedBookingId = payload?.booking_id || payload?.bookingId;
+      const resolvedUserId = payload?.user_id || payload?.userId;
+      if (resolvedBookingId && resolvedUserId) {
+        setBookingId(String(resolvedBookingId));
+        setUserId(String(resolvedUserId));
+        setStatus('ready');
+        return;
+      }
+      setStatus('error');
+      setMessage(payload?.message || 'Unable to resolve rating link.');
+    } catch (err) {
+      setStatus('error');
+      setMessage(err?.message || 'Unable to resolve rating link.');
+    }
+  }, [token]);
+
+  useEffect(() => {
+    resolveToken();
+  }, [resolveToken]);
+
+  return (
+    <Screen safe>
+      <View style={styles.container}>
+        <Text variant="h4" weight="semibold">
+          Rate your experience
+        </Text>
+        <Text variant="bodySmall" color={colors.textSecondary}>
+          {message}
+        </Text>
+        {status === 'ready' && bookingId && userId ? (
+          <Button
+            onPress={() => router.replace(`/playgrounds/rate?bookingId=${bookingId}&userId=${userId}`)}
+            accessibilityLabel="Continue to rating"
+          >
+            Continue
+          </Button>
+        ) : (
+          <Button onPress={resolveToken} variant="secondary" accessibilityLabel="Retry rating link">
+            Retry
+          </Button>
+        )}
+      </View>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: spacing.lg,
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+});
