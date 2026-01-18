@@ -3,16 +3,19 @@
 // booking.activity.name, booking.venue.name, booking.duration.minutes, booking.duration.base_price.
 import { useMemo, useState } from 'react';
 import {
+  FlatList,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  useColorScheme,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { PlaygroundsHeader } from '../../components/playgrounds/PlaygroundsHeader';
 import { goToBookingDetails } from '../../navigation/playgrounds.routes';
 import { useMyBookings } from '../../services/playgrounds/playgrounds.hooks';
+import { getPlaygroundsTheme } from '../../theme/playgroundsTheme';
 
 const statusTabs = [
   { key: 'pending', label: 'Pending' },
@@ -32,6 +35,8 @@ const formatTimeRange = (booking) => {
 
 export const PlaygroundsMyBookingsScreen = () => {
   const router = useRouter();
+  const scheme = useColorScheme();
+  const theme = getPlaygroundsTheme(scheme);
   const { data, loading, error } = useMyBookings();
   const [activeStatus, setActiveStatus] = useState(statusTabs[0].key);
 
@@ -41,56 +46,97 @@ export const PlaygroundsMyBookingsScreen = () => {
     return bookings.filter((booking) => normalizeStatus(booking?.status) === activeStatus);
   }, [bookings, activeStatus]);
 
-  return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>My Bookings</Text>
-        <View style={styles.tabsRow}>
-          {statusTabs.map((tab) => (
-            <TouchableOpacity
-              key={tab.key}
-              style={[styles.tabChip, activeStatus === tab.key && styles.tabChipActive]}
-              onPress={() => setActiveStatus(tab.key)}
-            >
-              <Text style={[styles.tabText, activeStatus === tab.key && styles.tabTextActive]}>
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+  const renderItem = ({ item }) => (
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+      onPress={() => goToBookingDetails(router, item.id || item.booking_id)}
+    >
+      <View style={styles.cardHeader}>
+        <Text style={[styles.cardTitle, { color: theme.colors.textPrimary }]}>
+          {item?.venue?.name || item?.venue_name || 'Playground'}
+        </Text>
+        <View style={[styles.statusBadge, { backgroundColor: theme.colors.primarySoft }]}>
+          <Text style={[styles.statusText, { color: theme.colors.primary }]}>
+            {item?.status || activeStatus}
+          </Text>
         </View>
+      </View>
+      <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
+        Academy: {item?.academy?.public_name || 'N/A'}
+      </Text>
+      <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
+        Location: {item?.academy?.location_text || 'N/A'}
+      </Text>
+      <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
+        Sport: {item?.activity?.name || 'N/A'}
+      </Text>
+      <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>Date: {item?.date || 'TBD'}</Text>
+      <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
+        Time: {formatTimeRange(item)}
+      </Text>
+      <View style={styles.cardFooter}>
+        <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
+          Players: {item?.number_of_players ?? 'N/A'}
+        </Text>
+        <Text style={[styles.cardPrice, { color: theme.colors.primary }]}>
+          {item?.duration?.base_price ?? '—'} JOD
+        </Text>
+      </View>
+      <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
+        Code: {item?.booking_code || '—'}
+      </Text>
+    </TouchableOpacity>
+  );
 
-        {loading ? <Text style={styles.helper}>Loading bookings...</Text> : null}
-        {error ? <Text style={styles.error}>{error.message || 'Unable to load bookings.'}</Text> : null}
-
-        {filteredBookings.length ? filteredBookings.map((booking) => (
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
+      <PlaygroundsHeader title="My bookings" subtitle="Track your upcoming sessions." />
+      <View style={styles.tabsRow}>
+        {statusTabs.map((tab) => (
           <TouchableOpacity
-            key={booking.id || booking.booking_id}
-            style={styles.card}
-            onPress={() => goToBookingDetails(router, booking.id || booking.booking_id)}
+            key={tab.key}
+            style={[
+              styles.tabChip,
+              {
+                backgroundColor: activeStatus === tab.key ? theme.colors.primary : theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+            onPress={() => setActiveStatus(tab.key)}
           >
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>{booking?.venue?.name || booking?.venue_name || 'Playground'}</Text>
-              <Text style={styles.cardStatus}>{booking?.status || activeStatus}</Text>
-            </View>
-            <Text style={styles.cardMeta}>Academy: {booking?.academy?.public_name || 'N/A'}</Text>
-            <Text style={styles.cardMeta}>Location: {booking?.academy?.location_text || 'N/A'}</Text>
-            <Text style={styles.cardMeta}>Sport: {booking?.activity?.name || 'N/A'}</Text>
-            <Text style={styles.cardMeta}>Date: {booking?.date || 'TBD'}</Text>
-            <Text style={styles.cardMeta}>Time: {formatTimeRange(booking)}</Text>
-            <Text style={styles.cardMeta}>Players: {booking?.number_of_players ?? 'N/A'}</Text>
-            <View style={styles.cardFooter}>
-              <Text style={styles.cardMeta}>Code: {booking?.booking_code || '—'}</Text>
-              <Text style={styles.cardPrice}>{booking?.duration?.base_price ?? '—'} JOD</Text>
-            </View>
-            <Text style={styles.cardMeta}>Duration: {booking?.duration?.minutes ?? '—'} min</Text>
+            <Text
+              style={[
+                styles.tabText,
+                { color: activeStatus === tab.key ? '#FFFFFF' : theme.colors.textPrimary },
+              ]}
+            >
+              {tab.label}
+            </Text>
           </TouchableOpacity>
-        )) : (!loading && !error ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No {activeStatus} bookings</Text>
-            <Text style={styles.emptySubtitle}>Try another status tab.</Text>
-          </View>
-        ) : null)}
-      </ScrollView>
+        ))}
+      </View>
+
+      {loading ? <Text style={[styles.helper, { color: theme.colors.textMuted }]}>Loading bookings...</Text> : null}
+      {error ? <Text style={[styles.error, { color: theme.colors.error }]}>{error.message || 'Unable to load bookings.'}</Text> : null}
+
+      <FlatList
+        data={filteredBookings}
+        keyExtractor={(item) => String(item.id || item.booking_id)}
+        renderItem={renderItem}
+        contentContainerStyle={[styles.listContent, filteredBookings.length === 0 && styles.emptyListContent]}
+        ListEmptyComponent={
+          !loading && !error ? (
+            <View style={[styles.empty, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+              <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>
+                No {activeStatus} bookings
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: theme.colors.textMuted }]}>
+                Try another status tab or book a new playground.
+              </Text>
+            </View>
+          ) : null
+        }
+      />
     </SafeAreaView>
   );
 };
@@ -98,74 +144,68 @@ export const PlaygroundsMyBookingsScreen = () => {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  container: {
-    padding: 16,
-    paddingBottom: 24,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#11223A',
-    marginBottom: 12,
   },
   tabsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
+    paddingHorizontal: 16,
   },
   tabChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#F1F4FA',
-  },
-  tabChipActive: {
-    backgroundColor: '#4F6AD7',
+    borderWidth: 1,
   },
   tabText: {
     fontSize: 12,
-    color: '#6C7A92',
     fontWeight: '600',
-  },
-  tabTextActive: {
-    color: '#FFFFFF',
   },
   helper: {
     fontSize: 12,
-    color: '#6C7A92',
-    marginBottom: 12,
+    marginBottom: 8,
+    paddingHorizontal: 16,
   },
   error: {
     fontSize: 12,
-    color: '#D64545',
-    marginBottom: 12,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 24,
+  },
+  emptyListContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   card: {
     borderRadius: 18,
     padding: 16,
-    backgroundColor: '#F7F9FF',
+    borderWidth: 1,
     marginBottom: 12,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   cardTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#11223A',
   },
-  cardStatus: {
-    fontSize: 12,
-    color: '#4F6AD7',
-    fontWeight: '600',
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   cardMeta: {
     fontSize: 12,
-    color: '#6C7A92',
     marginTop: 6,
   },
   cardFooter: {
@@ -175,23 +215,21 @@ const styles = StyleSheet.create({
   },
   cardPrice: {
     fontSize: 13,
-    color: '#11223A',
     fontWeight: '700',
   },
   empty: {
     padding: 18,
     borderRadius: 18,
-    backgroundColor: '#F4F7FF',
+    borderWidth: 1,
     alignItems: 'center',
   },
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#11223A',
   },
   emptySubtitle: {
     fontSize: 12,
-    color: '#6C7A92',
     marginTop: 6,
+    textAlign: 'center',
   },
 });

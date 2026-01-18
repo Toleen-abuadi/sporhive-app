@@ -10,18 +10,22 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useColorScheme,
 } from 'react-native';
 import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CliqUploadCard } from '../../components/playgrounds/CliqUploadCard';
 import { PaymentMethodCard } from '../../components/playgrounds/PaymentMethodCard';
 import { SlotGrid } from '../../components/playgrounds/SlotGrid';
 import { StepperHeader } from '../../components/playgrounds/StepperHeader';
+import { StickyFooterCTA } from '../../components/playgrounds/StickyFooterCTA';
 import { SuccessReceiptSheet } from '../../components/playgrounds/SuccessReceiptSheet';
 import { goToMyBookings } from '../../navigation/playgrounds.routes';
 import { playgroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { usePlaygroundsAuth } from '../../services/playgrounds/playgrounds.store';
 import { useVenue } from '../../services/playgrounds/playgrounds.hooks';
+import { getPlaygroundsTheme } from '../../theme/playgroundsTheme';
 
 const steps = ['Duration & Time', 'Players', 'Payment', 'Review', 'Success'];
 
@@ -37,27 +41,45 @@ const formatSlotLabel = (slot) => {
   return slot?.start_time || slot?.end_time || 'Slot';
 };
 
+const buildDatePills = (count = 7) => {
+  const today = new Date();
+  return Array.from({ length: count }).map((_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() + index);
+    const label = index === 0 ? 'Today' : date.toLocaleDateString('en-US', { weekday: 'short' });
+    const day = date.getDate();
+    const monthLabel = date.toLocaleDateString('en-US', { month: 'short' });
+    const value = date.toISOString().split('T')[0];
+    return { label, day, monthLabel, value };
+  });
+};
+
 export const PlaygroundsBookingStepperScreen = () => {
   const { venueId } = useLocalSearchParams();
   const router = useRouter();
+  const scheme = useColorScheme();
+  const theme = getPlaygroundsTheme(scheme);
   const { publicUserId } = usePlaygroundsAuth();
   const { data: venueData } = useVenue(venueId);
   const venue = venueData || {};
   const resolvedVenueId = Array.isArray(venueId) ? venueId[0] : venueId;
 
-  const durations = useMemo(() => (
-    Array.isArray(venue?.duration) ? venue.duration : []
-  ), [venue?.duration]);
+  const durations = useMemo(
+    () => (Array.isArray(venue?.duration) ? venue.duration : []),
+    [venue?.duration],
+  );
+  const datePills = useMemo(() => buildDatePills(7), []);
 
   const [step, setStep] = useState(0);
   const [duration, setDuration] = useState(durations[0] || null);
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(datePills[0]?.value || '');
   const [slots, setSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
-  const [players, setPlayers] = useState('');
+  const [players, setPlayers] = useState(venue?.min_players || 1);
   const [paymentType, setPaymentType] = useState('');
   const [cashOnDateFlag, setCashOnDateFlag] = useState(false);
   const [cliqImage, setCliqImage] = useState(null);
+  const [cliqFileName, setCliqFileName] = useState('');
   const [totalPrice, setTotalPrice] = useState(0);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [error, setError] = useState(null);
@@ -75,20 +97,22 @@ export const PlaygroundsBookingStepperScreen = () => {
     if (!duration?.minutes || !date) return;
     let active = true;
     setLoadingSlots(true);
-    playgroundsStore.fetchSlots(resolvedVenueId, {
-      date,
-      duration_minutes: duration.minutes,
-    }).then((res) => {
-      if (!active) return;
-      if (!res?.success) {
-        setError('Unable to load slots. Please try another date.');
-        setSlots([]);
-      } else {
-        setError(null);
-        setSlots(Array.isArray(res.data) ? res.data : []);
-      }
-      setLoadingSlots(false);
-    });
+    playgroundsStore
+      .fetchSlots(resolvedVenueId, {
+        date,
+        duration_minutes: duration.minutes,
+      })
+      .then((res) => {
+        if (!active) return;
+        if (!res?.success) {
+          setError('Unable to load slots. Please try another date.');
+          setSlots([]);
+        } else {
+          setError(null);
+          setSlots(Array.isArray(res.data) ? res.data : []);
+        }
+        setLoadingSlots(false);
+      });
     return () => {
       active = false;
     };
@@ -158,7 +182,7 @@ export const PlaygroundsBookingStepperScreen = () => {
         });
         formData.append('cliq_image', {
           uri: cliqImage,
-          name: 'cliq-receipt.jpg',
+          name: cliqFileName || 'cliq-receipt.jpg',
           type: 'image/jpeg',
         });
         res = await playgroundsStore.createBooking(formData);
@@ -186,6 +210,24 @@ export const PlaygroundsBookingStepperScreen = () => {
     }
   };
 
+  const handleCliqUpload = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      setError('Media access is required to upload receipts.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.length) {
+      setCliqImage(result.assets[0].uri);
+      setCliqFileName(result.assets[0].fileName || 'cliq-receipt.jpg');
+    }
+  };
+
   const validationMessage = useMemo(() => {
     if (!showValidation) return null;
     if (step === 0) return 'Select a duration, date, and slot to continue.';
@@ -199,35 +241,69 @@ export const PlaygroundsBookingStepperScreen = () => {
     if (step === 0) {
       return (
         <View>
-          <Text style={styles.sectionTitle}>Choose Duration</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Choose Duration</Text>
           <View style={styles.durationRow}>
             {durations.map((option) => {
               const isSelected = duration?.id === option.id;
               return (
                 <TouchableOpacity
                   key={option.id}
-                  style={[styles.durationChip, isSelected && styles.durationChipActive]}
+                  style={[
+                    styles.durationChip,
+                    {
+                      backgroundColor: isSelected ? theme.colors.primary : theme.colors.surface,
+                      borderColor: theme.colors.border,
+                    },
+                  ]}
                   onPress={() => setDuration(option)}
                 >
-                  <Text style={[styles.durationText, isSelected && styles.durationTextActive]}>
+                  <Text style={[styles.durationText, { color: isSelected ? '#FFFFFF' : theme.colors.textPrimary }]}>
                     {option?.minutes ? `${option.minutes} min` : 'Duration'}
                   </Text>
-                  <Text style={styles.durationSubText}>{option?.base_price ?? 'N/A'} JOD</Text>
+                  <Text style={[styles.durationSubText, { color: isSelected ? '#FFFFFF' : theme.colors.textMuted }]}>
+                    {option?.base_price ?? 'N/A'} JOD
+                  </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          <Text style={styles.sectionTitle}>Select Date</Text>
-          <TextInput
-            placeholder="YYYY-MM-DD"
-            value={date}
-            onChangeText={setDate}
-            style={styles.input}
-          />
+          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Select Date</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRow}>
+            {datePills.map((pill) => {
+              const isSelected = date === pill.value;
+              return (
+                <TouchableOpacity
+                  key={pill.value}
+                  style={[
+                    styles.datePill,
+                    {
+                      backgroundColor: isSelected ? theme.colors.primary : theme.colors.surface,
+                      borderColor: theme.colors.border,
+                    },
+                  ]}
+                  onPress={() => setDate(pill.value)}
+                >
+                  <Text style={[styles.dateLabel, { color: isSelected ? '#FFFFFF' : theme.colors.textMuted }]}>
+                    {pill.label}
+                  </Text>
+                  <Text style={[styles.dateDay, { color: isSelected ? '#FFFFFF' : theme.colors.textPrimary }]}>
+                    {pill.day}
+                  </Text>
+                  <Text style={[styles.dateMonth, { color: isSelected ? '#FFFFFF' : theme.colors.textMuted }]}>
+                    {pill.monthLabel}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-          <Text style={styles.sectionTitle}>Available Slots</Text>
-          {loadingSlots ? <Text style={styles.helper}>Loading slots...</Text> : null}
+          <View style={styles.sectionRow}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Available Slots</Text>
+            {loadingSlots ? (
+              <Text style={[styles.helper, { color: theme.colors.textMuted }]}>Loading slots...</Text>
+            ) : null}
+          </View>
           <SlotGrid
             slots={slots}
             selectedSlotId={selectedSlot?.id || selectedSlot?.start_time}
@@ -238,15 +314,36 @@ export const PlaygroundsBookingStepperScreen = () => {
     }
 
     if (step === 1) {
+      const minPlayers = venue?.min_players || 1;
+      const maxPlayers = venue?.max_players || 20;
       return (
         <View>
-          <Text style={styles.sectionTitle}>Players Count</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Players Count</Text>
+          <View style={[styles.playerCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <TouchableOpacity
+              style={[styles.stepperButton, { borderColor: theme.colors.border }]}
+              onPress={() => setPlayers((prev) => Math.max(minPlayers, Number(prev) - 1))}
+            >
+              <Text style={[styles.stepperText, { color: theme.colors.textPrimary }]}>-</Text>
+            </TouchableOpacity>
+            <Text style={[styles.playerValue, { color: theme.colors.textPrimary }]}>{players}</Text>
+            <TouchableOpacity
+              style={[styles.stepperButton, { borderColor: theme.colors.border }]}
+              onPress={() => setPlayers((prev) => Math.min(maxPlayers, Number(prev) + 1))}
+            >
+              <Text style={[styles.stepperText, { color: theme.colors.textPrimary }]}>+</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={[styles.helper, { color: theme.colors.textMuted }]}>
+            Min {minPlayers} · Max {maxPlayers} players
+          </Text>
           <TextInput
             placeholder="Number of players"
             keyboardType="number-pad"
-            value={players}
-            onChangeText={setPlayers}
-            style={styles.input}
+            value={String(players)}
+            onChangeText={(value) => setPlayers(value.replace(/[^0-9]/g, ''))}
+            style={[styles.input, { borderColor: theme.colors.border, color: theme.colors.textPrimary }]}
+            placeholderTextColor={theme.colors.textMuted}
           />
         </View>
       );
@@ -255,7 +352,7 @@ export const PlaygroundsBookingStepperScreen = () => {
     if (step === 2) {
       return (
         <View>
-          <Text style={styles.sectionTitle}>Payment Method</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Payment Method</Text>
           {paymentOptions.map((option) => (
             <PaymentMethodCard
               key={option.id}
@@ -268,7 +365,8 @@ export const PlaygroundsBookingStepperScreen = () => {
           {paymentType === 'cliq' ? (
             <CliqUploadCard
               uploading={false}
-              onUpload={() => setCliqImage('file://cliq-receipt.jpg')}
+              onUpload={handleCliqUpload}
+              fileName={cliqFileName}
             />
           ) : null}
         </View>
@@ -278,15 +376,28 @@ export const PlaygroundsBookingStepperScreen = () => {
     if (step === 3) {
       return (
         <View>
-          <Text style={styles.sectionTitle}>Review</Text>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryItem}>Venue: {venue?.name || 'Playground'}</Text>
-            <Text style={styles.summaryItem}>Date: {date || 'N/A'}</Text>
-            <Text style={styles.summaryItem}>Time: {formatSlotLabel(selectedSlot)}</Text>
-            <Text style={styles.summaryItem}>Duration: {duration?.minutes ? `${duration.minutes} min` : 'N/A'}</Text>
-            <Text style={styles.summaryItem}>Players: {players}</Text>
-            <Text style={styles.summaryItem}>Payment: {paymentType}</Text>
-            <Text style={styles.summaryTotal}>Total: {totalPrice} JOD</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Review</Text>
+          <View style={[styles.summaryCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>
+              Venue: {venue?.name || 'Playground'}
+            </Text>
+            <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>Date: {date || 'N/A'}</Text>
+            <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>
+              Time: {formatSlotLabel(selectedSlot)}
+            </Text>
+            <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>
+              Duration: {duration?.minutes ? `${duration.minutes} min` : 'N/A'}
+            </Text>
+            <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>Players: {players}</Text>
+            <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>Payment: {paymentType}</Text>
+            <Text style={[styles.summaryTotal, { color: theme.colors.textPrimary }]}>
+              Total: {totalPrice} JOD
+            </Text>
+          </View>
+          <View style={[styles.noticeCard, { backgroundColor: theme.colors.primarySoft }]}>
+            <Text style={[styles.noticeText, { color: theme.colors.textPrimary }]}>
+              You can cancel up to 24 hours before your booking time.
+            </Text>
           </View>
         </View>
       );
@@ -296,7 +407,7 @@ export const PlaygroundsBookingStepperScreen = () => {
       <View>
         <SuccessReceiptSheet booking={successBooking} />
         <TouchableOpacity
-          style={styles.primaryButton}
+          style={[styles.primaryButton, { backgroundColor: theme.colors.primary }]}
           onPress={() => goToMyBookings(router)}
         >
           <Text style={styles.primaryButtonText}>Go to My Bookings</Text>
@@ -305,36 +416,38 @@ export const PlaygroundsBookingStepperScreen = () => {
     );
   };
 
-  return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <StepperHeader steps={steps} currentStep={step} />
-        <Animated.View key={step} entering={FadeInRight} exiting={FadeOutLeft}>
-          {renderStep()}
-        </Animated.View>
+  const ctaLabel = step === 3 ? (submitting ? 'Submitting...' : 'Submit') : 'Continue';
 
-        {validationMessage ? <Text style={styles.validation}>{validationMessage}</Text> : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
+      <View style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+          <StepperHeader steps={steps} currentStep={step} />
+          <Animated.View key={step} entering={FadeInRight} exiting={FadeOutLeft}>
+            {renderStep()}
+          </Animated.View>
+
+          {validationMessage ? <Text style={[styles.validation, { color: theme.colors.error }]}>{validationMessage}</Text> : null}
+          {error ? <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text> : null}
+
+          {step > 0 && step < steps.length - 1 ? (
+            <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+              <Text style={[styles.backText, { color: theme.colors.textMuted }]}>Back</Text>
+            </TouchableOpacity>
+          ) : null}
+        </ScrollView>
 
         {step < steps.length - 1 ? (
-          <View style={styles.actions}>
-            {step > 0 ? (
-              <TouchableOpacity style={styles.secondaryButton} onPress={handleBack}>
-                <Text style={styles.secondaryButtonText}>Back</Text>
-              </TouchableOpacity>
-            ) : null}
-            <TouchableOpacity
-              style={[styles.actionPrimary, !canProceedStep && styles.disabledButton]}
-              onPress={step === 3 ? handleSubmit : handleNext}
-              disabled={!canProceedStep || submitting}
-            >
-              <Text style={styles.primaryButtonText}>
-                {step === 3 ? (submitting ? 'Submitting...' : 'Submit') : 'Next'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <StickyFooterCTA
+            priceLabel="Total"
+            priceValue={`${totalPrice} JOD`}
+            buttonLabel={ctaLabel}
+            onPress={step === 3 ? handleSubmit : handleNext}
+            disabled={!canProceedStep || submitting}
+            helperText={step === 0 ? 'Select a slot to continue' : undefined}
+          />
         ) : null}
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 };
@@ -342,7 +455,9 @@ export const PlaygroundsBookingStepperScreen = () => {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+  },
+  flex: {
+    flex: 1,
   },
   container: {
     paddingBottom: 32,
@@ -350,7 +465,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#11223A',
     marginTop: 18,
     marginBottom: 10,
     paddingHorizontal: 16,
@@ -363,78 +477,115 @@ const styles = StyleSheet.create({
   },
   durationChip: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 16,
-    backgroundColor: '#F1F4FA',
-  },
-  durationChipActive: {
-    backgroundColor: '#4F6AD7',
+    borderWidth: 1,
   },
   durationText: {
     fontSize: 12,
-    color: '#6C7A92',
     fontWeight: '600',
   },
   durationSubText: {
     fontSize: 11,
-    color: '#6C7A92',
     marginTop: 2,
   },
-  durationTextActive: {
-    color: '#FFFFFF',
+  dateRow: {
+    paddingHorizontal: 16,
+    gap: 10,
+    paddingBottom: 4,
+  },
+  datePill: {
+    width: 72,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  dateLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  dateDay: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  dateMonth: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: 16,
+  },
+  helper: {
+    fontSize: 12,
+    marginLeft: 16,
   },
   input: {
     marginHorizontal: 16,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E0E6F0',
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#11223A',
+    marginTop: 12,
   },
-  helper: {
-    fontSize: 12,
-    color: '#6C7A92',
-    marginLeft: 16,
+  playerCard: {
+    marginHorizontal: 16,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  stepperButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperText: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  playerValue: {
+    fontSize: 18,
+    fontWeight: '700',
   },
   summaryCard: {
     marginHorizontal: 16,
-    backgroundColor: '#F7F9FF',
     borderRadius: 18,
     padding: 16,
+    borderWidth: 1,
   },
   summaryItem: {
     fontSize: 12,
-    color: '#6C7A92',
     marginBottom: 6,
   },
   summaryTotal: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#11223A',
     marginTop: 8,
   },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginTop: 16,
-  },
-  actionPrimary: {
-    flex: 1,
-    backgroundColor: '#4F6AD7',
+  noticeCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 12,
     borderRadius: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
   },
-  disabledButton: {
-    opacity: 0.6,
+  noticeText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   primaryButton: {
     marginTop: 16,
     marginHorizontal: 16,
-    backgroundColor: '#4F6AD7',
     borderRadius: 16,
     paddingVertical: 12,
     alignItems: 'center',
@@ -443,28 +594,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
   },
-  secondaryButton: {
-    marginRight: 12,
-    backgroundColor: '#EFF3FF',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: '#4F6AD7',
-    fontWeight: '600',
-  },
   validation: {
     fontSize: 12,
-    color: '#D64545',
     paddingHorizontal: 16,
     marginTop: 10,
   },
   error: {
     fontSize: 12,
-    color: '#D64545',
     paddingHorizontal: 16,
     marginTop: 10,
+  },
+  backButton: {
+    marginTop: 10,
+    marginLeft: 16,
+  },
+  backText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

@@ -1,11 +1,9 @@
 // API fields used: venues list entries from searchVenues (name, base_location, pitch_size, area_size,
 // min_players, max_players, avg_rating, ratings_count, price, duration, images, has_special_offer,
 // special_offer_note, academy_profile.*).
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   FlatList,
-  Modal,
-  Pressable,
   RefreshControl,
   SafeAreaView,
   StyleSheet,
@@ -14,46 +12,73 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  useColorScheme,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { BottomSheet } from '../../components/playgrounds/BottomSheet';
+import { CategoryPillsRow } from '../../components/playgrounds/CategoryPillsRow';
+import { PlaygroundsHeader } from '../../components/playgrounds/PlaygroundsHeader';
 import { VenueCard } from '../../components/playgrounds/VenueCard';
+import { VenueCardSkeleton } from '../../components/playgrounds/Skeletons';
 import { goToVenue } from '../../navigation/playgrounds.routes';
 import { useSearch } from '../../services/playgrounds/playgrounds.hooks';
 import { usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
+import { getPlaygroundsTheme } from '../../theme/playgroundsTheme';
 
-const filterConfig = [
-  { key: 'activity', label: 'Activity', options: ['Football', 'Padel', 'Basketball', 'Tennis'] },
-  { key: 'location', label: 'Location', options: ['Amman', 'Zarqa', 'Irbid'] },
-  { key: 'players', label: 'Players', options: ['2-4', '5-8', '9+'] },
-  { key: 'duration', label: 'Duration', options: ['60 min', '90 min', '120 min'] },
-  { key: 'offers', label: 'Offers', options: ['Discounted', 'Top Rated'] },
-  { key: 'sort', label: 'Sort', options: ['Recommended', 'Price low', 'Price high'] },
+const getActivityOptions = (venues = []) => {
+  const map = new Map();
+  venues.forEach((venue) => {
+    const name = venue?.activity?.name || venue?.activity_name || venue?.activity;
+    if (name && !map.has(name)) {
+      map.set(name, { label: name, value: name });
+    }
+  });
+  return Array.from(map.values());
+};
+
+const getLocationOptions = (venues = []) => {
+  const map = new Map();
+  venues.forEach((venue) => {
+    const location = venue?.base_location || venue?.academy_profile?.location_text;
+    if (location && !map.has(location)) {
+      map.set(location, { label: location, value: location });
+    }
+  });
+  return Array.from(map.values());
+};
+
+const getDurationOptions = (venues = []) => {
+  const map = new Map();
+  venues.forEach((venue) => {
+    const durations = Array.isArray(venue?.duration) ? venue.duration : [];
+    durations.forEach((duration) => {
+      if (!duration?.minutes) return;
+      const label = `${duration.minutes} min`;
+      if (!map.has(label)) {
+        map.set(label, { label, value: label });
+      }
+    });
+  });
+  return Array.from(map.values()).sort((a, b) => parseInt(a.value) - parseInt(b.value));
+};
+
+const ratingOptions = [
+  { label: '4.5+ rating', value: '4.5' },
+  { label: '4.0+ rating', value: '4.0' },
+  { label: '3.0+ rating', value: '3.0' },
 ];
 
-const skeletonItems = Array.from({ length: 4 }).map((_, index) => ({ id: `skeleton-${index}` }));
-
-const FilterSheet = ({ visible, title, options = [], onSelect, onClose }) => (
-  <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
-    <View style={styles.sheetOverlay}>
-      <Pressable style={styles.sheetBackdrop} onPress={onClose} />
-      <View style={styles.sheet}>
-        <Text style={styles.sheetTitle}>{title}</Text>
-        <FlatList
-          data={options}
-          keyExtractor={(item) => String(item)}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.sheetOption} onPress={() => onSelect(item)}>
-              <Text style={styles.sheetOptionText}>{item}</Text>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
-    </View>
-  </Modal>
-);
+const sortOptions = [
+  { label: 'Recommended', value: 'recommended' },
+  { label: 'Price low to high', value: 'price_low' },
+  { label: 'Price high to low', value: 'price_high' },
+  { label: 'Top rated', value: 'rating_high' },
+];
 
 export const PlaygroundsVenuesSearchScreen = () => {
   const router = useRouter();
+  const scheme = useColorScheme();
+  const theme = getPlaygroundsTheme(scheme);
   const playgrounds = usePlaygroundsStore();
   const { data, loading, filters, updateFilters, load, error } = useSearch();
   const [query, setQuery] = useState(filters?.query || '');
@@ -83,25 +108,21 @@ export const PlaygroundsVenuesSearchScreen = () => {
     if (debouncedQuery !== (activeFilters.query || '')) {
       updateFilters({ ...activeFilters, query: debouncedQuery, page: 1 });
     }
-  }, [debouncedQuery]);
+  }, [debouncedQuery, activeFilters, updateFilters]);
 
-  const handleQueryChange = (value) => {
-    setQuery(value);
-  };
-
-  const handleFilterSelect = (key, value) => {
-    setActiveSheet(null);
-    const newFilters = { ...activeFilters };
-    
-    // Toggle filter selection
-    if (newFilters[key] === value) {
-      delete newFilters[key];
-    } else {
-      newFilters[key] = value;
-    }
-    
-    updateFilters({ ...newFilters, page: 1 });
-  };
+  const handleFilterSelect = useCallback(
+    (key, value) => {
+      setActiveSheet(null);
+      const newFilters = { ...activeFilters };
+      if (newFilters[key] === value) {
+        delete newFilters[key];
+      } else {
+        newFilters[key] = value;
+      }
+      updateFilters({ ...newFilters, page: 1 });
+    },
+    [activeFilters, updateFilters],
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -115,109 +136,208 @@ export const PlaygroundsVenuesSearchScreen = () => {
     updateFilters({ ...activeFilters, page: nextPage });
   };
 
+  const filterOptions = useMemo(() => {
+    const activities = getActivityOptions(venues);
+    const locations = getLocationOptions(venues);
+    const durations = getDurationOptions(venues);
+    const hasOffers = venues.some((venue) => venue?.has_special_offer);
+    const hasRatings = venues.some((venue) => Number(venue?.avg_rating || 0) > 0);
+    return {
+      activity: { label: 'Sport', options: activities },
+      location: { label: 'Location', options: locations },
+      duration: { label: 'Duration', options: durations },
+      offers: { label: 'Offers', options: hasOffers ? [{ label: 'Discounted', value: 'Discounted' }] : [] },
+      rating: { label: 'Rating', options: hasRatings ? ratingOptions : [] },
+    };
+  }, [venues]);
+
   const renderItem = ({ item }) => (
     <View style={viewMode === 'grid' ? styles.gridItem : undefined}>
-      <VenueCard
-        venue={item}
-        onPress={() => goToVenue(router, item.id || '1')}
-      />
+      <VenueCard venue={item} onPress={() => goToVenue(router, item.id || '1')} />
     </View>
   );
 
   const renderFooter = () => {
-    if (!loading) return null;
+    if (!loading || venues.length === 0) return null;
     return (
       <View style={styles.footer}>
-        <ActivityIndicator size="small" color="#4F6AD7" />
+        <ActivityIndicator size="small" color={theme.colors.primary} />
       </View>
     );
   };
 
+  const activeFilterLabel = (key) => {
+    const value = activeFilters?.[key];
+    if (!value) return null;
+    return ` · ${value}`;
+  };
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Search Venues</Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
+      <PlaygroundsHeader
+        title="Search venues"
+        subtitle="Filter by sport, location, and availability."
+      />
+      <View style={[styles.searchContainer, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
         <TextInput
           placeholder="Search city, sport, or venue"
-          style={styles.search}
+          placeholderTextColor={theme.colors.textMuted}
+          style={[styles.searchInput, { color: theme.colors.textPrimary }]}
           value={query}
-          onChangeText={handleQueryChange}
+          onChangeText={setQuery}
           returnKeyType="search"
         />
       </View>
 
-      <View style={styles.filterBar}>
-        <FlatList
-          data={filterConfig}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.key}
-          contentContainerStyle={styles.filterRow}
-          renderItem={({ item }) => {
-            const isActive = activeFilters?.[item.key];
-            return (
-              <TouchableOpacity
-                style={[styles.filterChip, isActive && styles.filterChipActive]}
-                onPress={() => setActiveSheet(item.key)}
+      <CategoryPillsRow
+        categories={filterOptions.activity.options}
+        activeValue={activeFilters?.activity}
+        onSelect={(value) => handleFilterSelect('activity', value)}
+      />
+
+      <View style={[styles.filterBar, { borderBottomColor: theme.colors.border }]}>
+        {['location', 'duration', 'offers', 'rating'].map((key) => {
+          const option = filterOptions[key];
+          if (!option || option.options.length === 0) return null;
+          const isActive = Boolean(activeFilters?.[key]);
+          return (
+            <TouchableOpacity
+              key={key}
+              style={[
+                styles.filterChip,
+                {
+                  backgroundColor: isActive ? theme.colors.primary : theme.colors.surface,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+              onPress={() => setActiveSheet(key)}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  { color: isActive ? '#FFFFFF' : theme.colors.textPrimary },
+                ]}
               >
-                <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-                  {item.label}
-                  {isActive ? ` · ${isActive}` : ''}
-                </Text>
-              </TouchableOpacity>
-            );
-          }}
-        />
+                {option.label}
+                {activeFilterLabel(key)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+        <TouchableOpacity
+          style={[
+            styles.filterChip,
+            { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+          ]}
+          onPress={() => setActiveSheet('sort')}
+        >
+          <Text style={[styles.filterChipText, { color: theme.colors.textPrimary }]}>
+            Sort{activeFilters?.sort ? ` · ${activeFilters.sort}` : ''}
+          </Text>
+        </TouchableOpacity>
         <View style={styles.viewToggle}>
           <TouchableOpacity onPress={() => setViewMode('list')}>
-            <Text style={[styles.toggleText, viewMode === 'list' && styles.toggleTextActive]}>List</Text>
+            <Text style={[styles.toggleText, { color: viewMode === 'list' ? theme.colors.primary : theme.colors.textMuted }]}>
+              List
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setViewMode('grid')}>
-            <Text style={[styles.toggleText, viewMode === 'grid' && styles.toggleTextActive]}>Grid</Text>
+            <Text style={[styles.toggleText, { color: viewMode === 'grid' ? theme.colors.primary : theme.colors.textMuted }]}>
+              Grid
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error.message || 'Failed to load venues'}</Text>
+        <View style={[styles.errorContainer, { backgroundColor: theme.colors.primarySoft }]}>
+          <Text style={[styles.errorText, { color: theme.colors.error }]}>
+            {error.message || 'Failed to load venues'}
+          </Text>
         </View>
       )}
 
       <FlatList
-        data={loading && venues.length === 0 ? skeletonItems : venues}
+        data={venues}
         key={viewMode}
         numColumns={viewMode === 'grid' ? 2 : 1}
         keyExtractor={(item) => String(item.id || item.name || Math.random())}
-        renderItem={loading && venues.length === 0 ? () => <View style={styles.skeletonCard} /> : renderItem}
+        renderItem={renderItem}
         contentContainerStyle={[
           styles.listContent,
           venues.length === 0 && !loading && styles.emptyListContent,
         ]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#4F6AD7" />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.colors.primary} />
         }
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
         ListFooterComponent={renderFooter}
-        ListEmptyComponent={!loading && !error ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No venues found</Text>
-            <Text style={styles.emptyText}>Adjust filters or try another search.</Text>
-          </View>
-        ) : null}
+        ListEmptyComponent={
+          loading ? (
+            <>
+              <VenueCardSkeleton />
+              <VenueCardSkeleton />
+            </>
+          ) : !error ? (
+            <View style={[styles.emptyState, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+              <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>No venues found</Text>
+              <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>
+                Adjust filters or try another search.
+              </Text>
+            </View>
+          ) : null
+        }
       />
 
-      {filterConfig.map((filter) => (
-        <FilterSheet
-          key={filter.key}
-          visible={activeSheet === filter.key}
-          title={`Select ${filter.label}`}
-          options={filter.options}
-          onSelect={(option) => handleFilterSelect(filter.key, option)}
+      {Object.entries(filterOptions).map(([key, value]) => (
+        <BottomSheet
+          key={key}
+          visible={activeSheet === key}
+          title={`Select ${value.label}`}
           onClose={() => setActiveSheet(null)}
-        />
+        >
+          {value.options.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.sheetOption,
+                {
+                  borderColor: theme.colors.border,
+                  backgroundColor: activeFilters?.[key] === option.value ? theme.colors.primarySoft : 'transparent',
+                },
+              ]}
+              onPress={() => handleFilterSelect(key, option.value)}
+            >
+              <Text style={[styles.sheetOptionText, { color: theme.colors.textPrimary }]}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </BottomSheet>
       ))}
+
+      <BottomSheet
+        visible={activeSheet === 'sort'}
+        title="Sort by"
+        onClose={() => setActiveSheet(null)}
+      >
+        {sortOptions.map((option) => (
+          <TouchableOpacity
+            key={option.value}
+            style={[
+              styles.sheetOption,
+              {
+                borderColor: theme.colors.border,
+                backgroundColor: activeFilters?.sort === option.value ? theme.colors.primarySoft : 'transparent',
+              },
+            ]}
+            onPress={() => handleFilterSelect('sort', option.value)}
+          >
+            <Text style={[styles.sheetOptionText, { color: theme.colors.textPrimary }]}>{option.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </BottomSheet>
     </SafeAreaView>
   );
 };
@@ -225,56 +345,36 @@ export const PlaygroundsVenuesSearchScreen = () => {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#11223A',
-    marginBottom: 8,
-  },
-  search: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  searchContainer: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#E0E6F0',
+  },
+  searchInput: {
     fontSize: 14,
   },
   filterBar: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  filterRow: {
-    gap: 10,
-    paddingRight: 12,
   },
   filterChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: '#EFF3FF',
-  },
-  filterChipActive: {
-    backgroundColor: '#4F6AD7',
+    borderWidth: 1,
   },
   filterChipText: {
     fontSize: 12,
-    color: '#4F6AD7',
     fontWeight: '600',
-  },
-  filterChipTextActive: {
-    color: '#FFFFFF',
   },
   viewToggle: {
     marginLeft: 'auto',
@@ -283,11 +383,7 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 12,
-    color: '#7A8BA8',
     fontWeight: '600',
-  },
-  toggleTextActive: {
-    color: '#4F6AD7',
   },
   listContent: {
     padding: 16,
@@ -301,68 +397,35 @@ const styles = StyleSheet.create({
     flex: 1,
     margin: 4,
   },
-  skeletonCard: {
-    height: 150,
-    borderRadius: 18,
-    backgroundColor: '#EFF3FF',
-    marginBottom: 16,
-  },
   emptyState: {
     alignItems: 'center',
     padding: 24,
-    backgroundColor: '#F4F7FF',
     borderRadius: 18,
+    borderWidth: 1,
   },
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#11223A',
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 12,
-    color: '#6C7A92',
     textAlign: 'center',
-  },
-  sheetOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(10, 18, 36, 0.4)',
-    justifyContent: 'flex-end',
-  },
-  sheetBackdrop: {
-    flex: 1,
-  },
-  sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    maxHeight: '50%',
-  },
-  sheetTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#11223A',
-    marginBottom: 16,
   },
   sheetOption: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEF1F7',
   },
   sheetOptionText: {
     fontSize: 14,
-    color: '#2F3B52',
   },
   errorContainer: {
-    padding: 16,
-    backgroundColor: '#FFECEE',
+    padding: 12,
     marginHorizontal: 16,
     borderRadius: 12,
     marginTop: 8,
   },
   errorText: {
-    color: '#D64545',
     fontSize: 12,
     textAlign: 'center',
   },
