@@ -65,8 +65,27 @@ export const playgroundsApi = {
   async fetchSlider(params = {}, options = {}) {
     return wrapApi(async () => {
       const headers = await buildHeaders(options);
-      // ✅ correct backend endpoint
-      return playgroundsClient.post('/public/academies-slider', params, { headers });
+      // ✅ preferred backend endpoint
+      const attempts = [
+        () => playgroundsClient.post('/public/academies-slider', params, { headers }),
+        () => playgroundsClient.get('/public/academies-slider', { headers, params }),
+        () => playgroundsClient.get('/slider', { headers, params }),
+      ];
+
+      let lastError;
+      for (const attempt of attempts) {
+        try {
+          return await attempt();
+        } catch (error) {
+          lastError = error;
+          const statusCode = error?.statusCode;
+          if (statusCode !== 404 && statusCode !== 405) {
+            throw error;
+          }
+        }
+      }
+
+      throw lastError;
     }, 'Failed to fetch playgrounds slider');
   },
 
@@ -120,6 +139,17 @@ export const playgroundsApi = {
       // ✅ correct backend endpoint
       return playgroundsClient.post('/public/slots', merged, { headers });
     }, 'Failed to fetch playground slots');
+  },
+
+  async fetchVenueDurations(venueId, options = {}) {
+    return wrapApi(async () => {
+      const headers = await buildHeaders(options);
+      return playgroundsClient.post(
+        '/admin/venues/durations/list',
+        { venue_id: venueId },
+        { headers }
+      );
+    }, 'Failed to fetch playground venue durations');
   },
 
   // ------- BOOKINGS -------

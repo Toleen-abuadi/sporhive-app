@@ -181,26 +181,6 @@ export const PlaygroundsBookingStepperScreen = () => {
     }
   }, [paymentType]);
 
-  // Helper function to fetch venue durations (add this to playgroundsStore if not exists)
-  const fetchVenueDurations = async (venueId) => {
-    try {
-      // Using the correct endpoint from your backend
-      const response = await fetch(`${BASE_URL}/api/v1/playgrounds/admin/venues/durations/list`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ venue_id: venueId }),
-      });
-      
-      const data = await response.json();
-      if (response.ok && data.durations) {
-        return { success: true, data: data.durations };
-      }
-      return { success: false, error: data.error || 'Failed to fetch durations' };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  };
-
   const canProceedStep = useMemo(() => {
     if (step === 0) return duration && date && selectedSlot;
     if (step === 1) return Number(players) > 0;
