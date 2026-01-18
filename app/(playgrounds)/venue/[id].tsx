@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   Linking,
   ScrollView,
@@ -15,8 +14,10 @@ import { TopBar } from '../../../src/components/ui/TopBar';
 import { PrimaryButton, StickyCTA } from '../../../src/components/ui/PrimaryButton';
 import { spacing, typography } from '../../../src/theme/tokens';
 import { Chip } from '../../../src/components/ui/Chip';
+import { Skeleton } from '../../../src/components/ui/Skeleton';
 import { listVenues, Venue } from '../../../src/features/playgrounds/api/playgrounds.api';
 import { getVenueById, setVenuesCache } from '../../../src/features/playgrounds/store/venuesStore';
+import { formatJodPrice, getErrorMessage, isNetworkError, resolveImageSource } from '../../../src/features/playgrounds/utils';
 
 const DEFAULT_PLAYERS = 2;
 
@@ -29,18 +30,27 @@ export default function VenueDetailsModal() {
     venueId ? getVenueById(venueId) : null,
   );
   const [loading, setLoading] = useState(!venue);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     if (!venueId || venue) return;
     let isMounted = true;
     const fetchVenue = async () => {
       setLoading(true);
+      setErrorMessage(null);
       try {
         const response = await listVenues({ number_of_players: DEFAULT_PLAYERS });
-        if (isMounted) {
-          setVenuesCache(response);
-          const match = response.find((item) => item.id === venueId) ?? null;
-          setVenue(match);
+        if (!isMounted) return;
+        setVenuesCache(response);
+        const match = response.find((item) => item.id === venueId) ?? null;
+        setVenue(match);
+      } catch (error) {
+        if (!isMounted) return;
+        if (isNetworkError(error)) {
+          setErrorMessage(getErrorMessage(error, 'Network error. Please try again.'));
+        } else {
+          setErrorMessage(getErrorMessage(error, 'Unable to load venue details.'));
         }
       } finally {
         if (isMounted) {
@@ -52,7 +62,7 @@ export default function VenueDetailsModal() {
     return () => {
       isMounted = false;
     };
-  }, [venue, venueId]);
+  }, [venue, venueId, retryKey]);
 
   const images = useMemo(() => {
     if (!venue) return [];
@@ -73,7 +83,33 @@ export default function VenueDetailsModal() {
       <Screen>
         <TopBar title="Venue details" onBack={() => router.back()} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator />
+          <Skeleton height={260} radius={0} />
+          <View style={styles.skeletonContent}>
+            <Skeleton height={26} width="70%" />
+            <Skeleton height={16} width="45%" />
+            <Skeleton height={44} width={160} radius={16} />
+          </View>
+          <View style={styles.skeletonSection}>
+            <Skeleton height={18} width="30%" />
+            <View style={styles.skeletonChips}>
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={`chip-${index}`} height={36} width={110} radius={999} />
+              ))}
+            </View>
+          </View>
+        </View>
+      </Screen>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <Screen>
+        <TopBar title="Venue details" onBack={() => router.back()} />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.subtitle}>Unable to load venue.</Text>
+          <Text style={styles.helperText}>{errorMessage}</Text>
+          <PrimaryButton label="Retry" onPress={() => setRetryKey((prev) => prev + 1)} />
         </View>
       </Screen>
     );
@@ -104,7 +140,7 @@ export default function VenueDetailsModal() {
               images.map((image, index) => (
                 <Image
                   key={`${image}-${index}`}
-                  source={{ uri: image }}
+                  source={resolveImageSource(image) ?? undefined}
                   style={[styles.heroImage, { width }]}
                 />
               ))
@@ -171,8 +207,8 @@ export default function VenueDetailsModal() {
 
       <StickyCTA
         label="Book now"
-        priceLabel={venue.price ? 'From' : undefined}
-        priceValue={venue.price ? `${venue.price}` : 'From —'}
+        priceLabel="From"
+        priceValue={formatJodPrice(venue.price)}
         onPress={handleBook}
       />
     </Screen>
@@ -187,6 +223,22 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.md,
+  },
+  skeletonContent: {
+    padding: spacing.lg,
+    width: '100%',
+    gap: spacing.sm,
+  },
+  skeletonSection: {
+    width: '100%',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  skeletonChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   hero: {
     position: 'relative',
@@ -257,6 +309,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     fontSize: typography.size.sm,
     lineHeight: typography.lineHeight.sm,
+    color: '#64748B',
+  },
+  subtitle: {
+    fontSize: typography.size.sm,
+    lineHeight: typography.lineHeight.sm,
+  },
+  helperText: {
+    fontSize: typography.size.xs,
+    lineHeight: typography.lineHeight.xs,
     color: '#64748B',
   },
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../src/components/ui/Screen';
 import { TopBar } from '../../src/components/ui/TopBar';
@@ -7,10 +7,12 @@ import { Card } from '../../src/components/ui/Card';
 import { Chip } from '../../src/components/ui/Chip';
 import { PrimaryButton } from '../../src/components/ui/PrimaryButton';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
+import { Skeleton } from '../../src/components/ui/Skeleton';
 import { spacing, typography } from '../../src/theme/tokens';
 import { getJson } from '../../src/services/storage/storage';
 import { STORAGE_KEYS } from '../../src/services/storage/keys';
 import { listMyBookings, type Booking } from '../../src/features/playgrounds/api/playgrounds.api';
+import { formatTime, getErrorMessage, isNetworkError } from '../../src/features/playgrounds/utils';
 
 type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected' | 'cancelled';
 
@@ -21,11 +23,14 @@ export default function MyBookingsScreen() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [hasRegisteredUser, setHasRegisteredUser] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
     const loadBookings = async () => {
       setLoading(true);
+      setErrorMessage(null);
       try {
         const mode = await getJson<string>(STORAGE_KEYS.PUBLIC_USER_MODE);
         const user = await getJson<{ id: string }>(STORAGE_KEYS.PUBLIC_USER);
@@ -43,6 +48,14 @@ export default function MyBookingsScreen() {
         if (isMounted) {
           setBookings(response);
         }
+      } catch (error) {
+        if (!isMounted) return;
+        setBookings([]);
+        if (isNetworkError(error)) {
+          setErrorMessage(getErrorMessage(error, 'Network error. Please try again.'));
+        } else {
+          setErrorMessage(getErrorMessage(error, 'Unable to load bookings.'));
+        }
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -53,7 +66,7 @@ export default function MyBookingsScreen() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [retryKey]);
 
   const counts = useMemo(() => {
     const result: Record<StatusFilter, number> = {
@@ -105,9 +118,22 @@ export default function MyBookingsScreen() {
             </View>
 
             {loading ? (
-              <View style={styles.loadingState}>
-                <ActivityIndicator />
+              <View style={styles.list}>
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <Card key={`booking-skeleton-${index}`} style={styles.bookingCard}>
+                    <Skeleton height={18} width="40%" />
+                    <Skeleton height={18} width="70%" />
+                    <Skeleton height={16} width="55%" />
+                    <Skeleton height={44} width={160} radius={16} />
+                  </Card>
+                ))}
               </View>
+            ) : errorMessage ? (
+              <Card style={styles.emptyCard}>
+                <Text style={styles.title}>Unable to load bookings</Text>
+                <Text style={styles.subtitle}>{errorMessage}</Text>
+                <PrimaryButton label="Retry" onPress={() => setRetryKey((prev) => prev + 1)} />
+              </Card>
             ) : (
               <View style={styles.list}>
                 {filteredBookings.length === 0 ? (
@@ -127,7 +153,7 @@ export default function MyBookingsScreen() {
                       <Text style={styles.bookingTitle}>{booking.venue.name}</Text>
                       <Text style={styles.bookingSubtitle}>{booking.academy.public_name}</Text>
                       <Text style={styles.bookingSubtitle}>
-                        {booking.date} · {booking.start_time} - {booking.end_time}
+                        {booking.date} · {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
                       </Text>
                       {booking.payment ? (
                         <Text style={styles.paymentText}>Payment recorded</Text>
@@ -178,9 +204,6 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: spacing.md,
-  },
-  loadingState: {
-    paddingVertical: spacing.xl,
   },
   emptyCard: {
     gap: spacing.sm,
