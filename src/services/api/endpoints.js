@@ -42,6 +42,26 @@ export const endpoints = {
     cancel: (id) => apiClient.post(`/bookings/${id}/cancel`),
   },
 
+  playgrounds: {
+    venuesList: (payload = {}) => apiClient.post('/playgrounds/public/venues/list', payload),
+    activitiesList: (payload = {}) => apiClient.post('/playgrounds/admin/activities/list', payload),
+    venueDurations: (payload = {}) => apiClient.post('/playgrounds/admin/venues/durations/list', payload),
+    slots: (payload = {}) => apiClient.post('/playgrounds/public/slots', payload),
+    createBooking: (formData) =>
+      apiClient.post('/playgrounds/public/bookings/create', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }),
+    listBookings: (payload = {}) => apiClient.post('/playgrounds/public/bookings/list', payload),
+  },
+
+  publicUsers: {
+    quickRegister: (payload) => apiClient.post('/public-users/quick-register', payload),
+    login: (payload) => apiClient.post('/public-users/login', payload),
+    register: (payload) => apiClient.post('/public-users/register', payload),
+    passwordResetRequest: (payload) => apiClient.post('/public-users/password-reset/request', payload),
+    passwordResetConfirm: (payload) => apiClient.post('/public-users/password-reset/confirm', payload),
+  },
+
   profile: {
     get: () => apiClient.get('/profile'),
     update: (data) => apiClient.put('/profile', data),
