@@ -25,10 +25,6 @@ export const ar = {
       title: 'اكتشف الأكاديميات',
       description: 'ابحث عن الأكاديمية الرياضية المثالية لأهدافك',
     },
-    playgroundCard: {
-      title: 'حجز الملاعب',
-      description: 'احجز مكانك الرياضي المفضل فوراً',
-    },
     portalCard: {
       title: 'بوابة اللاعب',
       description: 'أدر ملفك الشخصي وتتبع تقدمك',

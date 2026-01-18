@@ -135,15 +135,6 @@ export function HomeServicesScreen() {
       href: '/academies',
     },
     {
-      id: 'playground',
-      title: t('home.playgroundCard.title'),
-      description: t('home.playgroundCard.description'),
-      icon: 'map-pin',
-      color: '#10B981',
-      screen: 'Book',
-      href: '/playgrounds',
-    },
-    {
       id: 'portal',
       title: t('home.portalCard.title'),
       description: t('home.portalCard.description'),

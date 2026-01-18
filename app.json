@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "sporhive",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "ios": {
@@ -24,10 +24,10 @@
     ],
     "extra": {
       "router": {
-        "origin": "myapp://",
+        "origin": "sporhive://",
         "links": [
           {
-            "path": "playgrounds/r/:token"
+            "path": "r/:token"
           }
         ]
       }

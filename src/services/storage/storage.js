@@ -16,11 +16,6 @@ export const PORTAL_KEYS = {
   PASSWORD: '@sporhive/portal/password',
 };
 
-// ✅ Playgrounds scoped keys
-export const PLAYGROUNDS_KEYS = {
-  PUBLIC_USER_ID: '@sporhive/playgrounds/public_user_id',
-  LAST_FILTERS: '@sporhive/playgrounds/last_filters',
-};
 
 class StorageService {
   // -------------------------
@@ -205,20 +200,6 @@ class StorageService {
   async setPortalCredentials({ username = '', password = '' } = {}) {
     await this.setItem(PORTAL_KEYS.USERNAME, String(username || ''));
     await this.setItem(PORTAL_KEYS.PASSWORD, String(password || ''));
-  }
-
-  async getPlaygroundsPublicUserId() {
-    const v = await this.getItem(PLAYGROUNDS_KEYS.PUBLIC_USER_ID);
-    return typeof v === 'string' ? v : null;
-  }
-
-  async setPlaygroundsPublicUserId(publicUserId) {
-    if (!publicUserId) return this.removeItem(PLAYGROUNDS_KEYS.PUBLIC_USER_ID);
-    return this.setItem(PLAYGROUNDS_KEYS.PUBLIC_USER_ID, String(publicUserId));
-  }
-
-  async clearPlaygroundsData() {
-    await this.removeMany([PLAYGROUNDS_KEYS.PUBLIC_USER_ID, PLAYGROUNDS_KEYS.LAST_FILTERS]);
   }
 
   /**
