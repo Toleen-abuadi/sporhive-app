@@ -25,10 +25,6 @@ export const en = {
       title: 'Discover Academies',
       description: 'Find the perfect sports academy for your goals',
     },
-    playgroundCard: {
-      title: 'Playgrounds Booking',
-      description: 'Book your favorite sports venue instantly',
-    },
     portalCard: {
       title: 'Player Portal',
       description: 'Manage your profile and track your progress',
