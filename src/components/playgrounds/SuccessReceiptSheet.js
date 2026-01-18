@@ -1,13 +1,6 @@
 import { StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { getPlaygroundsTheme } from '../../theme/playgroundsTheme';
 
-const formatTimeRange = (booking) => {
-  if (booking?.start_time && booking?.end_time) {
-    return `${booking.start_time} - ${booking.end_time}`;
-  }
-  return booking?.start_time || booking?.end_time || booking?.time || 'TBD';
-};
-
 export const SuccessReceiptSheet = ({ booking }) => {
   const scheme = useColorScheme();
   const theme = getPlaygroundsTheme(scheme);
@@ -20,32 +13,17 @@ export const SuccessReceiptSheet = ({ booking }) => {
     <View style={[styles.sheet, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
       <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Booking Confirmed</Text>
       <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
-        Booking code #{booking?.booking_code || booking?.code || booking?.id || '—'}
+        Receipt #{booking?.id || '0001'}
       </Text>
       <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
       <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
-        Venue: {venueName}
+        Venue: {booking?.venue || 'Premium Arena'}
       </Text>
       <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
-        Academy: {academyName}
+        Time: {booking?.time || '7:00 PM - 8:00 PM'}
       </Text>
       <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
-        Date: {booking?.booking_date || booking?.date || 'TBD'}
-      </Text>
-      <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
-        Time: {formatTimeRange(booking)}
-      </Text>
-      <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
-        Duration: {booking?.duration?.minutes || booking?.duration_minutes || '—'} min
-      </Text>
-      <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
-        Payment: {booking?.payment_type || booking?.payment_method || '—'}
-      </Text>
-      <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
-        Status: {booking?.status || 'confirmed'}
-      </Text>
-      <Text style={[styles.detail, { color: theme.colors.textPrimary }]}>
-        Amount: {booking?.amount || booking?.total_price || booking?.price || '—'} JOD
+        Amount: {booking?.amount || '15 JOD'}
       </Text>
     </View>
   );

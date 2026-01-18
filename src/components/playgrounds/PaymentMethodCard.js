@@ -1,19 +1,18 @@
 import { StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { getPlaygroundsTheme } from '../../theme/playgroundsTheme';
 
-export const PaymentMethodCard = ({ title, subtitle, selected, onPress, disabled }) => {
+export const PaymentMethodCard = ({ title, subtitle, selected, onPress }) => {
   const scheme = useColorScheme();
   const theme = getPlaygroundsTheme(scheme);
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} disabled={disabled}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
       <View
         style={[
           styles.card,
           {
             backgroundColor: theme.colors.card,
             borderColor: selected ? theme.colors.primary : theme.colors.border,
-            opacity: disabled ? 0.5 : 1,
           },
         ]}
       >

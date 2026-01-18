@@ -15,7 +15,6 @@ import { useRouter } from 'expo-router';
 import { PlaygroundsHeader } from '../../components/playgrounds/PlaygroundsHeader';
 import { goToBookingDetails } from '../../navigation/playgrounds.routes';
 import { useMyBookings } from '../../services/playgrounds/playgrounds.hooks';
-import { usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { getPlaygroundsTheme } from '../../theme/playgroundsTheme';
 
 const statusTabs = [
@@ -38,8 +37,7 @@ export const PlaygroundsMyBookingsScreen = () => {
   const router = useRouter();
   const scheme = useColorScheme();
   const theme = getPlaygroundsTheme(scheme);
-  const playgrounds = usePlaygroundsStore();
-  const { data, loading, error, load } = useMyBookings();
+  const { data, loading, error } = useMyBookings();
   const [activeStatus, setActiveStatus] = useState(statusTabs[0].key);
   const [cancelLoadingId, setCancelLoadingId] = useState(null);
 
@@ -49,72 +47,47 @@ export const PlaygroundsMyBookingsScreen = () => {
     return bookings.filter((booking) => normalizeStatus(booking?.status) === activeStatus);
   }, [bookings, activeStatus]);
 
-  const handleCancel = async (booking) => {
-    const bookingId = booking?.id || booking?.booking_id;
-    if (!bookingId) return;
-    setCancelLoadingId(bookingId);
-    const res = await playgrounds.cancelBooking({ booking_id: bookingId });
-    setCancelLoadingId(null);
-    if (res?.success) {
-      load();
-    }
-  };
-
-  const renderItem = ({ item }) => {
-    const canCancel = Boolean(item?.can_cancel || item?.can_cancel_booking || item?.allow_cancel);
-    return (
-      <TouchableOpacity
-        style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
-        onPress={() => goToBookingDetails(router, item.id || item.booking_id)}
-      >
-        <View style={styles.cardHeader}>
-          <Text style={[styles.cardTitle, { color: theme.colors.textPrimary }]}>
-            {item?.venue?.name || item?.venue_name || 'Playground'}
-          </Text>
-          <View style={[styles.statusBadge, { backgroundColor: theme.colors.primarySoft }]}>
-            <Text style={[styles.statusText, { color: theme.colors.primary }]}>
-              {item?.status || activeStatus}
-            </Text>
-          </View>
-        </View>
-        <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
-          Academy: {item?.academy?.public_name || 'N/A'}
+  const renderItem = ({ item }) => (
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+      onPress={() => goToBookingDetails(router, item.id || item.booking_id)}
+    >
+      <View style={styles.cardHeader}>
+        <Text style={[styles.cardTitle, { color: theme.colors.textPrimary }]}>
+          {item?.venue?.name || item?.venue_name || 'Playground'}
         </Text>
-        <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
-          Location: {item?.academy?.location_text || 'N/A'}
-        </Text>
-        <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
-          Sport: {item?.activity?.name || 'N/A'}
-        </Text>
-        <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>Date: {item?.date || 'TBD'}</Text>
-        <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
-          Time: {formatTimeRange(item)}
-        </Text>
-        <View style={styles.cardFooter}>
-          <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
-            Players: {item?.number_of_players ?? 'N/A'}
-          </Text>
-          <Text style={[styles.cardPrice, { color: theme.colors.primary }]}>
-            {item?.duration?.base_price ?? '—'} JOD
+        <View style={[styles.statusBadge, { backgroundColor: theme.colors.primarySoft }]}>
+          <Text style={[styles.statusText, { color: theme.colors.primary }]}>
+            {item?.status || activeStatus}
           </Text>
         </View>
+      </View>
+      <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
+        Academy: {item?.academy?.public_name || 'N/A'}
+      </Text>
+      <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
+        Location: {item?.academy?.location_text || 'N/A'}
+      </Text>
+      <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
+        Sport: {item?.activity?.name || 'N/A'}
+      </Text>
+      <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>Date: {item?.date || 'TBD'}</Text>
+      <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
+        Time: {formatTimeRange(item)}
+      </Text>
+      <View style={styles.cardFooter}>
         <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
-          Code: {item?.booking_code || '—'}
+          Players: {item?.number_of_players ?? 'N/A'}
         </Text>
-        {canCancel ? (
-          <TouchableOpacity
-            style={[styles.cancelButton, { borderColor: theme.colors.border }]}
-            onPress={() => handleCancel(item)}
-            disabled={cancelLoadingId === (item?.id || item?.booking_id)}
-          >
-            <Text style={[styles.cancelText, { color: theme.colors.error }]}>
-              {cancelLoadingId === (item?.id || item?.booking_id) ? 'Cancelling...' : 'Cancel booking'}
-            </Text>
-          </TouchableOpacity>
-        ) : null}
-      </TouchableOpacity>
-    );
-  };
+        <Text style={[styles.cardPrice, { color: theme.colors.primary }]}>
+          {item?.duration?.base_price ?? '—'} JOD
+        </Text>
+      </View>
+      <Text style={[styles.cardMeta, { color: theme.colors.textMuted }]}>
+        Code: {item?.booking_code || '—'}
+      </Text>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
@@ -259,16 +232,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
     textAlign: 'center',
-  },
-  cancelButton: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  cancelText: {
-    fontSize: 12,
-    fontWeight: '600',
   },
 });

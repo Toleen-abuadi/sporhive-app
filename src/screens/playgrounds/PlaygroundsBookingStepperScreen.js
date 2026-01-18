@@ -53,49 +53,20 @@ const buildDatePills = (count = 7) => {
   });
 };
 
-const resolvePaymentMethods = (venue) => {
-  const raw =
-    venue?.academy_profile?.payment_methods ||
-    venue?.payment_methods ||
-    venue?.payment_type ||
-    [];
-  const methods = new Set();
-  if (Array.isArray(raw)) {
-    raw.forEach((method) => methods.add(String(method).toLowerCase()));
-  } else if (typeof raw === 'string') {
-    methods.add(raw.toLowerCase());
-  }
-
-  if (venue?.academy_profile?.allow_cash || venue?.allow_cash) methods.add('cash');
-  if (venue?.academy_profile?.allow_cliq || venue?.allow_cliq) methods.add('cliq');
-  if (venue?.academy_profile?.allow_cash_payment_on_date || venue?.allow_cash_payment_on_date) {
-    methods.add('cash_payment_on_date');
-  }
-
-  if (methods.size === 0) {
-    return ['cash', 'cash_payment_on_date', 'cliq'];
-  }
-
-  return Array.from(methods);
-};
-
 export const PlaygroundsBookingStepperScreen = () => {
   const { venueId } = useLocalSearchParams();
   const router = useRouter();
   const scheme = useColorScheme();
   const theme = getPlaygroundsTheme(scheme);
-  const playgrounds = usePlaygroundsStore();
   const { publicUserId } = usePlaygroundsAuth();
   const { data: venueData } = useVenue(venueId);
   const venue = venueData || {};
   const resolvedVenueId = Array.isArray(venueId) ? venueId[0] : venueId;
 
-  const [availableDurations, setAvailableDurations] = useState([]);
-  const [availableActivities, setAvailableActivities] = useState([]);
-  const durations = useMemo(() => {
-    if (availableDurations.length) return availableDurations;
-    return Array.isArray(venue?.duration) ? venue.duration : [];
-  }, [availableDurations, venue?.duration]);
+  const durations = useMemo(
+    () => (Array.isArray(venue?.duration) ? venue.duration : []),
+    [venue?.duration],
+  );
   const datePills = useMemo(() => buildDatePills(7), []);
 
   const [step, setStep] = useState(0);
@@ -126,10 +97,10 @@ export const PlaygroundsBookingStepperScreen = () => {
     if (!durationMinutes || !date) return;
     let active = true;
     setLoadingSlots(true);
-    playgrounds
+    playgroundsStore
       .fetchSlots(resolvedVenueId, {
         date,
-        duration_minutes: durationMinutes,
+        duration_minutes: duration.minutes,
       })
       .then((res) => {
         if (!active) return;
@@ -316,12 +287,10 @@ export const PlaygroundsBookingStepperScreen = () => {
                   onPress={() => setDuration(option)}
                 >
                   <Text style={[styles.durationText, { color: isSelected ? '#FFFFFF' : theme.colors.textPrimary }]}>
-                    {option?.minutes || option?.duration_minutes
-                      ? `${option?.minutes ?? option?.duration_minutes} min`
-                      : 'Duration'}
+                    {option?.minutes ? `${option.minutes} min` : 'Duration'}
                   </Text>
                   <Text style={[styles.durationSubText, { color: isSelected ? '#FFFFFF' : theme.colors.textMuted }]}>
-                    {option?.base_price ?? option?.price ?? 'N/A'} JOD
+                    {option?.base_price ?? 'N/A'} JOD
                   </Text>
                 </TouchableOpacity>
               );
@@ -442,15 +411,12 @@ export const PlaygroundsBookingStepperScreen = () => {
             <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>
               Venue: {venue?.name || 'Playground'}
             </Text>
-            <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>
-              Sport: {activityLabel}
-            </Text>
             <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>Date: {date || 'N/A'}</Text>
             <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>
               Time: {formatSlotLabel(selectedSlot)}
             </Text>
             <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>
-              Duration: {duration?.minutes || duration?.duration_minutes ? `${duration?.minutes ?? duration?.duration_minutes} min` : 'N/A'}
+              Duration: {duration?.minutes ? `${duration.minutes} min` : 'N/A'}
             </Text>
             <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>Players: {players}</Text>
             <Text style={[styles.summaryItem, { color: theme.colors.textMuted }]}>Payment: {paymentType}</Text>

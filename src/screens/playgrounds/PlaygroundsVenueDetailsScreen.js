@@ -50,32 +50,6 @@ const getInitials = (value = '') =>
     .slice(0, 2)
     .toUpperCase();
 
-const resolvePaymentMethods = (venue) => {
-  const raw =
-    venue?.academy_profile?.payment_methods ||
-    venue?.payment_methods ||
-    venue?.payment_type ||
-    [];
-  const methods = new Set();
-  if (Array.isArray(raw)) {
-    raw.forEach((method) => methods.add(String(method).toLowerCase()));
-  } else if (typeof raw === 'string') {
-    methods.add(raw.toLowerCase());
-  }
-
-  if (venue?.academy_profile?.allow_cash || venue?.allow_cash) methods.add('cash');
-  if (venue?.academy_profile?.allow_cliq || venue?.allow_cliq) methods.add('cliq');
-  if (venue?.academy_profile?.allow_cash_payment_on_date || venue?.allow_cash_payment_on_date) {
-    methods.add('cash_payment_on_date');
-  }
-
-  if (methods.size === 0) {
-    return ['cash', 'cash_payment_on_date', 'cliq'];
-  }
-
-  return Array.from(methods);
-};
-
 export const PlaygroundsVenueDetailsScreen = () => {
   const { venueId } = useLocalSearchParams();
   const router = useRouter();
@@ -96,7 +70,6 @@ export const PlaygroundsVenueDetailsScreen = () => {
   const academyName = venue?.academy_profile?.public_name || venue?.name || 'Academy';
   const academyLogo = venue?.academy_profile?.logo || venue?.academy_profile?.image || null;
   const tags = Array.isArray(venue?.academy_profile?.tags) ? venue.academy_profile.tags : [];
-  const paymentMethods = useMemo(() => resolvePaymentMethods(venue), [venue]);
 
   const renderGallery = () => {
     if (!gallery.length) {
@@ -264,9 +237,7 @@ export const PlaygroundsVenueDetailsScreen = () => {
                           { color: isSelected ? '#FFFFFF' : theme.colors.textPrimary },
                         ]}
                       >
-                        {duration?.minutes || duration?.duration_minutes
-                          ? `${duration?.minutes ?? duration?.duration_minutes} min`
-                          : 'Duration'}
+                        {duration?.minutes ? `${duration.minutes} min` : 'Duration'}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -274,22 +245,6 @@ export const PlaygroundsVenueDetailsScreen = () => {
               </View>
             </View>
           ) : null}
-
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Payment Methods</Text>
-            <View style={styles.tagsRow}>
-              {paymentMethods.map((method) => (
-                <View
-                  key={method}
-                  style={[styles.tagChip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
-                >
-                  <Text style={[styles.tagText, { color: theme.colors.textPrimary }]}>
-                    {method.replace(/_/g, ' ')}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
 
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Availability</Text>

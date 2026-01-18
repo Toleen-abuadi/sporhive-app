@@ -15,7 +15,6 @@ import {
   useColorScheme,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import { BottomSheet } from '../../components/playgrounds/BottomSheet';
 import { CategoryPillsRow } from '../../components/playgrounds/CategoryPillsRow';
 import { PlaygroundsHeader } from '../../components/playgrounds/PlaygroundsHeader';
@@ -110,12 +109,6 @@ export const PlaygroundsVenuesSearchScreen = () => {
       updateFilters({ ...activeFilters, query: debouncedQuery, page: 1 });
     }
   }, [debouncedQuery, activeFilters, updateFilters]);
-
-  useFocusEffect(
-    useCallback(() => {
-      load(activeFilters);
-    }, [activeFilters, load]),
-  );
 
   const handleFilterSelect = useCallback(
     (key, value) => {
