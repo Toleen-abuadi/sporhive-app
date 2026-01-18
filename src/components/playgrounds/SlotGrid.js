@@ -1,10 +1,16 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
+import { getPlaygroundsTheme } from '../../theme/playgroundsTheme';
 
 export const SlotGrid = ({ slots = [], selectedSlotId, onSelect }) => {
+  const scheme = useColorScheme();
+  const theme = getPlaygroundsTheme(scheme);
+
   if (!slots.length) {
     return (
       <View style={styles.empty}>
-        <Text style={styles.emptyText}>No slots available yet.</Text>
+        <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>
+          No slots available yet.
+        </Text>
       </View>
     );
   }
@@ -15,13 +21,29 @@ export const SlotGrid = ({ slots = [], selectedSlotId, onSelect }) => {
         const id = slot?.id || slot?.time || slot;
         const label = slot?.label || slot?.time || slot?.start_time || 'Slot';
         const isSelected = String(selectedSlotId) === String(id);
+        const isDisabled = slot?.is_available === false || slot?.available === false;
         return (
           <TouchableOpacity
             key={id}
             onPress={() => onSelect?.(slot)}
-            style={[styles.slot, isSelected && styles.slotSelected]}
+            style={[
+              styles.slot,
+              {
+                backgroundColor: isSelected ? theme.colors.primarySoft : theme.colors.surface,
+                borderColor: theme.colors.border,
+                opacity: isDisabled ? 0.5 : 1,
+              },
+            ]}
+            disabled={isDisabled}
           >
-            <Text style={[styles.slotText, isSelected && styles.slotTextSelected]}>{label}</Text>
+            <Text
+              style={[
+                styles.slotText,
+                { color: isSelected ? theme.colors.primary : theme.colors.textPrimary },
+              ]}
+            >
+              {label}
+            </Text>
           </TouchableOpacity>
         );
       })}
@@ -41,25 +63,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 14,
-    backgroundColor: '#F4F6FB',
-  },
-  slotSelected: {
-    backgroundColor: '#DDE7FF',
+    borderWidth: 1,
   },
   slotText: {
     fontSize: 12,
-    color: '#5A6B86',
     fontWeight: '600',
-  },
-  slotTextSelected: {
-    color: '#2F55C6',
   },
   empty: {
     paddingHorizontal: 16,
     paddingVertical: 20,
   },
   emptyText: {
-    color: '#7A8BA8',
     fontSize: 13,
   },
 });
