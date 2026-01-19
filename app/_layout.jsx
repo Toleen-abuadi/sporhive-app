@@ -4,7 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { Stack } from "expo-router";
 import { ThemeProvider, DarkTheme, DefaultTheme } from "@react-navigation/native";
 
-import { useFrameworkReady } from "@/hooks/useFrameworkReady";
+import { useFrameworkReady } from "../hooks/useFrameworkReady";
 import { ThemeProvider as AppThemeProvider, useTheme } from "../src/theme/ThemeProvider";
 import { I18nProvider } from "../src/services/i18n/i18n";
 import { ToastProvider } from "../src/components/ui/ToastHost";

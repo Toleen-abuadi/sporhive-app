@@ -126,13 +126,6 @@ export function MyBookingsScreen() {
             />
           )}
         </>
-      ) : (
-        <EmptyState
-          title="No bookings yet"
-          message="Explore venues and book your first playground session."
-          actionLabel="Explore"
-          onAction={() => router.push('/playgrounds/explore')}
-        />
       )}
 
       <BottomSheetModal visible={!!cancelTarget} onClose={() => setCancelTarget(null)}>
