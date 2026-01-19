@@ -1,7 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
-import { Filter } from 'lucide-react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  FlatList,
+  Platform,
+  RefreshControl,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
+import { CalendarDays, Filter, Flame, Star, Tag, Users } from 'lucide-react-native';
 
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
@@ -9,21 +17,37 @@ import { AppHeader } from '../../components/ui/AppHeader';
 import { Input } from '../../components/ui/Input';
 import { Text } from '../../components/ui/Text';
 import { Chip } from '../../components/ui/Chip';
-import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
-import { LoadingState } from '../../components/ui/LoadingState';
-import { PlaygroundCard } from '../../components/playgrounds/PlaygroundCard';
+import { Skeleton } from '../../components/ui/Skeleton';
+import { VenueCard } from '../../components/playgrounds/VenueCard';
 import { endpoints } from '../../services/api/endpoints';
 import { API_BASE_URL } from '../../services/api/client';
 import {
-  getBookingDraft,
   getPlaygroundsClientState,
+  getPublicUser,
+  getPublicUserMode,
   setPlaygroundsClientState,
 } from '../../services/playgrounds/storage';
-import { Activity, BookingDraftStorage, Venue } from '../../services/playgrounds/types';
+import { Activity, PublicUser, Venue } from '../../services/playgrounds/types';
 import { borderRadius, shadows, spacing } from '../../theme/tokens';
+
+type ExploreFilters = {
+  activityId?: string;
+  date?: string;
+  players?: number;
+  baseLocation?: string;
+  hasSpecialOffer?: boolean;
+};
+
+const DEFAULT_FILTERS: ExploreFilters = {
+  activityId: '',
+  date: '',
+  players: 2,
+  baseLocation: '',
+  hasSpecialOffer: false,
+};
 
 function useDebouncedValue<T>(value: T, delay = 350): T {
   const [debounced, setDebounced] = useState(value);
@@ -57,125 +81,88 @@ function formatMoney(amount?: number | null, currency?: string | null) {
   return `${normalizedCurrency} ${Number(amount).toFixed(0)}`;
 }
 
-function normalizeVenue(venue: Venue) {
-  const name = venue.name || venue.title || 'Playground';
-  const city = venue.city || '';
-  const country = venue.country || '';
-  const location = [city, country].filter(Boolean).join(', ');
-  const ratingRaw = venue.rating ?? venue.avg_rating ?? null;
-  const rating = ratingRaw !== null && ratingRaw !== undefined ? Number(ratingRaw) : null;
-  const durations = venue.durations || venue.venue_durations || [];
-  const slots = venue.slots || venue.available_slots || [];
-  const currency = venue.currency || durations?.[0]?.currency || slots?.[0]?.currency || null;
-  const priceFrom =
-    venue.price_from ??
-    venue.starting_price ??
-    durations?.[0]?.price ??
-    slots?.[0]?.price ??
-    null;
-
-  return {
-    name,
-    location,
-    rating,
-    currency,
-    priceFrom,
-    imageUrl: resolveVenueImage(venue),
-  };
+function resolvePricePerHour(venue: Venue) {
+  const price = venue.price_per_hour ?? venue.hourly_rate ?? venue.price_from ?? venue.starting_price ?? null;
+  const currency = venue.currency || 'AED';
+  return price ? `${formatMoney(price, currency)} / hr` : null;
 }
 
 export function PlaygroundsExploreScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const router = useRouter();
+  const { width } = useWindowDimensions();
 
-  const [query, setQuery] = useState('');
-  const [activityId, setActivityId] = useState('');
-  const [baseLocation, setBaseLocation] = useState('');
-  const [date, setDate] = useState('');
-  const [sort, setSort] = useState<'recommended' | 'price_asc' | 'rating_desc'>('recommended');
-  const [players, setPlayers] = useState('2');
-  const [hasSpecialOffer, setHasSpecialOffer] = useState(false);
-
-  const debouncedQuery = useDebouncedValue(query, 400);
-  const debouncedLocation = useDebouncedValue(baseLocation, 400);
-
-  const [items, setItems] = useState<Venue[]>([]);
-  const [cachedItems, setCachedItems] = useState<Venue[]>([]);
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [venuesLoading, setVenuesLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'offers'>('all');
+  const [filters, setFilters] = useState<ExploreFilters>(DEFAULT_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<ExploreFilters>(DEFAULT_FILTERS);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  const [resumeDraft, setResumeDraft] = useState<BookingDraftStorage | null>(null);
+  const [publicUserMode, setPublicUserMode] = useState<'guest' | 'registered' | null>(null);
+  const [publicUser, setPublicUser] = useState<PublicUser | null>(null);
+  const [playgroundsClientState, setPlaygroundsClientStateLocal] = useState<Record<string, unknown> | null>(null);
 
-  const filtersPayload = useMemo(() => {
-    const numberOfPlayers = Number(players);
-    return {
-      activity_id: activityId || undefined,
-      date: date || undefined,
-      number_of_players: Number.isFinite(numberOfPlayers) && numberOfPlayers > 0 ? numberOfPlayers : 2,
-      base_location: debouncedLocation || undefined,
-      has_special_offer: hasSpecialOffer ? true : undefined,
-      order_by: sort === 'recommended' ? undefined : sort,
-    };
-  }, [activityId, date, debouncedLocation, hasSpecialOffer, players, sort]);
+  const debouncedSearch = useDebouncedValue(searchQuery, 350);
+  const underlineAnim = useRef(new Animated.Value(0)).current;
+  const tabWidth = useRef(0);
 
-  const clientFilters = useMemo(
-    () => ({
-      ...filtersPayload,
-      q: debouncedQuery || '',
-    }),
-    [debouncedQuery, filtersPayload]
-  );
+  const columns = useMemo(() => {
+    if (Platform.OS === 'web' || width >= 768) {
+      return viewMode === 'grid' ? 2 : 1;
+    }
+    return 1;
+  }, [viewMode, width]);
 
   const activityMap = useMemo(() => {
     return new Map(activities.map((activity) => [String(activity.id), activity.name || '']));
   }, [activities]);
 
-  const availableActivities = useMemo(() => {
-    const list = activities.map((activity) => activity.name || '').filter(Boolean);
-    return Array.from(new Set(list)).slice(0, 6);
+  const categoryItems = useMemo(() => {
+    const icons = [Star, Flame, Tag, Users];
+    return activities.slice(0, 8).map((activity, index) => ({
+      id: String(activity.id),
+      label: activity.name || 'Activity',
+      Icon: icons[index % icons.length],
+    }));
   }, [activities]);
 
-  const fetchPlaygrounds = useCallback(
-    async (isRefresh = false) => {
-      setError('');
-      setLoading(!isRefresh);
-      if (isRefresh) setRefreshing(true);
-      try {
-        const res = await endpoints.playgrounds.venuesList(filtersPayload);
-        const list = Array.isArray(res?.venues)
-          ? res.venues
-          : Array.isArray(res?.data?.venues)
-          ? res.data.venues
-          : Array.isArray(res?.data)
-          ? res.data
-          : [];
-        const filteredList = debouncedQuery
-          ? list.filter((venue) => {
-              const name = `${venue.name || venue.title || ''}`.toLowerCase();
-              return name.includes(debouncedQuery.toLowerCase());
-            })
-          : list;
-        setItems(filteredList);
-        setCachedItems(list);
-        await setPlaygroundsClientState({
-          filters: clientFilters,
-          cachedAt: new Date().toISOString(),
-          cachedResults: list,
-        });
-      } catch (err) {
-        const message = err?.message || 'Unable to load playgrounds right now.';
-        setError(message);
-        if (cachedItems.length) {
-          setItems(cachedItems);
-        }
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [cachedItems, clientFilters, debouncedQuery, filtersPayload]
-  );
+  const applyFilters = useCallback(() => {
+    setAppliedFilters(filters);
+  }, [filters]);
+
+  const resetFilters = useCallback(() => {
+    setFilters(DEFAULT_FILTERS);
+    setAppliedFilters(DEFAULT_FILTERS);
+  }, []);
+
+  const loadInitialState = useCallback(async () => {
+    const [mode, user, clientState] = await Promise.all([
+      getPublicUserMode(),
+      getPublicUser<PublicUser>(),
+      getPlaygroundsClientState(),
+    ]);
+    setPublicUserMode(mode);
+    setPublicUser(user);
+    setPlaygroundsClientStateLocal(clientState || null);
+
+    if (clientState?.filters) {
+      const restored = {
+        ...DEFAULT_FILTERS,
+        activityId: String(clientState.filters.activity_id || ''),
+        date: String(clientState.filters.date || ''),
+        baseLocation: String(clientState.filters.base_location || ''),
+        players: Number(clientState.filters.number_of_players || 2),
+        hasSpecialOffer: Boolean(clientState.filters.has_special_offer || false),
+      };
+      setFilters(restored);
+      setAppliedFilters(restored);
+    }
+  }, []);
 
   const loadActivities = useCallback(async () => {
     try {
@@ -193,214 +180,277 @@ export function PlaygroundsExploreScreen() {
     }
   }, []);
 
-  const restorePersistedState = useCallback(async () => {
-    const [client, draft] = await Promise.all([
-      getPlaygroundsClientState(),
-      getBookingDraft<BookingDraftStorage>(),
-    ]);
-    if (client?.filters) {
-      setQuery(String(client.filters.q || ''));
-      setActivityId(String(client.filters.activity_id || ''));
-      setBaseLocation(String(client.filters.base_location || ''));
-      setDate(String(client.filters.date || ''));
-      const sortValue = String(client.filters.order_by || '');
-      if (sortValue === 'rating_desc' || sortValue === 'price_asc') {
-        setSort(sortValue);
-      }
-      if (client.filters.number_of_players) {
-        setPlayers(String(client.filters.number_of_players));
-      }
-      if (client.filters.has_special_offer) {
-        setHasSpecialOffer(Boolean(client.filters.has_special_offer));
-      }
-    }
-    if (Array.isArray(client?.cachedResults)) {
-      setItems(client.cachedResults as Venue[]);
-      setCachedItems(client.cachedResults as Venue[]);
-    }
-    if (draft?.venueId) {
-      setResumeDraft(draft);
-    }
-  }, []);
-
-  useEffect(() => {
-    restorePersistedState();
-  }, [restorePersistedState]);
-
-  useEffect(() => {
-    loadActivities();
-  }, [loadActivities]);
-
-  useEffect(() => {
-    fetchPlaygrounds();
-  }, [fetchPlaygrounds]);
-
-  const onRefresh = useCallback(() => fetchPlaygrounds(true), [fetchPlaygrounds]);
-
-  const sortOptions = useMemo(
-    () => [
-      { value: 'recommended', label: 'Recommended' },
-      { value: 'rating_desc', label: 'Top Rated' },
-      { value: 'price_asc', label: 'Lowest Price' },
-    ],
-    []
+  const buildPayload = useCallback(
+    (filtersState: ExploreFilters) => {
+      const numberOfPlayers = filtersState.players || 2;
+      return {
+        activity_id: filtersState.activityId || undefined,
+        date: filtersState.date || undefined,
+        number_of_players: numberOfPlayers,
+        duration_id: undefined,
+        base_location: filtersState.baseLocation || undefined,
+        academy_profile_id: undefined,
+        has_special_offer: activeTab === 'offers' ? true : filtersState.hasSpecialOffer || undefined,
+        order_by: activeTab === 'offers' ? 'rating_desc' : undefined,
+      };
+    },
+    [activeTab]
   );
+
+  const fetchVenues = useCallback(
+    async (filtersState: ExploreFilters) => {
+      setError('');
+      setVenuesLoading(true);
+      try {
+        const res = await endpoints.playgrounds.venuesList(buildPayload(filtersState));
+        const list = Array.isArray(res?.venues)
+          ? res.venues
+          : Array.isArray(res?.data?.venues)
+          ? res.data.venues
+          : Array.isArray(res?.data)
+          ? res.data
+          : [];
+        const normalizedList = debouncedSearch
+          ? list.filter((venue) => {
+              const name = `${venue.name || venue.title || ''}`.toLowerCase();
+              const location = `${venue.city || ''} ${venue.country || ''}`.toLowerCase();
+              return name.includes(debouncedSearch.toLowerCase()) || location.includes(debouncedSearch.toLowerCase());
+            })
+          : list;
+        setVenues(normalizedList);
+        await setPlaygroundsClientState({
+          filters: {
+            activity_id: filtersState.activityId || '',
+            date: filtersState.date || '',
+            number_of_players: filtersState.players || 2,
+            base_location: filtersState.baseLocation || '',
+            has_special_offer: filtersState.hasSpecialOffer || false,
+          },
+          cachedAt: new Date().toISOString(),
+          cachedResults: list,
+        });
+      } catch (err) {
+        setError(err?.message || 'Unable to load playgrounds right now.');
+      } finally {
+        setVenuesLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [buildPayload, debouncedSearch]
+  );
+
+  useEffect(() => {
+    loadInitialState();
+    loadActivities();
+  }, [loadActivities, loadInitialState]);
+
+  useEffect(() => {
+    fetchVenues(appliedFilters);
+  }, [appliedFilters, activeTab, fetchVenues]);
+
+  useEffect(() => {
+    const target = activeTab === 'all' ? 0 : 1;
+    Animated.timing(underlineAnim, {
+      toValue: target,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [activeTab, underlineAnim]);
+
+  useEffect(() => {
+    setViewMode(Platform.OS === 'web' || width >= 768 ? 'grid' : 'list');
+  }, [width]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchVenues(appliedFilters);
+  }, [appliedFilters, fetchVenues]);
+
+  const underlineStyle = {
+    transform: [
+      {
+        translateX: underlineAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, tabWidth.current],
+        }),
+      },
+    ],
+  };
+
+  const renderSkeletons = useMemo(() => {
+    const count = columns === 2 ? 4 : 3;
+    return (
+      <View style={styles.skeletonWrap}>
+        {Array.from({ length: count }).map((_, index) => (
+          <Skeleton
+            key={`skeleton-${index}`}
+            height={210}
+            radius={borderRadius.lg}
+            mode={isDark ? 'dark' : 'light'}
+            style={{ marginBottom: spacing.lg }}
+          />
+        ))}
+      </View>
+    );
+  }, [columns, isDark]);
 
   return (
     <Screen safe>
       <AppHeader title="Playgrounds" />
-      <FlatList
-        data={items}
-        keyExtractor={(item, index) => String(item.id ?? index)}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <View style={styles.headerContent}>
-            <Input
-              label="Search playgrounds"
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search by name or sport"
-              leftIcon="search"
-              accessibilityLabel="Search playgrounds"
-            />
-            <View style={styles.row}>
-              <Input
-                label="Location"
-                value={baseLocation}
-                onChangeText={setBaseLocation}
-                placeholder="City or area"
-                leftIcon="map-pin"
-                style={styles.rowInput}
-                accessibilityLabel="Filter by location"
-              />
-              <Input
-                label="Date"
-                value={date}
-                onChangeText={setDate}
-                placeholder="YYYY-MM-DD"
-                leftIcon="calendar"
-                style={styles.rowInput}
-                accessibilityLabel="Select booking date"
-              />
-            </View>
-            <View style={styles.row}>
-              <Input
-                label="Players"
-                value={players}
-                onChangeText={setPlayers}
-                placeholder="2"
-                leftIcon="users"
-                style={styles.rowInput}
-                accessibilityLabel="Number of players"
-                keyboardType="number-pad"
-              />
-              <View style={styles.rowInput}>
-                <Text variant="bodySmall" weight="medium" style={styles.inlineLabel}>
-                  Special offers
-                </Text>
-                <View style={styles.inlineChips}>
-                  <Chip
-                    label="Any"
-                    selected={!hasSpecialOffer}
-                    onPress={() => setHasSpecialOffer(false)}
-                  />
-                  <Chip
-                    label="Only offers"
-                    selected={hasSpecialOffer}
-                    onPress={() => setHasSpecialOffer(true)}
-                  />
-                </View>
-              </View>
-            </View>
-            <SegmentedControl value={sort} onChange={setSort} options={sortOptions} />
-            <View style={styles.filtersRow}>
-              <View style={styles.filtersTitle}>
-                <Filter size={16} color={colors.textMuted} />
-                <Text variant="bodySmall" weight="semibold">
-                  Activities
-                </Text>
-              </View>
-              <View style={styles.filtersChips}>
-                {availableActivities.length ? (
-                  [
-                    <Chip
-                      key="all-activities"
-                      label="All"
-                      selected={!activityId}
-                      onPress={() => setActivityId('')}
-                    />,
-                    ...availableActivities.map((item) => (
-                      <Chip
-                        key={item}
-                        label={item}
-                        selected={activityMap.get(activityId) === item}
-                        onPress={() => {
-                          const id = activities.find((activity) => activity.name === item)?.id;
-                          setActivityId(id ? String(id) : '');
-                        }}
-                      />
-                    )),
-                  ]
-                ) : (
-                  <Chip label="No filters yet" selected={false} />
-                )}
-              </View>
-            </View>
-          </View>
-        }
-        renderItem={({ item }) => {
-          const meta = normalizeVenue(item);
-          const activityName =
-            (item.activity_id ? activityMap.get(String(item.activity_id)) : '') || 'Multi-sport';
-          return (
-            <View style={styles.cardWrap}>
-              <PlaygroundCard
-                title={meta.name}
-                location={meta.location}
-                sport={activityName}
-                imageUrl={meta.imageUrl}
-                rating={meta.rating ?? undefined}
-                priceLabel={formatMoney(meta.priceFrom, meta.currency) || undefined}
-                onPress={() => router.push(`/playgrounds/venue/${item.id}`)}
-              />
-            </View>
-          );
-        }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentOrange} />}
-        ListEmptyComponent={
-          loading ? (
-            <LoadingState message="Loading available playgrounds..." />
-          ) : error ? (
-            <ErrorState
-              title="Unable to load"
-              message={error}
-              onAction={() => fetchPlaygrounds()}
-            />
-          ) : (
-            <EmptyState
-              title="No playgrounds found"
-              message="Try adjusting filters or selecting a new date."
-            />
-          )
-        }
-      />
-
-      {resumeDraft?.venueId ? (
-        <View style={[styles.stickyBar, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-          <View>
-            <Text variant="bodySmall" color={colors.textSecondary}>
-              Resume booking
-            </Text>
-            <Text variant="bodySmall" weight="semibold">
-              {resumeDraft.draft.bookingDate || 'Pick a date'} • Step {resumeDraft.draft.currentStep ?? 1}
-            </Text>
-          </View>
+      <View style={styles.stickyHeader}>
+        <Input
+          label="Search"
+          value={searchQuery}
+          onChangeText={(value) => {
+            setSearchQuery(value);
+            setFilters((prev) => ({ ...prev, baseLocation: value }));
+          }}
+          placeholder="Search by venue or location"
+          leftIcon="search"
+          accessibilityLabel="Search venues"
+        />
+        <View style={styles.headerRow}>
           <Button
+            variant="secondary"
             size="small"
-            onPress={() => router.push(`/playgrounds/book/${resumeDraft.venueId}`)}
-            accessibilityLabel="Resume booking"
+            onPress={applyFilters}
+            accessibilityLabel="Apply filters"
           >
-            Continue
+            Filters
+          </Button>
+          <View style={styles.quickChips}>
+            <Chip
+              label={filters.date ? `Date: ${filters.date}` : 'Pick date'}
+              selected={!!filters.date}
+              onPress={() =>
+                setFilters((prev) => ({
+                  ...prev,
+                  date: prev.date ? '' : new Date().toISOString().slice(0, 10),
+                }))
+              }
+              icon={<CalendarDays size={12} color={colors.textMuted} />}
+            />
+            <Chip
+              label={`${filters.players || 2} players`}
+              selected
+              onPress={() => setFilters((prev) => ({ ...prev, players: (prev.players || 2) + 1 }))}
+              icon={<Users size={12} color={colors.textMuted} />}
+            />
+            <Chip
+              label="Offers"
+              selected={filters.hasSpecialOffer}
+              onPress={() => setFilters((prev) => ({ ...prev, hasSpecialOffer: !prev.hasSpecialOffer }))}
+              icon={<Tag size={12} color={colors.textMuted} />}
+            />
+          </View>
+        </View>
+        <View style={styles.categoriesRow}>
+          {categoryItems.map(({ id, label, Icon }) => (
+            <Chip
+              key={id}
+              label={label}
+              selected={filters.activityId === id}
+              onPress={() => setFilters((prev) => ({ ...prev, activityId: prev.activityId === id ? '' : id }))}
+              icon={<Icon size={12} color={colors.textMuted} />}
+            />
+          ))}
+        </View>
+        <View
+          style={styles.tabsRow}
+          onLayout={(event) => {
+            tabWidth.current = event.nativeEvent.layout.width / 2;
+          }}
+        >
+          <Button
+            variant="ghost"
+            size="small"
+            onPress={() => setActiveTab('all')}
+            accessibilityLabel="All venues"
+          >
+            All
+          </Button>
+          <Button
+            variant="ghost"
+            size="small"
+            onPress={() => setActiveTab('offers')}
+            accessibilityLabel="Offers"
+          >
+            Offers
+          </Button>
+          <Animated.View
+            style={[
+              styles.tabsUnderline,
+              { backgroundColor: colors.accentOrange, width: tabWidth.current },
+              underlineStyle,
+            ]}
+          />
+        </View>
+      </View>
+
+      {venuesLoading ? (
+        renderSkeletons
+      ) : error ? (
+        <ErrorState title="Unable to load" message={error} onAction={() => fetchVenues(appliedFilters)} />
+      ) : venues.length ? (
+        <FlatList
+          data={venues}
+          key={`${columns}-${viewMode}`}
+          keyExtractor={(item, index) => String(item.id ?? index)}
+          numColumns={columns}
+          contentContainerStyle={styles.listContent}
+          columnWrapperStyle={columns > 1 ? styles.columnWrap : undefined}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentOrange} />}
+          renderItem={({ item }) => {
+            const imageUrl = resolveVenueImage(item);
+            const ratingRaw = item.rating ?? item.avg_rating ?? null;
+            const rating = ratingRaw !== null && ratingRaw !== undefined ? Number(ratingRaw) : null;
+            const activityLabel = item.activity_id ? activityMap.get(String(item.activity_id)) : 'Multi-sport';
+            const discountLabel = item.discount_percentage ? `${item.discount_percentage}% off` : null;
+            const priceLabel = resolvePricePerHour(item);
+
+            return (
+              <View style={[styles.cardWrap, columns > 1 && styles.cardWrapGrid]}>
+                <VenueCard
+                  title={item.name || item.title || 'Playground'}
+                  location={[item.city, item.country].filter(Boolean).join(', ')}
+                  imageUrl={imageUrl}
+                  rating={rating}
+                  hasOffer={!!item.has_special_offer}
+                  discountLabel={discountLabel}
+                  priceLabel={priceLabel}
+                  activityLabel={activityLabel || undefined}
+                  onPress={() => {
+                    const id = String(item.id || '');
+                    setSelectedVenueId(id);
+                    router.push(`/playgrounds/venue/${id}`);
+                  }}
+                />
+              </View>
+            );
+          }}
+        />
+      ) : (
+        <EmptyState
+          title="No venues found"
+          message="Try adjusting filters or resetting your search."
+          actionLabel="Reset filters"
+          onAction={resetFilters}
+        />
+      )}
+
+      {Platform.OS !== 'web' ? (
+        <View style={[styles.bottomTabs, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Button variant="ghost" size="small" accessibilityLabel="Explore" onPress={() => router.push('/playgrounds/explore')}>
+            Explore
+          </Button>
+          <Button variant="ghost" size="small" accessibilityLabel="Bookings" onPress={() => router.push('/playgrounds/bookings')}>
+            Bookings
+          </Button>
+          <Button variant="ghost" size="small" accessibilityLabel="Offers" onPress={() => setActiveTab('offers')}>
+            Offers
+          </Button>
+          <Button variant="ghost" size="small" accessibilityLabel="Profile" onPress={() => router.push('/playgrounds/auth')}>
+            Profile
           </Button>
         </View>
       ) : null}
@@ -409,57 +459,71 @@ export function PlaygroundsExploreScreen() {
 }
 
 const styles = StyleSheet.create({
-  listContent: {
-    paddingBottom: 140,
-  },
-  headerContent: {
+  stickyHeader: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
   },
-  row: {
+  headerRow: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing.sm,
+    alignItems: 'center',
   },
-  rowInput: {
+  quickChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
     flex: 1,
   },
-  inlineLabel: {
-    marginBottom: spacing.xs,
-  },
-  inlineChips: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
-  },
-  filtersRow: {
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  filtersTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  filtersChips: {
+  categoriesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    position: 'relative',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+    paddingBottom: spacing.sm,
+  },
+  tabsUnderline: {
+    position: 'absolute',
+    height: 2,
+    bottom: 0,
+    left: 0,
+    borderRadius: borderRadius.full,
+  },
+  listContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 120,
+  },
+  columnWrap: {
+    gap: spacing.lg,
+    marginBottom: spacing.lg,
   },
   cardWrap: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+    marginBottom: spacing.lg,
   },
-  stickyBar: {
+  cardWrapGrid: {
+    flex: 1,
+    marginRight: spacing.lg,
+  },
+  bottomTabs: {
     position: 'absolute',
     left: spacing.lg,
     right: spacing.lg,
     bottom: spacing.lg,
     borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    padding: spacing.sm,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
     ...shadows.md,
+  },
+  skeletonWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
 });

@@ -69,6 +69,10 @@ export type Venue = {
   venue_durations?: VenueDuration[];
   slots?: Slot[];
   available_slots?: Slot[];
+  has_special_offer?: boolean;
+  discount_percentage?: number;
+  price_per_hour?: number;
+  hourly_rate?: number;
   price_from?: number;
   starting_price?: number;
   currency?: string;
