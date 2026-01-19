@@ -25,6 +25,7 @@ import { VenueCard } from '../../components/playgrounds/VenueCard';
 import { endpoints } from '../../services/api/endpoints';
 import { API_BASE_URL } from '../../services/api/client';
 import {
+  clearPlaygroundsAuth,
   getPlaygroundsClientState,
   getPublicUser,
   getPublicUserMode,
@@ -49,21 +50,32 @@ function useDebouncedValue(value, delay = 350) {
   return debounced;
 }
 
+function normalizeImageUrl(uri) {
+  if (!uri) return null;
+  if (uri.startsWith('http')) return uri;
+  const normalized = uri.startsWith('/') ? uri : `/${uri}`;
+  return `${API_BASE_URL}${normalized}`;
+}
+
 function getVenueImages(venue) {
-  const images = venue.images || venue.venue_images || [];
+  const images = Array.isArray(venue.images) ? venue.images : venue.venue_images || [];
   return images
-    .map((img) => img?.url || img?.path || '')
+    .map((img) => img?.url || img?.path || img?.filename || '')
     .filter(Boolean)
-    .map((uri) => {
-      if (uri.startsWith('http')) return uri;
-      const normalized = uri.startsWith('/') ? uri : `/${uri}`;
-      return `${API_BASE_URL}${normalized}`;
-    });
+    .map((uri) => normalizeImageUrl(uri))
+    .filter(Boolean);
 }
 
 function resolveVenueImage(venue) {
+  if (venue?.image) {
+    return normalizeImageUrl(venue.image);
+  }
   const images = getVenueImages(venue);
-  return images[0] || null;
+  if (images.length) return images[0];
+  if (venue?.academy_profile?.hero_image) {
+    return normalizeImageUrl(venue.academy_profile.hero_image);
+  }
+  return null;
 }
 
 function formatMoney(amount, currency) {
@@ -72,10 +84,25 @@ function formatMoney(amount, currency) {
   return `${normalizedCurrency} ${Number(amount).toFixed(0)}`;
 }
 
-function resolvePricePerHour(venue) {
-  const price = venue.price_per_hour ?? venue.hourly_rate ?? venue.price_from ?? venue.starting_price ?? null;
+function resolvePriceLabel(venue) {
   const currency = venue.currency || 'AED';
-  return price ? `${formatMoney(price, currency)} / hr` : null;
+  if (venue.price !== null && venue.price !== undefined) {
+    const priceLabel = formatMoney(venue.price, currency);
+    return priceLabel ? `${priceLabel}` : '—';
+  }
+  const durations = Array.isArray(venue.durations)
+    ? venue.durations
+    : Array.isArray(venue.venue_durations)
+    ? venue.venue_durations
+    : [];
+  if (!durations.length) return '—';
+  const prices = durations
+    .map((item) => Number(item?.base_price))
+    .filter((value) => Number.isFinite(value));
+  if (!prices.length) return '—';
+  const minPrice = Math.min(...prices);
+  const label = formatMoney(minPrice, currency);
+  return label ? `From ${label}` : '—';
 }
 
 export function PlaygroundsExploreScreen() {
@@ -194,17 +221,15 @@ export function PlaygroundsExploreScreen() {
       setVenuesLoading(true);
       try {
         const res = await endpoints.playgrounds.venuesList(buildPayload(filtersState));
-        const list = Array.isArray(res?.venues)
-          ? res.venues
-          : Array.isArray(res?.data?.venues)
+        const list = Array.isArray(res?.data?.venues)
           ? res.data.venues
-          : Array.isArray(res?.data)
-          ? res.data
+          : Array.isArray(res?.venues)
+          ? res.venues
           : [];
         const normalizedList = debouncedSearch
           ? list.filter((venue) => {
               const name = `${venue.name || venue.title || ''}`.toLowerCase();
-              const location = `${venue.city || ''} ${venue.country || ''}`.toLowerCase();
+              const location = `${venue.base_location || venue?.academy_profile?.location_text || ''}`.toLowerCase();
               return name.includes(debouncedSearch.toLowerCase()) || location.includes(debouncedSearch.toLowerCase());
             })
           : list;
@@ -257,6 +282,13 @@ export function PlaygroundsExploreScreen() {
     fetchVenues(appliedFilters);
   }, [appliedFilters, fetchVenues]);
 
+  const handleLogout = useCallback(async () => {
+    await clearPlaygroundsAuth();
+    setPublicUser(null);
+    setPublicUserMode(null);
+    router.replace('/playgrounds/auth');
+  }, [router]);
+
   const underlineStyle = {
     transform: [
       {
@@ -287,7 +319,11 @@ export function PlaygroundsExploreScreen() {
 
   return (
     <Screen safe>
-      <AppHeader title="Playgrounds" />
+      <AppHeader
+        title="Playgrounds"
+        rightIcon={publicUser?.id ? 'log-out' : null}
+        onRightPress={publicUser?.id ? handleLogout : undefined}
+      />
       <View style={styles.stickyHeader}>
         <Input
           label="Search"
@@ -393,19 +429,23 @@ export function PlaygroundsExploreScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentOrange} />}
           renderItem={({ item }) => {
             const imageUrl = resolveVenueImage(item);
-            const ratingRaw = item.rating ?? item.avg_rating ?? null;
-            const rating = ratingRaw !== null && ratingRaw !== undefined ? Number(ratingRaw) : null;
+            const ratingRaw = item.avg_rating ?? 0;
+            const rating = Number.isFinite(Number(ratingRaw)) ? Number(ratingRaw) : 0;
+            const ratingCount = Number.isFinite(Number(item.ratings_count)) ? Number(item.ratings_count) : 0;
             const activityLabel = item.activity_id ? activityMap.get(String(item.activity_id)) : 'Multi-sport';
-            const discountLabel = item.discount_percentage ? `${item.discount_percentage}% off` : null;
-            const priceLabel = resolvePricePerHour(item);
+            const discountLabel =
+              item.special_offer_note || item.academy_profile?.special_offers_note || null;
+            const priceLabel = resolvePriceLabel(item);
+            const locationText =
+              item.base_location || item.academy_profile?.location_text || '';
 
             return (
               <View style={[styles.cardWrap, columns > 1 && styles.cardWrapGrid]}>
                 <VenueCard
                   title={item.name || item.title || 'Playground'}
-                  location={[item.city, item.country].filter(Boolean).join(', ')}
+                  location={locationText}
                   imageUrl={imageUrl}
-                  rating={rating}
+                  rating={ratingCount ? rating : 0}
                   hasOffer={!!item.has_special_offer}
                   discountLabel={discountLabel}
                   priceLabel={priceLabel}

@@ -1,8 +1,8 @@
 import { endpoints } from '../api/endpoints';
 
 const normalizeVenueList = (res) => {
-  if (Array.isArray(res?.venues)) return res.venues;
   if (Array.isArray(res?.data?.venues)) return res.data.venues;
+  if (Array.isArray(res?.venues)) return res.venues;
   if (Array.isArray(res?.data)) return res.data;
   return [];
 };

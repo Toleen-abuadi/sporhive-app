@@ -38,21 +38,32 @@ function useDebouncedValue(value, delay = 350) {
   return debounced;
 }
 
+function normalizeImageUrl(uri) {
+  if (!uri) return null;
+  if (uri.startsWith('http')) return uri;
+  const normalized = uri.startsWith('/') ? uri : `/${uri}`;
+  return `${API_BASE_URL}${normalized}`;
+}
+
 function getVenueImages(venue) {
-  const images = venue.images || venue.venue_images || [];
+  const images = Array.isArray(venue.images) ? venue.images : venue.venue_images || [];
   return images
-    .map((img) => img?.url || img?.path || '')
+    .map((img) => img?.url || img?.path || img?.filename || '')
     .filter(Boolean)
-    .map((uri) => {
-      if (uri.startsWith('http')) return uri;
-      const normalized = uri.startsWith('/') ? uri : `/${uri}`;
-      return `${API_BASE_URL}${normalized}`;
-    });
+    .map((uri) => normalizeImageUrl(uri))
+    .filter(Boolean);
 }
 
 function resolveVenueImage(venue) {
+  if (venue?.image) {
+    return normalizeImageUrl(venue.image);
+  }
   const images = getVenueImages(venue);
-  return images[0] || null;
+  if (images.length) return images[0];
+  if (venue?.academy_profile?.hero_image) {
+    return normalizeImageUrl(venue.academy_profile.hero_image);
+  }
+  return null;
 }
 
 function formatMoney(amount, currency) {
@@ -72,26 +83,32 @@ function formatSlotLabel(slot) {
 function normalizeVenue(venue) {
   const name = venue.name || venue.title || 'Playground';
   const sport = venue.sport_type || venue.sport || 'Multi-sport';
-  const city = venue.city || '';
-  const country = venue.country || '';
-  const location = [city, country].filter(Boolean).join(', ');
-  const ratingRaw = venue.rating ?? venue.avg_rating ?? null;
-  const rating = ratingRaw !== null && ratingRaw !== undefined ? Number(ratingRaw) : null;
-  const durations = venue.durations || venue.venue_durations || [];
+  const location = venue.base_location || venue.academy_profile?.location_text || '';
+  const ratingRaw = venue.avg_rating ?? 0;
+  const rating = Number.isFinite(Number(ratingRaw)) ? Number(ratingRaw) : 0;
+  const ratingCount = Number.isFinite(Number(venue.ratings_count)) ? Number(venue.ratings_count) : 0;
+  const durations = Array.isArray(venue.durations)
+    ? venue.durations
+    : Array.isArray(venue.venue_durations)
+    ? venue.venue_durations
+    : [];
   const slots = venue.slots || venue.available_slots || [];
   const currency = venue.currency || durations?.[0]?.currency || slots?.[0]?.currency || null;
-  const priceFrom =
-    venue.price_from ??
-    venue.starting_price ??
-    durations?.[0]?.price ??
-    slots?.[0]?.price ??
-    null;
+  let priceFrom = venue.price ?? null;
+  if (priceFrom === null || priceFrom === undefined) {
+    const durationPrices = durations
+      .map((item) => Number(item?.base_price))
+      .filter((value) => Number.isFinite(value));
+    if (durationPrices.length) {
+      priceFrom = Math.min(...durationPrices);
+    }
+  }
 
   return {
     name,
     sport,
     location,
-    rating,
+    rating: ratingCount ? rating : 0,
     durations,
     slots,
     currency,
@@ -174,12 +191,10 @@ export function PlaygroundsDiscoveryScreen() {
       if (isRefresh) setRefreshing(true);
       try {
         const res = await endpoints.playgrounds.venuesList(filtersPayload);
-        const list = Array.isArray(res?.venues)
-          ? res.venues
-          : Array.isArray(res?.data?.venues)
+        const list = Array.isArray(res?.data?.venues)
           ? res.data.venues
-          : Array.isArray(res?.data)
-          ? res.data
+          : Array.isArray(res?.venues)
+          ? res.venues
           : [];
         const filteredList = debouncedQuery
           ? list.filter((venue) => {
@@ -304,21 +319,24 @@ export function PlaygroundsDiscoveryScreen() {
       setSlotLoading(true);
       try {
         const durationRes = await endpoints.playgrounds.venueDurations({ venue_id: venue.id });
-        const durationsList = Array.isArray(durationRes?.durations)
-          ? durationRes.durations
-          : Array.isArray(durationRes?.data?.durations)
+        const durationsList = Array.isArray(durationRes?.data?.durations)
           ? durationRes.data.durations
+          : Array.isArray(durationRes?.durations)
+          ? durationRes.durations
           : [];
-        setDurations(durationsList);
+        const filteredDurations = durationsList.filter(
+          (item) => item?.is_active && String(item?.venue) === String(venue.id)
+        );
+        setDurations(filteredDurations);
 
-        const fallbackDuration = durationsList[0] || meta.durations?.[0] || null;
+        const fallbackDuration = filteredDurations[0] || meta.durations?.[0] || null;
         const resolvedDuration = selectedDuration || fallbackDuration;
         setSelectedDuration(resolvedDuration);
         if (resolvedDuration) {
           setBookingDraftState((prev) => ({
             ...prev,
             duration: resolvedDuration,
-            price: resolvedDuration.price ?? prev?.price ?? null,
+            price: resolvedDuration.base_price ?? prev?.price ?? null,
             currency: resolvedDuration.currency ?? prev?.currency ?? null,
           }));
         }
@@ -372,7 +390,7 @@ export function PlaygroundsDiscoveryScreen() {
     setBookingDraftState((prev) => ({
       ...prev,
       duration,
-      price: duration.price ?? prev?.price ?? null,
+      price: duration.base_price ?? prev?.price ?? null,
       currency: duration.currency ?? prev?.currency ?? null,
     }));
   }, []);
@@ -599,6 +617,9 @@ export function PlaygroundsDiscoveryScreen() {
           const meta = normalizeVenue(item);
           const activityName =
             (item.activity_id ? activityMap.get(String(item.activity_id)) : '') || meta.sport;
+          const priceLabel = formatMoney(meta.priceFrom, meta.currency);
+          const pricePrefix =
+            item.price === null || item.price === undefined ? 'From ' : '';
           return (
             <View style={styles.cardWrap}>
               <PlaygroundCard
@@ -607,7 +628,7 @@ export function PlaygroundsDiscoveryScreen() {
                 sport={activityName}
                 imageUrl={meta.imageUrl}
                 rating={meta.rating ?? undefined}
-                priceLabel={formatMoney(meta.priceFrom, meta.currency) || undefined}
+                priceLabel={priceLabel ? `${pricePrefix}${priceLabel}` : '—'}
                 onPress={() => openBookingSheet(item)}
               />
             </View>

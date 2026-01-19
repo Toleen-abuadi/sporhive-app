@@ -121,7 +121,7 @@ export function BookingStepperScreen() {
     venue?.currency || durations?.[0]?.currency || slots?.[0]?.currency || null;
   const durationMinutes =
     selectedDuration?.minutes || selectedDuration?.duration_minutes || 60;
-  const basePrice = selectedDuration?.price || 0;
+  const basePrice = Number(selectedDuration?.base_price || 0);
   const taxRate = 0.05;
   const taxAmount = basePrice ? basePrice * taxRate : 0;
   const totalAmount = basePrice + taxAmount;
@@ -230,14 +230,23 @@ export function BookingStepperScreen() {
       const durationRes = await endpoints.playgrounds.venueDurations({
         venue_id: venue.id,
       });
-      const list = Array.isArray(durationRes?.durations)
-        ? durationRes.durations
-        : Array.isArray(durationRes?.data?.durations)
+      const list = Array.isArray(durationRes?.data?.durations)
         ? durationRes.data.durations
+        : Array.isArray(durationRes?.durations)
+        ? durationRes.durations
         : [];
-      setDurations(list);
-      const defaultDuration = list.find((item) => item.is_default) || list[0];
-      if (!selectedDuration && defaultDuration) {
+      const filtered = list.filter(
+        (item) =>
+          item?.is_active &&
+          String(item?.venue) === String(venue.id)
+      );
+      setDurations(filtered);
+      const resolvedSelection = selectedDuration?.id
+        ? filtered.find((item) => String(item.id) === String(selectedDuration.id))
+        : null;
+      const defaultDuration =
+        resolvedSelection || filtered.find((item) => item.is_default) || filtered[0];
+      if (defaultDuration) {
         setSelectedDuration(defaultDuration);
       }
     } catch (err) {
@@ -598,7 +607,7 @@ export function BookingStepperScreen() {
                         </Text>
                         <Text variant="bodySmall" color={colors.textSecondary}>
                           {formatMoney(
-                            duration.price,
+                            duration.base_price,
                             duration.currency || currency
                           ) || 'Price TBD'}
                         </Text>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -13,6 +13,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
+import { getPublicUser, getPublicUserMode } from '../services/playgrounds/storage';
 import { spacing, borderRadius } from '../theme/tokens';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -124,6 +125,14 @@ export function HomeServicesScreen() {
     changeLanguage(language === 'en' ? 'ar' : 'en');
   };
 
+  const resolvePlaygroundsRoute = useCallback(async () => {
+    const [mode, user] = await Promise.all([getPublicUserMode(), getPublicUser()]);
+    if (mode === 'registered' && user?.id) {
+      return '/playgrounds/explore';
+    }
+    return '/playgrounds/auth';
+  }, []);
+
   const services = [
     {
       id: 'discover',
@@ -214,8 +223,21 @@ export function HomeServicesScreen() {
             description={service.description}
             icon={service.icon}
             color={service.color}
-            onPress={() => {
-              if (service.href) router.push(service.href);
+            onPress={async () => {
+              if (!service.href) return;
+              if (service.id === 'playgrounds-explore') {
+                const target = await resolvePlaygroundsRoute();
+                router.replace(target);
+                return;
+              }
+              if (service.id === 'playgrounds-bookings') {
+                const [mode, user] = await Promise.all([getPublicUserMode(), getPublicUser()]);
+                if (mode !== 'registered' || !user?.id) {
+                  router.replace('/playgrounds/auth');
+                  return;
+                }
+              }
+              router.push(service.href);
             }}
 
           />
