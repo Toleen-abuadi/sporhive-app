@@ -1,11 +1,3 @@
-export const radius = {
-  sm: 10,
-  md: 14,
-  lg: 18,
-  xl: 24,
-  pill: 999,
-};
-
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -14,6 +6,14 @@ export const spacing = {
   xl: 24,
   '2xl': 32,
   '3xl': 40,
+};
+
+export const radius = {
+  sm: 10,
+  md: 14,
+  lg: 18,
+  xl: 24,
+  pill: 999,
 };
 
 export const typography = {
@@ -40,29 +40,5 @@ export const typography = {
     xl: 30,
     '2xl': 36,
     '3xl': 44,
-  },
-};
-
-export const shadow = {
-  sm: {
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  md: {
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
-  },
-  lg: {
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.18,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 8,
   },
 };
