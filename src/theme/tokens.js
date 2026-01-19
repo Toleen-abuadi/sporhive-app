@@ -4,55 +4,41 @@ export const spacing = {
   md: 12,
   lg: 16,
   xl: 24,
-  xxl: 32,
-  xxxl: 48,
+  '2xl': 32,
+  '3xl': 40,
 };
 
-export const fontSize = {
-  xs: 12,
-  sm: 14,
-  base: 16,
+export const radius = {
+  sm: 10,
+  md: 14,
   lg: 18,
-  xl: 20,
-  xxl: 24,
-  xxxl: 32,
+  xl: 24,
+  pill: 999,
 };
 
-export const fontWeight = {
-  normal: '400',
-  medium: '500',
-  semibold: '600',
-  bold: '700',
-};
-
-export const borderRadius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  full: 9999,
-};
-
-export const shadows = {
-  sm: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+export const typography = {
+  family: {
+    regular: 'System',
+    medium: 'System',
+    semibold: 'System',
+    bold: 'System',
   },
-  md: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+  size: {
+    xs: 12,
+    sm: 14,
+    md: 16,
+    lg: 18,
+    xl: 22,
+    '2xl': 28,
+    '3xl': 34,
   },
-  lg: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
+  lineHeight: {
+    xs: 16,
+    sm: 20,
+    md: 24,
+    lg: 26,
+    xl: 30,
+    '2xl': 36,
+    '3xl': 44,
   },
 };
