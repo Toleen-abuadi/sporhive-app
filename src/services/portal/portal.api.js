@@ -1,5 +1,5 @@
 import { apiClient } from '../api/client';
-import { storage, PORTAL_KEYS } from '../storage/storage';
+import { storage, PORTAL_KEYS, APP_STORAGE_KEYS } from '../storage/storage';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL + '/api/v1';
 
@@ -40,8 +40,8 @@ const resolveAcademyId = async (override) => {
 
 const resolveLanguage = async (override) => {
   if (override) return override;
-  const lang = await storage.getLanguage();
-  return lang || 'en';
+  const lang = await storage.getItem(APP_STORAGE_KEYS.LANGUAGE);
+  return typeof lang === 'string' && lang ? lang : 'en';
 };
 
 const resolveTryOutId = async (override) => {

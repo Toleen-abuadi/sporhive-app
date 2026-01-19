@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from './Icon';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
 import { Text } from './Text';
@@ -14,11 +14,13 @@ export function EmptyState({
   onAction,
 }) {
   const { colors } = useTheme();
+  const iconName = typeof icon === 'string' ? icon : undefined;
+  const iconComponent = typeof icon === 'string' ? undefined : icon;
 
   return (
     <View style={styles.container}>
       <View style={[styles.iconContainer, { backgroundColor: colors.surface }]}>
-        <Feather name={icon} size={48} color={colors.textMuted} />
+        <Icon name={iconName} icon={iconComponent} size={48} color={colors.textMuted} />
       </View>
 
       <Text variant="h4" weight="semibold" style={styles.title}>

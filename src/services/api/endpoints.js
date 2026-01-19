@@ -52,6 +52,9 @@ export const endpoints = {
         headers: { 'Content-Type': 'multipart/form-data' },
       }),
     listBookings: (payload = {}) => apiClient.post('/playgrounds/public/bookings/list', payload),
+    ratingResolveToken: (token) => apiClient.post('/playgrounds/public/ratings/resolve-token', { token }),
+    ratingCanRate: (payload = {}) => apiClient.post('/playgrounds/public/ratings/can-rate', payload),
+    ratingCreate: (payload = {}) => apiClient.post('/playgrounds/public/ratings/create', payload),
   },
 
   publicUsers: {
