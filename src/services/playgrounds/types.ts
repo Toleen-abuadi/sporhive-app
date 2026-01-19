@@ -100,6 +100,12 @@ export type Booking = {
   total_price?: number | string;
   currency?: string;
   status?: string;
+  payment_type?: 'cash' | 'cliq' | string;
+  start_time?: string;
+  end_time?: string;
+  phone?: string;
+  contact_phone?: string;
+  contact_whatsapp?: string;
 };
 
 export type BookingDraftStorage = {

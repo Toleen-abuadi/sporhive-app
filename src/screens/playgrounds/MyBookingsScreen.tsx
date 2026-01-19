@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -7,19 +7,19 @@ import { Screen } from '../../components/ui/Screen';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
+import { Chip } from '../../components/ui/Chip';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
-import { LoadingState } from '../../components/ui/LoadingState';
+import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
 import { endpoints } from '../../services/api/endpoints';
 import { getPublicUser } from '../../services/playgrounds/storage';
 import { Booking, PublicUser } from '../../services/playgrounds/types';
-import { borderRadius, shadows, spacing } from '../../theme/tokens';
+import { BookingCard } from '../../components/playgrounds/BookingCard';
+import { spacing } from '../../theme/tokens';
 
-function formatMoney(amount?: number | null, currency?: string | null) {
-  if (amount === null || amount === undefined || Number.isNaN(Number(amount))) return null;
-  const normalizedCurrency = currency || 'AED';
-  return `${normalizedCurrency} ${Number(amount).toFixed(0)}`;
-}
+const STATUS_TABS = ['all', 'pending', 'approved', 'rejected', 'cancelled'] as const;
+type StatusTab = typeof STATUS_TABS[number];
 
 export function MyBookingsScreen() {
   const { colors } = useTheme();
@@ -29,6 +29,8 @@ export function MyBookingsScreen() {
   const [items, setItems] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeStatus, setActiveStatus] = useState<StatusTab>('all');
+  const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
 
   const loadBookings = useCallback(async () => {
     setLoading(true);
@@ -60,39 +62,72 @@ export function MyBookingsScreen() {
     loadBookings();
   }, [loadBookings]);
 
+  const counts = useMemo(() => {
+    const base = STATUS_TABS.reduce((acc, status) => ({ ...acc, [status]: 0 }), {} as Record<StatusTab, number>);
+    items.forEach((item) => {
+      const status = (item.status || 'pending').toLowerCase() as StatusTab;
+      base.all += 1;
+      if (base[status] !== undefined) {
+        base[status] += 1;
+      }
+    });
+    return base;
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    if (activeStatus === 'all') return items;
+    return items.filter((item) => (item.status || '').toLowerCase() === activeStatus);
+  }, [activeStatus, items]);
+
   return (
     <Screen safe>
       <AppHeader title="My bookings" />
-      {loading ? (
-        <LoadingState message="Loading your bookings..." />
-      ) : !user?.id ? (
+      {!user?.id && !loading ? (
         <EmptyState
           title="Sign in required"
           message="Log in to view your playground bookings."
           actionLabel="Sign in"
           onAction={() => router.push('/playgrounds/auth')}
         />
+      ) : loading ? (
+        <View style={styles.loadingWrap}>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Skeleton key={`booking-skeleton-${index}`} height={140} style={{ marginBottom: spacing.md }} />
+          ))}
+        </View>
       ) : error ? (
         <ErrorState title="Unable to load" message={error} onAction={loadBookings} />
-      ) : items.length ? (
-        <FlatList
-          data={items}
-          keyExtractor={(item, index) => String(item.id ?? item.booking_id ?? index)}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text variant="bodySmall" color={colors.textSecondary}>
-                {item.booking_code || item.id}
-              </Text>
-              <Text variant="bodySmall" weight="semibold">
-                {item.venue?.name || item.venue?.title || 'Playground'} • {item.booking_date || item.date}
-              </Text>
-              <Text variant="bodySmall" color={colors.textSecondary}>
-                {formatMoney(item.total || (item.total_price ? Number(item.total_price) : null), item.currency)}
-              </Text>
-            </View>
+      ) : (
+        <>
+          <View style={styles.filterRow}>
+            {STATUS_TABS.map((status) => (
+              <Chip
+                key={status}
+                label={`${status.charAt(0).toUpperCase()}${status.slice(1)} (${counts[status] || 0})`}
+                selected={activeStatus === status}
+                onPress={() => setActiveStatus(status)}
+                accessibilityLabel={`Filter ${status}`}
+              />
+            ))}
+          </View>
+          {filteredItems.length ? (
+            <FlatList
+              data={filteredItems}
+              keyExtractor={(item, index) => String(item.id ?? item.booking_id ?? index)}
+              contentContainerStyle={styles.listContent}
+              renderItem={({ item }) => (
+                <BookingCard booking={item} onCancel={setCancelTarget} />
+              )}
+            />
+          ) : (
+            <EmptyState
+              title="No bookings found"
+              message="Try another status filter or explore venues."
+              actionLabel="Explore"
+              onAction={() => router.push('/playgrounds/explore')}
+            />
           )}
-        />
+        </>
       ) : (
         <EmptyState
           title="No bookings yet"
@@ -101,20 +136,55 @@ export function MyBookingsScreen() {
           onAction={() => router.push('/playgrounds/explore')}
         />
       )}
+
+      <BottomSheetModal visible={!!cancelTarget} onClose={() => setCancelTarget(null)}>
+        <View style={styles.cancelSheet}>
+          <Text variant="h4" weight="semibold">
+            Cancel booking?
+          </Text>
+          <Text variant="bodySmall" color={colors.textSecondary}>
+            Please contact support or the venue to confirm any cancellation policy.
+          </Text>
+          <View style={styles.cancelActions}>
+            <Button variant="secondary" onPress={() => setCancelTarget(null)}>
+              Keep booking
+            </Button>
+            <Button
+              onPress={() => {
+                setCancelTarget(null);
+              }}
+            >
+              Got it
+            </Button>
+          </View>
+        </View>
+      </BottomSheetModal>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  loadingWrap: {
+    padding: spacing.lg,
+  },
+  filterRow: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
   listContent: {
     padding: spacing.lg,
     gap: spacing.md,
   },
-  card: {
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
+  cancelSheet: {
+    gap: spacing.md,
+  },
+  cancelActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: spacing.sm,
-    ...shadows.sm,
   },
 });
