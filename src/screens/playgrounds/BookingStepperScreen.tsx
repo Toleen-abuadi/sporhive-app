@@ -3,7 +3,7 @@ import { Animated, FlatList, Image, Pressable, ScrollView, StyleSheet, View } fr
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CalendarDays, CreditCard, Moon, Sun, Users } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import Toast from 'react-native-toast-message';
+import { useToast } from '../../components/ui/ToastHost';
 
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
@@ -98,6 +98,7 @@ export function BookingStepperScreen() {
   const [guestPhone, setGuestPhone] = useState('');
   const [guestSheetOpen, setGuestSheetOpen] = useState(false);
   const [baseFilters, setBaseFilters] = useState<{ date?: string; players?: number } | null>(null);
+  const toast = useToast();
   const minPlayers = venue?.min_players ?? 1;
   const maxPlayers = venue?.max_players ?? 20;
   const stepAnim = useRef(new Animated.Value(0)).current;
@@ -304,10 +305,8 @@ export function BookingStepperScreen() {
       const res: Booking = await endpoints.playgrounds.createBooking(formData);
       await setBookingDraft(null);
       router.replace('/playgrounds/bookings');
-      Toast.show({
-        type: 'success',
-        text1: 'Booking confirmed',
-        text2: res?.booking_code ? `Code ${res.booking_code}` : 'Your session is booked.',
+      toast.success(res?.booking_code ? `Code ${res.booking_code}` : 'Your session is booked.', {
+        title: 'Booking confirmed',
       });
       if (res?.booking_code) {
         setError(`Booking confirmed: ${res.booking_code}`);
@@ -332,6 +331,7 @@ export function BookingStepperScreen() {
     router,
     selectedDuration,
     selectedSlot,
+    toast,
     userMode,
     venue?.academy_profile_id,
     venue?.activity_id,
