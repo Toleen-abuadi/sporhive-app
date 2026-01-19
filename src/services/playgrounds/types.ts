@@ -56,32 +56,19 @@ export type Venue = {
   title?: string;
   academy_profile_id?: string | number;
   activity_id?: string | number;
-  academy_profile?: AcademyProfile;
   city?: string;
   country?: string;
   address?: string;
-  location_text?: string;
-  maps_url?: string;
   sport?: string;
   sport_type?: string;
-  tags?: string[] | string;
-  features?: string[] | string;
-  amenities?: string[] | string;
   rating?: number;
   avg_rating?: number;
-  ratings_count?: number;
-  min_players?: number;
-  max_players?: number;
   images?: VenueImage[];
   venue_images?: VenueImage[];
   durations?: VenueDuration[];
   venue_durations?: VenueDuration[];
   slots?: Slot[];
   available_slots?: Slot[];
-  has_special_offer?: boolean;
-  discount_percentage?: number;
-  price_per_hour?: number;
-  hourly_rate?: number;
   price_from?: number;
   starting_price?: number;
   currency?: string;
@@ -100,33 +87,4 @@ export type Booking = {
   total_price?: number | string;
   currency?: string;
   status?: string;
-  payment_type?: 'cash' | 'cliq' | string;
-  start_time?: string;
-  end_time?: string;
-  phone?: string;
-  contact_phone?: string;
-  contact_whatsapp?: string;
-};
-
-export type BookingDraftStorage = {
-  venueId: string;
-  academyProfileId: string;
-  draft: {
-    selectedDurationId?: string;
-    bookingDate?: string;
-    players?: number;
-    selectedSlot?: { start_time: string; end_time: string };
-    paymentType?: 'cash' | 'cliq';
-    cashOnDate?: boolean;
-    currentStep?: number;
-  };
-};
-
-export type ExploreFilters = {
-  activityId?: string;
-  date?: string;
-  players?: number;
-  baseLocation?: string;
-  hasSpecialOffer?: boolean;
-  sortBy?: 'rating_desc' | 'price_asc';
 };

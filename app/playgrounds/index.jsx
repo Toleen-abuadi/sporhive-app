@@ -1,6 +1,6 @@
 import React from 'react';
-import { Redirect } from 'expo-router';
+import { PlaygroundsDiscoveryScreen } from '../../src/screens/PlaygroundsDiscoveryScreen';
 
 export default function PlaygroundsIndex() {
-  return <Redirect href="/playgrounds/explore" />;
+  return <PlaygroundsDiscoveryScreen />;
 }
