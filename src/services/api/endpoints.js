@@ -44,7 +44,7 @@ export const endpoints = {
 
   playgrounds: {
     venuesList: (payload = {}) => apiClient.post('/playgrounds/public/venues/list', payload),
-    activitiesList: (payload = {}) => apiClient.post('/playgrounds/admin/activities/list', payload),
+    activitiesList: (payload = {}) => apiClient.post('/playgrounds/public/activities/list', payload),
     venueDurations: (payload = {}) => apiClient.post('/playgrounds/admin/venues/durations/list', payload),
     slots: (payload = {}) => apiClient.post('/playgrounds/public/slots', payload),
     createBooking: (formData) =>

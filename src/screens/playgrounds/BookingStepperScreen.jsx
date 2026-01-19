@@ -1,7 +1,27 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, FlatList, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  Animated,
+  FlatList,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CalendarDays, CreditCard, Moon, Sun, Users } from 'lucide-react-native';
+import {
+  CalendarDays,
+  CreditCard,
+  Moon,
+  Sun,
+  Users,
+} from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useToast } from '../../components/ui/ToastHost';
 
@@ -40,10 +60,12 @@ function getDateLabel(date) {
 }
 
 function buildSlotsPayload({ venueId, date, durationMinutes }) {
+  // backend expects YYYY-MM-DD (string) and requires it
+  const normalizedDate = typeof date === 'string' ? date.trim() : '';
   return {
-    venue_id: venueId,
-    date: date || undefined,
-    duration_minutes: durationMinutes || 60,
+    venue_id: String(venueId),
+    date: normalizedDate, // REQUIRED
+    duration_minutes: Number(durationMinutes) || 60,
   };
 }
 
@@ -57,7 +79,8 @@ function buildBookingDraft(venue, state) {
 }
 
 function formatMoney(amount, currency) {
-  if (amount === null || amount === undefined || Number.isNaN(Number(amount))) return null;
+  if (amount === null || amount === undefined || Number.isNaN(Number(amount)))
+    return null;
   const normalizedCurrency = currency || 'AED';
   return `${normalizedCurrency} ${Number(amount).toFixed(0)}`;
 }
@@ -94,8 +117,10 @@ export function BookingStepperScreen() {
   const maxPlayers = venue?.max_players ?? 20;
   const stepAnim = useRef(new Animated.Value(0)).current;
 
-  const currency = venue?.currency || durations?.[0]?.currency || slots?.[0]?.currency || null;
-  const durationMinutes = selectedDuration?.minutes || selectedDuration?.duration_minutes || 60;
+  const currency =
+    venue?.currency || durations?.[0]?.currency || slots?.[0]?.currency || null;
+  const durationMinutes =
+    selectedDuration?.minutes || selectedDuration?.duration_minutes || 60;
   const basePrice = selectedDuration?.price || 0;
   const taxRate = 0.05;
   const taxAmount = basePrice ? basePrice * taxRate : 0;
@@ -103,17 +128,33 @@ export function BookingStepperScreen() {
 
   const draftPayload = useMemo(() => {
     return buildBookingDraft(venue, {
-      selectedDurationId: selectedDuration?.id ? String(selectedDuration.id) : undefined,
+      selectedDurationId: selectedDuration?.id
+        ? String(selectedDuration.id)
+        : undefined,
       bookingDate: bookingDate || undefined,
       players: Number(players) || 2,
       selectedSlot: selectedSlot
-        ? { start_time: String(selectedSlot.start_time || selectedSlot.start || ''), end_time: String(selectedSlot.end_time || selectedSlot.end || '') }
+        ? {
+            start_time: String(
+              selectedSlot.start_time || selectedSlot.start || ''
+            ),
+            end_time: String(selectedSlot.end_time || selectedSlot.end || ''),
+          }
         : undefined,
       paymentType,
       cashOnDate,
       currentStep,
     });
-  }, [bookingDate, cashOnDate, currentStep, paymentType, players, selectedDuration?.id, selectedSlot, venue]);
+  }, [
+    bookingDate,
+    cashOnDate,
+    currentStep,
+    paymentType,
+    players,
+    selectedDuration?.id,
+    selectedSlot,
+    venue,
+  ]);
 
   const loadVenue = useCallback(async () => {
     setLoading(true);
@@ -128,17 +169,24 @@ export function BookingStepperScreen() {
       if (mode) setUserMode(mode);
       if (user) setPublicUser(user);
 
-      const cached = Array.isArray(client?.cachedResults) ? client?.cachedResults : [];
-      const fromCache = cached.find((item) => String(item.id) === String(venueId));
+      const cached = Array.isArray(client?.cachedResults)
+        ? client?.cachedResults
+        : [];
+      const fromCache = cached.find(
+        (item) => String(item.id) === String(venueId)
+      );
       if (fromCache) setVenue(fromCache);
       if (draft?.venueId && String(draft.venueId) === String(venueId)) {
         if (draft.draft.selectedDurationId) {
-          setSelectedDuration((prev) => prev || ({ id: draft.draft.selectedDurationId }));
+          setSelectedDuration(
+            (prev) => prev || { id: draft.draft.selectedDurationId }
+          );
         }
         if (draft.draft.bookingDate) setBookingDate(draft.draft.bookingDate);
         if (draft.draft.players) setPlayers(String(draft.draft.players));
         if (draft.draft.paymentType) setPaymentType(draft.draft.paymentType);
-        if (typeof draft.draft.cashOnDate === 'boolean') setCashOnDate(draft.draft.cashOnDate);
+        if (typeof draft.draft.cashOnDate === 'boolean')
+          setCashOnDate(draft.draft.cashOnDate);
         if (draft.draft.currentStep) setCurrentStep(draft.draft.currentStep);
         if (draft.draft.selectedSlot) {
           setSelectedSlot({
@@ -156,6 +204,17 @@ export function BookingStepperScreen() {
     }
   }, [venueId]);
 
+  const handleSelectDate = useCallback(
+    (label) => {
+      setBookingDate(label);
+      setSelectedSlot(null);
+      setSlots([]);
+      // Call immediately with the selected date (no waiting for state)
+      loadSlots(label);
+    },
+    [loadSlots]
+  );
+
   useEffect(() => {
     if (baseFilters?.date) {
       setBookingDate((prev) => prev || baseFilters.date || '');
@@ -168,7 +227,9 @@ export function BookingStepperScreen() {
   const loadDurations = useCallback(async () => {
     if (!venue?.id) return;
     try {
-      const durationRes = await endpoints.playgrounds.venueDurations({ venue_id: venue.id });
+      const durationRes = await endpoints.playgrounds.venueDurations({
+        venue_id: venue.id,
+      });
       const list = Array.isArray(durationRes?.durations)
         ? durationRes.durations
         : Array.isArray(durationRes?.data?.durations)
@@ -184,25 +245,47 @@ export function BookingStepperScreen() {
     }
   }, [selectedDuration, venue?.id]);
 
-  const loadSlots = useCallback(async () => {
-    if (!venue?.id || !selectedDuration) return;
-    setSlotLoading(true);
-    try {
-      const slotRes = await endpoints.playgrounds.slots(
-        buildSlotsPayload({ venueId: venue.id, date: bookingDate || undefined, durationMinutes })
-      );
-      const list = Array.isArray(slotRes?.slots)
-        ? slotRes.slots
-        : Array.isArray(slotRes?.data?.slots)
-        ? slotRes.data.slots
-        : [];
-      setSlots(list);
-    } catch (err) {
-      setError(err?.message || 'Unable to load slots.');
-    } finally {
-      setSlotLoading(false);
-    }
-  }, [bookingDate, selectedDuration, venue?.id]);
+  const loadSlots = useCallback(
+    async (explicitDate) => {
+      if (!venue?.id || !selectedDuration) return;
+
+      const effectiveDate = (explicitDate ?? bookingDate ?? '').trim();
+      if (!effectiveDate) {
+        // Don’t call backend if date isn’t selected yet
+        setSlots([]);
+        setSelectedSlot(null);
+        return;
+      }
+
+      setSlotLoading(true);
+      setError('');
+
+      try {
+        const slotRes = await endpoints.playgrounds.slots(
+          buildSlotsPayload({
+            venueId: venue.id,
+            date: effectiveDate, // ALWAYS send selected date
+            durationMinutes,
+          })
+        );
+
+        const list = Array.isArray(slotRes?.slots)
+          ? slotRes.slots
+          : Array.isArray(slotRes?.data?.slots)
+          ? slotRes.data.slots
+          : [];
+
+        setSlots(list);
+      } catch (err) {
+        setSlots([]);
+        setSelectedSlot(null);
+        setError(err?.message || 'Unable to load slots.');
+      } finally {
+        setSlotLoading(false);
+      }
+    },
+    [bookingDate, durationMinutes, selectedDuration, venue?.id]
+  );
 
   useEffect(() => {
     loadVenue();
@@ -213,14 +296,23 @@ export function BookingStepperScreen() {
   }, [loadDurations]);
 
   useEffect(() => {
-    loadSlots();
-  }, [loadSlots]);
+    if ((bookingDate || '').trim()) {
+      loadSlots();
+    }
+  }, [bookingDate, loadSlots]);
 
   useEffect(() => {
     if (draftPayload) {
       setBookingDraft(draftPayload);
     }
   }, [draftPayload]);
+
+  useEffect(() => {
+    if ((bookingDate || '').trim() && selectedDuration) {
+      setSelectedSlot(null);
+      loadSlots();
+    }
+  }, [selectedDuration?.id, bookingDate, loadSlots]);
 
   useEffect(() => {
     setPublicUserMode(userMode);
@@ -250,7 +342,10 @@ export function BookingStepperScreen() {
     }
     if (userMode === 'registered' && !publicUser?.id) {
       if (draftPayload) {
-        await setBookingDraft({ ...draftPayload, draft: { ...draftPayload.draft, currentStep } });
+        await setBookingDraft({
+          ...draftPayload,
+          draft: { ...draftPayload.draft, currentStep },
+        });
       }
       router.push('/playgrounds/auth?fromBooking=1');
       return;
@@ -279,7 +374,10 @@ export function BookingStepperScreen() {
     formData.append('venue_id', String(venue.id));
     formData.append('duration_id', String(selectedDuration.id));
     formData.append('booking_date', bookingDate);
-    formData.append('start_time', String(selectedSlot.start_time || selectedSlot.start || ''));
+    formData.append(
+      'start_time',
+      String(selectedSlot.start_time || selectedSlot.start || '')
+    );
     formData.append('number_of_players', String(Number(players) || 2));
     formData.append('payment_type', paymentType);
     formData.append('cash_payment_on_date', cashOnDate ? 'true' : 'false');
@@ -296,9 +394,14 @@ export function BookingStepperScreen() {
       const res = await endpoints.playgrounds.createBooking(formData);
       await setBookingDraft(null);
       router.replace('/playgrounds/bookings');
-      toast.success(res?.booking_code ? `Code ${res.booking_code}` : 'Your session is booked.', {
-        title: 'Booking confirmed',
-      });
+      toast.success(
+        res?.booking_code
+          ? `Code ${res.booking_code}`
+          : 'Your session is booked.',
+        {
+          title: 'Booking confirmed',
+        }
+      );
       if (res?.booking_code) {
         setError(`Booking confirmed: ${res.booking_code}`);
       }
@@ -383,7 +486,10 @@ export function BookingStepperScreen() {
           <View
             style={[
               styles.progressBar,
-              { backgroundColor: colors.accentOrange, width: `${(currentStep / 3) * 100}%` },
+              {
+                backgroundColor: colors.accentOrange,
+                width: `${(currentStep / 3) * 100}%`,
+              },
             ]}
           />
         </View>
@@ -391,7 +497,11 @@ export function BookingStepperScreen() {
       {loading ? (
         <LoadingState message="Preparing your booking..." />
       ) : error ? (
-        <ErrorState title="Booking issue" message={error} onAction={loadVenue} />
+        <ErrorState
+          title="Booking issue"
+          message={error}
+          onAction={loadVenue}
+        />
       ) : venue ? (
         <View style={styles.container}>
           <View style={styles.stepHeader}>
@@ -399,7 +509,11 @@ export function BookingStepperScreen() {
               {venue.name || venue.title || 'Playground'}
             </Text>
             <Text variant="h4" weight="semibold">
-              {currentStep === 1 ? 'Choose duration' : currentStep === 2 ? 'Pick a time' : 'Review & pay'}
+              {currentStep === 1
+                ? 'Choose duration'
+                : currentStep === 2
+                ? 'Pick a time'
+                : 'Review & pay'}
             </Text>
           </View>
 
@@ -427,7 +541,9 @@ export function BookingStepperScreen() {
                   variant="secondary"
                   size="small"
                   onPress={() =>
-                    setPlayers((prev) => String(Math.max(minPlayers, Number(prev || 2) - 1)))
+                    setPlayers((prev) =>
+                      String(Math.max(minPlayers, Number(prev || 2) - 1))
+                    )
                   }
                   accessibilityLabel="Decrease players"
                 >
@@ -440,7 +556,9 @@ export function BookingStepperScreen() {
                   variant="secondary"
                   size="small"
                   onPress={() =>
-                    setPlayers((prev) => String(Math.min(maxPlayers, Number(prev || 2) + 1)))
+                    setPlayers((prev) =>
+                      String(Math.min(maxPlayers, Number(prev || 2) + 1))
+                    )
                   }
                   accessibilityLabel="Increase players"
                 >
@@ -450,7 +568,11 @@ export function BookingStepperScreen() {
               <View style={styles.durationCards}>
                 {durations.length ? (
                   durations.map((duration) => {
-                    const durationLabel = duration.label || `${duration.minutes || duration.duration_minutes || 60} min`;
+                    const durationLabel =
+                      duration.label ||
+                      `${
+                        duration.minutes || duration.duration_minutes || 60
+                      } min`;
                     return (
                       <Pressable
                         key={String(duration.id ?? durationLabel)}
@@ -459,9 +581,13 @@ export function BookingStepperScreen() {
                           styles.durationCard,
                           {
                             borderColor:
-                              selectedDuration?.id === duration.id ? colors.accentOrange : colors.border,
+                              selectedDuration?.id === duration.id
+                                ? colors.accentOrange
+                                : colors.border,
                             backgroundColor:
-                              selectedDuration?.id === duration.id ? colors.surfaceElevated : colors.surface,
+                              selectedDuration?.id === duration.id
+                                ? colors.surfaceElevated
+                                : colors.surface,
                           },
                         ]}
                         accessibilityRole="button"
@@ -471,7 +597,10 @@ export function BookingStepperScreen() {
                           {durationLabel}
                         </Text>
                         <Text variant="bodySmall" color={colors.textSecondary}>
-                          {formatMoney(duration.price, duration.currency || currency) || 'Price TBD'}
+                          {formatMoney(
+                            duration.price,
+                            duration.currency || currency
+                          ) || 'Price TBD'}
                         </Text>
                       </Pressable>
                     );
@@ -497,7 +626,7 @@ export function BookingStepperScreen() {
                       key={label}
                       label={label}
                       selected={bookingDate === label}
-                      onPress={() => setBookingDate(label)}
+                      onPress={() => handleSelectDate(label)}
                       accessibilityLabel={`Select ${label}`}
                     />
                   );
@@ -518,10 +647,12 @@ export function BookingStepperScreen() {
                       selected={
                         selectedSlot?.id
                           ? selectedSlot?.id === item.id
-                          : formatSlotLabel(selectedSlot || {}) === formatSlotLabel(item)
+                          : formatSlotLabel(selectedSlot || {}) ===
+                            formatSlotLabel(item)
                       }
                       icon={
-                        item.start_time && Number(item.start_time.split(':')[0]) >= 18 ? (
+                        item.start_time &&
+                        Number(item.start_time.split(':')[0]) >= 18 ? (
                           <Moon size={12} color={colors.textMuted} />
                         ) : (
                           <Sun size={12} color={colors.textMuted} />
@@ -599,8 +730,16 @@ export function BookingStepperScreen() {
                 </Text>
               ) : null}
               <View style={styles.chipsWrap}>
-                <Chip label="Cash" selected={paymentType === 'cash'} onPress={() => setPaymentType('cash')} />
-                <Chip label="CliQ" selected={paymentType === 'cliq'} onPress={() => setPaymentType('cliq')} />
+                <Chip
+                  label="Cash"
+                  selected={paymentType === 'cash'}
+                  onPress={() => setPaymentType('cash')}
+                />
+                <Chip
+                  label="CliQ"
+                  selected={paymentType === 'cliq'}
+                  onPress={() => setPaymentType('cliq')}
+                />
               </View>
               {paymentType === 'cliq' ? (
                 <View style={styles.cliqSection}>
@@ -608,15 +747,26 @@ export function BookingStepperScreen() {
                     Upload CliQ payment proof.
                   </Text>
                   <View style={styles.cliqButtons}>
-                    <Button variant="secondary" size="small" onPress={handlePickCliqCamera}>
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      onPress={handlePickCliqCamera}
+                    >
                       Camera
                     </Button>
-                    <Button variant="secondary" size="small" onPress={handlePickCliqImage}>
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      onPress={handlePickCliqImage}
+                    >
                       Library
                     </Button>
                   </View>
                   {cliqImage?.uri ? (
-                    <Image source={{ uri: cliqImage.uri }} style={styles.cliqPreview} />
+                    <Image
+                      source={{ uri: cliqImage.uri }}
+                      style={styles.cliqPreview}
+                    />
                   ) : null}
                 </View>
               ) : null}
@@ -632,15 +782,26 @@ export function BookingStepperScreen() {
                   onPress={() => setCashOnDate(false)}
                 />
               </View>
-              <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View
+                style={[
+                  styles.summaryCard,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
                 <Text variant="bodySmall" color={colors.textSecondary}>
                   Summary
                 </Text>
                 <Text variant="bodySmall" weight="semibold">
-                  {bookingDate || 'Date'} • {selectedDuration?.label || `${durationMinutes} min`}
+                  {bookingDate || 'Date'} •{' '}
+                  {selectedDuration?.label || `${durationMinutes} min`}
                 </Text>
                 <Text variant="bodySmall" weight="semibold">
-                  {selectedSlot ? formatSlotLabel(selectedSlot) : 'Select a slot'}
+                  {selectedSlot
+                    ? formatSlotLabel(selectedSlot)
+                    : 'Select a slot'}
                 </Text>
                 <Text variant="bodySmall" color={colors.textSecondary}>
                   Players: {players}
@@ -651,7 +812,11 @@ export function BookingStepperScreen() {
                 <Text variant="h4" weight="bold">
                   {formatMoney(totalAmount, currency) || '--'}
                 </Text>
-                <Input label="Promo code" placeholder="Enter code" accessibilityLabel="Promo code" />
+                <Input
+                  label="Promo code"
+                  placeholder="Enter code"
+                  accessibilityLabel="Promo code"
+                />
               </View>
             </Animated.View>
           ) : null}
@@ -666,13 +831,20 @@ export function BookingStepperScreen() {
               </Text>
             </View>
             <View style={styles.footerButtons}>
-              <Button variant="secondary" onPress={handleBack} disabled={currentStep === 1}>
+              <Button
+                variant="secondary"
+                onPress={handleBack}
+                disabled={currentStep === 1}
+              >
                 Back
               </Button>
               {currentStep < 3 ? (
                 <Button
                   onPress={handleNext}
-                  disabled={(currentStep === 1 && !selectedDuration) || (currentStep === 2 && !selectedSlot)}
+                  disabled={
+                    (currentStep === 1 && !selectedDuration) ||
+                    (currentStep === 2 && !selectedSlot)
+                  }
                 >
                   Continue
                 </Button>
@@ -690,7 +862,10 @@ export function BookingStepperScreen() {
         </View>
       ) : null}
 
-      <BottomSheetModal visible={guestSheetOpen} onClose={() => setGuestSheetOpen(false)}>
+      <BottomSheetModal
+        visible={guestSheetOpen}
+        onClose={() => setGuestSheetOpen(false)}
+      >
         <View style={styles.guestSheet}>
           <Text variant="h4" weight="semibold">
             Continue as guest
@@ -718,7 +893,10 @@ export function BookingStepperScreen() {
             accessibilityLabel="Guest phone"
           />
           <View style={styles.guestActions}>
-            <Button variant="secondary" onPress={() => router.push('/playgrounds/auth?fromBooking=1')}>
+            <Button
+              variant="secondary"
+              onPress={() => router.push('/playgrounds/auth?fromBooking=1')}
+            >
               Sign in
             </Button>
             <Button onPress={handleGuestRegister}>Continue</Button>
