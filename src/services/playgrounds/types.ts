@@ -106,3 +106,12 @@ export type BookingDraftStorage = {
     currentStep?: number;
   };
 };
+
+export type ExploreFilters = {
+  activityId?: string;
+  date?: string;
+  players?: number;
+  baseLocation?: string;
+  hasSpecialOffer?: boolean;
+  sortBy?: 'rating_desc' | 'price_asc';
+};
