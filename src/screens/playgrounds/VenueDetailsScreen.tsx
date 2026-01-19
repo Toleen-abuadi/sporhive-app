@@ -1,14 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ImageBackground, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  ImageBackground,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { MapPin, Star } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Share2, Star } from 'lucide-react-native';
 
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
-import { AppHeader } from '../../components/ui/AppHeader';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Chip } from '../../components/ui/Chip';
+import { IconButton } from '../../components/ui/IconButton';
 import { endpoints } from '../../services/api/endpoints';
 import { API_BASE_URL } from '../../services/api/client';
 import { getPlaygroundsClientState } from '../../services/playgrounds/storage';
@@ -27,9 +34,30 @@ function getVenueImages(venue: Venue): string[] {
     });
 }
 
-function resolveVenueImage(venue: Venue): string | null {
-  const images = getVenueImages(venue);
-  return images[0] || null;
+const FEATURE_LABELS: Record<string, string> = {
+  bibs: 'Bibs provided',
+  water: 'Water available',
+  toilets: 'Toilets',
+  toilet: 'Toilets',
+  parking: 'Parking',
+  ac: 'Air conditioned',
+  indoor: 'Indoor',
+};
+
+function normalizeFeatureTags(venue: Venue): string[] {
+  const collect = (value?: string[] | string) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    return value.split(',').map((item) => item.trim());
+  };
+  const tags = [...collect(venue.tags), ...collect(venue.features), ...collect(venue.amenities)];
+  return tags.map((tag) => tag.toLowerCase()).filter(Boolean);
+}
+
+function mapVenueFeatures(venue: Venue) {
+  const tags = normalizeFeatureTags(venue);
+  const mapped = Object.keys(FEATURE_LABELS).filter((key) => tags.includes(key));
+  return mapped.map((key) => ({ key, label: FEATURE_LABELS[key] }));
 }
 
 function formatMoney(amount?: number | null, currency?: string | null) {
@@ -42,6 +70,7 @@ export function VenueDetailsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { venueId } = useLocalSearchParams();
+  const [heroWidth, setHeroWidth] = useState(0);
 
   const [venue, setVenue] = useState<Venue | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -98,10 +127,10 @@ export function VenueDetailsScreen() {
     loadVenue();
   }, [loadVenue]);
 
-  const imageUrl = venue ? resolveVenueImage(venue) : null;
   const location = venue ? [venue.city, venue.country].filter(Boolean).join(', ') : '';
   const ratingRaw = venue?.rating ?? venue?.avg_rating ?? null;
   const rating = ratingRaw !== null && ratingRaw !== undefined ? Number(ratingRaw) : null;
+  const ratingsCount = venue?.ratings_count;
   const durations = venue?.durations || venue?.venue_durations || [];
   const slots = venue?.slots || venue?.available_slots || [];
   const currency = venue?.currency || durations?.[0]?.currency || slots?.[0]?.currency || null;
@@ -112,10 +141,12 @@ export function VenueDetailsScreen() {
     slots?.[0]?.price ??
     null;
   const activityName = venue?.activity_id ? activityMap.get(String(venue?.activity_id)) : null;
+  const features = venue ? mapVenueFeatures(venue) : [];
+  const academyName = venue?.academy_profile?.name || venue?.academy_profile?.title;
+  const academyLocation = venue?.academy_profile?.city || venue?.academy_profile?.country || venue?.location_text;
 
   return (
     <Screen safe>
-      <AppHeader title="Venue details" />
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.accentOrange} />
@@ -133,19 +164,62 @@ export function VenueDetailsScreen() {
         <>
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.hero}>
-              {imageUrl ? (
-                <ImageBackground source={{ uri: imageUrl }} style={styles.heroImage} imageStyle={styles.heroImageRadius} />
-              ) : (
-                <View style={[styles.heroImage, styles.heroFallback, { backgroundColor: colors.surface }]} />
-              )}
-              {rating !== null ? (
-                <View style={[styles.ratingBadge, { backgroundColor: colors.surface }]}>
-                  <Star size={12} color={colors.accentOrange} />
-                  <Text variant="caption" weight="bold" style={{ marginLeft: 4 }}>
-                    {rating.toFixed(1)}
-                  </Text>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                style={styles.carousel}
+                onLayout={(event) => setHeroWidth(event.nativeEvent.layout.width)}
+              >
+                {getVenueImages(venue).length ? (
+                  getVenueImages(venue).map((uri) => (
+                    <ImageBackground
+                      key={uri}
+                      source={{ uri }}
+                      style={[styles.heroImage, heroWidth ? { width: heroWidth } : null]}
+                      imageStyle={styles.heroImageRadius}
+                    />
+                  ))
+                ) : (
+                  <View
+                    style={[
+                      styles.heroImage,
+                      styles.heroFallback,
+                      heroWidth ? { width: heroWidth } : null,
+                      { backgroundColor: colors.surface },
+                    ]}
+                  />
+                )}
+              </ScrollView>
+              <View style={styles.heroOverlay}>
+                <View style={styles.heroActions}>
+                  <IconButton
+                    icon={() => <ArrowLeft size={18} color={colors.textPrimary} />}
+                    onPress={() => router.back()}
+                    accessibilityLabel="Back"
+                    style={[styles.heroIcon, { backgroundColor: colors.surface }]}
+                  />
+                  <IconButton
+                    icon={() => <Share2 size={18} color={colors.textPrimary} />}
+                    onPress={() => {}}
+                    accessibilityLabel="Share venue"
+                    style={[styles.heroIcon, { backgroundColor: colors.surface }]}
+                  />
                 </View>
-              ) : null}
+                {rating !== null ? (
+                  <View style={[styles.ratingBadge, { backgroundColor: colors.surface }]}>
+                    <Star size={12} color={colors.accentOrange} />
+                    <Text variant="caption" weight="bold" style={{ marginLeft: 4 }}>
+                      {rating.toFixed(1)}
+                    </Text>
+                    {ratingsCount ? (
+                      <Text variant="caption" color={colors.textSecondary} style={{ marginLeft: 6 }}>
+                        ({ratingsCount})
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : null}
+              </View>
             </View>
             <View style={styles.section}>
               <Text variant="h3" weight="semibold">
@@ -157,10 +231,50 @@ export function VenueDetailsScreen() {
                   {location || 'Location pending'}
                 </Text>
               </View>
+              {venue.maps_url ? (
+                <Button
+                  variant="secondary"
+                  size="small"
+                  onPress={() => Linking.openURL(venue.maps_url || '')}
+                  accessibilityLabel="Get directions"
+                >
+                  Get directions
+                </Button>
+              ) : null}
               <View style={styles.chipsRow}>
                 <Chip label={activityName || 'Multi-sport'} />
                 {priceFrom ? <Chip label={`${formatMoney(priceFrom, currency)} +`} selected /> : null}
               </View>
+            </View>
+
+            {features.length ? (
+              <View style={styles.section}>
+                <Text variant="bodySmall" weight="semibold">
+                  Features
+                </Text>
+                <View style={styles.chipsRow}>
+                  {features.map((feature) => (
+                    <Chip key={feature.key} label={feature.label} selected />
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
+            <View style={styles.section}>
+              <Text variant="bodySmall" weight="semibold">
+                Academy
+              </Text>
+              <Text variant="bodySmall" weight="semibold">
+                {academyName || 'SporHive Academy'}
+              </Text>
+              <Text variant="bodySmall" color={colors.textSecondary}>
+                {academyLocation || location || 'Location pending'}
+              </Text>
+              {venue.has_special_offer ? (
+                <Text variant="bodySmall" color={colors.accentOrange}>
+                  Special offers available for this venue.
+                </Text>
+              ) : null}
             </View>
             <View style={styles.section}>
               <Text variant="bodySmall" weight="semibold">
@@ -225,14 +339,30 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...shadows.md,
   },
+  carousel: {
+    borderRadius: borderRadius.lg,
+  },
   heroImage: {
-    height: 220,
+    height: 240,
   },
   heroImageRadius: {
     borderRadius: borderRadius.lg,
   },
   heroFallback: {
     justifyContent: 'center',
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'space-between',
+    padding: spacing.md,
+  },
+  heroActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  heroIcon: {
+    borderRadius: borderRadius.full,
+    padding: spacing.xs,
   },
   ratingBadge: {
     position: 'absolute',
