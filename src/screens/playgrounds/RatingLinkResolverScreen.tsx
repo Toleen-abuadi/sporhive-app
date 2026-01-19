@@ -34,10 +34,10 @@ export function RatingLinkResolverScreen() {
         return;
       }
       setStatus('error');
-      setMessage(payload?.message || 'Unable to resolve rating link.');
+      setMessage(payload?.message || 'This rating link is invalid or has expired.');
     } catch (err) {
       setStatus('error');
-      setMessage(err?.message || 'Unable to resolve rating link.');
+      setMessage(err?.message || 'This rating link is invalid or has expired.');
     }
   }, [token]);
 
@@ -62,9 +62,14 @@ export function RatingLinkResolverScreen() {
             Continue
           </Button>
         ) : (
-          <Button onPress={resolveToken} variant="secondary" accessibilityLabel="Retry rating link">
-            Retry
-          </Button>
+          <View style={styles.actions}>
+            <Button onPress={() => router.replace('/playgrounds/explore')} accessibilityLabel="Back to explore">
+              Back to explore
+            </Button>
+            <Button onPress={resolveToken} variant="secondary" accessibilityLabel="Retry rating link">
+              Retry
+            </Button>
+          </View>
         )}
       </View>
     </Screen>
@@ -77,5 +82,9 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     justifyContent: 'center',
     gap: spacing.md,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
 });
