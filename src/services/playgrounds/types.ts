@@ -70,6 +70,8 @@ export type Venue = {
   rating?: number;
   avg_rating?: number;
   ratings_count?: number;
+  min_players?: number;
+  max_players?: number;
   images?: VenueImage[];
   venue_images?: VenueImage[];
   durations?: VenueDuration[];

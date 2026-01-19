@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, FlatList, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CalendarDays, CreditCard, Users } from 'lucide-react-native';
+import { CalendarDays, CreditCard, Moon, Sun, Users } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import Toast from 'react-native-toast-message';
 
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
-import { AppHeader } from '../../components/ui/AppHeader';
 import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
 import { Chip } from '../../components/ui/Chip';
@@ -13,6 +14,7 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { LoadingState } from '../../components/ui/LoadingState';
+import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
 import { endpoints } from '../../services/api/endpoints';
 import {
   getBookingDraft,
@@ -32,6 +34,35 @@ function formatSlotLabel(slot: Slot) {
   if (!start && !end) return 'TBD';
   if (!end) return start;
   return `${start} - ${end}`;
+}
+
+function getDateLabel(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function buildSlotsPayload({
+  venueId,
+  date,
+  durationMinutes,
+}: {
+  venueId: string | number;
+  date?: string;
+  durationMinutes?: number;
+}) {
+  return {
+    venue_id: venueId,
+    date: date || undefined,
+    duration_minutes: durationMinutes || 60,
+  };
+}
+
+function buildBookingDraft(venue: Venue | null, state: BookingDraftStorage['draft']): BookingDraftStorage | null {
+  if (!venue?.id || !venue?.academy_profile_id) return null;
+  return {
+    venueId: String(venue.id),
+    academyProfileId: String(venue.academy_profile_id),
+    draft: state,
+  };
 }
 
 function formatMoney(amount?: number | null, currency?: string | null) {
@@ -54,36 +85,43 @@ export function BookingStepperScreen() {
   const [players, setPlayers] = useState('2');
   const [paymentType, setPaymentType] = useState<'cash' | 'cliq'>('cash');
   const [cashOnDate, setCashOnDate] = useState(true);
+  const [cliqImage, setCliqImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(true);
   const [slotLoading, setSlotLoading] = useState(false);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [publicUser, setPublicUser] = useState<PublicUser | null>(null);
   const [userMode, setUserMode] = useState<'guest' | 'registered'>('guest');
   const [guestFirstName, setGuestFirstName] = useState('');
   const [guestLastName, setGuestLastName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
+  const [guestSheetOpen, setGuestSheetOpen] = useState(false);
+  const [baseFilters, setBaseFilters] = useState<{ date?: string; players?: number } | null>(null);
+  const minPlayers = venue?.min_players ?? 1;
+  const maxPlayers = venue?.max_players ?? 20;
+  const stepAnim = useRef(new Animated.Value(0)).current;
 
   const currency = venue?.currency || durations?.[0]?.currency || slots?.[0]?.currency || null;
+  const durationMinutes = selectedDuration?.minutes || selectedDuration?.duration_minutes || 60;
+  const basePrice = selectedDuration?.price || 0;
+  const taxRate = 0.05;
+  const taxAmount = basePrice ? basePrice * taxRate : 0;
+  const totalAmount = basePrice + taxAmount;
 
   const draftPayload = useMemo<BookingDraftStorage | null>(() => {
-    if (!venue?.id || !venue?.academy_profile_id) return null;
-    return {
-      venueId: String(venue.id),
-      academyProfileId: String(venue.academy_profile_id),
-      draft: {
-        selectedDurationId: selectedDuration?.id ? String(selectedDuration.id) : undefined,
-        bookingDate: bookingDate || undefined,
-        players: Number(players) || 2,
-        selectedSlot: selectedSlot
-          ? { start_time: String(selectedSlot.start_time || selectedSlot.start || ''), end_time: String(selectedSlot.end_time || selectedSlot.end || '') }
-          : undefined,
-        paymentType,
-        cashOnDate,
-        currentStep,
-      },
-    };
-  }, [bookingDate, cashOnDate, currentStep, paymentType, players, selectedDuration?.id, selectedSlot, venue?.academy_profile_id, venue?.id]);
+    return buildBookingDraft(venue, {
+      selectedDurationId: selectedDuration?.id ? String(selectedDuration.id) : undefined,
+      bookingDate: bookingDate || undefined,
+      players: Number(players) || 2,
+      selectedSlot: selectedSlot
+        ? { start_time: String(selectedSlot.start_time || selectedSlot.start || ''), end_time: String(selectedSlot.end_time || selectedSlot.end || '') }
+        : undefined,
+      paymentType,
+      cashOnDate,
+      currentStep,
+    });
+  }, [bookingDate, cashOnDate, currentStep, paymentType, players, selectedDuration?.id, selectedSlot, venue]);
 
   const loadVenue = useCallback(async () => {
     setLoading(true);
@@ -116,6 +154,8 @@ export function BookingStepperScreen() {
             end_time: draft.draft.selectedSlot.end_time,
           });
         }
+      } else {
+        setBaseFilters({ date: bookingDate, players: Number(players) || 2 });
       }
     } catch (err) {
       setError(err?.message || 'Unable to load booking data.');
@@ -123,6 +163,15 @@ export function BookingStepperScreen() {
       setLoading(false);
     }
   }, [venueId]);
+
+  useEffect(() => {
+    if (baseFilters?.date) {
+      setBookingDate((prev) => prev || baseFilters.date || '');
+    }
+    if (baseFilters?.players) {
+      setPlayers((prev) => prev || String(baseFilters.players));
+    }
+  }, [baseFilters]);
 
   const loadDurations = useCallback(async () => {
     if (!venue?.id) return;
@@ -134,8 +183,9 @@ export function BookingStepperScreen() {
         ? durationRes.data.durations
         : [];
       setDurations(list);
-      if (!selectedDuration && list[0]) {
-        setSelectedDuration(list[0]);
+      const defaultDuration = list.find((item) => item.is_default) || list[0];
+      if (!selectedDuration && defaultDuration) {
+        setSelectedDuration(defaultDuration);
       }
     } catch (err) {
       setError(err?.message || 'Unable to load durations.');
@@ -146,12 +196,9 @@ export function BookingStepperScreen() {
     if (!venue?.id || !selectedDuration) return;
     setSlotLoading(true);
     try {
-      const durationMinutes = selectedDuration.minutes || selectedDuration.duration_minutes || 60;
-      const slotRes = await endpoints.playgrounds.slots({
-        venue_id: venue.id,
-        date: bookingDate || undefined,
-        duration_minutes: durationMinutes,
-      });
+      const slotRes = await endpoints.playgrounds.slots(
+        buildSlotsPayload({ venueId: venue.id, date: bookingDate || undefined, durationMinutes })
+      );
       const list = Array.isArray(slotRes?.slots)
         ? slotRes.slots
         : Array.isArray(slotRes?.data?.slots)
@@ -187,6 +234,15 @@ export function BookingStepperScreen() {
     setPublicUserMode(userMode);
   }, [userMode]);
 
+  useEffect(() => {
+    stepAnim.setValue(0);
+    Animated.timing(stepAnim, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [currentStep, stepAnim]);
+
   const handleNext = useCallback(() => {
     setCurrentStep((prev) => Math.min(prev + 1, 3));
   }, []);
@@ -204,36 +260,20 @@ export function BookingStepperScreen() {
       if (draftPayload) {
         await setBookingDraft({ ...draftPayload, draft: { ...draftPayload.draft, currentStep } });
       }
-      router.push('/playgrounds/auth');
+      router.push('/playgrounds/auth?fromBooking=1');
       return;
     }
     let activeUser = publicUser;
     if (userMode === 'guest' && !activeUser?.id) {
-      if (!guestFirstName || !guestLastName || !guestPhone) {
-        setError('Please provide guest details.');
-        return;
-      }
-      try {
-        const res = await endpoints.publicUsers.quickRegister({
-          first_name: guestFirstName,
-          last_name: guestLastName,
-          phone: guestPhone,
-        });
-        const user = res?.user || res?.data?.user || res?.data || res;
-        if (!user?.id) {
-          setError('Unable to register guest.');
-          return;
-        }
-        activeUser = user;
-        await persistPublicUser(user);
-        setPublicUser(user);
-      } catch (err) {
-        setError(err?.message || 'Unable to register guest.');
-        return;
-      }
+      setGuestSheetOpen(true);
+      return;
     }
     if (!activeUser?.id) {
       setError('Please sign in to complete booking.');
+      return;
+    }
+    if (paymentType === 'cliq' && !cliqImage?.uri) {
+      setError('Please upload your CliQ payment proof.');
       return;
     }
     const formData = new FormData();
@@ -251,20 +291,36 @@ export function BookingStepperScreen() {
     formData.append('number_of_players', String(Number(players) || 2));
     formData.append('payment_type', paymentType);
     formData.append('cash_payment_on_date', cashOnDate ? 'true' : 'false');
+    if (paymentType === 'cliq' && cliqImage?.uri) {
+      formData.append('cliq_image', {
+        uri: cliqImage.uri,
+        name: cliqImage.fileName || 'cliq.jpg',
+        type: cliqImage.mimeType || 'image/jpeg',
+      } as never);
+    }
 
     try {
+      setSubmitting(true);
       const res: Booking = await endpoints.playgrounds.createBooking(formData);
       await setBookingDraft(null);
       router.replace('/playgrounds/bookings');
+      Toast.show({
+        type: 'success',
+        text1: 'Booking confirmed',
+        text2: res?.booking_code ? `Code ${res.booking_code}` : 'Your session is booked.',
+      });
       if (res?.booking_code) {
         setError(`Booking confirmed: ${res.booking_code}`);
       }
     } catch (err) {
       setError(err?.message || 'Unable to complete booking.');
+    } finally {
+      setSubmitting(false);
     }
   }, [
     bookingDate,
     cashOnDate,
+    cliqImage?.uri,
     currentStep,
     draftPayload,
     guestFirstName,
@@ -282,9 +338,65 @@ export function BookingStepperScreen() {
     venue?.id,
   ]);
 
+  const handleGuestRegister = useCallback(async () => {
+    if (!guestFirstName || !guestLastName || !guestPhone) {
+      setError('Please provide guest details.');
+      return;
+    }
+    try {
+      const res = await endpoints.publicUsers.quickRegister({
+        first_name: guestFirstName,
+        last_name: guestLastName,
+        phone: guestPhone,
+      });
+      const user = res?.user || res?.data?.user || res?.data || res;
+      if (!user?.id) {
+        setError('Unable to register guest.');
+        return;
+      }
+      await persistPublicUser(user);
+      setPublicUser(user);
+      setGuestSheetOpen(false);
+    } catch (err) {
+      setError(err?.message || 'Unable to register guest.');
+    }
+  }, [guestFirstName, guestLastName, guestPhone]);
+
+  const handlePickCliqImage = useCallback(async () => {
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+    if (!res.canceled && res.assets?.[0]) {
+      setCliqImage(res.assets[0]);
+    }
+  }, []);
+
+  const handlePickCliqCamera = useCallback(async () => {
+    const res = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+    if (!res.canceled && res.assets?.[0]) {
+      setCliqImage(res.assets[0]);
+    }
+  }, []);
+
   return (
     <Screen safe>
-      <AppHeader title="Complete booking" />
+      <View style={styles.stepperHeader}>
+        <Text variant="bodySmall" color={colors.textSecondary}>
+          Step {currentStep} of 3
+        </Text>
+        <View style={styles.progressTrack}>
+          <View
+            style={[
+              styles.progressBar,
+              { backgroundColor: colors.accentOrange, width: `${(currentStep / 3) * 100}%` },
+            ]}
+          />
+        </View>
+      </View>
       {loading ? (
         <LoadingState message="Preparing your booking..." />
       ) : error ? (
@@ -293,21 +405,15 @@ export function BookingStepperScreen() {
         <View style={styles.container}>
           <View style={styles.stepHeader}>
             <Text variant="bodySmall" weight="semibold">
-              Step {currentStep} of 3
+              {venue.name || venue.title || 'Playground'}
             </Text>
             <Text variant="h4" weight="semibold">
-              {venue.name || venue.title || 'Playground'}
+              {currentStep === 1 ? 'Choose duration' : currentStep === 2 ? 'Pick a time' : 'Review & pay'}
             </Text>
           </View>
 
           {currentStep === 1 ? (
-            <View style={styles.stepSection}>
-              <View style={styles.sectionTitle}>
-                <CalendarDays size={16} color={colors.textMuted} />
-                <Text variant="bodySmall" weight="semibold">
-                  Date & duration
-                </Text>
-              </View>
+            <Animated.View style={[styles.stepSection, { opacity: stepAnim }]}>
               <Input
                 label="Booking date"
                 value={bookingDate}
@@ -325,32 +431,86 @@ export function BookingStepperScreen() {
                 keyboardType="number-pad"
                 accessibilityLabel="Number of players"
               />
-              <View style={styles.chipsWrap}>
+              <View style={styles.playersStepper}>
+                <Button
+                  variant="secondary"
+                  size="small"
+                  onPress={() =>
+                    setPlayers((prev) => String(Math.max(minPlayers, Number(prev || 2) - 1)))
+                  }
+                  accessibilityLabel="Decrease players"
+                >
+                  -
+                </Button>
+                <Text variant="bodySmall" weight="semibold">
+                  {players}
+                </Text>
+                <Button
+                  variant="secondary"
+                  size="small"
+                  onPress={() =>
+                    setPlayers((prev) => String(Math.min(maxPlayers, Number(prev || 2) + 1)))
+                  }
+                  accessibilityLabel="Increase players"
+                >
+                  +
+                </Button>
+              </View>
+              <View style={styles.durationCards}>
                 {durations.length ? (
-                  durations.map((duration) => (
-                    <Chip
-                      key={String(duration.id ?? duration.label ?? duration.minutes)}
-                      label={duration.label || `${duration.minutes || duration.duration_minutes || 60} min`}
-                      selected={selectedDuration?.id === duration.id}
-                      onPress={() => setSelectedDuration(duration)}
-                    />
-                  ))
+                  durations.map((duration) => {
+                    const durationLabel = duration.label || `${duration.minutes || duration.duration_minutes || 60} min`;
+                    return (
+                      <Pressable
+                        key={String(duration.id ?? durationLabel)}
+                        onPress={() => setSelectedDuration(duration)}
+                        style={[
+                          styles.durationCard,
+                          {
+                            borderColor:
+                              selectedDuration?.id === duration.id ? colors.accentOrange : colors.border,
+                            backgroundColor:
+                              selectedDuration?.id === duration.id ? colors.surfaceElevated : colors.surface,
+                          },
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Select ${durationLabel}`}
+                      >
+                        <Text variant="bodySmall" weight="semibold">
+                          {durationLabel}
+                        </Text>
+                        <Text variant="bodySmall" color={colors.textSecondary}>
+                          {formatMoney(duration.price, duration.currency || currency) || 'Price TBD'}
+                        </Text>
+                      </Pressable>
+                    );
+                  })
                 ) : (
                   <Text variant="bodySmall" color={colors.textSecondary}>
                     No durations listed.
                   </Text>
                 )}
               </View>
-            </View>
+            </Animated.View>
           ) : null}
 
           {currentStep === 2 ? (
-            <View style={styles.stepSection}>
-              <View style={styles.sectionTitle}>
-                <Users size={16} color={colors.textMuted} />
-                <Text variant="bodySmall" weight="semibold">
-                  Select a slot
-                </Text>
+            <Animated.View style={[styles.stepSection, { opacity: stepAnim }]}>
+              <View style={styles.dateStrip}>
+                {Array.from({ length: 6 }).map((_, index) => {
+                  const date = new Date();
+                  date.setDate(date.getDate() + index);
+                  const label = getDateLabel(date);
+                  return (
+                    <Chip
+                      key={label}
+                      label={label}
+                      selected={bookingDate === label}
+                      onPress={() => setBookingDate(label)}
+                      accessibilityLabel={`Select ${label}`}
+                    />
+                  );
+                })}
               </View>
               {slotLoading ? (
                 <LoadingState message="Loading slots..." size="small" />
@@ -369,18 +529,35 @@ export function BookingStepperScreen() {
                           ? selectedSlot?.id === item.id
                           : formatSlotLabel(selectedSlot || ({} as Slot)) === formatSlotLabel(item)
                       }
+                      icon={
+                        item.start_time && Number(item.start_time.split(':')[0]) >= 18 ? (
+                          <Moon size={12} color={colors.textMuted} />
+                        ) : (
+                          <Sun size={12} color={colors.textMuted} />
+                        )
+                      }
                       onPress={() => setSelectedSlot(item)}
                     />
                   )}
                 />
               ) : (
-                <EmptyState title="No slots" message="Try another date or duration." />
+                <EmptyState
+                  title="No slots"
+                  message="Try another date or adjust the duration."
+                />
               )}
-            </View>
+              {!slots.length ? (
+                <View style={styles.altSuggestions}>
+                  <Text variant="bodySmall" color={colors.textSecondary}>
+                    Suggestions: change duration or pick another date.
+                  </Text>
+                </View>
+              ) : null}
+            </Animated.View>
           ) : null}
 
           {currentStep === 3 ? (
-            <View style={styles.stepSection}>
+            <Animated.View style={[styles.stepSection, { opacity: stepAnim }]}>
               <View style={styles.sectionTitle}>
                 <CreditCard size={16} color={colors.textMuted} />
                 <Text variant="bodySmall" weight="semibold">
@@ -434,6 +611,24 @@ export function BookingStepperScreen() {
                 <Chip label="Cash" selected={paymentType === 'cash'} onPress={() => setPaymentType('cash')} />
                 <Chip label="CliQ" selected={paymentType === 'cliq'} onPress={() => setPaymentType('cliq')} />
               </View>
+              {paymentType === 'cliq' ? (
+                <View style={styles.cliqSection}>
+                  <Text variant="bodySmall" color={colors.textSecondary}>
+                    Upload CliQ payment proof.
+                  </Text>
+                  <View style={styles.cliqButtons}>
+                    <Button variant="secondary" size="small" onPress={handlePickCliqCamera}>
+                      Camera
+                    </Button>
+                    <Button variant="secondary" size="small" onPress={handlePickCliqImage}>
+                      Library
+                    </Button>
+                  </View>
+                  {cliqImage?.uri ? (
+                    <Image source={{ uri: cliqImage.uri }} style={styles.cliqPreview} />
+                  ) : null}
+                </View>
+              ) : null}
               <View style={styles.chipsWrap}>
                 <Chip
                   label="Pay on date"
@@ -451,37 +646,94 @@ export function BookingStepperScreen() {
                   Summary
                 </Text>
                 <Text variant="bodySmall" weight="semibold">
-                  {bookingDate || 'Date'} • {selectedDuration?.label || 'Duration'}
+                  {bookingDate || 'Date'} • {selectedDuration?.label || `${durationMinutes} min`}
                 </Text>
                 <Text variant="bodySmall" weight="semibold">
                   {selectedSlot ? formatSlotLabel(selectedSlot) : 'Select a slot'}
                 </Text>
-                <Text variant="h4" weight="bold">
-                  {formatMoney(selectedDuration?.price, currency) || '--'}
+                <Text variant="bodySmall" color={colors.textSecondary}>
+                  Players: {players}
                 </Text>
+                <Text variant="bodySmall" color={colors.textSecondary}>
+                  Tax (5%): {formatMoney(taxAmount, currency) || '--'}
+                </Text>
+                <Text variant="h4" weight="bold">
+                  {formatMoney(totalAmount, currency) || '--'}
+                </Text>
+                <Input label="Promo code" placeholder="Enter code" accessibilityLabel="Promo code" />
               </View>
-            </View>
+            </Animated.View>
           ) : null}
 
-          <View style={styles.footer}>
-            <Button variant="secondary" onPress={handleBack} disabled={currentStep === 1}>
-              Back
-            </Button>
-            {currentStep < 3 ? (
-              <Button
-                onPress={handleNext}
-                disabled={(currentStep === 1 && !bookingDate) || (currentStep === 2 && !selectedSlot)}
-              >
-                Continue
+          <View style={styles.stickyFooter}>
+            <View>
+              <Text variant="bodySmall" color={colors.textSecondary}>
+                Total
+              </Text>
+              <Text variant="bodySmall" weight="semibold">
+                {formatMoney(totalAmount, currency) || '--'}
+              </Text>
+            </View>
+            <View style={styles.footerButtons}>
+              <Button variant="secondary" onPress={handleBack} disabled={currentStep === 1}>
+                Back
               </Button>
-            ) : (
-              <Button onPress={handleBook} disabled={userMode === 'registered' && !publicUser?.id}>
-                Confirm booking
-              </Button>
-            )}
+              {currentStep < 3 ? (
+                <Button
+                  onPress={handleNext}
+                  disabled={(currentStep === 1 && !selectedDuration) || (currentStep === 2 && !selectedSlot)}
+                >
+                  Continue
+                </Button>
+              ) : (
+                <Button
+                  onPress={handleBook}
+                  loading={submitting}
+                  disabled={userMode === 'registered' && !publicUser?.id}
+                >
+                  Confirm booking
+                </Button>
+              )}
+            </View>
           </View>
         </View>
       ) : null}
+
+      <BottomSheetModal visible={guestSheetOpen} onClose={() => setGuestSheetOpen(false)}>
+        <View style={styles.guestSheet}>
+          <Text variant="h4" weight="semibold">
+            Continue as guest
+          </Text>
+          <Input
+            label="First name"
+            value={guestFirstName}
+            onChangeText={setGuestFirstName}
+            placeholder="First name"
+            accessibilityLabel="Guest first name"
+          />
+          <Input
+            label="Last name"
+            value={guestLastName}
+            onChangeText={setGuestLastName}
+            placeholder="Last name"
+            accessibilityLabel="Guest last name"
+          />
+          <Input
+            label="Phone"
+            value={guestPhone}
+            onChangeText={setGuestPhone}
+            placeholder="+962..."
+            keyboardType="phone-pad"
+            accessibilityLabel="Guest phone"
+          />
+          <View style={styles.guestActions}>
+            <Button variant="secondary" onPress={() => router.push('/playgrounds/auth?fromBooking=1')}>
+              Sign in
+            </Button>
+            <Button onPress={handleGuestRegister}>Continue</Button>
+          </View>
+        </View>
+      </BottomSheetModal>
     </Screen>
   );
 }
@@ -491,6 +743,21 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: spacing.lg,
     gap: spacing.lg,
+  },
+  stepperHeader: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    gap: spacing.xs,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: borderRadius.full,
   },
   stepHeader: {
     gap: spacing.xs,
@@ -502,6 +769,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  durationCards: {
+    gap: spacing.sm,
+  },
+  durationCard: {
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    ...shadows.sm,
+  },
+  dateStrip: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  playersStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  altSuggestions: {
+    marginTop: spacing.sm,
   },
   chipsWrap: {
     flexDirection: 'row',
@@ -515,13 +804,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     ...shadows.sm,
   },
+  cliqSection: {
+    gap: spacing.sm,
+  },
+  cliqButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  cliqPreview: {
+    height: 120,
+    borderRadius: borderRadius.lg,
+  },
   guestForm: {
     gap: spacing.sm,
   },
-  footer: {
+  stickyFooter: {
+    marginTop: 'auto',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     gap: spacing.md,
-    marginTop: 'auto',
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+  },
+  footerButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  guestSheet: {
+    gap: spacing.md,
+  },
+  guestActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
 });
