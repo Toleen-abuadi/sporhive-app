@@ -2,8 +2,7 @@
 import axios from 'axios';
 import { storage } from '../storage/storage';
 import { handleApiError } from './error';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL + '/api/v1';
+import { API_BASE_URL } from './client';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -14,7 +13,7 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   async (config) => {
     // Axios v1 may use AxiosHeaders (has get/set)
-    const headers = config.headers || {};
+    const headers = config?.headers || {};
 
     const existingAuth =
       (typeof headers.get === 'function' && (headers.get('Authorization') || headers.get('authorization'))) ||
@@ -25,11 +24,17 @@ apiClient.interceptors.request.use(
 
     // ✅ If caller already set Authorization (portal), NEVER override it.
     if (!existingAuth) {
-      const token = await storage.getAuthToken(); // app auth token (academy/admin side)
-      if (token) {
-        if (typeof headers.set === 'function') headers.set('Authorization', `Bearer ${token}`);
-        else headers.Authorization = `Bearer ${token}`;
-        config.headers = headers;
+      try {
+        const token = await storage.getAuthToken(); // app auth token (academy/admin side)
+        if (token) {
+          if (typeof headers.set === 'function') headers.set('Authorization', `Bearer ${token}`);
+          else headers.Authorization = `Bearer ${token}`;
+          config.headers = headers;
+        }
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('Failed to read auth token from storage.', error);
+        }
       }
     }
 

@@ -111,12 +111,37 @@ export function PortalProvider({ children }) {
 
   const restoreSession = useCallback(async () => {
     try {
-      const academyIdRaw = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);
-      const academyId = academyIdRaw ? Number(academyIdRaw) : null;
-      setState({ ...INITIAL_STATE, isLoading: false, academyId: academyId || null });
-      return { success: false };
+      const [sessionRaw, tokensRaw, academyIdRaw] = await Promise.all([
+        storage.getItem(PORTAL_KEYS.SESSION),
+        storage.getItem(PORTAL_KEYS.AUTH_TOKENS),
+        storage.getItem(PORTAL_KEYS.ACADEMY_ID),
+      ]);
+
+      const session = safeJsonParse(sessionRaw);
+      const tokens = safeJsonParse(tokensRaw);
+      const academyIdFromStorage = academyIdRaw != null ? Number(academyIdRaw) : null;
+      const academyIdFromSession = session?.academyId != null ? Number(session.academyId) : null;
+      const academyId = academyIdFromStorage || academyIdFromSession || null;
+      const token = tokens?.access || tokens?.token || tokens?.access_token || null;
+      const player = session?.player || null;
+      const tryOutId = session?.tryOutId ?? session?.try_out_id ?? null;
+
+      setState({
+        ...INITIAL_STATE,
+        isAuthenticated: Boolean(token),
+        isLoading: false,
+        academyId,
+        authTokens: tokens || null,
+        token,
+        tryOutId,
+        player,
+      });
+
+      return { success: Boolean(token) };
     } catch (error) {
-      console.error('Failed to load portal session:', error);
+      if (__DEV__) {
+        console.warn('Failed to load portal session:', error);
+      }
       setState({ ...INITIAL_STATE, isLoading: false });
       return { success: false, error };
     } finally {
@@ -400,6 +425,8 @@ export const selectOverviewHeader = (overview) => ({
 });
 
 function safeJsonParse(value) {
+  if (value == null) return null;
+  if (typeof value === 'object') return value;
   try {
     return JSON.parse(value);
   } catch {

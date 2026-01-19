@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from './Icon';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
 import { Text } from './Text';
@@ -15,13 +15,17 @@ export function AppHeader({
   rightComponent,
 }) {
   const { colors } = useTheme();
+  const leftIconName = typeof leftIcon === 'string' ? leftIcon : undefined;
+  const leftIconComponent = typeof leftIcon === 'string' ? undefined : leftIcon;
+  const rightIconName = typeof rightIcon === 'string' ? rightIcon : undefined;
+  const rightIconComponent = typeof rightIcon === 'string' ? undefined : rightIcon;
 
   return (
     <View style={[styles.container, { borderBottomColor: colors.border }]}>
       <View style={styles.leftContainer}>
         {leftIcon && (
           <TouchableOpacity onPress={onLeftPress} style={styles.iconButton}>
-            <Feather name={leftIcon} size={24} color={colors.textPrimary} />
+            <Icon name={leftIconName} icon={leftIconComponent} size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         )}
       </View>
@@ -41,7 +45,7 @@ export function AppHeader({
         {rightComponent || (
           rightIcon && (
             <TouchableOpacity onPress={onRightPress} style={styles.iconButton}>
-              <Feather name={rightIcon} size={24} color={colors.textPrimary} />
+              <Icon name={rightIconName} icon={rightIconComponent} size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           )
         )}
