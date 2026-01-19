@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, View, StyleSheet } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '../ui/Icon';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
 import { Text } from '../ui/Text';
@@ -15,6 +15,10 @@ export function PortalListItem({
   style,
 }) {
   const { colors } = useTheme();
+  const leadingIconName = typeof leadingIcon === 'string' ? leadingIcon : undefined;
+  const leadingIconComponent = typeof leadingIcon === 'string' ? undefined : leadingIcon;
+  const iconName = typeof icon === 'string' ? icon : undefined;
+  const iconComponent = typeof icon === 'string' ? undefined : icon;
 
   return (
     <TouchableOpacity
@@ -25,7 +29,7 @@ export function PortalListItem({
       {leadingIcon ? (
         <View style={[styles.leadingIcon, { backgroundColor: colors.surfaceElevated || colors.surface }]}
         >
-          <Feather name={leadingIcon} size={18} color={colors.accentOrange} />
+          <Icon name={leadingIconName} icon={leadingIconComponent} size={18} color={colors.accentOrange} />
         </View>
       ) : null}
       <View style={styles.content}>
@@ -41,7 +45,7 @@ export function PortalListItem({
       {rightSlot ? (
         <View style={styles.rightSlot}>{rightSlot}</View>
       ) : (
-        <Feather name={icon} size={18} color={colors.textMuted} />
+        <Icon name={iconName} icon={iconComponent} size={18} color={colors.textMuted} />
       )}
     </TouchableOpacity>
   );

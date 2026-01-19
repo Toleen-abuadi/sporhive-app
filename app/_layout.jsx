@@ -7,8 +7,9 @@ import { ThemeProvider, DarkTheme, DefaultTheme } from "@react-navigation/native
 import { useFrameworkReady } from "../hooks/useFrameworkReady";
 import { ThemeProvider as AppThemeProvider, useTheme } from "../src/theme/ThemeProvider";
 import { I18nProvider } from "../src/services/i18n/i18n";
-import { ToastProvider } from "../src/components/ui/ToastHost";
+import { ToastHost } from "../src/components/ui/ToastHost";
 import { PortalProvider } from "../src/services/portal/portal.store";
+import { PortalModalsProvider } from "../src/services/portal/portal.modals";
 
 function NavThemeBridge({ children }) {
   const { colors, isDark } = useTheme();
@@ -40,12 +41,14 @@ export default function RootLayout() {
     <AppThemeProvider>
       <I18nProvider>
         <PortalProvider>
-          <ToastProvider>
-            <NavThemeBridge>
-              <Stack screenOptions={{ headerShown: false }} />
-              <StatusBar style="auto" />
-            </NavThemeBridge>
-          </ToastProvider>
+          <PortalModalsProvider>
+            <ToastHost>
+              <NavThemeBridge>
+                <Stack screenOptions={{ headerShown: false }} />
+                <StatusBar style="auto" />
+              </NavThemeBridge>
+            </ToastHost>
+          </PortalModalsProvider>
         </PortalProvider>
       </I18nProvider>
     </AppThemeProvider>

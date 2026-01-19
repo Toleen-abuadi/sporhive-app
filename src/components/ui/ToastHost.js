@@ -107,6 +107,10 @@ export function ToastProvider({ children }) {
   );
 }
 
+export function ToastHost({ children }) {
+  return <ToastProvider>{children}</ToastProvider>;
+}
+
 function ToastContainer({ toasts, onRemove }) {
   return (
     <View style={styles.container} pointerEvents="box-none">
