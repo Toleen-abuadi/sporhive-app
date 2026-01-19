@@ -27,6 +27,19 @@ export async function setPublicUser(user) {
   await storage.setItem(STORAGE_KEYS.PUBLIC_USER, user);
 }
 
+export async function getPublicUserToken() {
+  const token = await storage.getItem(STORAGE_KEYS.PUBLIC_USER_TOKEN);
+  return typeof token === 'string' && token.trim() ? token : null;
+}
+
+export async function setPublicUserToken(token) {
+  if (!token) {
+    await storage.removeItem(STORAGE_KEYS.PUBLIC_USER_TOKEN);
+    return;
+  }
+  await storage.setItem(STORAGE_KEYS.PUBLIC_USER_TOKEN, token);
+}
+
 export async function getPlaygroundsClientState() {
   const state = await storage.getItem(STORAGE_KEYS.PLAYGROUNDS_CLIENT);
   return state && typeof state === 'object' ? state : null;
@@ -51,4 +64,14 @@ export async function setBookingDraft(draft) {
     return;
   }
   await storage.setItem(STORAGE_KEYS.BOOKING_DRAFT, draft);
+}
+
+export async function clearPlaygroundsAuth() {
+  await Promise.all([
+    storage.removeItem(STORAGE_KEYS.PUBLIC_USER_MODE),
+    storage.removeItem(STORAGE_KEYS.PUBLIC_USER),
+    storage.removeItem(STORAGE_KEYS.PUBLIC_USER_TOKEN),
+    storage.removeItem(STORAGE_KEYS.PLAYGROUNDS_CLIENT),
+    storage.removeItem(STORAGE_KEYS.BOOKING_DRAFT),
+  ]);
 }

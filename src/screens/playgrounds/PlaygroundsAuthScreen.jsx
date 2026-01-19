@@ -20,9 +20,11 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { endpoints } from '../../services/api/endpoints';
 import {
   getBookingDraft,
+  getPublicUser,
   setPlaygroundsClientState,
   setPublicUser,
   setPublicUserMode,
+  setPublicUserToken,
 } from '../../services/playgrounds/storage';
 import { spacing } from '../../theme/tokens';
 
@@ -137,6 +139,17 @@ export function PlaygroundsAuthScreen() {
     }
   }, [fromBooking, router]);
 
+  const restoreSession = useCallback(async () => {
+    const existingUser = await getPublicUser();
+    if (existingUser?.id) {
+      await goAfterAuth();
+    }
+  }, [goAfterAuth]);
+
+  useEffect(() => {
+    restoreSession();
+  }, [restoreSession]);
+
   const onChangeMode = useCallback((value) => {
     setMode(value);
     setError('');
@@ -211,6 +224,12 @@ export function PlaygroundsAuthScreen() {
         remember_me: rememberMe ? true : false, // harmless if backend ignores
       });
 
+      const authToken =
+        res?.access_token ||
+        res?.token ||
+        res?.data?.access_token ||
+        res?.data?.token ||
+        null;
       const user = res?.user || res?.data?.user || res?.data || res;
       const clientState =
         res?.playgrounds_client ||
@@ -228,6 +247,7 @@ export function PlaygroundsAuthScreen() {
 
       await setPublicUser(user);
       await setPublicUserMode('registered');
+      if (authToken) await setPublicUserToken(authToken);
       if (clientState) await setPlaygroundsClientState(clientState);
 
       await goAfterAuth();
@@ -278,6 +298,12 @@ export function PlaygroundsAuthScreen() {
         password: registerPassword,
       });
 
+      const authToken =
+        res?.access_token ||
+        res?.token ||
+        res?.data?.access_token ||
+        res?.data?.token ||
+        null;
       const user = res?.user || res?.data?.user || res?.data || res;
       const clientState =
         res?.playgrounds_client ||
@@ -295,6 +321,7 @@ export function PlaygroundsAuthScreen() {
 
       await setPublicUser(user);
       await setPublicUserMode('registered');
+      if (authToken) await setPublicUserToken(authToken);
       if (clientState) await setPlaygroundsClientState(clientState);
 
       await goAfterAuth();
