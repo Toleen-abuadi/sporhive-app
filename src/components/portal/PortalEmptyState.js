@@ -1,19 +1,21 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '../ui/Icon';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
 import { Text } from '../ui/Text';
 
 export function PortalEmptyState({ icon = 'inbox', title, description, action }) {
   const { colors } = useTheme();
+  const iconName = typeof icon === 'string' ? icon : undefined;
+  const iconComponent = typeof icon === 'string' ? undefined : icon;
 
   return (
     <View style={[styles.container, { borderColor: colors.border, backgroundColor: colors.surface }]}
     >
       <View style={[styles.iconWrap, { backgroundColor: colors.surfaceElevated || colors.surface }]}
       >
-        <Feather name={icon} size={22} color={colors.accentOrange} />
+        <Icon name={iconName} icon={iconComponent} size={22} color={colors.accentOrange} />
       </View>
       <Text variant="body" weight="semibold" color={colors.textPrimary}>
         {title}

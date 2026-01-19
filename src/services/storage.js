@@ -1,15 +1,12 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from './storage/storage';
+import { STORAGE_KEYS } from './storage/keys';
 
-export const STORAGE_KEYS = {
-  PUBLIC_USER_MODE: 'sporhive_public_user_mode',
-  PUBLIC_USER: 'sporhive_public_user',
-  PLAYGROUNDS_CLIENT: 'sporhive_playgrounds_client',
-  BOOKING_DRAFT: 'sporhive_playgrounds_booking_draft',
-};
+export { STORAGE_KEYS };
 
 export async function getJSON(key) {
-  const raw = await AsyncStorage.getItem(key);
+  const raw = await storage.getItem(key);
   if (!raw) return null;
+  if (typeof raw === 'object') return raw;
   try {
     return JSON.parse(raw);
   } catch {
@@ -18,9 +15,9 @@ export async function getJSON(key) {
 }
 
 export async function setJSON(key, value) {
-  await AsyncStorage.setItem(key, JSON.stringify(value));
+  await storage.setItem(key, value);
 }
 
 export async function remove(key) {
-  await AsyncStorage.removeItem(key);
+  await storage.removeItem(key);
 }

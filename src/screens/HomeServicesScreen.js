@@ -143,6 +143,33 @@ export function HomeServicesScreen() {
       screen: 'Portal',
       href: '/portal/login',
     },
+    {
+      id: 'playgrounds-explore',
+      title: 'Playgrounds',
+      description: 'Explore venues and find available slots.',
+      icon: 'map',
+      color: '#10B981',
+      screen: 'PlaygroundsExplore',
+      href: '/playgrounds/explore',
+    },
+    {
+      id: 'playgrounds-bookings',
+      title: 'My bookings',
+      description: 'Review your upcoming playground reservations.',
+      icon: 'calendar',
+      color: '#14B8A6',
+      screen: 'PlaygroundsBookings',
+      href: '/playgrounds/bookings',
+    },
+    {
+      id: 'playgrounds-rate',
+      title: 'Rate booking',
+      description: 'Share feedback on your last booking.',
+      icon: 'star',
+      color: '#F59E0B',
+      screen: 'PlaygroundsRate',
+      href: '/playgrounds/rate',
+    },
   ];
 
   return (
