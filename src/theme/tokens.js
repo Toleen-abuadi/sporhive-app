@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -42,3 +44,42 @@ export const typography = {
     '3xl': 44,
   },
 };
+
+export const borderRadius = radius;
+
+export const fontSize = {
+  xs: typography.size.xs,
+  sm: typography.size.sm,
+  base: typography.size.md,
+  lg: typography.size.lg,
+  xl: typography.size.xl,
+  xxl: typography.size['2xl'],
+  xxxl: typography.size['3xl'],
+};
+
+export const fontWeight = {
+  normal: '400',
+  medium: '500',
+  semibold: '600',
+  bold: '700',
+};
+
+const makeShadow = (elevation, opacity, radiusValue, offsetY) =>
+  Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOpacity: opacity,
+      shadowRadius: radiusValue,
+      shadowOffset: { width: 0, height: offsetY },
+    },
+    android: { elevation },
+    default: {},
+  }) || {};
+
+export const shadow = {
+  sm: makeShadow(2, 0.12, 4, 2),
+  md: makeShadow(4, 0.16, 8, 4),
+  lg: makeShadow(8, 0.2, 12, 6),
+};
+
+export const shadows = shadow;
