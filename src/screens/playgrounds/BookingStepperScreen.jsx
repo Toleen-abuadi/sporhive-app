@@ -1,13 +1,5 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Animated,
-  FlatList,
   Image,
   Pressable,
   ScrollView,
@@ -17,14 +9,15 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   CalendarDays,
+  Check,
   CreditCard,
   Moon,
   Sun,
   Users,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useToast } from '../../components/ui/ToastHost';
 
+import { useToast } from '../../components/ui/ToastHost';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
@@ -34,198 +27,310 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { LoadingState } from '../../components/ui/LoadingState';
-import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { endpoints } from '../../services/api/endpoints';
 import {
   getBookingDraft,
   getPlaygroundsClientState,
   getPublicUser,
-  getPublicUserMode,
   setBookingDraft,
-  setPublicUserMode,
-  setPublicUser as persistPublicUser,
 } from '../../services/playgrounds/storage';
 import { borderRadius, shadows, spacing } from '../../theme/tokens';
 
+const STEP_LABELS = ['Schedule', 'Players', 'Payment', 'Review'];
+const QUICK_PLAYER_SUGGESTIONS = [2, 4, 6, 8];
+const CURRENCY = 'JOD';
+
+function formatIsoDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
 function formatSlotLabel(slot) {
-  const start = slot.start || slot.start_time || '';
-  const end = slot.end || slot.end_time || '';
+  const start = slot?.start_time || slot?.start || '';
+  const end = slot?.end_time || slot?.end || '';
   if (!start && !end) return 'TBD';
   if (!end) return start;
   return `${start} - ${end}`;
 }
 
-function getDateLabel(date) {
-  return date.toISOString().slice(0, 10);
+function getSlotPhase(startTime) {
+  if (!startTime) return 'day';
+  const [hour] = startTime.split(':');
+  const parsedHour = Number(hour);
+  return parsedHour >= 6 && parsedHour < 18 ? 'day' : 'night';
 }
 
-function buildSlotsPayload({ venueId, date, durationMinutes }) {
-  // backend expects YYYY-MM-DD (string) and requires it
-  const normalizedDate = typeof date === 'string' ? date.trim() : '';
+function buildDraftPayload(venueId, state) {
+  if (!venueId) return null;
   return {
-    venue_id: String(venueId),
-    date: normalizedDate, // REQUIRED
-    duration_minutes: Number(durationMinutes) || 60,
-  };
-}
-
-function buildBookingDraft(venue, state) {
-  if (!venue?.id || !venue?.academy_profile_id) return null;
-  return {
-    venueId: String(venue.id),
-    academyProfileId: String(venue.academy_profile_id),
+    venueId: String(venueId),
     draft: state,
   };
 }
 
-function formatMoney(amount, currency) {
-  if (amount === null || amount === undefined || Number.isNaN(Number(amount)))
-    return null;
-  const normalizedCurrency = currency || 'AED';
-  return `${normalizedCurrency} ${Number(amount).toFixed(0)}`;
+function StepperHeader({ currentStep, onBack, colors }) {
+  return (
+    <View style={styles.stepperHeader}>
+      <View style={styles.stepperTopRow}>
+        <Pressable
+          onPress={onBack}
+          disabled={currentStep === 0}
+          style={({ pressed }) => [
+            styles.backButton,
+            {
+              opacity: currentStep === 0 ? 0.4 : 1,
+              backgroundColor: pressed ? colors.surfaceElevated : colors.surface,
+              borderColor: colors.border,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Text variant="bodySmall" weight="semibold">
+            Back
+          </Text>
+        </Pressable>
+        <Text variant="bodySmall" color={colors.textSecondary}>
+          Step {currentStep + 1} of {STEP_LABELS.length}
+        </Text>
+      </View>
+      <View style={[styles.progressTrack, { backgroundColor: colors.surfaceElevated }]}>
+        <View
+          style={[
+            styles.progressBar,
+            {
+              backgroundColor: colors.accentOrange,
+              width: `${((currentStep + 1) / STEP_LABELS.length) * 100}%`,
+            },
+          ]}
+        />
+      </View>
+      <View style={styles.stepLabelRow}>
+        {STEP_LABELS.map((label, index) => {
+          const isActive = index === currentStep;
+          const isDone = index < currentStep;
+          return (
+            <View key={label} style={styles.stepLabelItem}>
+              <View
+                style={[
+                  styles.stepLabelDot,
+                  {
+                    backgroundColor: isDone
+                      ? colors.accentOrange
+                      : isActive
+                      ? colors.surface
+                      : colors.surfaceElevated,
+                    borderColor: isActive || isDone ? colors.accentOrange : colors.border,
+                  },
+                ]}
+              >
+                {isDone ? (
+                  <Check size={12} color={colors.surface} />
+                ) : (
+                  <Text
+                    variant="bodySmall"
+                    weight="semibold"
+                    color={isActive ? colors.accentOrange : colors.textMuted}
+                  >
+                    {index + 1}
+                  </Text>
+                )}
+              </View>
+              <Text
+                variant="caption"
+                color={isActive || isDone ? colors.textPrimary : colors.textSecondary}
+              >
+                {label}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function StickyFooterCTA({
+  onBack,
+  onNext,
+  currentStep,
+  priceLabel,
+  disableBack,
+  disableNext,
+  submitting,
+}) {
+  const primaryLabel =
+    currentStep < STEP_LABELS.length - 1 ? 'Continue' : 'Confirm booking';
+
+  return (
+    <View style={styles.stickyFooter}>
+      <View>
+        <Text variant="bodySmall" color="#8A8A8A">
+          Total
+        </Text>
+        <Text variant="bodySmall" weight="semibold">
+          {priceLabel || '--'}
+        </Text>
+      </View>
+      <View style={styles.footerButtons}>
+        <Button variant="secondary" onPress={onBack} disabled={disableBack}>
+          Back
+        </Button>
+        <Button onPress={onNext} disabled={disableNext} loading={submitting}>
+          {primaryLabel}
+        </Button>
+      </View>
+    </View>
+  );
 }
 
 export function BookingStepperScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { venueId } = useLocalSearchParams();
+  const toast = useToast();
 
   const [venue, setVenue] = useState(null);
-  const [durations, setDurations] = useState([]);
-  const [slots, setSlots] = useState([]);
-  const [selectedDuration, setSelectedDuration] = useState(null);
-  const [selectedSlot, setSelectedSlot] = useState(null);
-  const [bookingDate, setBookingDate] = useState('');
-  const [players, setPlayers] = useState('2');
-  const [paymentType, setPaymentType] = useState('cash');
-  const [cashOnDate, setCashOnDate] = useState(true);
-  const [cliqImage, setCliqImage] = useState(null);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [slotLoading, setSlotLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [publicUser, setPublicUser] = useState(null);
-  const [userMode, setUserMode] = useState('guest');
-  const [guestFirstName, setGuestFirstName] = useState('');
-  const [guestLastName, setGuestLastName] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
-  const [guestSheetOpen, setGuestSheetOpen] = useState(false);
-  const [baseFilters, setBaseFilters] = useState(null);
-  const toast = useToast();
+
+  const [durations, setDurations] = useState([]);
+  const [durationsLoading, setDurationsLoading] = useState(false);
+  const [selectedDurationId, setSelectedDurationId] = useState('');
+  const [bookingDate, setBookingDate] = useState('');
+  const [slots, setSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState(null);
+
+  const [players, setPlayers] = useState(2);
+  const [paymentType, setPaymentType] = useState('cash');
+  const [cashOnDate, setCashOnDate] = useState(false);
+  const [cliqImage, setCliqImage] = useState(null);
+
+  const [currentStep, setCurrentStep] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [errorText, setErrorText] = useState('');
+  const [inlinePaymentError, setInlinePaymentError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const academy = venue?.academy_profile || null;
+  const allowCash =
+    typeof academy?.allow_cash === 'boolean' ? academy.allow_cash : true;
+  const allowCashOnDate = !!academy?.allow_cash_on_date;
+  const allowCliq = !!academy?.allow_cliq;
+  const cliqName = academy?.cliq_name || '';
+  const cliqNumber = academy?.cliq_number || '';
+
   const minPlayers = venue?.min_players ?? 1;
-  const maxPlayers = venue?.max_players ?? 20;
-  const stepAnim = useRef(new Animated.Value(0)).current;
+  const maxPlayers = venue?.max_players ?? 100;
 
-  const currency =
-    venue?.currency || durations?.[0]?.currency || slots?.[0]?.currency || null;
-  const durationMinutes =
-    selectedDuration?.minutes || selectedDuration?.duration_minutes || 60;
-  const basePrice = Number(selectedDuration?.base_price || 0);
-  const taxRate = 0.05;
-  const taxAmount = basePrice ? basePrice * taxRate : 0;
-  const totalAmount = basePrice + taxAmount;
+  const selectedDuration = useMemo(
+    () =>
+      durations.find((duration) => String(duration.id) === String(selectedDurationId)) ||
+      null,
+    [durations, selectedDurationId]
+  );
 
-  const draftPayload = useMemo(() => {
-    return buildBookingDraft(venue, {
-      selectedDurationId: selectedDuration?.id
-        ? String(selectedDuration.id)
-        : undefined,
-      bookingDate: bookingDate || undefined,
-      players: Number(players) || 2,
-      selectedSlot: selectedSlot
-        ? {
-            start_time: String(
-              selectedSlot.start_time || selectedSlot.start || ''
-            ),
-            end_time: String(selectedSlot.end_time || selectedSlot.end || ''),
-          }
-        : undefined,
-      paymentType,
+  const basePrice =
+    selectedDuration?.base_price !== null &&
+    selectedDuration?.base_price !== undefined
+      ? Number(selectedDuration.base_price)
+      : null;
+
+  const quickDates = useMemo(
+    () => Array.from({ length: 6 }).map((_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() + index);
+      return formatIsoDate(date);
+    }),
+    []
+  );
+
+  const scheduleReady =
+    !!selectedDurationId && !!bookingDate && !!selectedSlot;
+  const playersValid = players >= minPlayers && players <= maxPlayers;
+  const paymentReady =
+    !!paymentType && (paymentType !== 'cliq' || !!cliqImage);
+  const allValid = scheduleReady && playersValid && paymentReady;
+
+  const draftPayload = useMemo(
+    () =>
+      buildDraftPayload(venueId, {
+        selectedDurationId: selectedDurationId || undefined,
+        bookingDate: bookingDate || undefined,
+        players,
+        selectedSlot: selectedSlot
+          ? {
+              start_time: String(selectedSlot.start_time || selectedSlot.start || ''),
+              end_time: String(selectedSlot.end_time || selectedSlot.end || ''),
+            }
+          : undefined,
+        paymentType: paymentType || undefined,
+        cashOnDate,
+        currentStep,
+      }),
+    [
+      bookingDate,
       cashOnDate,
       currentStep,
-    });
-  }, [
-    bookingDate,
-    cashOnDate,
-    currentStep,
-    paymentType,
-    players,
-    selectedDuration?.id,
-    selectedSlot,
-    venue,
-  ]);
+      paymentType,
+      players,
+      selectedDurationId,
+      selectedSlot,
+      venueId,
+    ]
+  );
 
   const loadVenue = useCallback(async () => {
     setLoading(true);
-    setError('');
+    setErrorText('');
     try {
-      const [client, draft, mode, user] = await Promise.all([
+      const [client, draft, user] = await Promise.all([
         getPlaygroundsClientState(),
         getBookingDraft(),
-        getPublicUserMode(),
         getPublicUser(),
       ]);
-      if (mode) setUserMode(mode);
       if (user) setPublicUser(user);
 
       const cached = Array.isArray(client?.cachedResults)
-        ? client?.cachedResults
+        ? client.cachedResults
         : [];
-      const fromCache = cached.find(
+      const resolvedVenue = cached.find(
         (item) => String(item.id) === String(venueId)
       );
-      if (fromCache) setVenue(fromCache);
+      if (resolvedVenue) setVenue(resolvedVenue);
+
       if (draft?.venueId && String(draft.venueId) === String(venueId)) {
-        if (draft.draft.selectedDurationId) {
-          setSelectedDuration(
-            (prev) => prev || { id: draft.draft.selectedDurationId }
-          );
+        const draftState = draft.draft || {};
+        if (draftState.selectedDurationId) {
+          setSelectedDurationId(String(draftState.selectedDurationId));
         }
-        if (draft.draft.bookingDate) setBookingDate(draft.draft.bookingDate);
-        if (draft.draft.players) setPlayers(String(draft.draft.players));
-        if (draft.draft.paymentType) setPaymentType(draft.draft.paymentType);
-        if (typeof draft.draft.cashOnDate === 'boolean')
-          setCashOnDate(draft.draft.cashOnDate);
-        if (draft.draft.currentStep) setCurrentStep(draft.draft.currentStep);
-        if (draft.draft.selectedSlot) {
+        if (draftState.bookingDate) setBookingDate(draftState.bookingDate);
+        if (draftState.players) setPlayers(Number(draftState.players) || 2);
+        if (draftState.selectedSlot) {
           setSelectedSlot({
-            start_time: draft.draft.selectedSlot.start_time,
-            end_time: draft.draft.selectedSlot.end_time,
+            start_time: draftState.selectedSlot.start_time,
+            end_time: draftState.selectedSlot.end_time,
           });
         }
-      } else {
-        setBaseFilters({ date: bookingDate, players: Number(players) || 2 });
+        if (draftState.paymentType) setPaymentType(draftState.paymentType);
+        if (typeof draftState.cashOnDate === 'boolean') {
+          setCashOnDate(draftState.cashOnDate);
+        }
+        if (typeof draftState.currentStep === 'number') {
+          setCurrentStep(draftState.currentStep);
+        }
       }
     } catch (err) {
-      setError(err?.message || 'Unable to load booking data.');
+      setErrorText(err?.message || 'Unable to load booking data.');
     } finally {
       setLoading(false);
     }
   }, [venueId]);
 
-  const handleSelectDate = useCallback(
-    (label) => {
-      setBookingDate(label);
-      setSelectedSlot(null);
-      setSlots([]);
-      // Call immediately with the selected date (no waiting for state)
-      loadSlots(label);
-    },
-    [loadSlots]
-  );
-
-  useEffect(() => {
-    if (baseFilters?.date) {
-      setBookingDate((prev) => prev || baseFilters.date || '');
-    }
-    if (baseFilters?.players) {
-      setPlayers((prev) => prev || String(baseFilters.players));
-    }
-  }, [baseFilters]);
-
   const loadDurations = useCallback(async () => {
     if (!venue?.id) return;
+    setDurationsLoading(true);
+    setErrorText('');
     try {
       const durationRes = await endpoints.playgrounds.venueDurations({
         venue_id: venue.id,
@@ -235,48 +340,47 @@ export function BookingStepperScreen() {
         : Array.isArray(durationRes?.durations)
         ? durationRes.durations
         : [];
-      const filtered = list.filter(
-        (item) =>
-          item?.is_active &&
-          String(item?.venue) === String(venue.id)
-      );
-      setDurations(filtered);
-      const resolvedSelection = selectedDuration?.id
-        ? filtered.find((item) => String(item.id) === String(selectedDuration.id))
-        : null;
-      const defaultDuration =
-        resolvedSelection || filtered.find((item) => item.is_default) || filtered[0];
-      if (defaultDuration) {
-        setSelectedDuration(defaultDuration);
+
+      const normalized = list.map((duration) => ({
+        ...duration,
+        base_price:
+          duration.base_price !== null && duration.base_price !== undefined
+            ? Number(duration.base_price)
+            : null,
+      }));
+
+      setDurations(normalized);
+
+      if (!selectedDurationId) {
+        const defaultDuration =
+          normalized.find((item) => item.is_default) || normalized[0];
+        if (defaultDuration) {
+          setSelectedDurationId(String(defaultDuration.id));
+        }
       }
     } catch (err) {
-      setError(err?.message || 'Unable to load durations.');
+      setErrorText(err?.message || 'Unable to load durations.');
+    } finally {
+      setDurationsLoading(false);
     }
-  }, [selectedDuration, venue?.id]);
+  }, [selectedDurationId, venue?.id]);
 
   const loadSlots = useCallback(
-    async (explicitDate) => {
-      if (!venue?.id || !selectedDuration) return;
-
-      const effectiveDate = (explicitDate ?? bookingDate ?? '').trim();
-      if (!effectiveDate) {
-        // Don’t call backend if date isn’t selected yet
-        setSlots([]);
-        setSelectedSlot(null);
-        return;
-      }
-
-      setSlotLoading(true);
-      setError('');
+    async (dateValue, durationValue) => {
+      if (!venue?.id) return;
+      if (!dateValue || !durationValue) return;
+      setSlotsLoading(true);
+      setSlots([]);
+      setSelectedSlot(null);
+      setInlinePaymentError('');
+      setErrorText('');
 
       try {
-        const slotRes = await endpoints.playgrounds.slots(
-          buildSlotsPayload({
-            venueId: venue.id,
-            date: effectiveDate, // ALWAYS send selected date
-            durationMinutes,
-          })
-        );
+        const slotRes = await endpoints.playgrounds.slots({
+          venue_id: venue.id,
+          date: dateValue,
+          duration_minutes: durationValue,
+        });
 
         const list = Array.isArray(slotRes?.slots)
           ? slotRes.slots
@@ -288,12 +392,12 @@ export function BookingStepperScreen() {
       } catch (err) {
         setSlots([]);
         setSelectedSlot(null);
-        setError(err?.message || 'Unable to load slots.');
+        setErrorText(err?.message || 'Unable to load slots.');
       } finally {
-        setSlotLoading(false);
+        setSlotsLoading(false);
       }
     },
-    [bookingDate, durationMinutes, selectedDuration, venue?.id]
+    [venue?.id]
   );
 
   useEffect(() => {
@@ -301,169 +405,75 @@ export function BookingStepperScreen() {
   }, [loadVenue]);
 
   useEffect(() => {
+    if (!venue?.id) return;
     loadDurations();
-  }, [loadDurations]);
+  }, [loadDurations, venue?.id]);
 
   useEffect(() => {
-    if ((bookingDate || '').trim()) {
-      loadSlots();
-    }
-  }, [bookingDate, loadSlots]);
+    if (!bookingDate || !selectedDurationId) return;
+    const durationObj = durations.find(
+      (duration) => String(duration.id) === String(selectedDurationId)
+    );
+    if (!durationObj) return;
+    const minutes =
+      durationObj.minutes || durationObj.duration_minutes || 60;
+    loadSlots(bookingDate, minutes);
+  }, [bookingDate, durations, loadSlots, selectedDurationId]);
 
   useEffect(() => {
-    if (draftPayload) {
-      setBookingDraft(draftPayload);
-    }
+    if (!selectedDurationId) return;
+    const durationObj = durations.find(
+      (duration) => String(duration.id) === String(selectedDurationId)
+    );
+    if (!durationObj) return;
+    setSelectedSlot(null);
+    setSlots([]);
+  }, [selectedDurationId, durations]);
+
+  useEffect(() => {
+    if (!draftPayload) return;
+    setBookingDraft(draftPayload);
   }, [draftPayload]);
 
   useEffect(() => {
-    if ((bookingDate || '').trim() && selectedDuration) {
-      setSelectedSlot(null);
-      loadSlots();
+    if (!allowCliq && paymentType === 'cliq') {
+      setPaymentType('cash');
     }
-  }, [selectedDuration?.id, bookingDate, loadSlots]);
+    if (!allowCash && allowCliq) {
+      setPaymentType('cliq');
+    }
+    if (!allowCash && !allowCliq) {
+      setPaymentType('cash');
+    }
+    if (!allowCashOnDate && cashOnDate) {
+      setCashOnDate(false);
+    }
+  }, [allowCash, allowCashOnDate, allowCliq, cashOnDate, paymentType]);
 
-  useEffect(() => {
-    setPublicUserMode(userMode);
-  }, [userMode]);
-
-  useEffect(() => {
-    stepAnim.setValue(0);
-    Animated.timing(stepAnim, {
-      toValue: 1,
-      duration: 220,
-      useNativeDriver: true,
-    }).start();
-  }, [currentStep, stepAnim]);
-
-  const handleNext = useCallback(() => {
-    setCurrentStep((prev) => Math.min(prev + 1, 3));
+  const handleSelectDuration = useCallback((id) => {
+    setSelectedDurationId(String(id));
+    setSelectedSlot(null);
+    setSlots([]);
   }, []);
 
-  const handleBack = useCallback(() => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1));
+  const handleSelectDate = useCallback((dateValue) => {
+    setBookingDate(dateValue);
+    setSelectedSlot(null);
+    setSlots([]);
   }, []);
 
-  const handleBook = useCallback(async () => {
-    if (!venue?.id || !bookingDate || !selectedSlot || !selectedDuration) {
-      setError('Please complete all booking steps.');
+  const handleNextStep = useCallback(() => {
+    if (currentStep === 2 && paymentType === 'cliq' && !cliqImage) {
+      setInlinePaymentError('Upload your CliQ screenshot to continue.');
       return;
     }
-    if (userMode === 'registered' && !publicUser?.id) {
-      if (draftPayload) {
-        await setBookingDraft({
-          ...draftPayload,
-          draft: { ...draftPayload.draft, currentStep },
-        });
-      }
-      router.push('/playgrounds/auth?fromBooking=1');
-      return;
-    }
-    let activeUser = publicUser;
-    if (userMode === 'guest' && !activeUser?.id) {
-      setGuestSheetOpen(true);
-      return;
-    }
-    if (!activeUser?.id) {
-      setError('Please sign in to complete booking.');
-      return;
-    }
-    if (paymentType === 'cliq' && !cliqImage?.uri) {
-      setError('Please upload your CliQ payment proof.');
-      return;
-    }
-    const formData = new FormData();
-    if (venue.academy_profile_id) {
-      formData.append('academy_profile_id', String(venue.academy_profile_id));
-    }
-    if (venue.activity_id) {
-      formData.append('activity_id', String(venue.activity_id));
-    }
-    formData.append('user_id', String(activeUser.id));
-    formData.append('venue_id', String(venue.id));
-    formData.append('duration_id', String(selectedDuration.id));
-    formData.append('booking_date', bookingDate);
-    formData.append(
-      'start_time',
-      String(selectedSlot.start_time || selectedSlot.start || '')
-    );
-    formData.append('number_of_players', String(Number(players) || 2));
-    formData.append('payment_type', paymentType);
-    formData.append('cash_payment_on_date', cashOnDate ? 'true' : 'false');
-    if (paymentType === 'cliq' && cliqImage?.uri) {
-      formData.append('cliq_image', {
-        uri: cliqImage.uri,
-        name: cliqImage.fileName || 'cliq.jpg',
-        type: cliqImage.mimeType || 'image/jpeg',
-      });
-    }
+    setInlinePaymentError('');
+    setCurrentStep((prev) => Math.min(prev + 1, STEP_LABELS.length - 1));
+  }, [cliqImage, currentStep, paymentType]);
 
-    try {
-      setSubmitting(true);
-      const res = await endpoints.playgrounds.createBooking(formData);
-      await setBookingDraft(null);
-      router.replace('/playgrounds/bookings');
-      toast.success(
-        res?.booking_code
-          ? `Code ${res.booking_code}`
-          : 'Your session is booked.',
-        {
-          title: 'Booking confirmed',
-        }
-      );
-      if (res?.booking_code) {
-        setError(`Booking confirmed: ${res.booking_code}`);
-      }
-    } catch (err) {
-      setError(err?.message || 'Unable to complete booking.');
-    } finally {
-      setSubmitting(false);
-    }
-  }, [
-    bookingDate,
-    cashOnDate,
-    cliqImage?.uri,
-    currentStep,
-    draftPayload,
-    guestFirstName,
-    guestLastName,
-    guestPhone,
-    paymentType,
-    players,
-    publicUser?.id,
-    router,
-    selectedDuration,
-    selectedSlot,
-    toast,
-    userMode,
-    venue?.academy_profile_id,
-    venue?.activity_id,
-    venue?.id,
-  ]);
-
-  const handleGuestRegister = useCallback(async () => {
-    if (!guestFirstName || !guestLastName || !guestPhone) {
-      setError('Please provide guest details.');
-      return;
-    }
-    try {
-      const res = await endpoints.publicUsers.quickRegister({
-        first_name: guestFirstName,
-        last_name: guestLastName,
-        phone: guestPhone,
-      });
-      const user = res?.user || res?.data?.user || res?.data || res;
-      if (!user?.id) {
-        setError('Unable to register guest.');
-        return;
-      }
-      await persistPublicUser(user);
-      setPublicUser(user);
-      setGuestSheetOpen(false);
-    } catch (err) {
-      setError(err?.message || 'Unable to register guest.');
-    }
-  }, [guestFirstName, guestLastName, guestPhone]);
+  const handleBackStep = useCallback(() => {
+    setCurrentStep((prev) => Math.max(prev - 1, 0));
+  }, []);
 
   const handlePickCliqImage = useCallback(async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -472,470 +482,646 @@ export function BookingStepperScreen() {
     });
     if (!res.canceled && res.assets?.[0]) {
       setCliqImage(res.assets[0]);
+      setInlinePaymentError('');
     }
   }, []);
 
-  const handlePickCliqCamera = useCallback(async () => {
-    const res = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    if (!res.canceled && res.assets?.[0]) {
-      setCliqImage(res.assets[0]);
+  const handleSubmitBooking = useCallback(async () => {
+    if (!allValid || !selectedDuration || !selectedSlot) {
+      setErrorText('Please complete all booking steps.');
+      return;
     }
+
+    if (!publicUser?.id) {
+      if (draftPayload) await setBookingDraft(draftPayload);
+      router.push('/playgrounds/auth?fromBooking=1');
+      return;
+    }
+
+    if (paymentType === 'cliq' && !cliqImage) {
+      setCurrentStep(2);
+      setInlinePaymentError('Upload your CliQ screenshot to continue.');
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorText('');
+
+    try {
+      const formData = new FormData();
+      formData.append('academy_profile_id', venue.academy_profile_id);
+      formData.append('user_id', publicUser.id);
+      formData.append('activity_id', venue.activity_id);
+      formData.append('venue_id', venue.id);
+      formData.append('duration_id', selectedDuration.id);
+      formData.append('booking_date', bookingDate);
+      formData.append('start_time', selectedSlot.start_time);
+      formData.append('number_of_players', String(players));
+      formData.append('payment_type', paymentType);
+      formData.append(
+        'cash_payment_on_date',
+        paymentType === 'cash' && cashOnDate ? 'true' : 'false'
+      );
+
+      if (paymentType === 'cliq' && cliqImage?.uri) {
+        formData.append('cliq_image', {
+          uri: cliqImage.uri,
+          name: cliqImage.fileName || 'cliq.jpg',
+          type: cliqImage.mimeType || 'image/jpeg',
+        });
+      }
+
+      const res = await endpoints.playgrounds.createBooking(formData);
+      await setBookingDraft(null);
+      router.replace('/playgrounds/bookings');
+      toast.success('Your booking request was sent.', {
+        title: 'Booking confirmed',
+      });
+
+      if (res?.booking_code) {
+        setErrorText(`Booking confirmed: ${res.booking_code}`);
+      }
+    } catch (err) {
+      setErrorText(err?.message || 'Unable to complete booking.');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [
+    allValid,
+    bookingDate,
+    cashOnDate,
+    cliqImage,
+    draftPayload,
+    paymentType,
+    players,
+    publicUser?.id,
+    router,
+    selectedDuration,
+    selectedSlot,
+    toast,
+    venue?.academy_profile_id,
+    venue?.activity_id,
+    venue?.id,
+  ]);
+
+  const handlePlayersChange = useCallback((value) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) return;
+    setPlayers(parsed);
   }, []);
+
+  const handlePlayersIncrement = useCallback(() => {
+    setPlayers((prev) => Math.min(maxPlayers, prev + 1));
+  }, [maxPlayers]);
+
+  const handlePlayersDecrement = useCallback(() => {
+    setPlayers((prev) => Math.max(minPlayers, prev - 1));
+  }, [minPlayers]);
+
+  const handleSelectSlot = useCallback((slot) => {
+    setSelectedSlot(slot);
+  }, []);
+
+  const stepTitle =
+    currentStep === 0
+      ? 'Choose date, time & duration'
+      : currentStep === 1
+      ? 'Number of players'
+      : currentStep === 2
+      ? 'Payment method'
+      : 'Review & confirm';
+
+  const priceLabel =
+    basePrice !== null && basePrice !== undefined
+      ? `${basePrice} ${CURRENCY}`
+      : '--';
+
+  if (loading) {
+    return (
+      <Screen safe>
+        <LoadingState message="Preparing your booking..." />
+      </Screen>
+    );
+  }
+
+  if (errorText && !venue) {
+    return (
+      <Screen safe>
+        <ErrorState
+          title="Booking issue"
+          message={errorText}
+          onAction={loadVenue}
+        />
+      </Screen>
+    );
+  }
+
+  if (!venue) {
+    return (
+      <Screen safe>
+        <EmptyState
+          title="Venue not found"
+          message="We couldn't find this venue. Please try again."
+        />
+      </Screen>
+    );
+  }
 
   return (
     <Screen safe>
-      <View style={styles.stepperHeader}>
-        <Text variant="bodySmall" color={colors.textSecondary}>
-          Step {currentStep} of 3
-        </Text>
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressBar,
-              {
-                backgroundColor: colors.accentOrange,
-                width: `${(currentStep / 3) * 100}%`,
-              },
-            ]}
-          />
+      <StepperHeader
+        currentStep={currentStep}
+        onBack={handleBackStep}
+        colors={colors}
+      />
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.stepHeader}>
+          <Text variant="bodySmall" color={colors.textSecondary}>
+            {venue?.academy_profile?.public_name || 'Academy'}
+          </Text>
+          <Text variant="h4" weight="semibold">
+            {stepTitle}
+          </Text>
         </View>
-      </View>
-      {loading ? (
-        <LoadingState message="Preparing your booking..." />
-      ) : error ? (
-        <ErrorState
-          title="Booking issue"
-          message={error}
-          onAction={loadVenue}
-        />
-      ) : venue ? (
-        <View style={styles.container}>
-          <View style={styles.stepHeader}>
-            <Text variant="bodySmall" weight="semibold">
-              {venue.name || venue.title || 'Playground'}
-            </Text>
-            <Text variant="h4" weight="semibold">
-              {currentStep === 1
-                ? 'Choose duration'
-                : currentStep === 2
-                ? 'Pick a time'
-                : 'Review & pay'}
-            </Text>
-          </View>
 
-          {currentStep === 1 ? (
-            <Animated.View style={[styles.stepSection, { opacity: stepAnim }]}>
-              <Input
-                label="Booking date"
-                value={bookingDate}
-                onChangeText={setBookingDate}
-                placeholder="YYYY-MM-DD"
-                leftIcon="calendar"
-                accessibilityLabel="Booking date"
-              />
-              <Input
-                label="Players"
-                value={players}
-                onChangeText={setPlayers}
-                placeholder="2"
-                leftIcon="users"
-                keyboardType="number-pad"
-                accessibilityLabel="Number of players"
-              />
-              <View style={styles.playersStepper}>
-                <Button
-                  variant="secondary"
-                  size="small"
-                  onPress={() =>
-                    setPlayers((prev) =>
-                      String(Math.max(minPlayers, Number(prev || 2) - 1))
-                    )
-                  }
-                  accessibilityLabel="Decrease players"
-                >
-                  -
-                </Button>
-                <Text variant="bodySmall" weight="semibold">
-                  {players}
-                </Text>
-                <Button
-                  variant="secondary"
-                  size="small"
-                  onPress={() =>
-                    setPlayers((prev) =>
-                      String(Math.min(maxPlayers, Number(prev || 2) + 1))
-                    )
-                  }
-                  accessibilityLabel="Increase players"
-                >
-                  +
-                </Button>
+        {currentStep === 0 ? (
+          <View style={styles.stepSection}>
+            <View style={styles.sectionHeaderRow}>
+              <CalendarDays size={18} color={colors.textMuted} />
+              <Text variant="bodySmall" weight="semibold">
+                Duration
+              </Text>
+            </View>
+            {durationsLoading ? (
+              <View style={styles.skeletonGroup}>
+                <Skeleton height={72} />
+                <Skeleton height={72} />
               </View>
+            ) : durations.length === 0 ? (
+              <EmptyState
+                title="No durations available"
+                message="Please check again later or select another venue."
+              />
+            ) : (
               <View style={styles.durationCards}>
-                {durations.length ? (
-                  durations.map((duration) => {
-                    const durationLabel =
-                      duration.label ||
-                      `${
-                        duration.minutes || duration.duration_minutes || 60
-                      } min`;
-                    return (
-                      <Pressable
-                        key={String(duration.id ?? durationLabel)}
-                        onPress={() => setSelectedDuration(duration)}
-                        style={[
-                          styles.durationCard,
-                          {
-                            borderColor:
-                              selectedDuration?.id === duration.id
-                                ? colors.accentOrange
-                                : colors.border,
-                            backgroundColor:
-                              selectedDuration?.id === duration.id
-                                ? colors.surfaceElevated
-                                : colors.surface,
-                          },
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Select ${durationLabel}`}
-                      >
-                        <Text variant="bodySmall" weight="semibold">
-                          {durationLabel}
-                        </Text>
-                        <Text variant="bodySmall" color={colors.textSecondary}>
-                          {formatMoney(
-                            duration.base_price,
-                            duration.currency || currency
-                          ) || 'Price TBD'}
-                        </Text>
-                      </Pressable>
-                    );
-                  })
-                ) : (
-                  <Text variant="bodySmall" color={colors.textSecondary}>
-                    No durations listed.
-                  </Text>
-                )}
-              </View>
-            </Animated.View>
-          ) : null}
-
-          {currentStep === 2 ? (
-            <Animated.View style={[styles.stepSection, { opacity: stepAnim }]}>
-              <View style={styles.dateStrip}>
-                {Array.from({ length: 6 }).map((_, index) => {
-                  const date = new Date();
-                  date.setDate(date.getDate() + index);
-                  const label = getDateLabel(date);
+                {durations.map((duration) => {
+                  const minutes =
+                    duration.minutes || duration.duration_minutes || 60;
+                  const isSelected =
+                    String(duration.id) === String(selectedDurationId);
                   return (
-                    <Chip
-                      key={label}
-                      label={label}
-                      selected={bookingDate === label}
-                      onPress={() => handleSelectDate(label)}
-                      accessibilityLabel={`Select ${label}`}
-                    />
+                    <Pressable
+                      key={String(duration.id)}
+                      onPress={() => handleSelectDuration(duration.id)}
+                      style={({ pressed }) => [
+                        styles.durationCard,
+                        {
+                          borderColor: isSelected
+                            ? colors.accentOrange
+                            : colors.border,
+                          backgroundColor: pressed
+                            ? colors.surfaceElevated
+                            : colors.surface,
+                        },
+                      ]}
+                      accessibilityRole="button"
+                    >
+                      <View style={styles.durationCardTop}>
+                        <Text variant="bodySmall" weight="semibold">
+                          {minutes} min
+                        </Text>
+                        {duration.is_default ? (
+                          <Text
+                            variant="caption"
+                            color={colors.accentOrange}
+                            weight="semibold"
+                          >
+                            Most popular
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Text variant="bodySmall" color={colors.textSecondary}>
+                        {duration.base_price !== null &&
+                        duration.base_price !== undefined
+                          ? `${Number(duration.base_price)} ${CURRENCY}`
+                          : 'Price available on request'}
+                      </Text>
+                      {duration.note ? (
+                        <Text variant="caption" color={colors.textSecondary}>
+                          {duration.note}
+                        </Text>
+                      ) : null}
+                    </Pressable>
                   );
                 })}
               </View>
-              {slotLoading ? (
-                <LoadingState message="Loading slots..." size="small" />
-              ) : slots.length ? (
-                <FlatList
-                  data={slots}
-                  keyExtractor={(item, index) => String(item.id ?? index)}
-                  numColumns={2}
-                  columnWrapperStyle={{ gap: spacing.sm }}
-                  contentContainerStyle={{ gap: spacing.sm }}
-                  renderItem={({ item }) => (
+            )}
+
+            <View style={styles.sectionHeaderRow}>
+              <CalendarDays size={18} color={colors.textMuted} />
+              <Text variant="bodySmall" weight="semibold">
+                Date
+              </Text>
+            </View>
+            <Input
+              label="Booking date"
+              value={bookingDate}
+              onChangeText={handleSelectDate}
+              placeholder="YYYY-MM-DD"
+              accessibilityLabel="Booking date"
+            />
+            <View style={styles.quickDateRow}>
+              {quickDates.map((dateValue, index) => {
+                const isSelected = bookingDate === dateValue;
+                const label =
+                  index === 0 ? 'Today' : index === 1 ? 'Tomorrow' : dateValue;
+                return (
+                  <Chip
+                    key={dateValue}
+                    label={label}
+                    selected={isSelected}
+                    onPress={() => handleSelectDate(dateValue)}
+                    accessibilityLabel={`Select ${dateValue}`}
+                  />
+                );
+              })}
+            </View>
+
+            <View style={styles.sectionHeaderRow}>
+              <CalendarDays size={18} color={colors.textMuted} />
+              <Text variant="bodySmall" weight="semibold">
+                Available time slots
+              </Text>
+            </View>
+            {!selectedDurationId ? (
+              <EmptyState
+                title="Select a duration"
+                message="Pick a duration to see available slots."
+              />
+            ) : slotsLoading ? (
+              <View style={styles.skeletonGroup}>
+                <Skeleton height={52} />
+                <Skeleton height={52} />
+              </View>
+            ) : !bookingDate ? (
+              <EmptyState
+                title="Pick a date"
+                message="Select a date to see available time slots."
+              />
+            ) : slots.length === 0 ? (
+              <EmptyState
+                title="No slots"
+                message="No available slots for this duration on the selected date."
+              />
+            ) : (
+              <View style={styles.slotsGrid}>
+                {slots.map((slot, index) => {
+                  const slotKey = slot.id ? String(slot.id) : `${index}`;
+                  const label = formatSlotLabel(slot);
+                  const isSelected =
+                    selectedSlot?.id
+                      ? selectedSlot.id === slot.id
+                      : formatSlotLabel(selectedSlot || {}) === label;
+                  const phase = getSlotPhase(slot.start_time || slot.start);
+                  return (
                     <Chip
-                      label={formatSlotLabel(item)}
-                      selected={
-                        selectedSlot?.id
-                          ? selectedSlot?.id === item.id
-                          : formatSlotLabel(selectedSlot || {}) ===
-                            formatSlotLabel(item)
-                      }
+                      key={slotKey}
+                      label={label}
+                      selected={isSelected}
                       icon={
-                        item.start_time &&
-                        Number(item.start_time.split(':')[0]) >= 18 ? (
+                        phase === 'night' ? (
                           <Moon size={12} color={colors.textMuted} />
                         ) : (
                           <Sun size={12} color={colors.textMuted} />
                         )
                       }
-                      onPress={() => setSelectedSlot(item)}
+                      onPress={() => handleSelectSlot(slot)}
                     />
-                  )}
-                />
-              ) : (
-                <EmptyState
-                  title="No slots"
-                  message="Try another date or adjust the duration."
-                />
-              )}
-              {!slots.length ? (
-                <View style={styles.altSuggestions}>
-                  <Text variant="bodySmall" color={colors.textSecondary}>
-                    Suggestions: change duration or pick another date.
-                  </Text>
-                </View>
-              ) : null}
-            </Animated.View>
-          ) : null}
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        ) : null}
 
-          {currentStep === 3 ? (
-            <Animated.View style={[styles.stepSection, { opacity: stepAnim }]}>
-              <View style={styles.sectionTitle}>
-                <CreditCard size={16} color={colors.textMuted} />
-                <Text variant="bodySmall" weight="semibold">
-                  Payment
-                </Text>
-              </View>
-              <View style={styles.chipsWrap}>
+        {currentStep === 1 ? (
+          <View style={styles.stepSection}>
+            <View style={styles.sectionHeaderRow}>
+              <Users size={18} color={colors.textMuted} />
+              <Text variant="bodySmall" weight="semibold">
+                Players
+              </Text>
+            </View>
+            <View style={[styles.playersDisplay, { borderColor: colors.border }]}
+            >
+              <Text variant="caption" color={colors.textSecondary}>
+                Players
+              </Text>
+              <Text variant="h2" weight="bold">
+                {players}
+              </Text>
+            </View>
+            <View style={styles.playersStepper}>
+              <Button
+                variant="secondary"
+                size="small"
+                onPress={handlePlayersDecrement}
+                disabled={players <= minPlayers}
+              >
+                -
+              </Button>
+              <Button
+                variant="secondary"
+                size="small"
+                onPress={handlePlayersIncrement}
+                disabled={players >= maxPlayers}
+              >
+                +
+              </Button>
+            </View>
+            <Text variant="bodySmall" color={colors.textSecondary}>
+              Allowed range: {minPlayers} - {maxPlayers}
+            </Text>
+            <Input
+              label="Number of players"
+              value={String(players)}
+              onChangeText={handlePlayersChange}
+              placeholder="2"
+              keyboardType="number-pad"
+              accessibilityLabel="Number of players"
+            />
+            <View style={styles.quickPlayersRow}>
+              {QUICK_PLAYER_SUGGESTIONS.map((count) => (
                 <Chip
-                  label="Guest"
-                  selected={userMode === 'guest'}
-                  onPress={() => setUserMode('guest')}
+                  key={count}
+                  label={`${count} players`}
+                  selected={players === count}
+                  onPress={() => setPlayers(count)}
                 />
-                <Chip
-                  label="Registered"
-                  selected={userMode === 'registered'}
-                  onPress={() => setUserMode('registered')}
-                />
-              </View>
-              {userMode === 'guest' && !publicUser ? (
-                <View style={styles.guestForm}>
-                  <Input
-                    label="First name"
-                    value={guestFirstName}
-                    onChangeText={setGuestFirstName}
-                    placeholder="First name"
-                    accessibilityLabel="Guest first name"
-                  />
-                  <Input
-                    label="Last name"
-                    value={guestLastName}
-                    onChangeText={setGuestLastName}
-                    placeholder="Last name"
-                    accessibilityLabel="Guest last name"
-                  />
-                  <Input
-                    label="Phone"
-                    value={guestPhone}
-                    onChangeText={setGuestPhone}
-                    placeholder="+962..."
-                    keyboardType="phone-pad"
-                    accessibilityLabel="Guest phone number"
-                  />
-                </View>
-              ) : null}
-              {userMode === 'registered' && !publicUser ? (
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  Sign in required to complete booking.
-                </Text>
-              ) : null}
-              <View style={styles.chipsWrap}>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {currentStep === 2 ? (
+          <View style={styles.stepSection}>
+            <View style={styles.sectionHeaderRow}>
+              <CreditCard size={18} color={colors.textMuted} />
+              <Text variant="bodySmall" weight="semibold">
+                Payment method
+              </Text>
+            </View>
+            <Text variant="bodySmall" color={colors.textSecondary}>
+              Choose how you'd like to pay.
+            </Text>
+            <View style={styles.chipsWrap}>
+              {allowCash ? (
                 <Chip
                   label="Cash"
                   selected={paymentType === 'cash'}
                   onPress={() => setPaymentType('cash')}
                 />
+              ) : null}
+              {allowCliq ? (
                 <Chip
                   label="CliQ"
                   selected={paymentType === 'cliq'}
                   onPress={() => setPaymentType('cliq')}
                 />
-              </View>
-              {paymentType === 'cliq' ? (
-                <View style={styles.cliqSection}>
-                  <Text variant="bodySmall" color={colors.textSecondary}>
-                    Upload CliQ payment proof.
-                  </Text>
-                  <View style={styles.cliqButtons}>
-                    <Button
-                      variant="secondary"
-                      size="small"
-                      onPress={handlePickCliqCamera}
-                    >
-                      Camera
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="small"
-                      onPress={handlePickCliqImage}
-                    >
-                      Library
-                    </Button>
-                  </View>
-                  {cliqImage?.uri ? (
-                    <Image
-                      source={{ uri: cliqImage.uri }}
-                      style={styles.cliqPreview}
-                    />
-                  ) : null}
-                </View>
               ) : null}
-              <View style={styles.chipsWrap}>
-                <Chip
-                  label="Pay on date"
-                  selected={cashOnDate}
-                  onPress={() => setCashOnDate(true)}
-                />
-                <Chip
-                  label="Pay now"
-                  selected={!cashOnDate}
-                  onPress={() => setCashOnDate(false)}
-                />
-              </View>
-              <View
-                style={[
-                  styles.summaryCard,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  Summary
-                </Text>
+            </View>
+            {paymentType === 'cash' ? (
+              <View style={styles.paymentDetailCard}>
                 <Text variant="bodySmall" weight="semibold">
-                  {bookingDate || 'Date'} •{' '}
-                  {selectedDuration?.label || `${durationMinutes} min`}
-                </Text>
-                <Text variant="bodySmall" weight="semibold">
-                  {selectedSlot
-                    ? formatSlotLabel(selectedSlot)
-                    : 'Select a slot'}
+                  Pay with cash
                 </Text>
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  Players: {players}
+                  Settle your payment at the academy.
                 </Text>
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  Tax (5%): {formatMoney(taxAmount, currency) || '--'}
-                </Text>
-                <Text variant="h4" weight="bold">
-                  {formatMoney(totalAmount, currency) || '--'}
-                </Text>
-                <Input
-                  label="Promo code"
-                  placeholder="Enter code"
-                  accessibilityLabel="Promo code"
-                />
+                {allowCashOnDate ? (
+                  <View style={styles.chipsWrap}>
+                    <Chip
+                      label="Pay on booking date"
+                      selected={cashOnDate}
+                      onPress={() => setCashOnDate(true)}
+                    />
+                    <Chip
+                      label="Pay now"
+                      selected={!cashOnDate}
+                      onPress={() => setCashOnDate(false)}
+                    />
+                  </View>
+                ) : (
+                  <Text variant="caption" color={colors.textSecondary}>
+                    Cash on date is not available for this academy.
+                  </Text>
+                )}
               </View>
-            </Animated.View>
-          ) : null}
+            ) : null}
+            {paymentType === 'cliq' ? (
+              <View style={styles.paymentDetailCard}>
+                <Text variant="bodySmall" weight="semibold">
+                  CliQ transfer
+                </Text>
+                <Text variant="bodySmall" color={colors.textSecondary}>
+                  Transfer to the academy and upload your screenshot.
+                </Text>
+                {(cliqName || cliqNumber) && (
+                  <View style={styles.cliqDetails}>
+                    {cliqName ? (
+                      <Text variant="bodySmall">CliQ name: {cliqName}</Text>
+                    ) : null}
+                    {cliqNumber ? (
+                      <Text variant="bodySmall">CliQ number: {cliqNumber}</Text>
+                    ) : null}
+                  </View>
+                )}
+                <Button variant="secondary" onPress={handlePickCliqImage}>
+                  Upload screenshot
+                </Button>
+                {cliqImage?.uri ? (
+                  <Image
+                    source={{ uri: cliqImage.uri }}
+                    style={styles.cliqPreview}
+                  />
+                ) : null}
+                {inlinePaymentError ? (
+                  <Text variant="caption" color={colors.error}>
+                    {inlinePaymentError}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
-          <View style={styles.stickyFooter}>
-            <View>
-              <Text variant="bodySmall" color={colors.textSecondary}>
-                Total
-              </Text>
+        {currentStep === 3 ? (
+          <View style={styles.stepSection}>
+            <View style={styles.sectionHeaderRow}>
+              <Check size={18} color={colors.textMuted} />
               <Text variant="bodySmall" weight="semibold">
-                {formatMoney(totalAmount, currency) || '--'}
+                Review & confirm
               </Text>
             </View>
-            <View style={styles.footerButtons}>
-              <Button
-                variant="secondary"
-                onPress={handleBack}
-                disabled={currentStep === 1}
-              >
-                Back
-              </Button>
-              {currentStep < 3 ? (
-                <Button
-                  onPress={handleNext}
-                  disabled={
-                    (currentStep === 1 && !selectedDuration) ||
-                    (currentStep === 2 && !selectedSlot)
-                  }
-                >
-                  Continue
-                </Button>
-              ) : (
-                <Button
-                  onPress={handleBook}
-                  loading={submitting}
-                  disabled={userMode === 'registered' && !publicUser?.id}
-                >
-                  Confirm booking
-                </Button>
-              )}
-            </View>
-          </View>
-        </View>
-      ) : null}
-
-      <BottomSheetModal
-        visible={guestSheetOpen}
-        onClose={() => setGuestSheetOpen(false)}
-      >
-        <View style={styles.guestSheet}>
-          <Text variant="h4" weight="semibold">
-            Continue as guest
-          </Text>
-          <Input
-            label="First name"
-            value={guestFirstName}
-            onChangeText={setGuestFirstName}
-            placeholder="First name"
-            accessibilityLabel="Guest first name"
-          />
-          <Input
-            label="Last name"
-            value={guestLastName}
-            onChangeText={setGuestLastName}
-            placeholder="Last name"
-            accessibilityLabel="Guest last name"
-          />
-          <Input
-            label="Phone"
-            value={guestPhone}
-            onChangeText={setGuestPhone}
-            placeholder="+962..."
-            keyboardType="phone-pad"
-            accessibilityLabel="Guest phone"
-          />
-          <View style={styles.guestActions}>
-            <Button
-              variant="secondary"
-              onPress={() => router.push('/playgrounds/auth?fromBooking=1')}
+            <View style={[styles.summaryCard, { borderColor: colors.border }]}
             >
-              Sign in
-            </Button>
-            <Button onPress={handleGuestRegister}>Continue</Button>
+              <View style={styles.summaryRow}>
+                <Text variant="bodySmall" color={colors.textSecondary}>
+                  Venue
+                </Text>
+                <Text variant="bodySmall" weight="semibold">
+                  {venue.name || 'Venue'}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text variant="bodySmall" color={colors.textSecondary}>
+                  Academy
+                </Text>
+                <Text variant="bodySmall" weight="semibold">
+                  {academy?.public_name || 'Academy'}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text variant="bodySmall" color={colors.textSecondary}>
+                  Date
+                </Text>
+                <Text variant="bodySmall" weight="semibold">
+                  {bookingDate || '--'}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text variant="bodySmall" color={colors.textSecondary}>
+                  Time
+                </Text>
+                <Text variant="bodySmall" weight="semibold">
+                  {selectedSlot ? formatSlotLabel(selectedSlot) : '--'}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text variant="bodySmall" color={colors.textSecondary}>
+                  Duration
+                </Text>
+                <Text variant="bodySmall" weight="semibold">
+                  {selectedDuration
+                    ? `${selectedDuration.minutes || selectedDuration.duration_minutes || 60} min`
+                    : '--'}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text variant="bodySmall" color={colors.textSecondary}>
+                  Players
+                </Text>
+                <Text variant="bodySmall" weight="semibold">
+                  {players}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text variant="bodySmall" color={colors.textSecondary}>
+                  Payment
+                </Text>
+                <Text variant="bodySmall" weight="semibold">
+                  {paymentType}
+                  {paymentType === 'cash' && allowCashOnDate
+                    ? cashOnDate
+                      ? ' (pay on date)'
+                      : ' (pay now)'
+                    : ''}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text variant="bodySmall" color={colors.textSecondary}>
+                  Price
+                </Text>
+                <Text variant="bodySmall" weight="semibold">
+                  {priceLabel}
+                </Text>
+              </View>
+            </View>
+            {errorText ? (
+              <View style={[styles.errorCard, { borderColor: colors.error }]}
+              >
+                <Text variant="bodySmall" color={colors.error}>
+                  {errorText}
+                </Text>
+              </View>
+            ) : null}
           </View>
-        </View>
-      </BottomSheetModal>
+        ) : null}
+      </ScrollView>
+
+      <StickyFooterCTA
+        currentStep={currentStep}
+        onBack={handleBackStep}
+        onNext={
+          currentStep < STEP_LABELS.length - 1
+            ? handleNextStep
+            : handleSubmitBooking
+        }
+        priceLabel={priceLabel}
+        disableBack={currentStep === 0}
+        disableNext={
+          (currentStep === 0 && !scheduleReady) ||
+          (currentStep === 1 && !playersValid) ||
+          (currentStep === 2 && !paymentReady) ||
+          (currentStep === 3 && (!allValid || submitting))
+        }
+        submitting={submitting}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     padding: spacing.lg,
     gap: spacing.lg,
+    paddingBottom: spacing['2xl'],
   },
   stepperHeader: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    gap: spacing.xs,
+    gap: spacing.sm,
+  },
+  stepperTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
   },
   progressTrack: {
     height: 6,
     borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(0,0,0,0.08)',
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
     borderRadius: borderRadius.full,
+  },
+  stepLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  stepLabelItem: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+  },
+  stepLabelDot: {
+    height: 26,
+    width: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stepHeader: {
     gap: spacing.xs,
@@ -943,10 +1129,10 @@ const styles = StyleSheet.create({
   stepSection: {
     gap: spacing.md,
   },
-  sectionTitle: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   durationCards: {
     gap: spacing.sm,
@@ -955,66 +1141,92 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
+    gap: spacing.xs,
     ...shadows.sm,
   },
-  dateStrip: {
+  durationCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  quickDateRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
+  slotsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  playersDisplay: {
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   playersStepper: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.md,
   },
-  altSuggestions: {
-    marginTop: spacing.sm,
+  quickPlayersRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   chipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
+  paymentDetailCard: {
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: 'rgba(255, 132, 0, 0.08)',
+    gap: spacing.sm,
+  },
+  cliqDetails: {
+    gap: spacing.xs,
+  },
+  cliqPreview: {
+    height: 140,
+    borderRadius: borderRadius.lg,
+  },
   summaryCard: {
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
-    gap: spacing.sm,
     borderWidth: 1,
+    gap: spacing.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     ...shadows.sm,
   },
-  cliqSection: {
-    gap: spacing.sm,
-  },
-  cliqButtons: {
+  summaryRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  cliqPreview: {
-    height: 120,
-    borderRadius: borderRadius.lg,
+  errorCard: {
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    backgroundColor: 'rgba(255, 0, 0, 0.08)',
   },
-  guestForm: {
+  skeletonGroup: {
     gap: spacing.sm,
   },
   stickyFooter: {
-    marginTop: 'auto',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'white',
   },
   footerButtons: {
     flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  guestSheet: {
-    gap: spacing.md,
-  },
-  guestActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     gap: spacing.sm,
   },
 });
