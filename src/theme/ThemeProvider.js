@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
-import { darkColors, lightColors } from './colors';
+import { darkPalette, lightPalette } from './palette';
 import { storage } from '../services/storage/storage';
 
 const ThemeContext = createContext();
@@ -36,7 +36,7 @@ export function ThemeProvider({ children }) {
     await storage.setTheme(newTheme);
   };
 
-  const colors = theme === 'dark' ? darkColors : lightColors;
+  const colors = theme === 'dark' ? darkPalette : lightPalette;
 
   return (
     <ThemeContext.Provider
