@@ -321,5 +321,11 @@
     "error": {
       "title": "Could not load portal"
     }
+  },
+  "welcome": {
+    "title": "Welcome to SporHive",
+    "subtitle": "Discover academies, book playgrounds, and track your sports journey in one place.",
+    "cta": "Explore Services",
+    "logoLabel": "SporHive logo"
   }
 }
