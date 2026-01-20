@@ -6,6 +6,7 @@ export const APP_STORAGE_KEYS = {
   THEME: 'sporhive_theme',
   LANGUAGE: 'sporhive_language',
   AUTH_TOKEN: 'sporhive_auth_token',
+  WELCOME_SEEN: 'sporhive_welcome_seen',
 };
 
 export const PORTAL_KEYS = {
