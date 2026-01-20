@@ -15,7 +15,7 @@ import { useI18n } from '../services/i18n/i18n';
 import { spacing, borderRadius, shadow } from '../theme/tokens';
 import { storage, APP_STORAGE_KEYS } from '../services/storage/storage';
 
-const logoSource = require('../../assets/images/icon.png');
+const logoSource = require('../../assets/images/logo.png');
 
 export function WelcomeScreen() {
   const { colors } = useTheme();
@@ -33,10 +33,6 @@ export function WelcomeScreen() {
       true
     );
   }, [scale]);
-
-  useEffect(() => {
-    storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, true);
-  }, []);
 
   const logoStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],

@@ -16,7 +16,6 @@ function NavThemeBridge({ children }) {
 
   const base = isDark ? DarkTheme : DefaultTheme;
 
-  // ✅ IMPORTANT: keep ...base so fonts stay defined (prevents "regular of undefined")
   const navTheme = {
     ...base,
     dark: isDark,
