@@ -11,6 +11,7 @@ import { Text } from '../../components/ui/Text';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { AcademyPicker } from '../../components/portal/AcademyPicker';
+import { BackButton } from '../../components/ui/BackButton';
 import { portalApi } from '../../services/portal/portal.api';
 import { usePortalAuth } from '../../services/portal/portal.hooks';
 import { storage } from '../../services/storage/storage';
@@ -118,7 +119,7 @@ export function PortalLoginScreen() {
         colors={[colors.background, colors.surface]}
         style={styles.background}
       >
-        <PortalHeader title="Player Portal" subtitle={subtitle} />
+        <PortalHeader title="Player Portal" subtitle={subtitle} leftSlot={<BackButton />} />
 
         <Animated.View entering={FadeInUp.delay(100).duration(500)} style={fadeStyle}>
           <PortalCard style={styles.card}>

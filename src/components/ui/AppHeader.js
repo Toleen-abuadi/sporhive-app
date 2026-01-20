@@ -12,6 +12,10 @@ export function AppHeader({
   rightIcon,
   onLeftPress,
   onRightPress,
+  leftAction,
+  rightAction,
+  leftSlot,
+  rightSlot,
   rightComponent,
 }) {
   const { colors } = useTheme();
@@ -19,15 +23,37 @@ export function AppHeader({
   const leftIconComponent = typeof leftIcon === 'string' ? undefined : leftIcon;
   const rightIconName = typeof rightIcon === 'string' ? rightIcon : undefined;
   const rightIconComponent = typeof rightIcon === 'string' ? undefined : rightIcon;
+  const leftActionIconName =
+    leftAction && typeof leftAction.icon === 'string' ? leftAction.icon : undefined;
+  const leftActionIconComponent =
+    leftAction && typeof leftAction.icon === 'string' ? undefined : leftAction?.icon;
+  const rightActionIconName =
+    rightAction && typeof rightAction.icon === 'string' ? rightAction.icon : undefined;
+  const rightActionIconComponent =
+    rightAction && typeof rightAction.icon === 'string' ? undefined : rightAction?.icon;
 
   return (
     <View style={[styles.container, { borderBottomColor: colors.border }]}>
       <View style={styles.leftContainer}>
-        {leftIcon && (
-          <TouchableOpacity onPress={onLeftPress} style={styles.iconButton}>
-            <Icon name={leftIconName} icon={leftIconComponent} size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-        )}
+        {leftSlot ||
+          (leftAction ? (
+            <TouchableOpacity
+              onPress={leftAction.onPress}
+              style={styles.iconButton}
+              accessibilityLabel={leftAction.accessibilityLabel}
+            >
+              <Icon
+                name={leftActionIconName}
+                icon={leftActionIconComponent}
+                size={24}
+                color={colors.textPrimary}
+              />
+            </TouchableOpacity>
+          ) : leftIcon ? (
+            <TouchableOpacity onPress={onLeftPress} style={styles.iconButton}>
+              <Icon name={leftIconName} icon={leftIconComponent} size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          ) : null)}
       </View>
 
       <View style={styles.centerContainer}>
@@ -42,13 +68,26 @@ export function AppHeader({
       </View>
 
       <View style={styles.rightContainer}>
-        {rightComponent || (
-          rightIcon && (
+        {rightSlot ||
+          rightComponent ||
+          (rightAction ? (
+            <TouchableOpacity
+              onPress={rightAction.onPress}
+              style={styles.iconButton}
+              accessibilityLabel={rightAction.accessibilityLabel}
+            >
+              <Icon
+                name={rightActionIconName}
+                icon={rightActionIconComponent}
+                size={24}
+                color={colors.textPrimary}
+              />
+            </TouchableOpacity>
+          ) : rightIcon ? (
             <TouchableOpacity onPress={onRightPress} style={styles.iconButton}>
               <Icon name={rightIconName} icon={rightIconComponent} size={24} color={colors.textPrimary} />
             </TouchableOpacity>
-          )
-        )}
+          ) : null)}
       </View>
     </View>
   );

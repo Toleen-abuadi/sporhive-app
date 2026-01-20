@@ -8,7 +8,8 @@ import { Button } from '../components/ui/Button';
 import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
 import { spacing } from '../theme/tokens';
-import { ArrowLeft, Sparkles } from 'lucide-react-native';
+import { Sparkles } from 'lucide-react-native';
+import { BackButton } from '../components/ui/BackButton';
 
 export function AcademyTemplatePlaceholderScreen() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export function AcademyTemplatePlaceholderScreen() {
         <AppHeader
           title={t('academies.template.title', 'Academy profile')}
           subtitle={t('academies.template.subtitle', 'We will build this page next.')}
-          leftAction={{ icon: <ArrowLeft size={20} color={colors.textPrimary} />, onPress: () => router.back() }}
+          leftSlot={<BackButton />}
         />
 
         <View style={{ marginTop: spacing.xl, alignItems: 'center' }}>

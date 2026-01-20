@@ -43,10 +43,10 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Divider } from '../components/ui/Divider';
 import { useToast } from '../components/ui/ToastHost';
+import { BackButton } from '../components/ui/BackButton';
 
 import {
   AlertCircle,
-  ArrowLeft,
   CheckCircle2,
   Mail,
   Phone,
@@ -427,7 +427,7 @@ export function JoinAcademyScreen() {
         <View style={styles.pad}>
           <AppHeader
             title={t('academies.join.loading', 'Loading…')}
-            leftAction={{ icon: <ArrowLeft size={20} color={theme.text.primary} />, onPress: () => router.back() }}
+            leftSlot={<BackButton color={theme.text.primary} />}
           />
         </View>
       </Screen>
@@ -441,7 +441,7 @@ export function JoinAcademyScreen() {
         <View style={styles.pad}>
           <AppHeader
             title={t('academies.join.notFoundTitle', 'Academy not found')}
-            leftAction={{ icon: <ArrowLeft size={20} color={theme.text.primary} />, onPress: () => router.back() }}
+            leftSlot={<BackButton color={theme.text.primary} />}
           />
           <View style={styles.centerState}>
             <View style={[styles.stateIcon, { backgroundColor: 'rgba(239,68,68,0.14)', borderColor: 'rgba(239,68,68,0.22)' }]}>
@@ -543,9 +543,7 @@ export function JoinAcademyScreen() {
 
             <View style={styles.heroTop}>
               <AnimatedPress>
-                <Button variant="ghost" onPress={() => router.back()} style={styles.backBtn}>
-                  <ArrowLeft size={20} color="white" />
-                </Button>
+                <BackButton color="white" style={styles.backBtn} />
               </AnimatedPress>
             </View>
 
@@ -662,7 +660,7 @@ export function JoinAcademyScreen() {
                 <AppHeader
                   title={t('academies.join.title', 'Join academy')}
                   subtitle={t('academies.join.subtitle', 'A short form — sent directly to the academy.')}
-                  leftAction={{ icon: <ArrowLeft size={20} color="white" />, onPress: () => router.back() }}
+                  leftSlot={<BackButton color="white" />}
                 />
               </View>
 

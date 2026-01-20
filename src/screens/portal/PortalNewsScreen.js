@@ -7,6 +7,7 @@ import { Text } from '../../components/ui/Text';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
+import { BackButton } from '../../components/ui/BackButton';
 import { portalApi } from '../../services/portal/portal.api';
 import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
@@ -109,7 +110,11 @@ const resolveNewsImageUrl = useCallback((imageUrl) => {
 
   return (
     <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
-      <PortalHeader title={t('portal.news.title')} subtitle={t('portal.news.subtitle')} />
+      <PortalHeader
+        title={t('portal.news.title')}
+        subtitle={t('portal.news.subtitle')}
+        leftSlot={<BackButton />}
+      />
 
       {error ? (
         <PortalEmptyState

@@ -4,8 +4,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
+import { AppHeader } from '../../components/ui/AppHeader';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
+import { BackButton } from '../../components/ui/BackButton';
 import { endpoints } from '../../services/api/endpoints';
 import { spacing } from '../../theme/tokens';
 
@@ -47,10 +49,8 @@ export function RatingLinkResolverScreen() {
 
   return (
     <Screen safe>
+      <AppHeader title="Rate your experience" leftSlot={<BackButton />} />
       <View style={styles.container}>
-        <Text variant="h4" weight="semibold">
-          Rate your experience
-        </Text>
         <Text variant="bodySmall" color={colors.textSecondary}>
           {message}
         </Text>

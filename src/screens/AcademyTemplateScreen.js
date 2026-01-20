@@ -20,7 +20,6 @@ import { useI18n } from '../services/i18n/i18n';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import {
-  ArrowLeft,
   Share2,
   MapPin,
   Phone,
@@ -71,6 +70,7 @@ import { spacing, borderRadius } from '../theme/tokens';
 import { Screen } from '../components/ui/Screen';
 import { Text } from '../components/ui/Text';
 import { Button } from '../components/ui/Button';
+import { BackButton } from '../components/ui/BackButton';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { LoadingState } from '../components/ui/LoadingState';
@@ -872,9 +872,7 @@ export function AcademyTemplateScreen({ slug }) {
       >
         <BlurView intensity={80} style={StyleSheet.absoluteFill} />
         <View style={styles.topBarInner}>
-          <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.topIconBtn, { opacity: pressed ? 0.7 : 1 }]}>
-            <ArrowLeft size={22} color={colors.textPrimary} />
-          </Pressable>
+          <BackButton color={colors.textPrimary} style={styles.topIconBtn} />
 
           <View style={{ flex: 1, marginHorizontal: 10 }}>
             <Text variant="body" weight="bold" numberOfLines={1} style={{ color: colors.textPrimary }}>

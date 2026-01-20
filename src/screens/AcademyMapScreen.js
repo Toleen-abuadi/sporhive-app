@@ -29,8 +29,9 @@ import { Input } from '../components/ui/Input';
 import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ErrorState } from '../components/ui/ErrorState';
+import { BackButton } from '../components/ui/BackButton';
 
-import { MapPin, X, Filter, Navigation, ChevronRight } from 'lucide-react-native';
+import { MapPin, X, Filter, ChevronRight } from 'lucide-react-native';
 
 import { ad, makeADTheme, pressableScaleConfig } from '../theme/academyDiscovery.styles';
 
@@ -260,10 +261,7 @@ export function AcademyMapScreen() {
             <AppHeader
               title={t('academies.map.title', 'Academies map')}
               subtitle={t('academies.map.subtitle', 'Explore nearby academies and open the template in one tap.')}
-              leftAction={{
-                icon: <Navigation size={20} color={colors.textPrimary} />,
-                onPress: () => router.back(),
-              }}
+              leftSlot={<BackButton color={colors.textPrimary} />}
               rightAction={{
                 icon: <Filter size={20} color={colors.textPrimary} />,
                 onPress: () => setFiltersOpen(true),

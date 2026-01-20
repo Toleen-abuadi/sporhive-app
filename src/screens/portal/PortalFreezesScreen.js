@@ -11,6 +11,7 @@ import { Input } from '../../components/ui/Input';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
+import { BackButton } from '../../components/ui/BackButton';
 
 import { portalApi } from '../../services/portal/portal.api';
 import { usePortalOverview } from '../../services/portal/portal.hooks';
@@ -147,7 +148,11 @@ export function PortalFreezesScreen() {
 
   return (
     <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
-      <PortalHeader title={t('portal.freezes.title')} subtitle={t('portal.freezes.subtitle')} />
+      <PortalHeader
+        title={t('portal.freezes.title')}
+        subtitle={t('portal.freezes.subtitle')}
+        leftSlot={<BackButton />}
+      />
 
       {/* ✅ Status + counts */}
       <PortalCard style={styles.card}>
