@@ -29,7 +29,7 @@ export function SegmentedControl({ value, onChange, options, style }) {
               <Text
                 variant="caption"
                 weight={active ? 'bold' : 'semibold'}
-                style={{ fontSize: fontSize.xs, color: active ? colors.textPrimaryPrimary : colors.textPrimarySecondary }}
+                style={{ fontSize: fontSize.xs, color: active ? colors.textPrimary : colors.textSecondary }}
               >
                 {opt.label}
               </Text>

@@ -1,0 +1,325 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "done": "Done",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "tryAgain": "Try Again",
+    "comingSoon": "Coming Soon",
+    "backToHome": "Back to Home",
+    "retry": "Retry",
+    "share": "Share",
+    "notFound": "Not found"
+  },
+  "home": {
+    "title": "SporHive",
+    "subtitle": "Your Sports Hub",
+    "discoverCard": {
+      "title": "Discover Academies",
+      "description": "Find the perfect sports academy for your goals"
+    },
+    "portalCard": {
+      "title": "Player Portal",
+      "description": "Manage your profile and track your progress"
+    },
+    "playgrounds": {
+      "explore": {
+        "title": "Playgrounds",
+        "description": "Explore venues and find available slots."
+      },
+      "bookings": {
+        "title": "My bookings",
+        "description": "Review your upcoming playground reservations."
+      },
+      "rate": {
+        "title": "Rate booking",
+        "description": "Share feedback on your last booking."
+      }
+    }
+  },
+  "tabs": {
+    "home": "Home",
+    "discover": "Discover",
+    "book": "Book",
+    "portal": "Portal",
+    "profile": "Profile"
+  },
+  "placeholder": {
+    "title": "Coming Soon",
+    "message": "This feature is under development and will be available soon."
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "language": {
+    "en": "English",
+    "ar": "العربية",
+    "shortEn": "EN",
+    "shortAr": "AR"
+  },
+  "academies": {
+    "title": "Academy",
+    "loading": "Loading",
+    "loadingSubtitle": "Fetching academy details…",
+    "pro": "PRO",
+    "featured": "Featured",
+    "about": {
+      "title": "About",
+      "subtitle": "Who they are & what they offer",
+      "empty": "No description provided yet."
+    },
+    "sports": "Sports",
+    "sportsSubtitle": "Training programs & categories",
+    "sportsEmpty": "No sports specified.",
+    "prices": "Prices",
+    "pricesSubtitle": "Fees & courses",
+    "fees": "Fees",
+    "course": "Course",
+    "moreCourses": "More courses available",
+    "coursesEmpty": "Courses will appear here once published.",
+    "location": {
+      "title": "Location",
+      "subtitle": "Find the academy easily",
+      "openMaps": "Open Maps"
+    },
+    "address": "Address",
+    "coordinates": "Coordinates",
+    "call": "Call",
+    "email": "Email",
+    "contact": "Contact",
+    "registerNow": "Register now",
+    "cta": {
+      "title": "Ready to take the next step?",
+      "subtitleOpen": "Submit your join request in under a minute.",
+      "subtitleClosed": "Registration is closed — reach them directly.",
+      "note": "Tip: You can also explore prices and location above before contacting."
+    }
+  },
+  "portal": {
+    "freezes": {
+      "title": "Freezes",
+      "subtitle": "Pause your program without missing progress",
+      "currentStatus": "Current status",
+      "currentFreeze": "Current freeze",
+      "upcomingFreeze": "Upcoming freeze",
+      "available": "Available freezes:",
+      "summary": "Manage your freeze requests with ease.",
+      "requestTitle": "Request a freeze",
+      "requestSubtitle": "Select dates and give a quick reason.",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "reason": "Reason",
+      "reasonPlaceholder": "Tell us why you need a pause",
+      "submit": "Submit request",
+      "emptyTitle": "No freezes yet",
+      "emptyDescription": "Your submitted freezes will appear here.",
+      "validation": "Select dates and add a reason.",
+      "success": "Freeze request submitted.",
+      "error": "Freeze request failed."
+    },
+    "performance": {
+      "title": "Performance",
+      "subtitle": "Ratings, feedback, and progress",
+      "overall": "Overall rating",
+      "basedOn": "Based on",
+      "sessions": "recent sessions",
+      "categories": "Rating categories",
+      "periods": "Period analytics",
+      "period": "Period",
+      "emptyTitle": "Performance insights loading",
+      "emptyDescription": "Ratings will appear as soon as your coach publishes them.",
+      "loadingTitle": "Loading performance",
+      "loadingDescription": "Fetching ratings and feedback from your coach.",
+      "errorTitle": "Unable to load performance",
+      "error": "Could not load performance data."
+    },
+    "uniforms": {
+      "title": "Uniform Store",
+      "subtitle": "Latest kits and merchandise",
+      "loadingTitle": "Loading catalog",
+      "loadingDescription": "Fetching the latest gear from your academy.",
+      "emptyTitle": "Store preparing",
+      "emptyDescription": "Uniform options will appear once the catalog is live.",
+      "errorTitle": "Unable to load store",
+      "error": "Could not load the uniform store.",
+      "kit": "Kit",
+      "defaultName": "Uniform pack",
+      "defaultDescription": "Premium training kit with breathable fabric.",
+      "size": "Size",
+      "sizePlaceholder": "S / M / L",
+      "quantity": "Quantity",
+      "quantityPlaceholder": "1",
+      "number": "Player number",
+      "numberPlaceholder": "00",
+      "nickname": "Nickname",
+      "nicknamePlaceholder": "Optional",
+      "addToCart": "Add to cart",
+      "cartTitle": "Cart summary",
+      "cartItems": "items ready",
+      "checkout": "Checkout",
+      "validation": "Add items to your cart first.",
+      "success": "Uniform order placed."
+    },
+    "orders": {
+      "title": "My Orders",
+      "subtitle": "Track your uniform purchases",
+      "loading": "Loading your order history.",
+      "emptyTitle": "No orders yet",
+      "emptyDescription": "Once you order uniforms, they will appear here.",
+      "status": "Status",
+      "statusDefault": "Processing",
+      "reorder": "Reorder",
+      "order": "Order",
+      "reorderUnavailable": "No items available to reorder.",
+      "reorderSuccess": "Order placed again.",
+      "reorderError": "Reorder failed.",
+      "errorTitle": "Unable to load orders",
+      "error": "Could not load order history."
+    },
+    "news": {
+      "title": "News",
+      "subtitle": "Latest academy updates",
+      "loadingTitle": "Loading news",
+      "loadingDescription": "Fetching the latest updates for you.",
+      "emptyTitle": "No news yet",
+      "emptyDescription": "News posts will appear here as soon as they are published.",
+      "defaultTitle": "Academy update",
+      "defaultDescription": "Stay tuned for upcoming matches and announcements.",
+      "errorTitle": "Unable to load news",
+      "error": "Could not load news updates."
+    },
+    "profile": {
+      "title": "Profile",
+      "subtitle": "Manage your player identity",
+      "playerName": "Player name",
+      "academy": "Academy",
+      "playerId": "ID",
+      "contact": "Contact details",
+      "phone1": "Phone 1",
+      "phone2": "Phone 2",
+      "dob": "Date of birth",
+      "heightWeight": "Height / Weight",
+      "address": "Address",
+      "noAddress": "No address saved yet.",
+      "noMap": "Google maps pin not added.",
+      "editTitle": "Edit profile",
+      "addPhoto": "Add photo",
+      "photoHint": "Tap to upload image",
+      "firstNameEn": "First name (EN)",
+      "middleNameEn": "Middle name (EN)",
+      "lastNameEn": "Last name (EN)",
+      "firstNameAr": "First name (AR)",
+      "middleNameAr": "Middle name (AR)",
+      "lastNameAr": "Last name (AR)",
+      "maps": "Maps location",
+      "height": "Height (cm)",
+      "weight": "Weight (kg)",
+      "save": "Save changes",
+      "logout": "Logout"
+    },
+    "login": {
+      "title": "Player Portal",
+      "subtitle": "Sign in to access your dashboard",
+      "selectAcademy": "Select Academy",
+      "selectAcademyPlaceholder": "Tap to choose your academy",
+      "searchAcademies": "Search academies...",
+      "username": "Username",
+      "usernamePlaceholder": "Enter your username",
+      "password": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "signIn": "Sign In",
+      "forgotPassword": "Forgot your password?",
+      "error": {
+        "selectAcademy": "Please select your academy",
+        "enterUsername": "Please enter your username",
+        "enterPassword": "Please enter your password",
+        "invalidCredentials": "Invalid username or password"
+      },
+      "noResults": "No academies found",
+      "noAcademies": "No academies available"
+    },
+    "reset": {
+      "title": "Reset Password",
+      "instructionsTitle": "Forgot your password?",
+      "instructionsText": "Enter your username and registered phone number. We will send you a reset code.",
+      "username": "Username",
+      "usernamePlaceholder": "Enter your username",
+      "phoneNumber": "Phone Number",
+      "phonePlaceholder": "Enter your registered phone",
+      "sendCode": "Send Reset Code",
+      "cancel": "Cancel",
+      "error": {
+        "enterUsername": "Please enter your username",
+        "enterPhone": "Please enter your phone number",
+        "requestFailed": "Password reset request failed"
+      },
+      "successTitle": "Check Your Phone",
+      "successText": "We have sent password reset instructions to your registered phone number.",
+      "backToLogin": "Back to Login"
+    },
+    "dashboard": {
+      "hello": "Hello",
+      "subtitle": "Your progress & requests in one place",
+      "kpis": "Quick Status",
+      "actions": "Actions",
+      "training": "My Training",
+      "notices": "Notices",
+      "noNotices": "No notices right now",
+      "openTraining": "View Training Details"
+    },
+    "training": {
+      "group": "Group",
+      "course": "Course",
+      "level": "Level",
+      "dates": "Dates",
+      "session": "Session"
+    },
+    "kpi": {
+      "subscription": "Subscription",
+      "sessions": "Sessions",
+      "credits": "Credits",
+      "freeze": "Freeze"
+    },
+    "freeze": {
+      "active": "Active",
+      "scheduled": "Scheduled",
+      "none": "None"
+    },
+    "notices": {
+      "creditExpiry": "Credit expiry",
+      "freezeScheduled": "Freeze scheduled",
+      "paymentDue": "Payment due"
+    },
+    "actions": {
+      "profile": "Personal Info",
+      "freeze": "Request Freeze",
+      "renew": "Request Renewal",
+      "payments": "Payments",
+      "uniforms": "Uniform Store",
+      "feedback": "Feedback"
+    },
+    "tabs": {
+      "dashboard": "Dashboard",
+      "training": "Training",
+      "health": "Health",
+      "payments": "Payments",
+      "history": "History",
+      "store": "Store",
+      "feedback": "Feedback",
+      "personal": "Personal"
+    },
+    "error": {
+      "title": "Could not load portal"
+    }
+  }
+}

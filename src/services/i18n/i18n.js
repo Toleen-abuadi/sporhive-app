@@ -1,20 +1,37 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { I18nManager } from 'react-native';
-import { en } from './translations.en';
-import { ar } from './translations.ar';
+import i18n from 'i18next';
+import { initReactI18next, I18nextProvider, useTranslation as useI18NextTranslation } from 'react-i18next';
 import { storage, APP_STORAGE_KEYS } from '../storage/storage';
-
-const translations = {
-  en,
-  ar,
-};
+import en from '../../../locales/en.json';
+import ar from '../../../locales/ar.json';
 
 const SUPPORTED_LANGUAGES = new Set(['en', 'ar']);
+const DEFAULT_LANGUAGE = 'en';
 
 const I18nContext = createContext();
 
+const isRTLLanguage = (lang) => lang === 'ar';
+
+const initI18n = () => {
+  if (i18n.isInitialized) return;
+  i18n.use(initReactI18next).init({
+    resources: {
+      en: { translation: en },
+      ar: { translation: ar },
+    },
+    lng: DEFAULT_LANGUAGE,
+    fallbackLng: DEFAULT_LANGUAGE,
+    interpolation: {
+      escapeValue: false,
+    },
+  });
+};
+
+initI18n();
+
 export function I18nProvider({ children }) {
-  const [language, setLanguage] = useState('en');
+  const [language, setLanguage] = useState(DEFAULT_LANGUAGE);
   const [isRTL, setIsRTL] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -22,39 +39,9 @@ export function I18nProvider({ children }) {
     loadLanguage();
   }, []);
 
-  const loadLanguage = async () => {
-    try {
-      const savedLanguage = await storage.getItem(APP_STORAGE_KEYS.LANGUAGE);
-      const normalized = typeof savedLanguage === 'string' ? savedLanguage.toLowerCase() : null;
-      const nextLanguage = SUPPORTED_LANGUAGES.has(normalized) ? normalized : 'en';
-      setLanguage(nextLanguage);
-      setIsRTL(nextLanguage === 'ar');
-    } catch (error) {
-      if (__DEV__) {
-        console.warn('Error loading language:', error);
-      }
-      setLanguage('en');
-      setIsRTL(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const changeLanguage = async (newLanguage) => {
-    const normalized = typeof newLanguage === 'string' ? newLanguage.toLowerCase() : 'en';
-    const nextLanguage = SUPPORTED_LANGUAGES.has(normalized) ? normalized : 'en';
-    try {
-      await storage.setItem(APP_STORAGE_KEYS.LANGUAGE, nextLanguage);
-    } catch (error) {
-      if (__DEV__) {
-        console.warn('Error changing language:', error);
-      }
-    }
-
-    setLanguage(nextLanguage);
-    const newIsRTL = nextLanguage === 'ar';
+  const applyRTL = (nextLanguage) => {
+    const newIsRTL = isRTLLanguage(nextLanguage);
     setIsRTL(newIsRTL);
-
     if (I18nManager.isRTL !== newIsRTL) {
       try {
         I18nManager.allowRTL(newIsRTL);
@@ -67,50 +54,79 @@ export function I18nProvider({ children }) {
     }
   };
 
-  const t = (key) => {
-    const keys = key.split('.');
-    let value = translations[language];
-
-    for (const k of keys) {
-      value = value?.[k];
-      if (value === undefined) {
-        return key;
+  const loadLanguage = async () => {
+    try {
+      const savedLanguage = await storage.getItem(APP_STORAGE_KEYS.LANGUAGE);
+      const normalized = typeof savedLanguage === 'string' ? savedLanguage.toLowerCase() : null;
+      const nextLanguage = SUPPORTED_LANGUAGES.has(normalized) ? normalized : DEFAULT_LANGUAGE;
+      await i18n.changeLanguage(nextLanguage);
+      setLanguage(nextLanguage);
+      applyRTL(nextLanguage);
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('Error loading language:', error);
       }
+      await i18n.changeLanguage(DEFAULT_LANGUAGE);
+      setLanguage(DEFAULT_LANGUAGE);
+      applyRTL(DEFAULT_LANGUAGE);
+    } finally {
+      setIsLoading(false);
     }
-
-    return value;
   };
 
+  const changeLanguage = async (newLanguage) => {
+    const normalized = typeof newLanguage === 'string' ? newLanguage.toLowerCase() : DEFAULT_LANGUAGE;
+    const nextLanguage = SUPPORTED_LANGUAGES.has(normalized) ? normalized : DEFAULT_LANGUAGE;
+    try {
+      await storage.setItem(APP_STORAGE_KEYS.LANGUAGE, nextLanguage);
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('Error changing language:', error);
+      }
+    }
+    await i18n.changeLanguage(nextLanguage);
+    setLanguage(nextLanguage);
+    applyRTL(nextLanguage);
+  };
+
+  const value = useMemo(
+    () => ({
+      language,
+      isRTL,
+      isLoading,
+      changeLanguage,
+    }),
+    [language, isRTL, isLoading]
+  );
+
   return (
-    <I18nContext.Provider
-      value={{
-        language,
-        isRTL,
-        isLoading,
-        changeLanguage,
-        t,
-      }}
-    >
-      {children}
+    <I18nContext.Provider value={value}>
+      <I18nextProvider i18n={i18n}>{children}</I18nextProvider>
     </I18nContext.Provider>
   );
 }
 
 export function useI18n() {
   const context = useContext(I18nContext);
+  const { t } = useI18NextTranslation();
   if (!context) {
     throw new Error('useI18n must be used within an I18nProvider');
   }
-  return context;
+  return { ...context, t };
 }
 
 export function useTranslation() {
-  const { t, isRTL, language } = useI18n();
+  const { t, i18n: i18nInstance } = useI18NextTranslation();
+  const context = useContext(I18nContext);
+  if (!context) {
+    throw new Error('useTranslation must be used within an I18nProvider');
+  }
   return {
     t,
-    isRTL,
+    isRTL: context.isRTL,
+    locale: i18nInstance.language,
     i18n: {
-      language,
+      language: i18nInstance.language,
     },
   };
 }

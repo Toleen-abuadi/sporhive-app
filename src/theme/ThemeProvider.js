@@ -2,15 +2,24 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import { useColorScheme } from 'react-native';
 import { darkPalette, lightPalette } from './palette';
 import { storage, APP_STORAGE_KEYS } from '../services/storage/storage';
+import { spacing, borderRadius, typography, shadow } from './tokens';
 
 const ThemeContext = createContext();
 
+const THEME_OPTIONS = ['light', 'dark', 'system'];
+
+const normalizeTheme = (value) => {
+  if (typeof value !== 'string') return 'system';
+  const normalized = value.toLowerCase();
+  return THEME_OPTIONS.includes(normalized) ? normalized : 'system';
+};
+
 const resolveTheme = (savedTheme, systemScheme) => {
-  if (savedTheme === 'dark' || savedTheme === 'light') return savedTheme;
-  if (savedTheme === 'system') {
+  const normalized = normalizeTheme(savedTheme);
+  if (normalized === 'system') {
     return systemScheme === 'dark' ? 'dark' : 'light';
   }
-  return systemScheme === 'dark' ? 'dark' : 'light';
+  return normalized;
 };
 
 export function ThemeProvider({ children }) {
@@ -25,8 +34,7 @@ export function ThemeProvider({ children }) {
   const loadTheme = async () => {
     try {
       const savedTheme = await storage.getItem(APP_STORAGE_KEYS.THEME);
-      const normalized = typeof savedTheme === 'string' ? savedTheme.toLowerCase() : null;
-      setTheme(normalized || 'system');
+      setTheme(normalizeTheme(savedTheme));
     } catch (error) {
       if (__DEV__) {
         console.warn('Error loading theme:', error);
@@ -37,17 +45,22 @@ export function ThemeProvider({ children }) {
     }
   };
 
-  const toggleTheme = async () => {
-    const activeTheme = resolveTheme(theme, systemColorScheme);
-    const newTheme = activeTheme === 'dark' ? 'light' : 'dark';
-    setTheme(newTheme);
+  const setThemePreference = async (nextTheme) => {
+    const normalized = normalizeTheme(nextTheme);
+    setTheme(normalized);
     try {
-      await storage.setItem(APP_STORAGE_KEYS.THEME, newTheme);
+      await storage.setItem(APP_STORAGE_KEYS.THEME, normalized);
     } catch (error) {
       if (__DEV__) {
         console.warn('Error saving theme:', error);
       }
     }
+  };
+
+  const toggleTheme = async () => {
+    const activeTheme = resolveTheme(theme, systemColorScheme);
+    const newTheme = activeTheme === 'dark' ? 'light' : 'dark';
+    await setThemePreference(newTheme);
   };
 
   const resolvedTheme = resolveTheme(theme, systemColorScheme);
@@ -60,10 +73,16 @@ export function ThemeProvider({ children }) {
     <ThemeContext.Provider
       value={{
         theme: resolvedTheme,
+        themePreference: theme,
         colors,
+        spacing,
+        borderRadius,
+        typography,
+        shadow,
         isDark: resolvedTheme === 'dark',
         isLoading,
         toggleTheme,
+        setThemePreference,
       }}
     >
       {children}
