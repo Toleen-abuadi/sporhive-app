@@ -8,6 +8,7 @@ import { AppHeader } from '../../components/ui/AppHeader';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { BackButton } from '../../components/ui/BackButton';
 import { endpoints } from '../../services/api/endpoints';
 import { spacing } from '../../theme/tokens';
 
@@ -110,7 +111,7 @@ export function VenueRatingScreen() {
 
   return (
     <Screen safe>
-      <AppHeader title="Rate your venue" />
+      <AppHeader title="Rate your venue" leftSlot={<BackButton />} />
       <View style={styles.container}>
         <Text variant="bodySmall" color={colors.textSecondary}>
           Tell us about your experience.

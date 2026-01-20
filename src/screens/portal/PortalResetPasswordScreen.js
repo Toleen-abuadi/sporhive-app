@@ -5,6 +5,7 @@ import { Screen } from '../../components/ui/Screen';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
 import { Button } from '../../components/ui/Button';
+import { BackButton } from '../../components/ui/BackButton';
 import { spacing } from '../../theme/tokens';
 
 export function PortalResetPasswordScreen() {
@@ -12,7 +13,7 @@ export function PortalResetPasswordScreen() {
 
   return (
     <Screen scroll contentContainerStyle={styles.scroll}>
-      <PortalHeader title="Reset password" subtitle="We’ll help you regain access" />
+      <PortalHeader title="Reset password" subtitle="We’ll help you regain access" leftSlot={<BackButton />} />
       <PortalEmptyState
         icon="key"
         title="Password reset coming soon"

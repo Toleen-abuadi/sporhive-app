@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, MapPin, Share2, Star } from 'lucide-react-native';
+import { MapPin, Share2, Star } from 'lucide-react-native';
 
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
@@ -16,6 +16,7 @@ import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Chip } from '../../components/ui/Chip';
 import { IconButton } from '../../components/ui/IconButton';
+import { BackButton } from '../../components/ui/BackButton';
 import { endpoints } from '../../services/api/endpoints';
 import { API_BASE_URL } from '../../services/api/client';
 import { getPlaygroundsClientState } from '../../services/playgrounds/storage';
@@ -192,10 +193,8 @@ export function VenueDetailsScreen() {
               </ScrollView>
               <View style={styles.heroOverlay}>
                 <View style={styles.heroActions}>
-                  <IconButton
-                    icon={() => <ArrowLeft size={18} color={colors.textPrimary} />}
-                    onPress={() => router.back()}
-                    accessibilityLabel="Back"
+                  <BackButton
+                    color={colors.textPrimary}
                     style={[styles.heroIcon, { backgroundColor: colors.surface }]}
                   />
                   <IconButton

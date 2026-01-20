@@ -16,6 +16,7 @@ import { Input } from '../../components/ui/Input';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { BackButton } from '../../components/ui/BackButton';
 
 import { endpoints } from '../../services/api/endpoints';
 import {
@@ -416,7 +417,7 @@ export function PlaygroundsAuthScreen() {
 
   return (
     <Screen safe>
-      <AppHeader title="Playgrounds access" />
+      <AppHeader title="Playgrounds access" leftSlot={<BackButton />} />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}

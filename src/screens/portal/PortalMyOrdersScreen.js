@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
+import { BackButton } from '../../components/ui/BackButton';
 import { portalApi } from '../../services/portal/portal.api';
 import { usePortalOverview } from '../../services/portal/portal.hooks';
 import { useTranslation } from '../../services/i18n/i18n';
@@ -227,7 +228,11 @@ export function PortalMyOrdersScreen() {
   return (
     <>
       <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
-        <PortalHeader title={t('portal.orders.title')} subtitle={t('portal.orders.subtitle')} />
+        <PortalHeader
+          title={t('portal.orders.title')}
+          subtitle={t('portal.orders.subtitle')}
+          leftSlot={<BackButton />}
+        />
 
         {/* Top summary like ecommerce apps */}
         <View style={styles.summaryRow}>
@@ -626,4 +631,3 @@ const styles = StyleSheet.create({
   },
 
 });
-

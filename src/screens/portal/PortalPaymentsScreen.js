@@ -7,6 +7,7 @@ import { Text } from '../../components/ui/Text';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
+import { BackButton } from '../../components/ui/BackButton';
 import { useTheme } from '../../theme/ThemeProvider';
 
 function formatMoney(amount, currency) {
@@ -225,7 +226,11 @@ export function PortalPaymentsScreen() {
 
   return (
     <Screen>
-      <PortalHeader title="Payments" subtitle="Invoices, transactions, and receipts" />
+      <PortalHeader
+        title="Payments"
+        subtitle="Invoices, transactions, and receipts"
+        leftSlot={<BackButton />}
+      />
       
       {summary && (
         <View style={styles.summaryContainer}>

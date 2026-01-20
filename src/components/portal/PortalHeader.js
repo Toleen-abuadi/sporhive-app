@@ -5,7 +5,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
 import { Text } from '../ui/Text';
 
-export function PortalHeader({ title, subtitle, rightSlot, style }) {
+export function PortalHeader({ title, subtitle, rightSlot, leftSlot, style }) {
   const { colors } = useTheme();
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(12);
@@ -22,6 +22,7 @@ export function PortalHeader({ title, subtitle, rightSlot, style }) {
 
   return (
     <Animated.View style={[styles.container, animatedStyle, style]}>
+      {leftSlot ? <View style={styles.leftSlot}>{leftSlot}</View> : null}
       <View style={styles.textBlock}>
         <Text variant="h3" weight="bold" color={colors.textPrimary}>
           {title}
@@ -49,6 +50,9 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     marginTop: spacing.xs,
+  },
+  leftSlot: {
+    marginRight: spacing.md,
   },
   rightSlot: {
     marginLeft: spacing.md,

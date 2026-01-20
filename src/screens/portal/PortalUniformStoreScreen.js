@@ -18,6 +18,7 @@ import { Input } from '../../components/ui/Input';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
+import { BackButton } from '../../components/ui/BackButton';
 import { portalApi } from '../../services/portal/portal.api';
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
@@ -532,6 +533,7 @@ export function PortalUniformStoreScreen() {
       <PortalHeader
         title={t('portal.uniforms.title')}
         subtitle={t('portal.uniforms.subtitle')}
+        leftSlot={<BackButton />}
       />
 
       {loading && !catalog.length ? (

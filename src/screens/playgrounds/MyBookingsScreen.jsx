@@ -12,6 +12,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
+import { BackButton } from '../../components/ui/BackButton';
 import { endpoints } from '../../services/api/endpoints';
 import { getPublicUser } from '../../services/playgrounds/storage';
 import { BookingCard } from '../../components/playgrounds/BookingCard';
@@ -79,7 +80,7 @@ export function MyBookingsScreen() {
 
   return (
     <Screen safe>
-      <AppHeader title="My bookings" />
+      <AppHeader title="My bookings" leftSlot={<BackButton />} />
       {!user?.id && !loading ? (
         <EmptyState
           title="Sign in required"

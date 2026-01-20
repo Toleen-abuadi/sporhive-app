@@ -6,6 +6,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
 import { PortalHeader } from '../../components/portal/PortalHeader';
+import { BackButton } from '../../components/ui/BackButton';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
 import { portalApi } from '../../services/portal/portal.api';
@@ -110,7 +111,11 @@ export function PortalPerformanceScreen() {
 
   return (
     <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
-      <PortalHeader title={t('portal.performance.title')} subtitle={t('portal.performance.subtitle')} />
+      <PortalHeader
+        title={t('portal.performance.title')}
+        subtitle={t('portal.performance.subtitle')}
+        leftSlot={<BackButton />}
+      />
 
       <PortalCard style={styles.card}>
         <Text variant="body" weight="semibold" color={colors.textPrimary}>
