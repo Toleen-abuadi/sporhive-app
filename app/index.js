@@ -13,6 +13,7 @@ export default function Index() {
   useEffect(() => {
     const resolveRoute = async () => {
       const keys = [
+        APP_STORAGE_KEYS.WELCOME_SEEN,
         STORAGE_KEYS.PUBLIC_USER_MODE,
         STORAGE_KEYS.PUBLIC_USER,
         STORAGE_KEYS.PUBLIC_USER_TOKEN,
@@ -30,7 +31,9 @@ export default function Index() {
         Boolean(data[PORTAL_KEYS.SESSION]) ||
         Boolean(data[PORTAL_KEYS.AUTH_TOKENS]);
 
-      if (hasSession) {
+      const hasSeenWelcome = Boolean(data[APP_STORAGE_KEYS.WELCOME_SEEN]);
+
+      if (hasSession || hasSeenWelcome) {
         router.replace('/services');
       } else {
         router.replace('/welcome');

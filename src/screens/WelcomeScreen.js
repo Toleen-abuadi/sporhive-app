@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { SafeAreaView, StyleSheet, View } from 'react-native';
+import { Image, SafeAreaView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
   Easing,
@@ -33,6 +33,10 @@ export function WelcomeScreen() {
       true
     );
   }, [scale]);
+
+  useEffect(() => {
+    storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, true);
+  }, []);
 
   const logoStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
