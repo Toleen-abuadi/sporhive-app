@@ -865,6 +865,399 @@
       "resetPassword": "إعادة تعيين كلمة المرور",
       "sendResetCode": "إرسال رمز التعيين",
       "updatePassword": "تحديث كلمة المرور"
+    },
+    "portal": {
+      "common": {
+        "placeholder": "—",
+        "player": "لاعب",
+        "edit": "تعديل",
+        "cancel": "إلغاء",
+        "retry": "إعادة المحاولة",
+        "loading": "جارٍ التحميل...",
+        "close": "إغلاق",
+        "remove": "إزالة"
+      },
+      "home": {
+        "title": "بوابة اللاعب",
+        "subtitle": "مركز تدريبك الشخصي",
+        "welcomeBack": "مرحبًا بعودتك",
+        "academy": "أكاديميتك",
+        "registrationStatus": "حالة التسجيل",
+        "activePlayer": "لاعب نشط",
+        "registration": "التسجيل",
+        "trainingGroup": "مجموعة التدريب",
+        "courseLabel": "الدورة: {{course}}",
+        "credits": "الرصيد",
+        "nextExpiry": "الانتهاء القادم {{date}}",
+        "sessionsProgress": "تقدّم الجلسات",
+        "sessionsRemaining": "المتبقي {{remaining}} من أصل {{total}} جلسة",
+        "performanceScore": "معدل الأداء",
+        "performanceFallback": "—",
+        "attendance": "الحضور",
+        "attendanceFallback": "—",
+        "upcomingPayments": "المدفوعات القادمة",
+        "invoice": "فاتورة",
+        "paymentDue": "تاريخ الاستحقاق {{date}} • {{status}}",
+        "soon": "قريبًا",
+        "pending": "قيد الانتظار",
+        "noPendingInvoices": "لا توجد فواتير مستحقة بعد.",
+        "open": "فتح",
+        "quick": {
+          "profile": "الملف الشخصي",
+          "renewals": "التجديدات",
+          "freezes": "التجميد",
+          "payments": "المدفوعات",
+          "uniforms": "الزي",
+          "performance": "الأداء"
+        }
+      },
+      "more": {
+        "title": "المزيد",
+        "subtitle": "كل ما تبقى في بوابتك",
+        "freezes": {
+          "title": "التجميد",
+          "subtitle": "إيقاف الاشتراك مؤقتًا"
+        },
+        "performance": {
+          "title": "الأداء",
+          "subtitle": "تقييمات المدرب وتحليلاته"
+        },
+        "uniforms": {
+          "title": "متجر الزي",
+          "subtitle": "أحدث الأطقم والمستلزمات"
+        },
+        "orders": {
+          "title": "طلباتي",
+          "subtitle": "تتبّع التوصيل"
+        },
+        "news": {
+          "title": "الأخبار",
+          "subtitle": "تحديثات الأكاديمية"
+        },
+        "payments": {
+          "title": "المدفوعات",
+          "subtitle": "الفواتير والإيصالات"
+        }
+      },
+      "payments": {
+        "title": "المدفوعات",
+        "subtitle": "الفواتير والمعاملات والإيصالات",
+        "currency": "د.أ",
+        "status": {
+          "paid": "مدفوع",
+          "pending": "قيد الانتظار",
+          "due": "مستحق",
+          "unknown": "غير معروف"
+        },
+        "notPaidToken": "Not paid",
+        "noDate": "لا يوجد تاريخ",
+        "noDateSpecified": "لا يوجد تاريخ محدد",
+        "paidOn": "تم الدفع في {{date}}",
+        "dueOn": "مستحق في {{date}}",
+        "method": "• {{method}}",
+        "type": {
+          "uniformPurchase": "شراء زي",
+          "fullPayment": "دفع كامل",
+          "installment": "قسط {{label}}",
+          "payment": "دفعة"
+        },
+        "amount": "المبلغ:",
+        "invoice": "فاتورة:",
+        "fees": {
+          "training": "تدريب: {{amount}}",
+          "uniform": "زي: {{amount}}",
+          "transport": "مواصلات: {{amount}}"
+        },
+        "empty": {
+          "title": "لا توجد مدفوعات بعد",
+          "subtitle": "ستظهر المدفوعات هنا عند الاشتراك أو الطلب.",
+          "error": "تعذر تحميل المدفوعات: {{message}}"
+        },
+        "summary": {
+          "paid": "مدفوع",
+          "pending": "قيد الانتظار",
+          "overdue": "متأخر"
+        },
+        "errorNote": "ملاحظة: {{message}}"
+      },
+      "orders": {
+        "title": "طلباتي",
+        "subtitle": "تتبّع مشتريات الزي",
+        "error": "تعذر تحميل سجل الطلبات.",
+        "summary": {
+          "total": "الإجمالي",
+          "pending": "قيد الانتظار",
+          "collected": "تم الاستلام"
+        },
+        "errorTitle": "تعذر تحميل الطلبات",
+        "loading": "جارٍ تحميل سجل الطلبات.",
+        "emptyTitle": "لا توجد طلبات بعد",
+        "emptyDescription": "ستظهر طلبات الزي هنا بعد إنشائها.",
+        "orderLabel": "طلب رقم {{id}}",
+        "subtitleLeft": "{{type}} • الكمية: {{qty}}",
+        "subtitleRight": "المقاس: {{size}}",
+        "ref": "المرجع",
+        "player": "اللاعب",
+        "nickname": "الاسم المستعار",
+        "viewDetails": "عرض التفاصيل",
+        "oneSize": "مقاس واحد",
+        "fullKit": "طقم كامل",
+        "status": {
+          "pendingPayment": "بانتظار الدفع",
+          "collected": "تم الاستلام",
+          "processing": "قيد المعالجة",
+          "cancelled": "ملغى",
+          "default": "قيد المعالجة"
+        },
+        "details": {
+          "title": "تفاصيل الطلب",
+          "item": "العنصر",
+          "uniformType": "نوع الزي",
+          "size": "المقاس",
+          "quantity": "الكمية",
+          "player": "اللاعب",
+          "playerNumber": "رقم اللاعب",
+          "nickname": "الاسم المستعار",
+          "meta": "معلومات الطلب",
+          "orderId": "رقم الطلب",
+          "productId": "رقم المنتج",
+          "variantId": "رقم النسخة",
+          "paymentRef": "مرجع الدفع",
+          "createdAt": "تاريخ الإنشاء",
+          "updatedAt": "آخر تحديث"
+        }
+      },
+      "news": {
+        "title": "الأخبار",
+        "subtitle": "آخر تحديثات الأكاديمية",
+        "errorTitle": "تعذر تحميل الأخبار",
+        "error": "تعذر تحميل تحديثات الأخبار.",
+        "defaultTitle": "تحديث الأكاديمية",
+        "defaultDescription": "تابع آخر المباريات والإعلانات القادمة.",
+        "loadingTitle": "جارٍ تحميل الأخبار",
+        "loadingDescription": "نجلب أحدث التحديثات لك.",
+        "emptyTitle": "لا توجد أخبار بعد",
+        "emptyDescription": "ستظهر الأخبار هنا عند نشرها."
+      },
+      "profile": {
+        "title": "الملف الشخصي",
+        "subtitle": "إدارة هوية اللاعب",
+        "playerName": "اسم اللاعب",
+        "academy": "الأكاديمية",
+        "playerId": "المعرّف: {{id}}",
+        "contact": "معلومات الاتصال",
+        "phone1": "الهاتف 1",
+        "phone2": "الهاتف 2",
+        "dob": "تاريخ الميلاد",
+        "heightWeight": "الطول / الوزن",
+        "heightWeightValue": "{{height}} سم • {{weight}} كغ",
+        "noAddress": "لا يوجد عنوان محفوظ.",
+        "noMap": "لم تتم إضافة موقع خرائط جوجل.",
+        "logout": "تسجيل الخروج",
+        "editTitle": "تعديل الملف",
+        "addPhoto": "إضافة صورة",
+        "photoHint": "اضغط لرفع الصورة",
+        "firstNameEn": "الاسم الأول (EN)",
+        "middleNameEn": "اسم الأب (EN)",
+        "lastNameEn": "اسم العائلة (EN)",
+        "firstNameAr": "الاسم الأول (AR)",
+        "middleNameAr": "اسم الأب (AR)",
+        "lastNameAr": "اسم العائلة (AR)",
+        "maps": "موقع الخرائط",
+        "height": "الطول (سم)",
+        "weight": "الوزن (كغ)",
+        "save": "حفظ التغييرات"
+      },
+      "login": {
+        "title": "بوابة اللاعب",
+        "subtitle": "اختر أكاديميتك للوصول إلى بوابتك.",
+        "subtitleWithAcademy": "تسجيل الدخول إلى {{academy}}",
+        "academyFallback": "الأكاديمية",
+        "academiesError": "تعذر تحميل الأكاديميات.",
+        "errors": {
+          "selectAcademy": "يرجى اختيار الأكاديمية.",
+          "enterCredentials": "أدخل اسم المستخدم وكلمة المرور.",
+          "loginFailed": "فشل تسجيل الدخول. حاول مرة أخرى."
+        },
+        "username": "اسم المستخدم",
+        "usernamePlaceholder": "البريد الإلكتروني أو الهاتف",
+        "password": "كلمة المرور",
+        "passwordPlaceholder": "••••••••",
+        "success": "مرحبًا بعودتك! يتم تجهيز بوابتك…",
+        "forgotPassword": "نسيت كلمة المرور؟",
+        "submit": "دخول البوابة",
+        "academyPicker": {
+          "selectedLabel": "الأكاديمية المختارة",
+          "choose": "اختر أكاديمية",
+          "helper": "ابحث أو مرّر لاختيار الأكاديمية المناسبة.",
+          "searchPlaceholder": "ابحث عن أكاديمية",
+          "loading": "جارٍ تحميل الأكاديميات…",
+          "emptyTitle": "لم يتم العثور على أكاديميات",
+          "emptyDescription": "جرّب اسمًا أو موقعًا آخر."
+        }
+      },
+      "reset": {
+        "title": "إعادة تعيين كلمة المرور",
+        "subtitle": "سنساعدك على استعادة الوصول",
+        "comingSoonTitle": "ميزة إعادة التعيين قريبًا",
+        "comingSoonDescription": "نجهّز مسارًا آمنًا لإعادة تعيين كلمة مرور بوابة اللاعب.",
+        "backToLogin": "العودة لتسجيل الدخول"
+      },
+      "freezes": {
+        "title": "التجميد",
+        "subtitle": "أوقف البرنامج دون فقدان التقدم",
+        "currentStatus": "الحالة الحالية",
+        "approved": "موافق عليه",
+        "pending": "قيد الانتظار",
+        "rejected": "مرفوض",
+        "canceled": "ملغى",
+        "currentFreeze": "التجميد الحالي",
+        "upcomingFreeze": "التجميد القادم",
+        "lastFreeze": "آخر تجميد",
+        "period": "الفترة",
+        "processedBy": "تمت المعالجة بواسطة",
+        "processedAt": "تاريخ المعالجة",
+        "remainingSnapshot": "لقطة الجلسات المتبقية",
+        "reason": "السبب",
+        "notes": "ملاحظات",
+        "requestTitle": "طلب تجميد",
+        "requestSubtitle": "اختر التواريخ وأضف سببًا سريعًا.",
+        "startDate": "تاريخ البدء",
+        "endDate": "تاريخ الانتهاء",
+        "reasonPlaceholder": "أخبرنا بسبب التجميد",
+        "submit": "إرسال الطلب",
+        "emptyTitle": "لا يوجد تجميد بعد",
+        "emptyDescription": "ستظهر طلبات التجميد هنا.",
+        "validation": "اختر التواريخ وأضف سببًا.",
+        "success": "تم إرسال طلب التجميد.",
+        "error": "فشل إرسال طلب التجميد.",
+        "remainingSessions": "الجلسات المتبقية",
+        "remainingSessionsInline": " • الجلسات المتبقية: {{count}}",
+        "summaryLine": "ملخص التجميد: {{total}} • الموافق عليها: {{approved}} • قيد الانتظار: {{pending}}{{remainingText}}",
+        "range": "{{start}} → {{end}}"
+      },
+      "performance": {
+        "title": "الأداء",
+        "subtitle": "التقييمات والملاحظات والتقدم",
+        "overall": "التقييم العام",
+        "basedOnSessions": "استنادًا إلى {{count}} جلسة حديثة",
+        "categories": "فئات التقييم",
+        "periods": "تحليلات الفترات",
+        "periodLabel": "الفترة {{index}}",
+        "periodRange": "{{start}} → {{end}}",
+        "ratingLabel": "تقييم {{index}}",
+        "loadingTitle": "جارٍ تحميل الأداء",
+        "loadingDescription": "نجلب التقييمات والملاحظات من المدرب.",
+        "emptyTitle": "جارٍ تجهيز الأداء",
+        "emptyDescription": "ستظهر التقييمات فور نشرها من المدرب.",
+        "errorTitle": "تعذر تحميل الأداء",
+        "error": "تعذر تحميل بيانات الأداء."
+      },
+      "renewals": {
+        "title": "التجديدات",
+        "subtitle": "استمر في رحلتك",
+        "eligible": "مؤهل",
+        "notEligible": "غير مؤهل",
+        "ends": "ينتهي",
+        "daysLeft": "الأيام المتبقية",
+        "current": "الحالي",
+        "scheduleSeparator": " • ",
+        "scheduleEmpty": "لا يوجد جدول",
+        "courseLabel": "الدورة رقم {{id}}",
+        "courseRange": "{{start}} → {{end}} • {{sessions}} جلسة",
+        "courseSessions": "{{sessions}} جلسة",
+        "groupLabel": "المجموعة رقم {{id}}",
+        "groupCapacity": "{{schedule}} • {{count}} مقاعد",
+        "errors": {
+          "completeFields": "يرجى إكمال جميع الحقول المطلوبة.",
+          "loadTitle": "تعذر تحميل التجديدات"
+        },
+        "actions": {
+          "retry": "أعد المحاولة",
+          "back": "العودة للوحة التحكم",
+          "submit": "إرسال طلب التجديد",
+          "submitting": "جارٍ الإرسال..."
+        },
+        "submit": {
+          "successTitle": "تم إرسال طلب التجديد!",
+          "successMessage": "ستراجع الأكاديمية طلبك قريبًا.",
+          "errorTitle": "فشل الإرسال",
+          "errorMessage": "يرجى المحاولة مرة أخرى."
+        },
+        "notAvailable": {
+          "title": "التجديد غير متاح",
+          "subtitle": "الأسباب التي تمنع تقديم طلب التجديد الآن",
+          "pendingTitle": "طلب قيد المراجعة",
+          "pendingBody": "لديك طلب تجديد قيد المراجعة. يرجى انتظار المعالجة.",
+          "activeTitle": "اشتراك نشط",
+          "activeBody": "يتاح التجديد عند اقتراب موعد انتهاء الاشتراك."
+        },
+        "request": {
+          "title": "طلب تجديد",
+          "subtitle": "اختر الدورة أو المجموعة ثم حدّد الجدول المفضل",
+          "courseLabel": "اختر دورة (اختياري)",
+          "coursePlaceholder": "اختر دورة...",
+          "groupLabel": "اختر مجموعة (اختياري)",
+          "groupPlaceholder": "اختر مجموعة...",
+          "scheduleTitle": "جدول المجموعة",
+          "scheduleEmpty": "لا يوجد جدول",
+          "sessionsPerWeek": "جلسات في الأسبوع: {{count}}",
+          "startDate": "تاريخ البدء",
+          "endDate": "تاريخ الانتهاء",
+          "selectDate": "اختر التاريخ",
+          "sessionsLabel": "عدد الجلسات",
+          "sessionsUnit": "جلسات",
+          "notesLabel": "ملاحظات إضافية (اختياري)",
+          "notesPlaceholder": "أي طلبات أو ملاحظات خاصة للأكاديمية...",
+          "disclaimer": "بإرسالك الطلب، فأنت تقر بأن الأكاديمية ستراجعه وسيتم إشعارك بعد المعالجة."
+        },
+        "summary": {
+          "title": "ملخص الفترة",
+          "range": "{{start}} → {{end}}",
+          "sessionsDetail": "{{count}} جلسة • {{perWeek}}/الأسبوع"
+        },
+        "datePicker": {
+          "startTitle": "اختر تاريخ البدء",
+          "endTitle": "اختر تاريخ الانتهاء",
+          "confirm": "تأكيد التاريخ"
+        }
+      },
+      "uniforms": {
+        "title": "متجر الزي",
+        "subtitle": "أحدث الأطقم والمنتجات",
+        "loadingTitle": "جارٍ تحميل الكتالوج",
+        "loadingDescription": "نجلب أحدث المنتجات من الأكاديمية.",
+        "errorTitle": "تعذر تحميل المتجر",
+        "error": "تعذر تحميل متجر الزي.",
+        "emptyTitle": "المتجر قيد التجهيز",
+        "emptyDescription": "ستظهر الخيارات عند توفر الكتالوج.",
+        "kit": "طقم",
+        "defaultName": "حزمة زي",
+        "sizeRequired": "يرجى اختيار المقاس.",
+        "priceMissing": "السعر غير متوفر.",
+        "added": "تمت الإضافة إلى السلة",
+        "validation": "أضف عناصر إلى السلة أولاً.",
+        "success": "تم إرسال طلب الزي.",
+        "priceNA": "السعر غير متاح",
+        "oneSizeItem": "مقاس واحد يناسب الجميع",
+        "availableSizes": "المقاسات المتاحة",
+        "oneSize": "مقاس واحد",
+        "sizeSeparator": " • ",
+        "viewDetails": "عرض",
+        "cartTitle": "ملخص السلة • {{count}}",
+        "emptyCartTitle": "سلتك فارغة",
+        "emptyCartDesc": "أضف عناصر الزي من الكتالوج.",
+        "sizeLabel": "المقاس: {{size}} • {{price}} لكل قطعة",
+        "number": "الرقم",
+        "numberPlaceholder": "00",
+        "nickname": "الاسم المستعار",
+        "nicknamePlaceholder": "—",
+        "total": "الإجمالي",
+        "checkout": "الدفع",
+        "viewCart": "عرض السلة",
+        "addToCart": "أضف إلى السلة",
+        "size": "المقاس"
+      }
     }
   }
 }

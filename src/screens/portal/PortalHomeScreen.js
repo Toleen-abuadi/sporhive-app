@@ -4,17 +4,22 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Text } from '../../components/ui/Text';
+import { Screen } from '../../components/ui/Screen';
+import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalListItem } from '../../components/portal/PortalListItem';
 import { usePortalOverview, usePortalRefresh } from '../../services/portal/portal.hooks';
+import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
 
 export function PortalHomeScreen() {
   const { colors } = useTheme();
+  const { t, isRTL } = useTranslation();
   const router = useRouter();
   const { overview, loading } = usePortalOverview();
   const { refreshing, onRefresh } = usePortalRefresh();
+  const placeholder = t('service.portal.common.placeholder');
 
   useFocusEffect(
     useCallback(() => {
@@ -31,14 +36,22 @@ export function PortalHomeScreen() {
     ? overview.registration.remainingSessions / overview.registration.totalSessions
     : 0.4;
 
+  if (loading && !overview) {
+    return (
+      <Screen>
+        <SporHiveLoader />
+      </Screen>
+    );
+  }
+
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: colors.background }, isRTL && styles.rtl]}
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentOrange} />}
       showsVerticalScrollIndicator={false}
     >
-      <PortalHeader title="Player Portal" subtitle="Your personalised training hub" />
+      <PortalHeader title={t('service.portal.home.title')} subtitle={t('service.portal.home.subtitle')} />
 
       <PortalCard style={styles.card}>
         <View style={styles.identityRow}>
@@ -48,25 +61,25 @@ export function PortalHomeScreen() {
               <Image source={{ uri: overview.player.imageBase64 }} style={styles.avatarImage} />
             ) : (
               <Text variant="h3" weight="bold" color={colors.textPrimary}>
-                {(overview?.player?.fullName || 'Player').slice(0, 1)}
+                {(overview?.player?.fullName || t('service.portal.common.player')).slice(0, 1)}
               </Text>
             )}
           </View>
           <View style={styles.identityText}>
             <Text variant="body" weight="semibold" color={colors.textPrimary}>
-              {overview?.player?.fullName || 'Welcome back'}
+              {overview?.player?.fullName || t('service.portal.home.welcomeBack')}
             </Text>
             <Text variant="bodySmall" color={colors.textSecondary}>
-              {overview?.academyName || 'Your academy'}
+              {overview?.academyName || t('service.portal.home.academy')}
             </Text>
           </View>
         </View>
         <View style={styles.identityMeta}>
           <Text variant="caption" color={colors.textMuted}>
-            Registration status
+            {t('service.portal.home.registrationStatus')}
           </Text>
           <Text variant="bodySmall" color={colors.textPrimary}>
-            {overview?.registration?.registration_type || 'Active player'}
+            {overview?.registration?.registration_type || t('service.portal.home.activePlayer')}
           </Text>
         </View>
       </PortalCard>
@@ -74,34 +87,37 @@ export function PortalHomeScreen() {
       <View style={styles.gridRow}>
         <PortalCard style={[styles.card, styles.gridCard]}>
           <Text variant="body" weight="semibold" color={colors.textPrimary}>
-            Registration
+            {t('service.portal.home.registration')}
           </Text>
           <Text variant="bodySmall" color={colors.textSecondary} style={styles.cardSubtitle}>
-            {overview?.registration?.groupName || 'Training group'}
+            {overview?.registration?.groupName || t('service.portal.home.trainingGroup')}
           </Text>
           <Text variant="caption" color={colors.textMuted} style={styles.cardSubtitle}>
-            Course: {overview?.registration?.courseName || '—'}
+            {t('service.portal.home.courseLabel', { course: overview?.registration?.courseName || placeholder })}
           </Text>
         </PortalCard>
         <PortalCard style={[styles.card, styles.gridCard]}>
           <Text variant="body" weight="semibold" color={colors.textPrimary}>
-            Credits
+            {t('service.portal.home.credits')}
           </Text>
           <Text variant="h3" weight="bold" color={colors.textPrimary} style={styles.metricValue}>
             {overview?.credits?.totalRemaining ?? 0}
           </Text>
           <Text variant="caption" color={colors.textMuted}>
-            Next expiry {overview?.credits?.nextExpiry || '—'}
+            {t('service.portal.home.nextExpiry', { date: overview?.credits?.nextExpiry || placeholder })}
           </Text>
         </PortalCard>
       </View>
 
       <PortalCard style={styles.card}>
         <Text variant="body" weight="semibold" color={colors.textPrimary}>
-          Sessions progress
+          {t('service.portal.home.sessionsProgress')}
         </Text>
         <Text variant="bodySmall" color={colors.textSecondary} style={styles.cardSubtitle}>
-          {overview?.registration?.remainingSessions ?? 0} of {overview?.registration?.totalSessions ?? 0} sessions left
+          {t('service.portal.home.sessionsRemaining', {
+            remaining: overview?.registration?.remainingSessions ?? 0,
+            total: overview?.registration?.totalSessions ?? 0,
+          })}
         </Text>
         <View style={[styles.progressTrack, { backgroundColor: colors.border }]}
         >
@@ -118,18 +134,18 @@ export function PortalHomeScreen() {
         <View style={styles.metricRow}>
           <View>
             <Text variant="caption" color={colors.textMuted}>
-              Performance score
+              {t('service.portal.home.performanceScore')}
             </Text>
             <Text variant="body" weight="semibold" color={colors.textPrimary}>
-              {overview?.performance?.metrics?.score || '4.8'}
+              {overview?.performance?.metrics?.score || t('service.portal.home.performanceFallback')}
             </Text>
           </View>
           <View>
             <Text variant="caption" color={colors.textMuted}>
-              Attendance
+              {t('service.portal.home.attendance')}
             </Text>
             <Text variant="body" weight="semibold" color={colors.textPrimary}>
-              {overview?.performance?.metrics?.attendance || '92%'}
+              {overview?.performance?.metrics?.attendance || t('service.portal.home.attendanceFallback')}
             </Text>
           </View>
         </View>
@@ -137,7 +153,7 @@ export function PortalHomeScreen() {
 
       <PortalCard style={styles.card}>
         <Text variant="body" weight="semibold" color={colors.textPrimary}>
-          Upcoming payments
+          {t('service.portal.home.upcomingPayments')}
         </Text>
         {paymentsPreview.length ? (
           <View style={styles.listStack}>
@@ -145,27 +161,30 @@ export function PortalHomeScreen() {
               <PortalListItem
                 key={payment?.id ?? index}
                 leadingIcon="credit-card"
-                title={payment?.title || 'Invoice'}
-                subtitle={`Due ${payment?.dueDate || 'soon'} • ${payment?.status || 'pending'}`}
+                title={payment?.title || t('service.portal.home.invoice')}
+                subtitle={t('service.portal.home.paymentDue', {
+                  date: payment?.dueDate || t('service.portal.home.soon'),
+                  status: payment?.status || t('service.portal.home.pending'),
+                })}
                 onPress={() => router.push('/portal/payments')}
               />
             ))}
           </View>
         ) : (
           <Text variant="bodySmall" color={colors.textSecondary} style={styles.cardSubtitle}>
-            No pending invoices yet.
+            {t('service.portal.home.noPendingInvoices')}
           </Text>
         )}
       </PortalCard>
 
       <View style={styles.quickGrid}>
         {[
-          { label: 'Profile', icon: 'user', route: '/portal/(tabs)/profile' },
-          { label: 'Renewals', icon: 'calendar', route: '/portal/(tabs)/renewals' },
-          { label: 'Freezes', icon: 'pause-circle', route: '/portal/freezes' },
-          { label: 'Payments', icon: 'credit-card', route: '/portal/payments' },
-          { label: 'Uniforms', icon: 'shopping-bag', route: '/portal/uniform-store' },
-          { label: 'Performance', icon: 'trending-up', route: '/portal/performance' },
+          { label: t('service.portal.home.quick.profile'), icon: 'user', route: '/portal/(tabs)/profile' },
+          { label: t('service.portal.home.quick.renewals'), icon: 'calendar', route: '/portal/(tabs)/renewals' },
+          { label: t('service.portal.home.quick.freezes'), icon: 'pause-circle', route: '/portal/freezes' },
+          { label: t('service.portal.home.quick.payments'), icon: 'credit-card', route: '/portal/payments' },
+          { label: t('service.portal.home.quick.uniforms'), icon: 'shopping-bag', route: '/portal/uniform-store' },
+          { label: t('service.portal.home.quick.performance'), icon: 'trending-up', route: '/portal/performance' },
         ].map((action) => (
           <TouchableOpacity
             key={action.label}
@@ -176,19 +195,12 @@ export function PortalHomeScreen() {
               {action.label}
             </Text>
             <Text variant="caption" color={colors.textMuted} style={styles.quickSubtitle}>
-              Open
+              {t('service.portal.home.open')}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {loading ? (
-        <View style={styles.skeletonRow}>
-          {[0, 1, 2].map((item) => (
-            <View key={item} style={[styles.skeletonCard, { backgroundColor: colors.border }]} />
-          ))}
-        </View>
-      ) : null}
     </ScrollView>
   );
 }
@@ -196,6 +208,9 @@ export function PortalHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  rtl: {
+    direction: 'rtl',
   },
   content: {
     padding: spacing.lg,
@@ -273,14 +288,5 @@ const styles = StyleSheet.create({
   },
   quickSubtitle: {
     marginTop: spacing.xs,
-  },
-  skeletonRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  skeletonCard: {
-    flex: 1,
-    height: 80,
-    borderRadius: 16,
   },
 });

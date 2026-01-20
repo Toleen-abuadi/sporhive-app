@@ -20,6 +20,7 @@ export function PortalProfileScreen() {
   const { t, isRTL } = useTranslation();
   const { overview, refresh: refreshOverview } = usePortalOverview();
   const { logout, updateProfile, isLoading } = usePortalAuth();
+  const placeholder = t('service.portal.common.placeholder');
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
     first_eng_name: '',
@@ -67,9 +68,9 @@ export function PortalProfileScreen() {
   }, [overview]);
 
   const initials = useMemo(() => {
-    const name = player?.fullName || 'Player';
+    const name = player?.fullName || t('service.portal.common.player');
     return name.slice(0, 1).toUpperCase();
-  }, [player?.fullName]);
+  }, [player?.fullName, t]);
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -108,7 +109,7 @@ export function PortalProfileScreen() {
 
   return (
     <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
-      <PortalHeader title={t('portal.profile.title')} subtitle={t('portal.profile.subtitle')} />
+      <PortalHeader title={t('service.portal.profile.title')} subtitle={t('service.portal.profile.subtitle')} />
 
       <PortalCard style={styles.card}>
         <View style={styles.identityRow}>
@@ -124,40 +125,40 @@ export function PortalProfileScreen() {
           </View>
           <View style={styles.identityInfo}>
             <Text variant="body" weight="semibold" color={colors.textPrimary}>
-              {player?.fullName || t('portal.profile.playerName')}
+              {player?.fullName || t('service.portal.profile.playerName')}
             </Text>
             <Text variant="bodySmall" color={colors.textSecondary}>
-              {overview?.academyName || t('portal.profile.academy')}
+              {overview?.academyName || t('service.portal.profile.academy')}
             </Text>
             <Text variant="caption" color={colors.textMuted} style={styles.meta}>
-              {t('portal.profile.playerId')} #{player?.id || '—'}
+              {t('service.portal.profile.playerId', { id: player?.id || placeholder })}
             </Text>
           </View>
           <Button variant="secondary" size="small" onPress={() => setIsEditing(true)}>
-            {t('common.edit')}
+            {t('service.portal.common.edit')}
           </Button>
         </View>
       </PortalCard>
 
       <PortalCard style={styles.card}>
         <Text variant="body" weight="semibold" color={colors.textPrimary}>
-          {t('portal.profile.contact')}
+          {t('service.portal.profile.contact')}
         </Text>
         <View style={styles.infoRow}>
           <View>
             <Text variant="caption" color={colors.textMuted}>
-              {t('portal.profile.phone1')}
+              {t('service.portal.profile.phone1')}
             </Text>
             <Text variant="bodySmall" color={colors.textPrimary}>
-              {player?.phone || '—'}
+              {player?.phone || placeholder}
             </Text>
           </View>
           <View>
             <Text variant="caption" color={colors.textMuted}>
-              {t('portal.profile.phone2')}
+              {t('service.portal.profile.phone2')}
             </Text>
             <Text variant="bodySmall" color={colors.textPrimary}>
-              {player?.phone2 || '—'}
+              {player?.phone2 || placeholder}
             </Text>
           </View>
         </View>
@@ -165,18 +166,21 @@ export function PortalProfileScreen() {
         <View style={styles.infoRow}>
           <View>
             <Text variant="caption" color={colors.textMuted}>
-              {t('portal.profile.dob')}
+              {t('service.portal.profile.dob')}
             </Text>
             <Text variant="bodySmall" color={colors.textPrimary}>
-              {player?.dateOfBirth || '—'}
+              {player?.dateOfBirth || placeholder}
             </Text>
           </View>
           <View>
             <Text variant="caption" color={colors.textMuted}>
-              {t('portal.profile.heightWeight')}
+              {t('service.portal.profile.heightWeight')}
             </Text>
             <Text variant="bodySmall" color={colors.textPrimary}>
-              {health?.height || '—'} cm • {health?.weight || '—'} kg
+              {t('service.portal.profile.heightWeightValue', {
+                height: health?.height || placeholder,
+                weight: health?.weight || placeholder,
+              })}
             </Text>
           </View>
         </View>
@@ -184,13 +188,13 @@ export function PortalProfileScreen() {
 
       <PortalCard style={styles.card}>
         <Text variant="bodySmall" color={colors.textSecondary} style={styles.meta}>
-          {registration?.address || t('portal.profile.noAddress')}
+          {registration?.address || t('service.portal.profile.noAddress')}
         </Text>
         <Text variant="caption" color={colors.textMuted} style={styles.meta}>
-          {registration?.googleMapsLocation || t('portal.profile.noMap')}
+          {registration?.googleMapsLocation || t('service.portal.profile.noMap')}
         </Text>
         <Button variant="secondary" style={styles.logoutButton} onPress={handleLogout}>
-          {t('portal.profile.logout')}
+          {t('service.portal.profile.logout')}
         </Button>
       </PortalCard>
 
@@ -199,11 +203,11 @@ export function PortalProfileScreen() {
           <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>
               <Text variant="body" weight="semibold" color={colors.textPrimary}>
-                {t('portal.profile.editTitle')}
+                {t('service.portal.profile.editTitle')}
               </Text>
               <TouchableOpacity onPress={() => setIsEditing(false)}>
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  {t('common.cancel')}
+                  {t('service.portal.common.cancel')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -217,37 +221,37 @@ export function PortalProfileScreen() {
                   />
                 ) : (
                   <Text variant="bodySmall" color={colors.textMuted}>
-                    {t('portal.profile.addPhoto')}
+                    {t('service.portal.profile.addPhoto')}
                   </Text>
                 )}
               </View>
               <Text variant="bodySmall" color={colors.textSecondary}>
-                {t('portal.profile.photoHint')}
+                {t('service.portal.profile.photoHint')}
               </Text>
             </TouchableOpacity>
 
             <ScrollView contentContainerStyle={styles.formGrid} showsVerticalScrollIndicator={false}>
-              <Input label={t('portal.profile.firstNameEn')} value={form.first_eng_name} onChangeText={(v) => setForm((p) => ({ ...p, first_eng_name: v }))} />
-              <Input label={t('portal.profile.middleNameEn')} value={form.middle_eng_name} onChangeText={(v) => setForm((p) => ({ ...p, middle_eng_name: v }))} />
-              <Input label={t('portal.profile.lastNameEn')} value={form.last_eng_name} onChangeText={(v) => setForm((p) => ({ ...p, last_eng_name: v }))} />
-              <Input label={t('portal.profile.firstNameAr')} value={form.first_ar_name} onChangeText={(v) => setForm((p) => ({ ...p, first_ar_name: v }))} />
-              <Input label={t('portal.profile.middleNameAr')} value={form.middle_ar_name} onChangeText={(v) => setForm((p) => ({ ...p, middle_ar_name: v }))} />
-              <Input label={t('portal.profile.lastNameAr')} value={form.last_ar_name} onChangeText={(v) => setForm((p) => ({ ...p, last_ar_name: v }))} />
-              <Input label={t('portal.profile.phone1')} value={form.phone1} onChangeText={(v) => setForm((p) => ({ ...p, phone1: v }))} />
-              <Input label={t('portal.profile.phone2')} value={form.phone2} onChangeText={(v) => setForm((p) => ({ ...p, phone2: v }))} />
-              <Input label={t('portal.profile.dob')} value={form.date_of_birth} onChangeText={(v) => setForm((p) => ({ ...p, date_of_birth: v }))} />
-              <Input label={t('portal.profile.address')} value={form.address} onChangeText={(v) => setForm((p) => ({ ...p, address: v }))} />
-              <Input label={t('portal.profile.maps')} value={form.google_maps_location} onChangeText={(v) => setForm((p) => ({ ...p, google_maps_location: v }))} />
-              <Input label={t('portal.profile.height')} value={String(form.height || '')} onChangeText={(v) => setForm((p) => ({ ...p, height: v }))} />
-              <Input label={t('portal.profile.weight')} value={String(form.weight || '')} onChangeText={(v) => setForm((p) => ({ ...p, weight: v }))} />
+              <Input label={t('service.portal.profile.firstNameEn')} value={form.first_eng_name} onChangeText={(v) => setForm((p) => ({ ...p, first_eng_name: v }))} />
+              <Input label={t('service.portal.profile.middleNameEn')} value={form.middle_eng_name} onChangeText={(v) => setForm((p) => ({ ...p, middle_eng_name: v }))} />
+              <Input label={t('service.portal.profile.lastNameEn')} value={form.last_eng_name} onChangeText={(v) => setForm((p) => ({ ...p, last_eng_name: v }))} />
+              <Input label={t('service.portal.profile.firstNameAr')} value={form.first_ar_name} onChangeText={(v) => setForm((p) => ({ ...p, first_ar_name: v }))} />
+              <Input label={t('service.portal.profile.middleNameAr')} value={form.middle_ar_name} onChangeText={(v) => setForm((p) => ({ ...p, middle_ar_name: v }))} />
+              <Input label={t('service.portal.profile.lastNameAr')} value={form.last_ar_name} onChangeText={(v) => setForm((p) => ({ ...p, last_ar_name: v }))} />
+              <Input label={t('service.portal.profile.phone1')} value={form.phone1} onChangeText={(v) => setForm((p) => ({ ...p, phone1: v }))} />
+              <Input label={t('service.portal.profile.phone2')} value={form.phone2} onChangeText={(v) => setForm((p) => ({ ...p, phone2: v }))} />
+              <Input label={t('service.portal.profile.dob')} value={form.date_of_birth} onChangeText={(v) => setForm((p) => ({ ...p, date_of_birth: v }))} />
+              <Input label={t('service.portal.profile.address')} value={form.address} onChangeText={(v) => setForm((p) => ({ ...p, address: v }))} />
+              <Input label={t('service.portal.profile.maps')} value={form.google_maps_location} onChangeText={(v) => setForm((p) => ({ ...p, google_maps_location: v }))} />
+              <Input label={t('service.portal.profile.height')} value={String(form.height || '')} onChangeText={(v) => setForm((p) => ({ ...p, height: v }))} />
+              <Input label={t('service.portal.profile.weight')} value={String(form.weight || '')} onChangeText={(v) => setForm((p) => ({ ...p, weight: v }))} />
             </ScrollView>
 
             <View style={styles.modalActions}>
               <Button variant="secondary" onPress={() => setIsEditing(false)}>
-                {t('common.cancel')}
+                {t('service.portal.common.cancel')}
               </Button>
               <Button onPress={onSave} loading={isLoading}>
-                {t('portal.profile.save')}
+                {t('service.portal.profile.save')}
               </Button>
             </View>
           </View>

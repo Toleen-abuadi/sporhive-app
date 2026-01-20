@@ -15,14 +15,26 @@ import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
-import { BackButton } from '../../components/ui/BackButton';
 import { portalApi } from '../../services/portal/portal.api';
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
+
+const alphaHex = (hex, alpha = '1A') => {
+  if (!hex) return hex;
+  const normalized = hex.replace('#', '');
+  if (normalized.length === 3) {
+    const [r, g, b] = normalized.split('');
+    return `#${r}${r}${g}${g}${b}${b}${alpha}`;
+  }
+  if (normalized.length === 6) return `#${normalized}${alpha}`;
+  if (normalized.length === 8) return `#${normalized.slice(0, 6)}${alpha}`;
+  return hex;
+};
 
 const clampInt = (n, min, max) => {
   const x = Number(n);
@@ -44,6 +56,7 @@ export function PortalUniformStoreScreen() {
   const { colors } = useTheme();
   const toast = useToast();
   const { t, isRTL } = useTranslation();
+  const placeholder = t('service.portal.common.placeholder');
 
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -73,7 +86,7 @@ export function PortalUniformStoreScreen() {
 
       setCatalog(safeArray(list));
     } else {
-      setError(res?.error?.message || t('portal.uniforms.error'));
+      setError(res?.error?.message || t('service.portal.uniforms.error'));
     }
 
     setLoading(false);
@@ -83,10 +96,18 @@ export function PortalUniformStoreScreen() {
     loadCatalog();
   }, [loadCatalog]);
 
+  if (loading && catalog.length === 0 && !error) {
+    return (
+      <Screen>
+        <SporHiveLoader />
+      </Screen>
+    );
+  }
+
   const getDisplayName = useCallback(
     (item) => {
       if (isRTL && item?.name_ar) return item.name_ar;
-      return item?.name_en || item?.name || t('portal.uniforms.defaultName');
+      return item?.name_en || item?.name || t('service.portal.uniforms.defaultName');
     },
     [isRTL, t]
   );
@@ -173,7 +194,7 @@ export function PortalUniformStoreScreen() {
 
     // Must select size if variants exist
     if (variants.length && !selectedVariant) {
-      toast.warning(t('portal.uniforms.sizeRequired') || 'Please select a size.');
+      toast.warning(t('service.portal.uniforms.sizeRequired'));
       return;
     }
 
@@ -183,7 +204,7 @@ export function PortalUniformStoreScreen() {
     const unitPrice = Number.isFinite(Number(v?.price)) ? Number(v.price) : Number(product?.price);
 
     if (!Number.isFinite(unitPrice)) {
-      toast.warning(t('portal.uniforms.priceMissing') || 'Price not available.');
+      toast.warning(t('service.portal.uniforms.priceMissing'));
       return;
     }
 
@@ -202,7 +223,7 @@ export function PortalUniformStoreScreen() {
       nickname: existing?.nickname || '',
     });
 
-    toast.success(t('portal.uniforms.added') || 'Added to cart');
+    toast.success(t('service.portal.uniforms.added'));
   }, [findCartLine, getDisplayName, getVariants, t, toast, upsertCartLine]);
 
   // Build headers and payload with academy context
@@ -254,7 +275,7 @@ export function PortalUniformStoreScreen() {
 
   const checkout = useCallback(async () => {
     if (!cart.length) {
-      toast.warning(t('portal.uniforms.validation'));
+      toast.warning(t('service.portal.uniforms.validation'));
       return;
     }
 
@@ -279,15 +300,15 @@ export function PortalUniformStoreScreen() {
       const res = await portalApi.placeUniformOrder(body, { headers });
 
       if (res?.success) {
-        toast.success(t('portal.uniforms.success'));
+        toast.success(t('service.portal.uniforms.success'));
         setCart([]);
         setCartOpen(false);
         setActiveProduct(null);
       } else {
-        toast.error(res?.error?.message || t('portal.uniforms.error'));
+        toast.error(res?.error?.message || t('service.portal.uniforms.error'));
       }
     } catch (error) {
-      toast.error(error?.message || t('portal.uniforms.error'));
+      toast.error(error?.message || t('service.portal.uniforms.error'));
     }
   }, [cart, t, toast, buildAcademyPayload]);
 
@@ -299,7 +320,7 @@ export function PortalUniformStoreScreen() {
     const { min, max } = getPriceRange(item);
 
     const priceLabel = useMemo(() => {
-      if (min == null) return t('portal.uniforms.priceNA') || '—';
+      if (min == null) return t('service.portal.uniforms.priceNA');
       if (max != null && max !== min) return `${formatMoney(min)} - ${formatMoney(max)}`;
       return formatMoney(min);
     }, [min, max]);
@@ -310,11 +331,12 @@ export function PortalUniformStoreScreen() {
     );
 
     const sizeDisplayText = hasOneSizeVariants 
-      ? t('portal.uniforms.oneSizeItem') || 'One size fits all'
-      : t('portal.uniforms.availableSizes') || 'Sizes';
+      ? t('service.portal.uniforms.oneSizeItem')
+      : t('service.portal.uniforms.availableSizes');
 
+    const sizeSeparator = t('service.portal.uniforms.sizeSeparator');
     const sizesList = hasOneSizeVariants 
-      ? [t('portal.uniforms.oneSize') || 'One Size']
+      ? [t('service.portal.uniforms.oneSize')]
       : variants.map((v) => v.size);
 
     return (
@@ -328,11 +350,11 @@ export function PortalUniformStoreScreen() {
             <Image source={image} style={styles.tileImage} resizeMode="cover" />
           ) : (
             <View style={styles.tileImageFallback}>
-              <Text variant="caption" color={colors.textMuted}>{t('portal.uniforms.kit')}</Text>
+              <Text variant="caption" color={colors.textMuted}>{t('service.portal.uniforms.kit')}</Text>
             </View>
           )}
 
-          <View style={[styles.pricePill, { backgroundColor: colors.card || colors.surfaceElevated || colors.surface }]}>
+          <View style={[styles.pricePill, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
             <Text variant="caption" weight="semibold" color={colors.textPrimary}>
               {priceLabel}
             </Text>
@@ -346,17 +368,17 @@ export function PortalUniformStoreScreen() {
 
           {!!variants.length && (
             <Text variant="caption" color={colors.textMuted} style={{ marginTop: 4 }}>
-              {sizeDisplayText}: {sizesList.join(' • ')}
+              {sizeDisplayText}: {sizesList.join(sizeSeparator)}
             </Text>
           )}
 
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => setActiveProduct(item)}
-            style={[styles.detailsBtn, { borderColor: colors.border || '#22304A' }]}
+            style={[styles.detailsBtn, { borderColor: colors.border }]}
           >
             <Text variant="caption" color={colors.textSecondary}>
-              {t('portal.uniforms.viewDetails') || 'View'}
+              {t('service.portal.uniforms.viewDetails')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -404,14 +426,14 @@ export function PortalUniformStoreScreen() {
       transparent
       onRequestClose={() => setCartOpen(false)}
     >
-      <Pressable style={styles.modalBackdrop} onPress={() => setCartOpen(false)} />
+      <Pressable style={[styles.modalBackdrop, { backgroundColor: alphaHex(colors.black, '8C') }]} onPress={() => setCartOpen(false)} />
       <View style={[styles.cartSheet, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
         <View style={styles.sheetHeader}>
           <Text variant="body" weight="semibold" color={colors.textPrimary}>
-            {t('portal.uniforms.cartTitle')} • {cartCount}
+            {t('service.portal.uniforms.cartTitle', { count: cartCount })}
           </Text>
           <TouchableOpacity onPress={() => setCartOpen(false)} style={styles.sheetClose}>
-            <Text variant="caption" color={colors.textMuted}>{t('common.close') || 'Close'}</Text>
+            <Text variant="caption" color={colors.textMuted}>{t('service.portal.common.close')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -419,8 +441,8 @@ export function PortalUniformStoreScreen() {
           <View style={{ paddingVertical: spacing.lg }}>
             <PortalEmptyState
               icon="shopping-bag"
-              title={t('portal.uniforms.emptyCartTitle') || 'Your cart is empty'}
-              description={t('portal.uniforms.emptyCartDesc') || 'Add uniforms from the catalog.'}
+              title={t('service.portal.uniforms.emptyCartTitle')}
+              description={t('service.portal.uniforms.emptyCartDesc')}
             />
           </View>
         ) : (
@@ -431,17 +453,17 @@ export function PortalUniformStoreScreen() {
             renderItem={({ item }) => {
               // Display "One Size" instead of "__one_size__" in cart
               const displaySize = item?.size?.toLowerCase() === '__one_size__' 
-                ? t('portal.uniforms.oneSize') || 'One Size'
-                : item.size || '—';
+                ? t('service.portal.uniforms.oneSize')
+                : item.size || placeholder;
                 
               return (
-                <View style={[styles.cartLine, { borderColor: colors.border || '#22304A' }]}>
+                <View style={[styles.cartLine, { borderColor: colors.border }]}>
                   <View style={{ flex: 1 }}>
                     <Text variant="bodySmall" weight="semibold" color={colors.textPrimary} numberOfLines={1}>
                       {item.name}
                     </Text>
                     <Text variant="caption" color={colors.textMuted} style={{ marginTop: 2 }}>
-                      {(t('portal.uniforms.size') || 'Size')}: {displaySize} • {formatMoney(item.unitPrice)} each
+                      {t('service.portal.uniforms.sizeLabel', { size: displaySize, price: formatMoney(item.unitPrice) })}
                     </Text>
                   </View>
 
@@ -449,7 +471,7 @@ export function PortalUniformStoreScreen() {
                   <View style={styles.stepper}>
                     <TouchableOpacity
                       onPress={() => setLineQty(item.productId, item.variantId, (item.quantity || 1) - 1)}
-                      style={[styles.stepBtn, { borderColor: colors.border || '#22304A' }]}
+                      style={[styles.stepBtn, { borderColor: colors.border }]}
                     >
                       <Text variant="body" weight="semibold" color={colors.textPrimary}>−</Text>
                     </TouchableOpacity>
@@ -460,7 +482,7 @@ export function PortalUniformStoreScreen() {
 
                     <TouchableOpacity
                       onPress={() => setLineQty(item.productId, item.variantId, (item.quantity || 1) + 1)}
-                      style={[styles.stepBtn, { borderColor: colors.border || '#22304A' }]}
+                      style={[styles.stepBtn, { borderColor: colors.border }]}
                     >
                       <Text variant="body" weight="semibold" color={colors.textPrimary}>+</Text>
                     </TouchableOpacity>
@@ -470,8 +492,8 @@ export function PortalUniformStoreScreen() {
                     onPress={() => removeCartLine(item.productId, item.variantId)}
                     style={styles.removeBtn}
                   >
-                    <Text variant="caption" color={colors.danger || '#EF4444'}>
-                      {t('common.remove') || 'Remove'}
+                    <Text variant="caption" color={colors.error}>
+                      {t('service.portal.common.remove')}
                     </Text>
                   </TouchableOpacity>
 
@@ -481,8 +503,8 @@ export function PortalUniformStoreScreen() {
                       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                         <View style={{ flex: 1 }}>
                           <Input
-                            label={t('portal.uniforms.number') || 'Number'}
-                            placeholder="00"
+                            label={t('service.portal.uniforms.number')}
+                            placeholder={t('service.portal.uniforms.numberPlaceholder')}
                             keyboardType="numeric"
                             value={item.number || ''}
                             onChangeText={(v) => {
@@ -493,8 +515,8 @@ export function PortalUniformStoreScreen() {
                         </View>
                         <View style={{ flex: 1 }}>
                           <Input
-                            label={t('portal.uniforms.nickname') || 'Nickname'}
-                            placeholder="—"
+                            label={t('service.portal.uniforms.nickname')}
+                            placeholder={t('service.portal.uniforms.nicknamePlaceholder')}
                             value={item.nickname || ''}
                             onChangeText={(v) => upsertCartLine({ ...item, nickname: v })}
                           />
@@ -509,10 +531,10 @@ export function PortalUniformStoreScreen() {
         )}
 
         {/* Checkout area */}
-        <View style={[styles.cartFooter, { borderColor: colors.border || '#22304A', backgroundColor: colors.surfaceElevated || colors.surface }]}>
+        <View style={[styles.cartFooter, { borderColor: colors.border, backgroundColor: colors.surfaceElevated || colors.surface }]}>
           <View>
             <Text variant="caption" color={colors.textMuted}>
-              {t('portal.uniforms.total') || 'Total'}
+              {t('service.portal.uniforms.total')}
             </Text>
             <Text variant="body" weight="semibold" color={colors.textPrimary}>
               {formatMoney(cartTotal)}
@@ -520,7 +542,7 @@ export function PortalUniformStoreScreen() {
           </View>
 
           <Button onPress={checkout} disabled={!cart.length}>
-            {t('portal.uniforms.checkout')}
+            {t('service.portal.uniforms.checkout')}
           </Button>
         </View>
       </View>
@@ -531,35 +553,26 @@ export function PortalUniformStoreScreen() {
   return (
     <Screen contentContainerStyle={[styles.screen, isRTL && styles.rtl]}>
       <PortalHeader
-        title={t('portal.uniforms.title')}
-        subtitle={t('portal.uniforms.subtitle')}
-        leftSlot={<BackButton />}
+        title={t('service.portal.uniforms.title')}
+        subtitle={t('service.portal.uniforms.subtitle')}
       />
-
-      {loading && !catalog.length ? (
-        <PortalEmptyState
-          icon="shopping-bag"
-          title={t('portal.uniforms.loadingTitle')}
-          description={t('portal.uniforms.loadingDescription')}
-        />
-      ) : null}
 
       {error ? (
         <PortalEmptyState
           icon="alert-triangle"
-          title={t('portal.uniforms.errorTitle')}
+          title={t('service.portal.uniforms.errorTitle')}
           description={error}
           action={
             <Button variant="secondary" onPress={loadCatalog}>
-              {t('common.retry')}
+              {t('service.portal.common.retry')}
             </Button>
           }
         />
       ) : catalog.length === 0 && !loading ? (
         <PortalEmptyState
           icon="shopping-bag"
-          title={t('portal.uniforms.emptyTitle')}
-          description={t('portal.uniforms.emptyDescription')}
+          title={t('service.portal.uniforms.emptyTitle')}
+          description={t('service.portal.uniforms.emptyDescription')}
         />
       ) : (
         <FlatList
@@ -574,22 +587,22 @@ export function PortalUniformStoreScreen() {
       )}
 
       {/* Sticky Cart Bar (famous app feel) */}
-      <View style={[styles.cartBar, { backgroundColor: colors.surfaceElevated || colors.surface, borderColor: colors.border || '#22304A' }]}>
+      <View style={[styles.cartBar, { backgroundColor: colors.surfaceElevated || colors.surface, borderColor: colors.border }]}>
         <TouchableOpacity
           onPress={() => setCartOpen(true)}
           activeOpacity={0.9}
-          style={[styles.cartBarBtn, { backgroundColor: colors.accentOrange || '#F97316' }]}
+          style={[styles.cartBarBtn, { backgroundColor: colors.accentOrange }]}
         >
           <View style={{ flex: 1 }}>
-            <Text variant="caption" color="#0B1220" weight="semibold">
-              {t('portal.uniforms.cartTitle')} • {cartCount}
+            <Text variant="caption" color={colors.black} weight="semibold">
+              {t('service.portal.uniforms.cartTitle', { count: cartCount })}
             </Text>
-            <Text variant="bodySmall" color="#0B1220" weight="semibold">
+            <Text variant="bodySmall" color={colors.black} weight="semibold">
               {formatMoney(cartTotal)}
             </Text>
           </View>
-          <Text variant="bodySmall" color="#0B1220" weight="semibold">
-            {t('portal.uniforms.viewCart') || 'View'}
+          <Text variant="bodySmall" color={colors.black} weight="semibold">
+            {t('service.portal.uniforms.viewCart')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -629,14 +642,14 @@ function ProductDetailsModal({
     if (selectedVariant && Number.isFinite(Number(selectedVariant.price))) {
       return formatMoney(selectedVariant.price);
     }
-    if (minPrice == null) return t('portal.uniforms.priceNA') || '—';
+    if (minPrice == null) return t('service.portal.uniforms.priceNA');
     if (maxPrice != null && maxPrice !== minPrice) return `${formatMoney(minPrice)} - ${formatMoney(maxPrice)}`;
     return formatMoney(minPrice);
   }, [maxPrice, minPrice, selectedVariant, t]);
 
   return (
     <Modal visible={!!product} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={styles.modalBackdrop} onPress={onClose} />
+      <Pressable style={[styles.modalBackdrop, { backgroundColor: alphaHex(colors.black, '8C') }]} onPress={onClose} />
 
       <View style={[styles.sheet, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
         <View style={styles.sheetHeader}>
@@ -644,7 +657,7 @@ function ProductDetailsModal({
             {name}
           </Text>
           <TouchableOpacity onPress={onClose} style={styles.sheetClose}>
-            <Text variant="caption" color={colors.textMuted}>{t('common.close') || 'Close'}</Text>
+            <Text variant="caption" color={colors.textMuted}>{t('service.portal.common.close')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -653,11 +666,11 @@ function ProductDetailsModal({
             <Image source={image} style={styles.heroImage} resizeMode="cover" />
           ) : (
             <View style={styles.heroFallback}>
-              <Text variant="caption" color={colors.textMuted}>{t('portal.uniforms.kit')}</Text>
+              <Text variant="caption" color={colors.textMuted}>{t('service.portal.uniforms.kit')}</Text>
             </View>
           )}
 
-          <View style={[styles.heroPrice, { backgroundColor: colors.card || colors.surfaceElevated || colors.surface }]}>
+          <View style={[styles.heroPrice, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
             <Text variant="bodySmall" weight="semibold" color={colors.textPrimary}>
               {priceLabel}
             </Text>
@@ -675,8 +688,8 @@ function ProductDetailsModal({
           <View style={{ marginTop: spacing.md }}>
             <Text variant="caption" color={colors.textMuted} style={{ marginBottom: spacing.xs }}>
               {hasOneSizeVariants 
-                ? t('portal.uniforms.oneSizeItem') || 'One size fits all'
-                : t('portal.uniforms.size') || 'Size'}
+                ? t('service.portal.uniforms.oneSizeItem')
+                : t('service.portal.uniforms.size')}
             </Text>
 
             <View style={styles.chipsRow}>
@@ -684,7 +697,7 @@ function ProductDetailsModal({
                 const active = v.id === selectedVariantId;
                 // Display "One Size" instead of "__one_size__"
                 const displaySize = v?.size?.toLowerCase() === '__one_size__'
-                  ? t('portal.uniforms.oneSize') || 'One Size'
+                  ? t('service.portal.uniforms.oneSize')
                   : v.size;
                   
                 return (
@@ -694,12 +707,12 @@ function ProductDetailsModal({
                     style={[
                       styles.chip,
                       {
-                        borderColor: active ? (colors.accentOrange || '#F97316') : (colors.border || '#22304A'),
-                        backgroundColor: active ? 'rgba(249,115,22,0.14)' : 'transparent',
+                        borderColor: active ? colors.accentOrange : colors.border,
+                        backgroundColor: active ? alphaHex(colors.accentOrange, '24') : 'transparent',
                       },
                     ]}
                   >
-                    <Text variant="bodySmall" weight="semibold" color={active ? (colors.accentOrange || '#F97316') : colors.textPrimary}>
+                    <Text variant="bodySmall" weight="semibold" color={active ? colors.accentOrange : colors.textPrimary}>
                       {displaySize}
                     </Text>
                   </TouchableOpacity>
@@ -711,7 +724,7 @@ function ProductDetailsModal({
 
         <View style={{ marginTop: spacing.lg }}>
           <Button onPress={() => onAdd(selectedVariant)}>
-            {t('portal.uniforms.addToCart') || 'Add to cart'}
+            {t('service.portal.uniforms.addToCart')}
           </Button>
         </View>
 
@@ -794,7 +807,6 @@ const styles = StyleSheet.create({
   // Modal + sheets
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   sheet: {
     position: 'absolute',

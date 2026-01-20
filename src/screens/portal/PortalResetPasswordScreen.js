@@ -5,22 +5,26 @@ import { Screen } from '../../components/ui/Screen';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
 import { Button } from '../../components/ui/Button';
-import { BackButton } from '../../components/ui/BackButton';
+import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
 
 export function PortalResetPasswordScreen() {
   const router = useRouter();
+  const { t, isRTL } = useTranslation();
 
   return (
-    <Screen scroll contentContainerStyle={styles.scroll}>
-      <PortalHeader title="Reset password" subtitle="We’ll help you regain access" leftSlot={<BackButton />} />
+    <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
+      <PortalHeader
+        title={t('service.portal.reset.title')}
+        subtitle={t('service.portal.reset.subtitle')}
+      />
       <PortalEmptyState
         icon="key"
-        title="Password reset coming soon"
-        description="We’re preparing a secure reset flow for the player portal."
+        title={t('service.portal.reset.comingSoonTitle')}
+        description={t('service.portal.reset.comingSoonDescription')}
         action={
           <Button variant="secondary" onPress={() => router.back()}>
-            Back to login
+            {t('service.portal.reset.backToLogin')}
           </Button>
         }
       />
@@ -31,5 +35,8 @@ export function PortalResetPasswordScreen() {
 const styles = StyleSheet.create({
   scroll: {
     padding: spacing.lg,
+  },
+  rtl: {
+    direction: 'rtl',
   },
 });

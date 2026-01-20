@@ -11,14 +11,15 @@ import { Text } from '../../components/ui/Text';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { AcademyPicker } from '../../components/portal/AcademyPicker';
-import { BackButton } from '../../components/ui/BackButton';
 import { portalApi } from '../../services/portal/portal.api';
 import { usePortalAuth } from '../../services/portal/portal.hooks';
 import { storage } from '../../services/storage/storage';
+import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
 
 export function PortalLoginScreen() {
   const { colors } = useTheme();
+  const { t, isRTL } = useTranslation();
   const router = useRouter();
   const { login, isLoading, error } = usePortalAuth();
 
@@ -54,13 +55,13 @@ export function PortalLoginScreen() {
             : [];
         const items = customers.map((c) => ({
           id: Number(c.id),
-          name: c.academy_name || c.label || 'Academy',
+          name: c.academy_name || c.label || t('service.portal.login.academyFallback'),
           subtitle: c.client_name || '',
           label: c.label || '',
         }));
         setAcademies(items);
       } else {
-        setAcademyError(res?.error?.message || 'Unable to load academies.');
+        setAcademyError(res?.error?.message || t('service.portal.login.academiesError'));
       }
       setAcademyLoading(false);
     };
@@ -87,18 +88,18 @@ export function PortalLoginScreen() {
   }, []);
 
   const subtitle = useMemo(() => {
-    if (academy?.name) return `Signing in to ${academy.name}`;
-    return 'Select your academy to unlock your player portal.';
-  }, [academy]);
+    if (academy?.name) return t('service.portal.login.subtitleWithAcademy', { academy: academy.name });
+    return t('service.portal.login.subtitle');
+  }, [academy, t]);
 
   const onSubmit = async () => {
     setFormError('');
     if (!academy?.id) {
-      setFormError('Please choose your academy.');
+      setFormError(t('service.portal.login.errors.selectAcademy'));
       return;
     }
     if (!username.trim() || !password) {
-      setFormError('Enter both your username and password.');
+      setFormError(t('service.portal.login.errors.enterCredentials'));
       return;
     }
 
@@ -109,32 +110,32 @@ export function PortalLoginScreen() {
         if (finished) runOnJS(router.replace)('/portal/(tabs)/home');
       });
     } else {
-      setFormError(result?.error || error || 'Login failed. Please try again.');
+      setFormError(result?.error || error || t('service.portal.login.errors.loginFailed'));
     }
   };
 
   return (
-    <Screen scroll contentContainerStyle={styles.scroll}>
+    <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
       <LinearGradient
         colors={[colors.background, colors.surface]}
         style={styles.background}
       >
-        <PortalHeader title="Player Portal" subtitle={subtitle} leftSlot={<BackButton />} />
+        <PortalHeader title={t('service.portal.login.title')} subtitle={subtitle} />
 
         <Animated.View entering={FadeInUp.delay(100).duration(500)} style={fadeStyle}>
           <PortalCard style={styles.card}>
             <View style={styles.formRow}>
               <Input
-                label="Username"
-                placeholder="Email or phone"
+                label={t('service.portal.login.username')}
+                placeholder={t('service.portal.login.usernamePlaceholder')}
                 value={username}
                 onChangeText={setUsername}
                 leftIcon="user"
                 autoCapitalize="none"
               />
               <Input
-                label="Password"
-                placeholder="••••••••"
+                label={t('service.portal.login.password')}
+                placeholder={t('service.portal.login.passwordPlaceholder')}
                 value={password}
                 onChangeText={setPassword}
                 leftIcon="lock"
@@ -150,13 +151,13 @@ export function PortalLoginScreen() {
               {isSuccess ? (
                 <View style={[styles.successBanner, { backgroundColor: colors.success + '1F' }]}>
                   <Text variant="bodySmall" color={colors.success}>
-                    Welcome back! Preparing your portal…
+                    {t('service.portal.login.success')}
                   </Text>
                 </View>
               ) : null}
               <TouchableOpacity onPress={() => router.push('/portal/reset-password')}>
                 <Text variant="bodySmall" color={colors.textSecondary} style={styles.forgot}>
-                  Forgot password?
+                  {t('service.portal.login.forgotPassword')}
                 </Text>
               </TouchableOpacity>
               <Button
@@ -165,7 +166,7 @@ export function PortalLoginScreen() {
                 disabled={!academy?.id || !username || !password}
                 style={styles.button}
               >
-                Enter Portal
+                {t('service.portal.login.submit')}
               </Button>
             </View>
           </PortalCard>
@@ -192,6 +193,9 @@ export function PortalLoginScreen() {
 const styles = StyleSheet.create({
   scroll: {
     padding: spacing.lg,
+  },
+  rtl: {
+    direction: 'rtl',
   },
   background: {
     flex: 1,

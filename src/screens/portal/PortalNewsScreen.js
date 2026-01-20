@@ -4,10 +4,10 @@ import { View, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-nat
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
+import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
-import { BackButton } from '../../components/ui/BackButton';
 import { portalApi } from '../../services/portal/portal.api';
 import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
@@ -20,6 +20,7 @@ export function PortalNewsScreen() {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const placeholder = t('service.portal.common.placeholder');
 
   const [academyId, setAcademyId] = useState(null);
 
@@ -98,7 +99,7 @@ const resolveNewsImageUrl = useCallback((imageUrl) => {
 
       setNews(list);
     } else {
-      setError(res?.error?.message || t('portal.news.error'));
+      setError(res?.error?.message || t('service.portal.news.error'));
     }
 
     setLoading(false);
@@ -108,23 +109,30 @@ const resolveNewsImageUrl = useCallback((imageUrl) => {
     loadNews();
   }, [loadNews]);
 
+  if (loading && news.length === 0 && !error) {
+    return (
+      <Screen>
+        <SporHiveLoader />
+      </Screen>
+    );
+  }
+
   return (
     <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
       <PortalHeader
-        title={t('portal.news.title')}
-        subtitle={t('portal.news.subtitle')}
-        leftSlot={<BackButton />}
+        title={t('service.portal.news.title')}
+        subtitle={t('service.portal.news.subtitle')}
       />
 
       {error ? (
         <PortalEmptyState
           icon="alert-triangle"
-          title={t('portal.news.errorTitle')}
+          title={t('service.portal.news.errorTitle')}
           description={error}
           action={(
             <TouchableOpacity onPress={loadNews} style={styles.retryButton}>
               <Text variant="bodySmall" color={colors.textPrimary}>
-                {t('common.retry')}
+                {t('service.portal.common.retry')}
               </Text>
             </TouchableOpacity>
           )}
@@ -141,11 +149,11 @@ const resolveNewsImageUrl = useCallback((imageUrl) => {
               <TouchableOpacity key={item?.id ?? index}>
                 <PortalCard style={styles.card}>
                   <Text variant="body" weight="semibold" color={colors.textPrimary}>
-                    {item?.title || t('portal.news.defaultTitle')}
+                    {item?.title || t('service.portal.news.defaultTitle')}
                   </Text>
 
                   <Text variant="caption" color={colors.textMuted} style={styles.meta}>
-                    {item?.created_at || '—'}
+                    {item?.created_at || placeholder}
                   </Text>
 
                   {!!imageUris.length && (
@@ -167,24 +175,18 @@ const resolveNewsImageUrl = useCallback((imageUrl) => {
                   )}
 
                   <Text variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>
-                    {item?.description || t('portal.news.defaultDescription')}
+                    {item?.description || t('service.portal.news.defaultDescription')}
                   </Text>
                 </PortalCard>
               </TouchableOpacity>
             );
           })}
         </View>
-      ) : loading ? (
-        <PortalEmptyState
-          icon="volume-2"
-          title={t('portal.news.loadingTitle')}
-          description={t('portal.news.loadingDescription')}
-        />
       ) : (
         <PortalEmptyState
           icon="volume-2"
-          title={t('portal.news.emptyTitle')}
-          description={t('portal.news.emptyDescription')}
+          title={t('service.portal.news.emptyTitle')}
+          description={t('service.portal.news.emptyDescription')}
         />
       )}
     </Screen>

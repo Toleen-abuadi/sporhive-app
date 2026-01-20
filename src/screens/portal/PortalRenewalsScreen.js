@@ -32,7 +32,6 @@ import {
   ChevronDown,
   Check,
   AlertCircle,
-  Loader2,
   RefreshCw,
   X,
   Clock,
@@ -51,6 +50,7 @@ import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
@@ -96,8 +96,8 @@ function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
-function formatPrettyDate(d, locale) {
-  if (!d) return '—';
+function formatPrettyDate(d, locale, placeholder) {
+  if (!d) return placeholder;
   try {
     return new Intl.DateTimeFormat(locale || undefined, {
       year: 'numeric',
@@ -110,29 +110,18 @@ function formatPrettyDate(d, locale) {
 }
 
 // Adds alpha to a hex color safely.
-// If base is missing/invalid, returns fallback.
-function alpha(base, aHex = '80', fallback = 'rgba(255,255,255,0.5)') {
-  if (!base || typeof base !== 'string') return fallback;
-
-  // If already rgba/hsla, just return base (avoid breaking)
-  if (base.startsWith('rgba') || base.startsWith('rgb') || base.startsWith('hsla') || base.startsWith('hsl')) {
-    return base;
+function alpha(base, aHex = '80') {
+  if (!base || typeof base !== 'string') return base;
+  const hex = base.replace('#', '');
+  if (hex.length === 3) {
+    const r = hex[0] + hex[0];
+    const g = hex[1] + hex[1];
+    const b = hex[2] + hex[2];
+    return `#${r}${g}${b}${aHex}`;
   }
-
-  // Accept #RGB or #RRGGBB
-  if (base[0] === '#') {
-    const hex = base.replace('#', '');
-    if (hex.length === 3) {
-      const r = hex[0] + hex[0];
-      const g = hex[1] + hex[1];
-      const b = hex[2] + hex[2];
-      return `#${r}${g}${b}${aHex}`;
-    }
-    if (hex.length === 6) return `${base}${aHex}`;
-    if (hex.length === 8) return base; // already has alpha
-  }
-
-  return fallback;
+  if (hex.length === 6) return `#${hex}${aHex}`;
+  if (hex.length === 8) return `#${hex.slice(0, 6)}${aHex}`;
+  return base;
 }
 
 function weekdayLabel(day) {
@@ -191,16 +180,16 @@ function AnimatedCard({ children, delay = 0, style = {} }) {
   return <Animated.View style={[{ transform: [{ translateY }], opacity }, style]}>{children}</Animated.View>;
 }
 
-function GradientCard({ children, colors = null, style = {} }) {
-  const theme = useTheme();
-  const surface = theme.colors?.surface || '#111214';
-  const border = theme.colors?.border || 'rgba(255,255,255,0.08)';
+function GradientCard({ children, colors: gradientColors = null, style = {} }) {
+  const { colors } = useTheme();
+  const surface = colors.surface;
+  const border = colors.border;
 
-  const gradientColors = colors || [surface, alpha(surface, 'EE', 'rgba(17,18,20,0.93)')];
+  const resolvedColors = gradientColors || [surface, alpha(surface, 'EE')];
 
   return (
     <LinearGradient
-      colors={gradientColors}
+      colors={resolvedColors}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[styles.gradientCard, { borderColor: border }, style]}
@@ -211,14 +200,14 @@ function GradientCard({ children, colors = null, style = {} }) {
 }
 
 function PremiumBadge({ text, variant = 'primary', icon: Icon = null }) {
-  const theme = useTheme();
-  const primary = theme.colors?.primary || '#F59E0B';
+  const { colors } = useTheme();
+  const primary = colors.accentOrange;
 
   const variants = {
-    primary: { bg: alpha(primary, '15', 'rgba(245,158,11,0.08)'), text: primary, border: alpha(primary, '30') },
-    success: { bg: 'rgba(16,185,129,0.10)', text: '#10B981', border: 'rgba(16,185,129,0.25)' },
-    warning: { bg: 'rgba(245,158,11,0.10)', text: '#F59E0B', border: 'rgba(245,158,11,0.25)' },
-    error: { bg: 'rgba(239,68,68,0.10)', text: '#EF4444', border: 'rgba(239,68,68,0.25)' },
+    primary: { bg: alpha(primary, '15'), text: primary, border: alpha(primary, '30') },
+    success: { bg: alpha(colors.success, '1A'), text: colors.success, border: alpha(colors.success, '40') },
+    warning: { bg: alpha(colors.warning, '1A'), text: colors.warning, border: alpha(colors.warning, '40') },
+    error: { bg: alpha(colors.error, '1A'), text: colors.error, border: alpha(colors.error, '40') },
   };
   const s = variants[variant] || variants.primary;
 
@@ -230,13 +219,9 @@ function PremiumBadge({ text, variant = 'primary', icon: Icon = null }) {
   );
 }
 
-function SectionTitle({ icon: Icon, title, subtitle, theme, color = 'warning' }) {
-  const primary = theme.colors?.primary || '#F59E0B';
-  const success = theme.colors?.success || '#10B981';
-  const warning = theme.colors?.warning || '#F59E0B';
-
-  const colorMap = { warning, primary, success };
-  const iconColor = colorMap[color] || warning;
+function SectionTitle({ icon: Icon, title, subtitle, colors, tone = 'warning' }) {
+  const colorMap = { warning: colors.warning, primary: colors.accentOrange, success: colors.success };
+  const iconColor = colorMap[tone] || colors.warning;
 
   return (
     <View style={{ gap: 10 }}>
@@ -244,10 +229,10 @@ function SectionTitle({ icon: Icon, title, subtitle, theme, color = 'warning' })
         <View style={[styles.sectionIcon, { backgroundColor: alpha(iconColor, '15'), borderColor: alpha(iconColor, '30') }]}>
           <Icon size={20} color={iconColor} />
         </View>
-        <Text style={[styles.sectionTitle, { color: theme.colors?.text || '#fff' }]}>{title}</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{title}</Text>
       </View>
       {!!subtitle && (
-        <Text style={[styles.sectionSubtitle, { color: alpha(theme.colors?.text || '#fff', 'AA', 'rgba(255,255,255,0.7)') }]}>
+        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
           {subtitle}
         </Text>
       )}
@@ -262,10 +247,11 @@ function PremiumDDL({
   items,
   selectedId,
   onSelect,
-  theme,
+  colors,
   icon: Icon = ChevronDown,
   disabled = false,
 }) {
+  const { isDark } = useTheme();
   const [open, setOpen] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -283,7 +269,7 @@ function PremiumDDL({
   return (
     <>
       <View style={{ gap: 8 }}>
-        <Text style={[styles.ddlLabel, { color: alpha(theme.colors?.text || '#fff', 'CC', 'rgba(255,255,255,0.75)') }]}>
+        <Text style={[styles.ddlLabel, { color: colors.textMuted }]}>
           {label}
         </Text>
 
@@ -292,8 +278,8 @@ function PremiumDDL({
             style={[
               styles.premiumDdl,
               {
-                backgroundColor: theme.colors?.card || '#1C1C1E',
-                borderColor: disabled ? alpha(theme.colors?.border, '30', 'rgba(255,255,255,0.08)') : (theme.colors?.border || 'rgba(255,255,255,0.10)'),
+                backgroundColor: colors.surfaceElevated || colors.surface,
+                borderColor: disabled ? alpha(colors.border, '30') : colors.border,
                 transform: [{ scale: scaleAnim }],
               },
             ]}
@@ -302,32 +288,32 @@ function PremiumDDL({
               <Text
                 style={[
                   styles.ddlValue,
-                  { color: selected ? (theme.colors?.text || '#fff') : alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)') },
+                  { color: selected ? colors.textPrimary : colors.textSecondary },
                 ]}
               >
                 {valueLabel || selected?.label || placeholder}
               </Text>
 
               {!!selected?.subLabel && (
-                <Text style={[styles.ddlSubLabel, { color: alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)') }]}>
+                <Text style={[styles.ddlSubLabel, { color: colors.textSecondary }]}>
                   {selected.subLabel}
                 </Text>
               )}
             </View>
 
-            <Icon size={18} color={disabled ? alpha(theme.colors?.text || '#fff', '50', 'rgba(255,255,255,0.4)') : (theme.colors?.text || '#fff')} />
+            <Icon size={18} color={disabled ? colors.textMuted : colors.textPrimary} />
           </Animated.View>
         </Pressable>
       </View>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill}>
+        <BlurView intensity={50} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill}>
           <Pressable style={styles.modalBackdrop} onPress={() => setOpen(false)}>
-            <View style={[styles.premiumModalSheet, { backgroundColor: theme.colors?.surface || '#111214', borderColor: theme.colors?.border || 'rgba(255,255,255,0.10)' }]}>
+            <View style={[styles.premiumModalSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: theme.colors?.text || '#fff' }]}>{label}</Text>
-                <Pressable onPress={() => setOpen(false)} style={styles.modalCloseBtn}>
-                  <X size={20} color={theme.colors?.text || '#fff'} />
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{label}</Text>
+                <Pressable onPress={() => setOpen(false)} style={[styles.modalCloseBtn, { backgroundColor: alpha(colors.black, '26') }]}>
+                  <X size={20} color={colors.textPrimary} />
                 </Pressable>
               </View>
 
@@ -349,27 +335,27 @@ function PremiumDDL({
                         styles.premiumItemRow,
                         {
                           backgroundColor: active
-                            ? alpha(theme.colors?.primary || '#F59E0B', '15')
+                            ? alpha(colors.accentOrange, '15')
                             : pressed
-                              ? alpha(theme.colors?.card || '#1C1C1E', 'CC', 'rgba(28,28,30,0.85)')
-                              : (theme.colors?.card || '#1C1C1E'),
-                          borderColor: active ? alpha(theme.colors?.primary || '#F59E0B', '50') : (theme.colors?.border || 'rgba(255,255,255,0.10)'),
+                              ? alpha(colors.surfaceElevated || colors.surface, 'CC')
+                              : (colors.surfaceElevated || colors.surface),
+                          borderColor: active ? alpha(colors.accentOrange, '50') : colors.border,
                           opacity: pressed ? 0.9 : 1,
                         },
                       ]}
                     >
                       <View style={{ flex: 1, gap: 2 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          {active && <BadgeCheck size={16} color={theme.colors?.primary || '#F59E0B'} />}
-                          <Text style={[styles.itemTitle, { color: theme.colors?.text || '#fff' }]}>{item.label}</Text>
+                          {active && <BadgeCheck size={16} color={colors.accentOrange} />}
+                          <Text style={[styles.itemTitle, { color: colors.textPrimary }]}>{item.label}</Text>
                         </View>
                         {!!item.subLabel && (
-                          <Text style={[styles.itemSubtitle, { color: alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)') }]}>
+                          <Text style={[styles.itemSubtitle, { color: colors.textSecondary }]}>
                             {item.subLabel}
                           </Text>
                         )}
                       </View>
-                      {active ? <Check size={20} color={theme.colors?.primary || '#F59E0B'} /> : null}
+                      {active ? <Check size={20} color={colors.accentOrange} /> : null}
                     </Pressable>
                   );
                 }}
@@ -382,7 +368,7 @@ function PremiumDDL({
   );
 }
 
-function DatePickerRow({ label, date, onPick, theme, locale, icon: Icon = Calendar }) {
+function DatePickerRow({ label, date, onPick, colors, locale, icon: Icon = Calendar, emptyLabel }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => Animated.spring(scaleAnim, { toValue: 0.98, useNativeDriver: true, damping: 16 }).start();
@@ -390,42 +376,42 @@ function DatePickerRow({ label, date, onPick, theme, locale, icon: Icon = Calend
 
   return (
     <View style={{ gap: 8, flex: 1 }}>
-      <Text style={[styles.ddlLabel, { color: alpha(theme.colors?.text || '#fff', 'CC', 'rgba(255,255,255,0.75)') }]}>{label}</Text>
+      <Text style={[styles.ddlLabel, { color: colors.textMuted }]}>{label}</Text>
       <Pressable onPress={onPick} onPressIn={handlePressIn} onPressOut={handlePressOut}>
         <Animated.View
           style={[
             styles.premiumDateBtn,
             {
-              backgroundColor: theme.colors?.card || '#1C1C1E',
-              borderColor: theme.colors?.border || 'rgba(255,255,255,0.10)',
+              backgroundColor: colors.surfaceElevated || colors.surface,
+              borderColor: colors.border,
               transform: [{ scale: scaleAnim }],
             },
           ]}
         >
           <View style={{ flex: 1, gap: 2 }}>
-            <Text style={[styles.dateValue, { color: theme.colors?.text || '#fff' }]}>
-              {date ? formatPrettyDate(date, locale) : 'Select date'}
+            <Text style={[styles.dateValue, { color: colors.textPrimary }]}>
+              {date ? formatPrettyDate(date, locale, emptyLabel) : emptyLabel}
             </Text>
             {date && (
-              <Text style={[styles.dateSubLabel, { color: alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)') }]}>
+              <Text style={[styles.dateSubLabel, { color: colors.textSecondary }]}>
                 {toISODate(date)}
               </Text>
             )}
           </View>
-          <Icon size={18} color={theme.colors?.text || '#fff'} />
+          <Icon size={18} color={colors.textPrimary} />
         </Animated.View>
       </Pressable>
     </View>
   );
 }
 
-function SessionsStepper({ value, onChange, min = 1, max = 999, theme, label = 'Number of sessions' }) {
+function SessionsStepper({ value, onChange, min = 1, max = 999, colors, label, unitLabel }) {
   const handleDecrement = () => onChange(clamp(value - 1, min, max));
   const handleIncrement = () => onChange(clamp(value + 1, min, max));
 
   return (
     <View style={{ gap: 12 }}>
-      <Text style={[styles.ddlLabel, { color: alpha(theme.colors?.text || '#fff', 'CC', 'rgba(255,255,255,0.75)') }]}>{label}</Text>
+      <Text style={[styles.ddlLabel, { color: colors.textMuted }]}>{label}</Text>
       <View style={styles.premiumStepperContainer}>
         <Pressable onPress={handleDecrement} style={styles.stepperBtn}>
           {({ pressed }) => (
@@ -433,19 +419,19 @@ function SessionsStepper({ value, onChange, min = 1, max = 999, theme, label = '
               style={[
                 styles.stepperBtnInner,
                 {
-                  backgroundColor: pressed ? alpha(theme.colors?.primary || '#F59E0B', '20') : (theme.colors?.card || '#1C1C1E'),
-                  borderColor: theme.colors?.border || 'rgba(255,255,255,0.10)',
+                  backgroundColor: pressed ? alpha(colors.accentOrange, '20') : (colors.surfaceElevated || colors.surface),
+                  borderColor: colors.border,
                 },
               ]}
             >
-              <Text style={[styles.stepperBtnText, { color: theme.colors?.text || '#fff' }]}>−</Text>
+              <Text style={[styles.stepperBtnText, { color: colors.textPrimary }]}>−</Text>
             </View>
           )}
         </Pressable>
 
         <View style={styles.stepperValueContainer}>
-          <Text style={[styles.stepperValue, { color: theme.colors?.text || '#fff' }]}>{value}</Text>
-          <Text style={[styles.stepperLabel, { color: alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)') }]}>sessions</Text>
+          <Text style={[styles.stepperValue, { color: colors.textPrimary }]}>{value}</Text>
+          <Text style={[styles.stepperLabel, { color: colors.textSecondary }]}>{unitLabel}</Text>
         </View>
 
         <Pressable onPress={handleIncrement} style={styles.stepperBtn}>
@@ -454,12 +440,12 @@ function SessionsStepper({ value, onChange, min = 1, max = 999, theme, label = '
               style={[
                 styles.stepperBtnInner,
                 {
-                  backgroundColor: pressed ? alpha(theme.colors?.primary || '#F59E0B', '20') : (theme.colors?.card || '#1C1C1E'),
-                  borderColor: theme.colors?.border || 'rgba(255,255,255,0.10)',
+                  backgroundColor: pressed ? alpha(colors.accentOrange, '20') : (colors.surfaceElevated || colors.surface),
+                  borderColor: colors.border,
                 },
               ]}
             >
-              <Text style={[styles.stepperBtnText, { color: theme.colors?.text || '#fff' }]}>+</Text>
+              <Text style={[styles.stepperBtnText, { color: colors.textPrimary }]}>+</Text>
             </View>
           )}
         </Pressable>
@@ -471,9 +457,11 @@ function SessionsStepper({ value, onChange, min = 1, max = 999, theme, label = '
 // ----------------------- Main Screen -----------------------
 export function PortalRenewalsScreen() {
   const router = useRouter();
-  const theme = useTheme();
+  const { colors, isDark } = useTheme();
   const toast = useToast();
-  const { t, locale } = useTranslation();
+  const { t, locale, isRTL } = useTranslation();
+  const placeholder = t('service.portal.common.placeholder');
+  const scheduleSeparator = t('service.portal.renewals.scheduleSeparator');
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -501,14 +489,18 @@ export function PortalRenewalsScreen() {
   const courses = useMemo(() => {
     return (availableCoursesRaw || []).map((c) => ({
       id: c.id,
-      label: c.name || `Course #${c.id}`,
+      label: c.name || t('service.portal.renewals.courseLabel', { id: c.id }),
       subLabel:
         c.start_date && c.end_date
-          ? `${c.start_date} → ${c.end_date} • ${c.num_of_sessions || 0} sessions`
-          : `${c.num_of_sessions || 0} sessions`,
+          ? t('service.portal.renewals.courseRange', {
+              start: c.start_date,
+              end: c.end_date,
+              sessions: c.num_of_sessions || 0,
+            })
+          : t('service.portal.renewals.courseSessions', { sessions: c.num_of_sessions || 0 }),
       meta: c,
     }));
-  }, [availableCoursesRaw]);
+  }, [availableCoursesRaw, t]);
 
   const groups = useMemo(() => {
     return (availableGroupsRaw || []).map((g) => {
@@ -518,16 +510,18 @@ export function PortalRenewalsScreen() {
           ? schedule
               .slice(0, 2)
               .map((s) => `${weekdayLabel(s?.day)} ${s?.time?.start || ''}-${s?.time?.end || ''}`.trim())
-              .join(' • ')
-          : 'No schedule';
+              .join(scheduleSeparator)
+          : t('service.portal.renewals.scheduleEmpty');
       return {
         id: g.id,
-        label: g.name || `Group #${g.id}`,
-        subLabel: `${scheduleLabel}${g.capacity ? ` • ${g.capacity} spots` : ''}`,
+        label: g.name || t('service.portal.renewals.groupLabel', { id: g.id }),
+        subLabel: g.capacity
+          ? t('service.portal.renewals.groupCapacity', { schedule: scheduleLabel, count: g.capacity })
+          : scheduleLabel,
         meta: g,
       };
     });
-  }, [availableGroupsRaw]);
+  }, [availableGroupsRaw, t]);
 
   const selectedCourse = useMemo(
     () => courses.find((c) => String(c.id) === String(selectedCourseId))?.meta || null,
@@ -663,7 +657,7 @@ export function PortalRenewalsScreen() {
 
   const submit = useCallback(async () => {
     if (!canSubmit) {
-      toast?.show?.({ type: 'error', message: 'Please complete all required fields.', duration: 3000 });
+      toast?.show?.({ type: 'error', message: t('service.portal.renewals.errors.completeFields'), duration: 3000 });
       return;
     }
 
@@ -684,8 +678,8 @@ export function PortalRenewalsScreen() {
 
       toast?.show?.({
         type: 'success',
-        message: '🎉 Renewal request submitted!',
-        description: 'The academy will review your request shortly.',
+        message: t('service.portal.renewals.submit.successTitle'),
+        description: t('service.portal.renewals.submit.successMessage'),
         duration: 4000,
       });
 
@@ -694,8 +688,8 @@ export function PortalRenewalsScreen() {
     } catch (e) {
       toast?.show?.({
         type: 'error',
-        message: 'Submission failed',
-        description: e?.message || 'Please try again.',
+        message: t('service.portal.renewals.submit.errorTitle'),
+        description: e?.message || t('service.portal.renewals.submit.errorMessage'),
         duration: 4000,
       });
     } finally {
@@ -704,6 +698,7 @@ export function PortalRenewalsScreen() {
   }, [
     canSubmit,
     toast,
+    t,
     registrationInfo?.id,
     selectedCourseId,
     selectedGroupId,
@@ -724,15 +719,15 @@ export function PortalRenewalsScreen() {
         style={({ pressed }) => [
           styles.headerBtn,
           {
-            backgroundColor: pressed ? alpha(theme.colors?.primary || '#F59E0B', '20') : (theme.colors?.card || '#1C1C1E'),
-            borderColor: theme.colors?.border || 'rgba(255,255,255,0.10)',
+            backgroundColor: pressed ? alpha(colors.accentOrange, '20') : (colors.surfaceElevated || colors.surface),
+            borderColor: colors.border,
           },
         ]}
       >
-        <RefreshCw size={18} color={theme.colors?.text || '#fff'} />
+        <RefreshCw size={18} color={colors.textPrimary} />
       </Pressable>
     );
-  }, [fetchAll, theme]);
+  }, [fetchAll, colors]);
 
   const topSummary = useMemo(() => {
     const academyName = overview?.academy_name || '';
@@ -752,16 +747,11 @@ export function PortalRenewalsScreen() {
     return (
       <Screen>
         <PortalHeader
-          title={t?.('portal.renewals.title') || 'Renewals'}
-          subtitle={t?.('portal.renewals.subtitle') || 'Continue your journey'}
+          title={t('service.portal.renewals.title')}
+          subtitle={t('service.portal.renewals.subtitle')}
           right={HeaderRight}
         />
-        <View style={styles.loadingContainer}>
-          <View style={styles.loadingContent}>
-            <Loader2 size={32} color={theme.colors?.primary || '#F59E0B'} />
-            <Text style={[styles.loadingText, { color: theme.colors?.text || '#fff' }]}>Loading renewal options...</Text>
-          </View>
-        </View>
+        <SporHiveLoader />
       </Screen>
     );
   }
@@ -770,16 +760,16 @@ export function PortalRenewalsScreen() {
     return (
       <Screen>
         <PortalHeader
-          title={t?.('portal.renewals.title') || 'Renewals'}
-          subtitle={t?.('portal.renewals.subtitle') || 'Continue your journey'}
+          title={t('service.portal.renewals.title')}
+          subtitle={t('service.portal.renewals.subtitle')}
           right={HeaderRight}
         />
         <View style={styles.errorContainer}>
           <PortalEmptyState
             icon={AlertCircle}
-            title="Couldn't load renewals"
+            title={t('service.portal.renewals.errors.loadTitle')}
             subtitle={fatalError}
-            actionLabel="Try again"
+            actionLabel={t('service.portal.renewals.actions.retry')}
             onAction={() => {
               setRefreshing(true);
               fetchAll();
@@ -795,14 +785,14 @@ export function PortalRenewalsScreen() {
   return (
     <Screen>
       <PortalHeader
-        title={t?.('portal.renewals.title') || 'Renewals'}
-        subtitle={t?.('portal.renewals.subtitle') || 'Continue your journey'}
+        title={t('service.portal.renewals.title')}
+        subtitle={t('service.portal.renewals.subtitle')}
         right={HeaderRight}
       />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, isRTL && styles.rtl]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -811,7 +801,7 @@ export function PortalRenewalsScreen() {
                 setRefreshing(true);
                 fetchAll();
               }}
-              tintColor={theme.colors?.text || '#fff'}
+              tintColor={colors.accentOrange}
             />
           }
         >
@@ -819,42 +809,42 @@ export function PortalRenewalsScreen() {
             <GradientCard style={styles.summaryCard}>
               <View style={styles.summaryHeader}>
                 <View style={{ flex: 1, gap: 4 }}>
-                  <Text style={[styles.playerName, { color: theme.colors?.text || '#fff' }]}>{topSummary.fullName || 'Player'}</Text>
+                  <Text style={[styles.playerName, { color: colors.textPrimary }]}>{topSummary.fullName || 'Player'}</Text>
                   {!!topSummary.academyName && (
-                    <Text style={[styles.academyName, { color: alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)') }]}>
+                    <Text style={[styles.academyName, { color: colors.textSecondary }]}>
                       {topSummary.academyName}
                     </Text>
                   )}
                 </View>
                 <PremiumBadge
-                  text={eligible ? 'Eligible' : 'Not Eligible'}
+                  text={eligible ? t('service.portal.renewals.eligible') : t('service.portal.renewals.notEligible')}
                   variant={eligible ? 'success' : 'warning'}
                   icon={eligible ? ShieldCheck : AlertCircle}
                 />
               </View>
 
-              <View style={[styles.divider, { backgroundColor: alpha(theme.colors?.border || '#ffffff', '30', 'rgba(255,255,255,0.08)') }]} />
+              <View style={[styles.divider, { backgroundColor: alpha(colors.border, '30') }]} />
 
               <View style={styles.statsGrid}>
                 <View style={styles.statItem}>
-                  <CalendarDays size={16} color={alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)')} />
-                  <Text style={[styles.statLabel, { color: alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)') }]}>Ends</Text>
-                  <Text style={[styles.statValue, { color: theme.colors?.text || '#fff' }]}>{formatPrettyDate(topSummary.end, locale)}</Text>
+                  <CalendarDays size={16} color={colors.textSecondary} />
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('service.portal.renewals.ends')}</Text>
+                  <Text style={[styles.statValue, { color: colors.textPrimary }]}>{formatPrettyDate(topSummary.end, locale, placeholder)}</Text>
                 </View>
 
                 <View style={styles.statItem}>
-                  <Clock size={16} color={alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)')} />
-                  <Text style={[styles.statLabel, { color: alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)') }]}>Days Left</Text>
-                  <Text style={[styles.statValue, { color: theme.colors?.text || '#fff' }]}>
-                    {Number.isFinite(Number(topSummary.daysLeft)) ? safeStr(topSummary.daysLeft) : '—'}
+                  <Clock size={16} color={colors.textSecondary} />
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('service.portal.renewals.daysLeft')}</Text>
+                  <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                    {Number.isFinite(Number(topSummary.daysLeft)) ? safeStr(topSummary.daysLeft) : placeholder}
                   </Text>
                 </View>
 
                 <View style={styles.statItem}>
-                  <Target size={16} color={alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)')} />
-                  <Text style={[styles.statLabel, { color: alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)') }]}>Current</Text>
-                  <Text style={[styles.statValue, { color: theme.colors?.text || '#fff' }]}>
-                    {registrationInfo?.registration_type ? String(registrationInfo.registration_type).toUpperCase() : '—'}
+                  <Target size={16} color={colors.textSecondary} />
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('service.portal.renewals.current')}</Text>
+                  <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                    {registrationInfo?.registration_type ? String(registrationInfo.registration_type).toUpperCase() : placeholder}
                   </Text>
                 </View>
               </View>
@@ -866,110 +856,112 @@ export function PortalRenewalsScreen() {
               <GradientCard style={styles.notEligibleCard}>
                 <SectionTitle
                   icon={AlertCircle}
-                  title="Renewal Not Available"
-                  subtitle="Here's why you can't request a renewal right now"
-                  theme={theme}
-                  color="warning"
+                  title={t('service.portal.renewals.notAvailable.title')}
+                  subtitle={t('service.portal.renewals.notAvailable.subtitle')}
+                  colors={colors}
+                  tone="warning"
                 />
 
                 <View style={styles.reasonsList}>
                   {eligibility?.has_pending_request && (
-                    <View style={[styles.reasonItem, { borderColor: theme.colors?.border || 'rgba(255,255,255,0.10)' }]}>
-                      <View style={[styles.reasonIcon, { backgroundColor: alpha(theme.colors?.warning || '#F59E0B', '15'), borderColor: alpha(theme.colors?.warning || '#F59E0B', '30') }]}>
-                        <Clock size={16} color={theme.colors?.warning || '#F59E0B'} />
+                    <View style={[styles.reasonItem, { borderColor: colors.border }]}>
+                      <View style={[styles.reasonIcon, { backgroundColor: alpha(colors.warning, '15'), borderColor: alpha(colors.warning, '30') }]}>
+                        <Clock size={16} color={colors.warning} />
                       </View>
                       <View style={{ flex: 1, gap: 4 }}>
-                        <Text style={[styles.reasonTitle, { color: theme.colors?.text || '#fff' }]}>Pending Request</Text>
-                        <Text style={[styles.reasonBody, { color: alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)') }]}>
-                          You already have a renewal request under review. Please wait for it to be processed.
+                        <Text style={[styles.reasonTitle, { color: colors.textPrimary }]}>{t('service.portal.renewals.notAvailable.pendingTitle')}</Text>
+                        <Text style={[styles.reasonBody, { color: colors.textSecondary }]}>
+                          {t('service.portal.renewals.notAvailable.pendingBody')}
                         </Text>
                       </View>
                     </View>
                   )}
 
                   {Number(topSummary.daysLeft) >= 0 && (
-                    <View style={[styles.reasonItem, { borderColor: theme.colors?.border || 'rgba(255,255,255,0.10)' }]}>
-                      <View style={[styles.reasonIcon, { backgroundColor: alpha(theme.colors?.warning || '#F59E0B', '15'), borderColor: alpha(theme.colors?.warning || '#F59E0B', '30') }]}>
-                        <Zap size={16} color={theme.colors?.warning || '#F59E0B'} />
+                    <View style={[styles.reasonItem, { borderColor: colors.border }]}>
+                      <View style={[styles.reasonIcon, { backgroundColor: alpha(colors.warning, '15'), borderColor: alpha(colors.warning, '30') }]}>
+                        <Zap size={16} color={colors.warning} />
                       </View>
                       <View style={{ flex: 1, gap: 4 }}>
-                        <Text style={[styles.reasonTitle, { color: theme.colors?.text || '#fff' }]}>Active Subscription</Text>
-                        <Text style={[styles.reasonBody, { color: alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)') }]}>
-                          Renewal becomes available closer to your current subscription end date.
+                        <Text style={[styles.reasonTitle, { color: colors.textPrimary }]}>{t('service.portal.renewals.notAvailable.activeTitle')}</Text>
+                        <Text style={[styles.reasonBody, { color: colors.textSecondary }]}>
+                          {t('service.portal.renewals.notAvailable.activeBody')}
                         </Text>
                       </View>
                     </View>
                   )}
                 </View>
 
-                <Button title="Back to Dashboard" onPress={() => router.back()} variant="outline" style={{ marginTop: 24 }} />
+                <Button title={t('service.portal.renewals.actions.back')} onPress={() => router.back()} variant="outline" style={{ marginTop: 24 }} />
               </GradientCard>
             ) : (
               <GradientCard>
                 <SectionTitle
                   icon={Sparkles}
-                  title="Request Renewal"
-                  subtitle="Choose your course or group, then set your preferred schedule"
-                  theme={theme}
-                  color="primary"
+                  title={t('service.portal.renewals.request.title')}
+                  subtitle={t('service.portal.renewals.request.subtitle')}
+                  colors={colors}
+                  tone="primary"
                 />
 
                 <View style={styles.formContent}>
                   <PremiumDDL
-                    label="Select Course (Optional)"
-                    placeholder="Choose a course..."
+                    label={t('service.portal.renewals.request.courseLabel')}
+                    placeholder={t('service.portal.renewals.request.coursePlaceholder')}
                     items={courses}
                     selectedId={selectedCourseId}
                     onSelect={(item) => setSelectedCourseId(item?.id || null)}
-                    theme={theme}
+                    colors={colors}
                     icon={CalendarDays}
                   />
 
                   <PremiumDDL
-                    label="Select Group (Optional)"
-                    placeholder="Choose a group..."
+                    label={t('service.portal.renewals.request.groupLabel')}
+                    placeholder={t('service.portal.renewals.request.groupPlaceholder')}
                     items={groups}
                     selectedId={selectedGroupId}
                     onSelect={(item) => setSelectedGroupId(item?.id || null)}
-                    theme={theme}
+                    colors={colors}
                     icon={Users}
                   />
 
                   {selectedGroup && (
-                    <View style={[styles.schedulePreview, { backgroundColor: alpha(theme.colors?.primary || '#F59E0B', '10') }]}>
+                    <View style={[styles.schedulePreview, { backgroundColor: alpha(colors.accentOrange, '10'), borderColor: alpha(colors.accentOrange, '30') }]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <CalendarClock size={16} color={theme.colors?.primary || '#F59E0B'} />
-                        <Text style={[styles.scheduleTitle, { color: theme.colors?.primary || '#F59E0B' }]}>Group Schedule</Text>
+                        <CalendarClock size={16} color={colors.accentOrange} />
+                        <Text style={[styles.scheduleTitle, { color: colors.accentOrange }]}>{t('service.portal.renewals.request.scheduleTitle')}</Text>
                       </View>
-                      <Text style={[styles.scheduleText, { color: theme.colors?.text || '#fff' }]}>
+                      <Text style={[styles.scheduleText, { color: colors.textPrimary }]}>
                         {Array.isArray(selectedGroup?.schedule) && selectedGroup.schedule.length > 0
                           ? selectedGroup.schedule
                               .map((s) => `${weekdayLabel(s?.day)} ${s?.time?.start || ''}-${s?.time?.end || ''}`.trim())
-                              .join(' • ')
-                          : 'No schedule set'}
+                              .join(scheduleSeparator)
+                          : t('service.portal.renewals.request.scheduleEmpty')}
                       </Text>
-                      <Text style={[styles.scheduleNote, { color: alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)') }]}>
-                        {sessionsPerWeek} session{sessionsPerWeek !== 1 ? 's' : ''} per week
+                      <Text style={[styles.scheduleNote, { color: colors.textSecondary }]}>
+                        {t('service.portal.renewals.request.sessionsPerWeek', { count: sessionsPerWeek })}
                       </Text>
                     </View>
                   )}
 
                   <View style={styles.dateGrid}>
                     <DatePickerRow
-                      label="Start Date"
+                      label={t('service.portal.renewals.request.startDate')}
                       date={startDate}
                       onPick={() => setDatePicker({ open: true, field: 'start' })}
-                      theme={theme}
+                      colors={colors}
                       locale={locale}
                       icon={Calendar}
+                      emptyLabel={t('service.portal.renewals.request.selectDate')}
                     />
                     <DatePickerRow
-                      label="End Date"
+                      label={t('service.portal.renewals.request.endDate')}
                       date={endDate}
                       onPick={() => setDatePicker({ open: true, field: 'end' })}
-                      theme={theme}
+                      colors={colors}
                       locale={locale}
                       icon={CalendarDays}
+                      emptyLabel={t('service.portal.renewals.request.selectDate')}
                     />
                   </View>
 
@@ -978,44 +970,45 @@ export function PortalRenewalsScreen() {
                     onChange={onChangeSessions}
                     min={1}
                     max={Number(selectedCourse?.num_of_sessions) || 999}
-                    theme={theme}
-                    label="Number of Sessions"
+                    colors={colors}
+                    label={t('service.portal.renewals.request.sessionsLabel')}
+                    unitLabel={t('service.portal.renewals.request.sessionsUnit')}
                   />
 
                   {startDate && endDate && (
-                    <View style={[styles.summaryBox, { backgroundColor: 'rgba(16,185,129,0.10)' }]}>
+                    <View style={[styles.summaryBox, { backgroundColor: alpha(colors.success, '1A'), borderColor: alpha(colors.success, '40') }]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Check size={16} color={theme.colors?.success || '#10B981'} />
-                        <Text style={[styles.summaryTitle, { color: theme.colors?.success || '#10B981' }]}>Period Summary</Text>
+                        <Check size={16} color={colors.success} />
+                        <Text style={[styles.summaryTitle, { color: colors.success }]}>{t('service.portal.renewals.summary.title')}</Text>
                       </View>
-                      <Text style={[styles.summaryText, { color: theme.colors?.text || '#fff' }]}>
-                        {toISODate(startDate)} → {toISODate(endDate)}
+                      <Text style={[styles.summaryText, { color: colors.textPrimary }]}>
+                        {t('service.portal.renewals.summary.range', { start: toISODate(startDate), end: toISODate(endDate) })}
                       </Text>
-                      <Text style={[styles.summaryDetail, { color: alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)') }]}>
-                        {sessions} session{sessions !== 1 ? 's' : ''} • {sessionsPerWeek}/week
+                      <Text style={[styles.summaryDetail, { color: colors.textSecondary }]}>
+                        {t('service.portal.renewals.summary.sessionsDetail', { count: sessions, perWeek: sessionsPerWeek })}
                       </Text>
                     </View>
                   )}
 
                   <View style={{ gap: 8 }}>
-                    <Text style={[styles.ddlLabel, { color: alpha(theme.colors?.text || '#fff', 'CC', 'rgba(255,255,255,0.75)') }]}>
-                      Additional Notes (Optional)
+                    <Text style={[styles.ddlLabel, { color: colors.textMuted }]}>
+                      {t('service.portal.renewals.request.notesLabel')}
                     </Text>
                     <Input
                       value={note}
                       onChangeText={setNote}
-                      placeholder="Any special requests or notes for the academy..."
+                      placeholder={t('service.portal.renewals.request.notesPlaceholder')}
                       multiline
                       numberOfLines={3}
                       style={[
                         styles.noteInput,
-                        { backgroundColor: theme.colors?.card || '#1C1C1E', borderColor: theme.colors?.border || 'rgba(255,255,255,0.10)' },
+                        { backgroundColor: colors.surfaceElevated || colors.surface, borderColor: colors.border },
                       ]}
                     />
                   </View>
 
                   <Button
-                    title={submitting ? 'Submitting...' : 'Submit Renewal Request'}
+                    title={submitting ? t('service.portal.renewals.actions.submitting') : t('service.portal.renewals.actions.submit')}
                     onPress={submit}
                     disabled={!canSubmit || submitting}
                     loading={submitting}
@@ -1023,8 +1016,8 @@ export function PortalRenewalsScreen() {
                     gradient
                   />
 
-                  <Text style={[styles.disclaimer, { color: alpha(theme.colors?.text || '#fff', '80', 'rgba(255,255,255,0.55)') }]}>
-                    By submitting, you acknowledge that the academy will review your request. You'll be notified once it's processed.
+                  <Text style={[styles.disclaimer, { color: colors.textSecondary }]}>
+                    {t('service.portal.renewals.request.disclaimer')}
                   </Text>
                 </View>
               </GradientCard>
@@ -1035,23 +1028,28 @@ export function PortalRenewalsScreen() {
 
       {datePicker.open && (
         <Modal transparent animationType="fade" visible={datePicker.open} onRequestClose={() => setDatePicker({ open: false, field: null })}>
-          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill}>
-            <Pressable style={styles.datePickerBackdrop} onPress={() => setDatePicker({ open: false, field: null })}>
+          <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill}>
+            <Pressable
+              style={[styles.datePickerBackdrop, { backgroundColor: alpha(colors.black, '80') }]}
+              onPress={() => setDatePicker({ open: false, field: null })}
+            >
               <View
                 style={[
                   styles.datePickerSheet,
                   {
-                    backgroundColor: theme.colors?.surface || '#111214',
-                    borderColor: theme.colors?.border || 'rgba(255,255,255,0.10)',
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
                   },
                 ]}
               >
                 <View style={styles.datePickerHeader}>
-                  <Text style={[styles.datePickerTitle, { color: theme.colors?.text || '#fff' }]}>
-                    {datePicker.field === 'start' ? 'Select Start Date' : 'Select End Date'}
+                  <Text style={[styles.datePickerTitle, { color: colors.textPrimary }]}>
+                    {datePicker.field === 'start'
+                      ? t('service.portal.renewals.datePicker.startTitle')
+                      : t('service.portal.renewals.datePicker.endTitle')}
                   </Text>
                   <Pressable onPress={() => setDatePicker({ open: false, field: null })}>
-                    <X size={24} color={theme.colors?.text || '#fff'} />
+                    <X size={24} color={colors.textPrimary} />
                   </Pressable>
                 </View>
 
@@ -1069,7 +1067,7 @@ export function PortalRenewalsScreen() {
                 />
 
                 {Platform.OS === 'ios' && (
-                  <Button title="Confirm Date" onPress={() => setDatePicker({ open: false, field: null })} style={{ marginTop: 16 }} />
+                  <Button title={t('service.portal.renewals.datePicker.confirm')} onPress={() => setDatePicker({ open: false, field: null })} style={{ marginTop: 16 }} />
                 )}
               </View>
             </Pressable>
@@ -1084,13 +1082,11 @@ export default PortalRenewalsScreen;
 
 // ----------------------- Styles -----------------------
 const styles = StyleSheet.create({
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  loadingContent: { alignItems: 'center', gap: 16 },
-  loadingText: { fontSize: 16, fontWeight: '600', opacity: 0.9 },
 
   errorContainer: { padding: 16 },
 
   scrollContent: { padding: 16, paddingBottom: 48 },
+  rtl: { direction: 'rtl' },
 
   gradientCard: { borderRadius: 20, padding: 20, borderWidth: 1 },
 
@@ -1134,7 +1130,7 @@ const styles = StyleSheet.create({
   premiumModalSheet: { width: '100%', maxHeight: '70%', borderRadius: 24, borderWidth: 1, padding: 20, overflow: 'hidden' },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: '800' },
-  modalCloseBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.15)' },
+  modalCloseBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   listContainer: { paddingVertical: 4 },
   itemSeparator: { height: 8 },
 
@@ -1156,12 +1152,12 @@ const styles = StyleSheet.create({
 
   dateGrid: { flexDirection: 'row', gap: 16 },
 
-  schedulePreview: { padding: 16, borderRadius: 16, borderWidth: 1, gap: 8, borderColor: 'rgba(255,255,255,0.08)' },
+  schedulePreview: { padding: 16, borderRadius: 16, borderWidth: 1, gap: 8 },
   scheduleTitle: { fontSize: 14, fontWeight: '700' },
   scheduleText: { fontSize: 15, fontWeight: '600', lineHeight: 22 },
   scheduleNote: { fontSize: 13, fontWeight: '500' },
 
-  summaryBox: { padding: 16, borderRadius: 16, borderWidth: 1, gap: 8, borderColor: 'rgba(255,255,255,0.08)' },
+  summaryBox: { padding: 16, borderRadius: 16, borderWidth: 1, gap: 8 },
   summaryTitle: { fontSize: 14, fontWeight: '700' },
   summaryText: { fontSize: 16, fontWeight: '800' },
   summaryDetail: { fontSize: 13, fontWeight: '500' },
@@ -1172,7 +1168,7 @@ const styles = StyleSheet.create({
 
   headerBtn: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
 
-  datePickerBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  datePickerBackdrop: { flex: 1, justifyContent: 'flex-end' },
   datePickerSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, padding: 24, maxHeight: '80%' },
   datePickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   datePickerTitle: { fontSize: 20, fontWeight: '800' },

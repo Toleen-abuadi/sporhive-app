@@ -11,13 +11,24 @@ import { Input } from '../../components/ui/Input';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
-import { BackButton } from '../../components/ui/BackButton';
 
 import { portalApi } from '../../services/portal/portal.api';
 import { usePortalOverview } from '../../services/portal/portal.hooks';
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
+
+const alphaHex = (hex, alpha = '1A') => {
+  if (!hex) return hex;
+  const normalized = hex.replace('#', '');
+  if (normalized.length === 3) {
+    const [r, g, b] = normalized.split('');
+    return `#${r}${r}${g}${g}${b}${b}${alpha}`;
+  }
+  if (normalized.length === 6) return `#${normalized}${alpha}`;
+  if (normalized.length === 8) return `#${normalized.slice(0, 6)}${alpha}`;
+  return hex;
+};
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -26,57 +37,36 @@ const formatDate = (value) => {
   return date.toISOString().slice(0, 10);
 };
 
-const formatRange = (start, end) => {
-  const s = start ? String(start).slice(0, 10) : '—';
-  const e = end ? String(end).slice(0, 10) : '—';
-  return `${s} → ${e}`;
-};
-
-function CountPill({ label, value, tone = 'neutral' }) {
-  const bg =
+function CountPill({ label, value, tone = 'neutral', colors }) {
+  const toneColor =
     tone === 'success'
-      ? 'rgba(34,197,94,0.14)'
+      ? colors.success
       : tone === 'warning'
-        ? 'rgba(245,158,11,0.16)'
+        ? colors.warning
         : tone === 'danger'
-          ? 'rgba(239,68,68,0.14)'
-          : 'rgba(148,163,184,0.14)';
+          ? colors.error
+          : colors.textSecondary;
 
-  const border =
-    tone === 'success'
-      ? 'rgba(34,197,94,0.28)'
-      : tone === 'warning'
-        ? 'rgba(245,158,11,0.30)'
-        : tone === 'danger'
-          ? 'rgba(239,68,68,0.28)'
-          : 'rgba(148,163,184,0.24)';
-
-  const text =
-    tone === 'success'
-      ? '#22C55E'
-      : tone === 'warning'
-        ? '#F59E0B'
-        : tone === 'danger'
-          ? '#EF4444'
-          : '#A9B4CC';
+  const bg = alphaHex(toneColor, '1A');
+  const border = alphaHex(toneColor, '33');
 
   return (
     <View style={[styles.pill, { backgroundColor: bg, borderColor: border }]}>
-      <Text variant="caption" weight="semibold" style={{ color: text }}>
+      <Text variant="caption" weight="semibold" style={{ color: toneColor }}>
         {label}: {value ?? 0}
       </Text>
     </View>
   );
 }
 
-function KV({ k, v, colors }) {
+function KV({ k, v, colors, placeholder }) {
   return (
     <View style={styles.kvRow}>
       <Text variant="bodySmall" color={colors.textMuted} style={styles.kvKey}>
         {k}
       </Text>
       <Text variant="bodySmall" color={colors.textPrimary} style={styles.kvVal}>
-        {v || '—'}
+        {v || placeholder}
       </Text>
     </View>
   );
@@ -87,6 +77,7 @@ export function PortalFreezesScreen() {
   const toast = useToast();
   const { t, isRTL } = useTranslation();
   const { overview } = usePortalOverview();
+  const placeholder = t('service.portal.common.placeholder');
 
   // ✅ Your real data lives here in the overview response
   const metrics = overview?.performance?.metrics || {};
@@ -113,14 +104,21 @@ export function PortalFreezesScreen() {
 
     // If you want, you can also incorporate remaining_sessions
     const remainingSessions = metrics?.remaining_sessions;
-    const remText = remainingSessions != null ? ` • ${t('portal.freezes.remainingSessions', { defaultValue: 'Remaining sessions' })}: ${remainingSessions}` : '';
+    const remText = remainingSessions != null
+      ? t('service.portal.freezes.remainingSessionsInline', { count: remainingSessions })
+      : '';
 
-    return `${t('portal.freezes.summary', { defaultValue: 'Freeze summary' })}: ${total} • ${t('portal.freezes.approved', { defaultValue: 'Approved' })}: ${approved} • ${t('portal.freezes.pending', { defaultValue: 'Pending' })}: ${pending}${remText}`;
+    return t('service.portal.freezes.summaryLine', {
+      total,
+      approved,
+      pending,
+      remainingText: remText,
+    });
   }, [freezeCounts, metrics?.remaining_sessions, t]);
 
   const onSubmit = async () => {
     if (!startDate || !endDate || !reason.trim()) {
-      toast.warning(t('portal.freezes.validation'));
+      toast.warning(t('service.portal.freezes.validation'));
       return;
     }
     setSubmitting(true);
@@ -133,13 +131,13 @@ export function PortalFreezesScreen() {
 
     const res = await portalApi.submitFreeze(payload);
     if (res?.success) {
-      toast.success(t('portal.freezes.success'));
+      toast.success(t('service.portal.freezes.success'));
       setReason('');
       setStartDate(null);
       setEndDate(null);
       // NOTE: overview refresh is handled elsewhere; if you want instant update, call your overview refresh.
     } else {
-      toast.error(res?.error?.message || t('portal.freezes.error'));
+      toast.error(res?.error?.message || t('service.portal.freezes.error'));
     }
     setSubmitting(false);
   };
@@ -149,15 +147,14 @@ export function PortalFreezesScreen() {
   return (
     <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
       <PortalHeader
-        title={t('portal.freezes.title')}
-        subtitle={t('portal.freezes.subtitle')}
-        leftSlot={<BackButton />}
+        title={t('service.portal.freezes.title')}
+        subtitle={t('service.portal.freezes.subtitle')}
       />
 
       {/* ✅ Status + counts */}
       <PortalCard style={styles.card}>
         <Text variant="body" weight="semibold" color={colors.textPrimary}>
-          {t('portal.freezes.currentStatus')}
+          {t('service.portal.freezes.currentStatus')}
         </Text>
         <Text variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>
           {summaryLine}
@@ -165,34 +162,41 @@ export function PortalFreezesScreen() {
 
         <View style={styles.pillsRow}>
           <CountPill
-            label={t('portal.freezes.approved', { defaultValue: 'Approved' })}
+            label={t('service.portal.freezes.approved')}
             value={freezeCounts?.approved}
             tone="success"
+            colors={colors}
           />
           <CountPill
-            label={t('portal.freezes.pending', { defaultValue: 'Pending' })}
+            label={t('service.portal.freezes.pending')}
             value={freezeCounts?.pending}
             tone="warning"
+            colors={colors}
           />
           <CountPill
-            label={t('portal.freezes.rejected', { defaultValue: 'Rejected' })}
+            label={t('service.portal.freezes.rejected')}
             value={freezeCounts?.rejected}
             tone="danger"
+            colors={colors}
           />
           <CountPill
-            label={t('portal.freezes.canceled', { defaultValue: 'Canceled' })}
+            label={t('service.portal.freezes.canceled')}
             value={freezeCounts?.canceled}
             tone="neutral"
+            colors={colors}
           />
         </View>
 
         {currentFreeze ? (
           <View style={styles.statusRow}>
             <Text variant="caption" color={colors.textMuted}>
-              {t('portal.freezes.currentFreeze')}
+              {t('service.portal.freezes.currentFreeze')}
             </Text>
             <Text variant="bodySmall" color={colors.textPrimary}>
-              {formatRange(currentFreeze?.start_date, currentFreeze?.end_date)}
+              {t('service.portal.freezes.range', {
+                start: currentFreeze?.start_date ? String(currentFreeze.start_date).slice(0, 10) : placeholder,
+                end: currentFreeze?.end_date ? String(currentFreeze.end_date).slice(0, 10) : placeholder,
+              })}
             </Text>
           </View>
         ) : null}
@@ -200,10 +204,13 @@ export function PortalFreezesScreen() {
         {upcomingFreeze ? (
           <View style={styles.statusRow}>
             <Text variant="caption" color={colors.textMuted}>
-              {t('portal.freezes.upcomingFreeze')}
+              {t('service.portal.freezes.upcomingFreeze')}
             </Text>
             <Text variant="bodySmall" color={colors.textPrimary}>
-              {formatRange(upcomingFreeze?.start_date, upcomingFreeze?.end_date)}
+              {t('service.portal.freezes.range', {
+                start: upcomingFreeze?.start_date ? String(upcomingFreeze.start_date).slice(0, 10) : placeholder,
+                end: upcomingFreeze?.end_date ? String(upcomingFreeze.end_date).slice(0, 10) : placeholder,
+              })}
             </Text>
           </View>
         ) : null}
@@ -214,31 +221,34 @@ export function PortalFreezesScreen() {
         <PortalCard style={styles.card}>
           <View style={styles.lastHeader}>
             <Text variant="body" weight="semibold" color={colors.textPrimary}>
-              {t('portal.freezes.lastFreeze', { defaultValue: 'Last freeze' })}
+              {t('service.portal.freezes.lastFreeze')}
             </Text>
-            <View style={[styles.badge, { borderColor: colors.border }]}>
+            <View style={[styles.badge, { borderColor: colors.border, backgroundColor: alphaHex(colors.textMuted, '14') }]}>
               <Text variant="caption" color={colors.textSecondary}>
-                {String(lastFreeze?.status || '').toUpperCase() || '—'}
+                {String(lastFreeze?.status || '').toUpperCase() || placeholder}
               </Text>
             </View>
           </View>
 
-          <KV k={t('portal.freezes.period', { defaultValue: 'Period' })} v={formatRange(lastFreeze?.start_date, lastFreeze?.end_date)} colors={colors} />
-          <KV k={t('portal.freezes.processedBy', { defaultValue: 'Processed by' })} v={lastFreeze?.processed_by ? String(lastFreeze.processed_by) : '—'} colors={colors} />
-          <KV k={t('portal.freezes.processedAt', { defaultValue: 'Processed at' })} v={lastFreeze?.processed_at ? String(lastFreeze.processed_at).replace('T', ' ').slice(0, 16) : '—'} colors={colors} />
-          <KV k={t('portal.freezes.remainingSnapshot', { defaultValue: 'Remaining sessions snapshot' })} v={lastFreeze?.remaining_sessions_snapshot != null ? String(lastFreeze.remaining_sessions_snapshot) : '—'} colors={colors} />
-          <KV k={t('portal.freezes.reason', { defaultValue: 'Reason' })} v={lastFreeze?.reason ? String(lastFreeze.reason) : '—'} colors={colors} />
-          <KV k={t('portal.freezes.notes', { defaultValue: 'Notes' })} v={lastFreeze?.notes ? String(lastFreeze.notes) : '—'} colors={colors} />
+          <KV k={t('service.portal.freezes.period')} v={t('service.portal.freezes.range', {
+            start: lastFreeze?.start_date ? String(lastFreeze.start_date).slice(0, 10) : placeholder,
+            end: lastFreeze?.end_date ? String(lastFreeze.end_date).slice(0, 10) : placeholder,
+          })} colors={colors} placeholder={placeholder} />
+          <KV k={t('service.portal.freezes.processedBy')} v={lastFreeze?.processed_by ? String(lastFreeze.processed_by) : placeholder} colors={colors} placeholder={placeholder} />
+          <KV k={t('service.portal.freezes.processedAt')} v={lastFreeze?.processed_at ? String(lastFreeze.processed_at).replace('T', ' ').slice(0, 16) : placeholder} colors={colors} placeholder={placeholder} />
+          <KV k={t('service.portal.freezes.remainingSnapshot')} v={lastFreeze?.remaining_sessions_snapshot != null ? String(lastFreeze.remaining_sessions_snapshot) : placeholder} colors={colors} placeholder={placeholder} />
+          <KV k={t('service.portal.freezes.reason')} v={lastFreeze?.reason ? String(lastFreeze.reason) : placeholder} colors={colors} placeholder={placeholder} />
+          <KV k={t('service.portal.freezes.notes')} v={lastFreeze?.notes ? String(lastFreeze.notes) : placeholder} colors={colors} placeholder={placeholder} />
         </PortalCard>
       ) : null}
 
       {/* Freeze request form (unchanged behavior) */}
       <PortalCard style={styles.card}>
         <Text variant="body" weight="semibold" color={colors.textPrimary}>
-          {t('portal.freezes.requestTitle')}
+          {t('service.portal.freezes.requestTitle')}
         </Text>
         <Text variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>
-          {t('portal.freezes.requestSubtitle')}
+          {t('service.portal.freezes.requestSubtitle')}
         </Text>
 
         <View style={styles.dateRow}>
@@ -247,7 +257,7 @@ export function PortalFreezesScreen() {
             onPress={() => setShowStartPicker(true)}
           >
             <Text variant="bodySmall" color={colors.textPrimary}>
-              {formatDate(startDate) || t('portal.freezes.startDate')}
+              {formatDate(startDate) || t('service.portal.freezes.startDate')}
             </Text>
           </TouchableOpacity>
 
@@ -256,30 +266,30 @@ export function PortalFreezesScreen() {
             onPress={() => setShowEndPicker(true)}
           >
             <Text variant="bodySmall" color={colors.textPrimary}>
-              {formatDate(endDate) || t('portal.freezes.endDate')}
+              {formatDate(endDate) || t('service.portal.freezes.endDate')}
             </Text>
           </TouchableOpacity>
         </View>
 
         <Input
-          label={t('portal.freezes.reason')}
+          label={t('service.portal.freezes.reason')}
           value={reason}
           onChangeText={setReason}
-          placeholder={t('portal.freezes.reasonPlaceholder')}
+          placeholder={t('service.portal.freezes.reasonPlaceholder')}
           multiline
           style={styles.textArea}
         />
 
         <Button onPress={onSubmit} loading={submitting}>
-          {t('portal.freezes.submit')}
+          {t('service.portal.freezes.submit')}
         </Button>
       </PortalCard>
 
       {!hasAnyFreezeData ? (
         <PortalEmptyState
           icon="pause-circle"
-          title={t('portal.freezes.emptyTitle')}
-          description={t('portal.freezes.emptyDescription')}
+          title={t('service.portal.freezes.emptyTitle')}
+          description={t('service.portal.freezes.emptyDescription')}
         />
       ) : null}
 
@@ -352,7 +362,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(148,163,184,0.08)',
   },
 
   kvRow: {
