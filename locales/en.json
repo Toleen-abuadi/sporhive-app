@@ -107,9 +107,10 @@
   },
   "welcome": {
     "title": "Welcome to SporHive",
-    "subtitle": "Discover academies, book playgrounds, and track your sports journey in one place.",
+    "subtitle": "Discover academies, book playgrounds, and track your sports journey in one place",
     "cta": "Explore Services",
-    "logoLabel": "SporHive logo"
+    "logoLabel": "SporHive logo",
+    "hint": "⚡ Fast & smart booking experience"
   },
   "service": {
     "playgrounds": {

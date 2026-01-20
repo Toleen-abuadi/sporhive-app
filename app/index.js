@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { storage, APP_STORAGE_KEYS } from '../src/services/storage/storage';
+import { getPublicUserToken } from '../src/services/playgrounds/storage';
 import { useTheme } from '../src/theme/ThemeProvider';
 
 export default function Index() {
@@ -12,11 +13,16 @@ export default function Index() {
 
   useEffect(() => {
     const resolveRoute = async () => {
-      const welcomeSeenRaw = await storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN);
-      const welcomeSeen = welcomeSeenRaw === false;
+      const [welcomeSeenRaw, authToken, publicToken] = await Promise.all([
+        storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN),
+        storage.getAuthToken(),
+        getPublicUserToken(),
+      ]);
+      const welcomeSeen = welcomeSeenRaw === true;
+      const isLoggedIn = Boolean(authToken || publicToken);
 
       // Gate everything behind Welcome until Explore is pressed.
-      router.replace(welcomeSeen ? '/services' : '/welcome');
+      router.replace(isLoggedIn || welcomeSeen ? '/services' : '/welcome');
       setIsChecking(false);
     };
 
