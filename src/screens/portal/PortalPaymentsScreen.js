@@ -71,10 +71,10 @@ function getStatusColor(status, colors) {
 function getStatusText(status, t) {
   const statusLower = (status || '').toLowerCase();
   
-  if (statusLower.includes('paid')) return t('service.portal.payments.status.paid');
-  if (statusLower.includes('pending')) return t('service.portal.payments.status.pending');
-  if (statusLower.includes('due')) return t('service.portal.payments.status.due');
-  return status || t('service.portal.payments.status.unknown');
+  if (statusLower.includes('paid')) return t('portal.payments.status.paid');
+  if (statusLower.includes('pending')) return t('portal.payments.status.pending');
+  if (statusLower.includes('due')) return t('portal.payments.status.due');
+  return status || t('portal.payments.status.unknown');
 }
 
 function getDisplayDate(item, locale, labels) {
@@ -95,11 +95,11 @@ function PaymentRow({ item }) {
   const { colors } = useTheme();
   const { t, locale } = useTranslation();
   const labels = useMemo(() => ({
-    notPaidToken: t('service.portal.payments.notPaidToken'),
-    noDateLabel: t('service.portal.payments.noDate'),
-    noDateSpecified: t('service.portal.payments.noDateSpecified'),
-    paidOn: (params) => t('service.portal.payments.paidOn', params),
-    dueOn: (params) => t('service.portal.payments.dueOn', params),
+    notPaidToken: t('portal.payments.notPaidToken'),
+    noDateLabel: t('portal.payments.noDate'),
+    noDateSpecified: t('portal.payments.noDateSpecified'),
+    paidOn: (params) => t('portal.payments.paidOn', params),
+    dueOn: (params) => t('portal.payments.dueOn', params),
   }), [t]);
   
   // Determine status color
@@ -108,15 +108,15 @@ function PaymentRow({ item }) {
   // Get payment type/description
   const getPaymentType = () => {
     if (item.type === 'full' && item.subType === 'additional_uniform') {
-      return t('service.portal.payments.type.uniformPurchase');
+      return t('portal.payments.type.uniformPurchase');
     }
     if (item.type === 'full') {
-      return t('service.portal.payments.type.fullPayment');
+      return t('portal.payments.type.fullPayment');
     }
     if (item.type === 'installment') {
-      return t('service.portal.payments.type.installment', { label: item.subType || '' }).trim();
+      return t('portal.payments.type.installment', { label: item.subType || '' }).trim();
     }
-    return item.type || t('service.portal.payments.type.payment');
+    return item.type || t('portal.payments.type.payment');
   };
   
   const paymentType = getPaymentType();
@@ -146,13 +146,13 @@ function PaymentRow({ item }) {
           
           <View style={styles.detailsRow}>
             <View style={styles.detailItem}>
-              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{t('service.portal.payments.amount')}</Text>
-              <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{formatMoney(item.amount, t('service.portal.payments.currency'))}</Text>
+              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{t('portal.payments.amount')}</Text>
+              <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{formatMoney(item.amount, t('portal.payments.currency'))}</Text>
             </View>
             
             {item.invoiceId && (
               <View style={styles.detailItem}>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{t('service.portal.payments.invoice')}</Text>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{t('portal.payments.invoice')}</Text>
                 <Text style={[styles.detailValue, { color: colors.textPrimary }]}>#{item.invoiceId}</Text>
               </View>
             )}
@@ -165,7 +165,7 @@ function PaymentRow({ item }) {
             
             {item.paymentMethod && (
               <Text style={[styles.methodText, { color: colors.textSecondary }]}>
-                {t('service.portal.payments.method', { method: item.paymentMethod })}
+                {t('portal.payments.method', { method: item.paymentMethod })}
               </Text>
             )}
           </View>
@@ -174,17 +174,17 @@ function PaymentRow({ item }) {
             <View style={styles.feesRow}>
               {item.fees.trainingFees > 0 && (
                 <Text style={[styles.feeText, { backgroundColor: alphaHex(colors.surfaceElevated || colors.surface, 'CC'), color: colors.textSecondary }]}>
-                  {t('service.portal.payments.fees.training', { amount: formatMoney(item.fees.trainingFees, t('service.portal.payments.currency')) })}
+                  {t('portal.payments.fees.training', { amount: formatMoney(item.fees.trainingFees, t('portal.payments.currency')) })}
                 </Text>
               )}
               {item.fees.uniformFees > 0 && (
                 <Text style={[styles.feeText, { backgroundColor: alphaHex(colors.surfaceElevated || colors.surface, 'CC'), color: colors.textSecondary }]}>
-                  {t('service.portal.payments.fees.uniform', { amount: formatMoney(item.fees.uniformFees, t('service.portal.payments.currency')) })}
+                  {t('portal.payments.fees.uniform', { amount: formatMoney(item.fees.uniformFees, t('portal.payments.currency')) })}
                 </Text>
               )}
               {item.fees.transportationFees > 0 && (
                 <Text style={[styles.feeText, { backgroundColor: alphaHex(colors.surfaceElevated || colors.surface, 'CC'), color: colors.textSecondary }]}>
-                  {t('service.portal.payments.fees.transport', { amount: formatMoney(item.fees.transportationFees, t('service.portal.payments.currency')) })}
+                  {t('portal.payments.fees.transport', { amount: formatMoney(item.fees.transportationFees, t('portal.payments.currency')) })}
                 </Text>
               )}
             </View>
@@ -196,7 +196,7 @@ function PaymentRow({ item }) {
             styles.amount, 
             { color: item.status?.toLowerCase().includes('paid') ? colors.success : colors.textPrimary }
           ]}>
-            {formatMoney(item.amount, t('service.portal.payments.currency'))}
+            {formatMoney(item.amount, t('portal.payments.currency'))}
           </Text>
         </View>
       </View>
@@ -217,11 +217,11 @@ export function PortalPaymentsScreen() {
     if (loading) return null;
     return (
       <PortalEmptyState
-        title={t('service.portal.payments.empty.title')}
+        title={t('portal.payments.empty.title')}
         subtitle={
           error
-            ? t('service.portal.payments.empty.error', { message: error.message || error })
-            : t('service.portal.payments.empty.subtitle')
+            ? t('portal.payments.empty.error', { message: error.message || error })
+            : t('portal.payments.empty.subtitle')
         }
       />
     );
@@ -265,8 +265,8 @@ export function PortalPaymentsScreen() {
   return (
     <Screen style={isRTL && styles.rtl}>
       <PortalHeader
-        title={t('service.portal.payments.title')}
-        subtitle={t('service.portal.payments.subtitle')}
+        title={t('portal.payments.title')}
+        subtitle={t('portal.payments.subtitle')}
       />
       
       {summary && (
@@ -277,9 +277,9 @@ export function PortalPaymentsScreen() {
                 <Text style={[styles.summaryValue, { color: colors.success }]}>
                   {summary.paidCount}
                 </Text>
-                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t('service.portal.payments.summary.paid')}</Text>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t('portal.payments.summary.paid')}</Text>
                 <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>
-                  {formatMoney(summary.totalPaid, t('service.portal.payments.currency'))}
+                  {formatMoney(summary.totalPaid, t('portal.payments.currency'))}
                 </Text>
               </View>
               
@@ -289,9 +289,9 @@ export function PortalPaymentsScreen() {
                 <Text style={[styles.summaryValue, { color: colors.warning }]}>
                   {summary.pendingCount}
                 </Text>
-                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t('service.portal.payments.summary.pending')}</Text>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t('portal.payments.summary.pending')}</Text>
                 <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>
-                  {formatMoney(summary.totalPending, t('service.portal.payments.currency'))}
+                  {formatMoney(summary.totalPending, t('portal.payments.currency'))}
                 </Text>
               </View>
               
@@ -301,7 +301,7 @@ export function PortalPaymentsScreen() {
                 <Text style={[styles.summaryValue, { color: colors.error }]}>
                   {summary.overdueCount}
                 </Text>
-                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t('service.portal.payments.summary.overdue')}</Text>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t('portal.payments.summary.overdue')}</Text>
               </View>
             </View>
           </PortalCard>
@@ -330,7 +330,7 @@ export function PortalPaymentsScreen() {
             <View style={{ marginBottom: 10 }}>
               <PortalCard>
                 <Text style={{ color: colors.warning }}>
-                  {t('service.portal.payments.errorNote', { message: error.message || error })}
+                  {t('portal.payments.errorNote', { message: error.message || error })}
                 </Text>
               </PortalCard>
             </View>

@@ -56,7 +56,7 @@ export function PortalUniformStoreScreen() {
   const { colors } = useTheme();
   const toast = useToast();
   const { t, isRTL } = useTranslation();
-  const placeholder = t('service.portal.common.placeholder');
+  const placeholder = t('portal.common.placeholder');
 
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -86,7 +86,7 @@ export function PortalUniformStoreScreen() {
 
       setCatalog(safeArray(list));
     } else {
-      setError(res?.error?.message || t('service.portal.uniforms.error'));
+      setError(res?.error?.message || t('portal.uniforms.error'));
     }
 
     setLoading(false);
@@ -107,7 +107,7 @@ export function PortalUniformStoreScreen() {
   const getDisplayName = useCallback(
     (item) => {
       if (isRTL && item?.name_ar) return item.name_ar;
-      return item?.name_en || item?.name || t('service.portal.uniforms.defaultName');
+      return item?.name_en || item?.name || t('portal.uniforms.defaultName');
     },
     [isRTL, t]
   );
@@ -194,7 +194,7 @@ export function PortalUniformStoreScreen() {
 
     // Must select size if variants exist
     if (variants.length && !selectedVariant) {
-      toast.warning(t('service.portal.uniforms.sizeRequired'));
+      toast.warning(t('portal.uniforms.sizeRequired'));
       return;
     }
 
@@ -204,7 +204,7 @@ export function PortalUniformStoreScreen() {
     const unitPrice = Number.isFinite(Number(v?.price)) ? Number(v.price) : Number(product?.price);
 
     if (!Number.isFinite(unitPrice)) {
-      toast.warning(t('service.portal.uniforms.priceMissing'));
+      toast.warning(t('portal.uniforms.priceMissing'));
       return;
     }
 
@@ -223,7 +223,7 @@ export function PortalUniformStoreScreen() {
       nickname: existing?.nickname || '',
     });
 
-    toast.success(t('service.portal.uniforms.added'));
+    toast.success(t('portal.uniforms.added'));
   }, [findCartLine, getDisplayName, getVariants, t, toast, upsertCartLine]);
 
   // Build headers and payload with academy context
@@ -275,7 +275,7 @@ export function PortalUniformStoreScreen() {
 
   const checkout = useCallback(async () => {
     if (!cart.length) {
-      toast.warning(t('service.portal.uniforms.validation'));
+      toast.warning(t('portal.uniforms.validation'));
       return;
     }
 
@@ -300,15 +300,15 @@ export function PortalUniformStoreScreen() {
       const res = await portalApi.placeUniformOrder(body, { headers });
 
       if (res?.success) {
-        toast.success(t('service.portal.uniforms.success'));
+        toast.success(t('portal.uniforms.success'));
         setCart([]);
         setCartOpen(false);
         setActiveProduct(null);
       } else {
-        toast.error(res?.error?.message || t('service.portal.uniforms.error'));
+        toast.error(res?.error?.message || t('portal.uniforms.error'));
       }
     } catch (error) {
-      toast.error(error?.message || t('service.portal.uniforms.error'));
+      toast.error(error?.message || t('portal.uniforms.error'));
     }
   }, [cart, t, toast, buildAcademyPayload]);
 
@@ -320,7 +320,7 @@ export function PortalUniformStoreScreen() {
     const { min, max } = getPriceRange(item);
 
     const priceLabel = useMemo(() => {
-      if (min == null) return t('service.portal.uniforms.priceNA');
+      if (min == null) return t('portal.uniforms.priceNA');
       if (max != null && max !== min) return `${formatMoney(min)} - ${formatMoney(max)}`;
       return formatMoney(min);
     }, [min, max]);
@@ -331,12 +331,12 @@ export function PortalUniformStoreScreen() {
     );
 
     const sizeDisplayText = hasOneSizeVariants 
-      ? t('service.portal.uniforms.oneSizeItem')
-      : t('service.portal.uniforms.availableSizes');
+      ? t('portal.uniforms.oneSizeItem')
+      : t('portal.uniforms.availableSizes');
 
-    const sizeSeparator = t('service.portal.uniforms.sizeSeparator');
+    const sizeSeparator = t('portal.uniforms.sizeSeparator');
     const sizesList = hasOneSizeVariants 
-      ? [t('service.portal.uniforms.oneSize')]
+      ? [t('portal.uniforms.oneSize')]
       : variants.map((v) => v.size);
 
     return (
@@ -350,7 +350,7 @@ export function PortalUniformStoreScreen() {
             <Image source={image} style={styles.tileImage} resizeMode="cover" />
           ) : (
             <View style={styles.tileImageFallback}>
-              <Text variant="caption" color={colors.textMuted}>{t('service.portal.uniforms.kit')}</Text>
+              <Text variant="caption" color={colors.textMuted}>{t('portal.uniforms.kit')}</Text>
             </View>
           )}
 
@@ -378,7 +378,7 @@ export function PortalUniformStoreScreen() {
             style={[styles.detailsBtn, { borderColor: colors.border }]}
           >
             <Text variant="caption" color={colors.textSecondary}>
-              {t('service.portal.uniforms.viewDetails')}
+              {t('portal.uniforms.viewDetails')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -430,10 +430,10 @@ export function PortalUniformStoreScreen() {
       <View style={[styles.cartSheet, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
         <View style={styles.sheetHeader}>
           <Text variant="body" weight="semibold" color={colors.textPrimary}>
-            {t('service.portal.uniforms.cartTitle', { count: cartCount })}
+            {t('portal.uniforms.cartTitle', { count: cartCount })}
           </Text>
           <TouchableOpacity onPress={() => setCartOpen(false)} style={styles.sheetClose}>
-            <Text variant="caption" color={colors.textMuted}>{t('service.portal.common.close')}</Text>
+            <Text variant="caption" color={colors.textMuted}>{t('portal.common.close')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -441,8 +441,8 @@ export function PortalUniformStoreScreen() {
           <View style={{ paddingVertical: spacing.lg }}>
             <PortalEmptyState
               icon="shopping-bag"
-              title={t('service.portal.uniforms.emptyCartTitle')}
-              description={t('service.portal.uniforms.emptyCartDesc')}
+              title={t('portal.uniforms.emptyCartTitle')}
+              description={t('portal.uniforms.emptyCartDesc')}
             />
           </View>
         ) : (
@@ -453,7 +453,7 @@ export function PortalUniformStoreScreen() {
             renderItem={({ item }) => {
               // Display "One Size" instead of "__one_size__" in cart
               const displaySize = item?.size?.toLowerCase() === '__one_size__' 
-                ? t('service.portal.uniforms.oneSize')
+                ? t('portal.uniforms.oneSize')
                 : item.size || placeholder;
                 
               return (
@@ -463,7 +463,7 @@ export function PortalUniformStoreScreen() {
                       {item.name}
                     </Text>
                     <Text variant="caption" color={colors.textMuted} style={{ marginTop: 2 }}>
-                      {t('service.portal.uniforms.sizeLabel', { size: displaySize, price: formatMoney(item.unitPrice) })}
+                      {t('portal.uniforms.sizeLabel', { size: displaySize, price: formatMoney(item.unitPrice) })}
                     </Text>
                   </View>
 
@@ -493,7 +493,7 @@ export function PortalUniformStoreScreen() {
                     style={styles.removeBtn}
                   >
                     <Text variant="caption" color={colors.error}>
-                      {t('service.portal.common.remove')}
+                      {t('portal.common.remove')}
                     </Text>
                   </TouchableOpacity>
 
@@ -503,8 +503,8 @@ export function PortalUniformStoreScreen() {
                       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                         <View style={{ flex: 1 }}>
                           <Input
-                            label={t('service.portal.uniforms.number')}
-                            placeholder={t('service.portal.uniforms.numberPlaceholder')}
+                            label={t('portal.uniforms.number')}
+                            placeholder={t('portal.uniforms.numberPlaceholder')}
                             keyboardType="numeric"
                             value={item.number || ''}
                             onChangeText={(v) => {
@@ -515,8 +515,8 @@ export function PortalUniformStoreScreen() {
                         </View>
                         <View style={{ flex: 1 }}>
                           <Input
-                            label={t('service.portal.uniforms.nickname')}
-                            placeholder={t('service.portal.uniforms.nicknamePlaceholder')}
+                            label={t('portal.uniforms.nickname')}
+                            placeholder={t('portal.uniforms.nicknamePlaceholder')}
                             value={item.nickname || ''}
                             onChangeText={(v) => upsertCartLine({ ...item, nickname: v })}
                           />
@@ -534,7 +534,7 @@ export function PortalUniformStoreScreen() {
         <View style={[styles.cartFooter, { borderColor: colors.border, backgroundColor: colors.surfaceElevated || colors.surface }]}>
           <View>
             <Text variant="caption" color={colors.textMuted}>
-              {t('service.portal.uniforms.total')}
+              {t('portal.uniforms.total')}
             </Text>
             <Text variant="body" weight="semibold" color={colors.textPrimary}>
               {formatMoney(cartTotal)}
@@ -542,7 +542,7 @@ export function PortalUniformStoreScreen() {
           </View>
 
           <Button onPress={checkout} disabled={!cart.length}>
-            {t('service.portal.uniforms.checkout')}
+            {t('portal.uniforms.checkout')}
           </Button>
         </View>
       </View>
@@ -553,26 +553,26 @@ export function PortalUniformStoreScreen() {
   return (
     <Screen contentContainerStyle={[styles.screen, isRTL && styles.rtl]}>
       <PortalHeader
-        title={t('service.portal.uniforms.title')}
-        subtitle={t('service.portal.uniforms.subtitle')}
+        title={t('portal.uniforms.title')}
+        subtitle={t('portal.uniforms.subtitle')}
       />
 
       {error ? (
         <PortalEmptyState
           icon="alert-triangle"
-          title={t('service.portal.uniforms.errorTitle')}
+          title={t('portal.uniforms.errorTitle')}
           description={error}
           action={
             <Button variant="secondary" onPress={loadCatalog}>
-              {t('service.portal.common.retry')}
+              {t('portal.common.retry')}
             </Button>
           }
         />
       ) : catalog.length === 0 && !loading ? (
         <PortalEmptyState
           icon="shopping-bag"
-          title={t('service.portal.uniforms.emptyTitle')}
-          description={t('service.portal.uniforms.emptyDescription')}
+          title={t('portal.uniforms.emptyTitle')}
+          description={t('portal.uniforms.emptyDescription')}
         />
       ) : (
         <FlatList
@@ -595,14 +595,14 @@ export function PortalUniformStoreScreen() {
         >
           <View style={{ flex: 1 }}>
             <Text variant="caption" color={colors.black} weight="semibold">
-              {t('service.portal.uniforms.cartTitle', { count: cartCount })}
+              {t('portal.uniforms.cartTitle', { count: cartCount })}
             </Text>
             <Text variant="bodySmall" color={colors.black} weight="semibold">
               {formatMoney(cartTotal)}
             </Text>
           </View>
           <Text variant="bodySmall" color={colors.black} weight="semibold">
-            {t('service.portal.uniforms.viewCart')}
+            {t('portal.uniforms.viewCart')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -642,7 +642,7 @@ function ProductDetailsModal({
     if (selectedVariant && Number.isFinite(Number(selectedVariant.price))) {
       return formatMoney(selectedVariant.price);
     }
-    if (minPrice == null) return t('service.portal.uniforms.priceNA');
+    if (minPrice == null) return t('portal.uniforms.priceNA');
     if (maxPrice != null && maxPrice !== minPrice) return `${formatMoney(minPrice)} - ${formatMoney(maxPrice)}`;
     return formatMoney(minPrice);
   }, [maxPrice, minPrice, selectedVariant, t]);
@@ -657,7 +657,7 @@ function ProductDetailsModal({
             {name}
           </Text>
           <TouchableOpacity onPress={onClose} style={styles.sheetClose}>
-            <Text variant="caption" color={colors.textMuted}>{t('service.portal.common.close')}</Text>
+            <Text variant="caption" color={colors.textMuted}>{t('portal.common.close')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -666,7 +666,7 @@ function ProductDetailsModal({
             <Image source={image} style={styles.heroImage} resizeMode="cover" />
           ) : (
             <View style={styles.heroFallback}>
-              <Text variant="caption" color={colors.textMuted}>{t('service.portal.uniforms.kit')}</Text>
+              <Text variant="caption" color={colors.textMuted}>{t('portal.uniforms.kit')}</Text>
             </View>
           )}
 
@@ -688,8 +688,8 @@ function ProductDetailsModal({
           <View style={{ marginTop: spacing.md }}>
             <Text variant="caption" color={colors.textMuted} style={{ marginBottom: spacing.xs }}>
               {hasOneSizeVariants 
-                ? t('service.portal.uniforms.oneSizeItem')
-                : t('service.portal.uniforms.size')}
+                ? t('portal.uniforms.oneSizeItem')
+                : t('portal.uniforms.size')}
             </Text>
 
             <View style={styles.chipsRow}>
@@ -697,7 +697,7 @@ function ProductDetailsModal({
                 const active = v.id === selectedVariantId;
                 // Display "One Size" instead of "__one_size__"
                 const displaySize = v?.size?.toLowerCase() === '__one_size__'
-                  ? t('service.portal.uniforms.oneSize')
+                  ? t('portal.uniforms.oneSize')
                   : v.size;
                   
                 return (
@@ -724,7 +724,7 @@ function ProductDetailsModal({
 
         <View style={{ marginTop: spacing.lg }}>
           <Button onPress={() => onAdd(selectedVariant)}>
-            {t('service.portal.uniforms.addToCart')}
+            {t('portal.uniforms.addToCart')}
           </Button>
         </View>
 

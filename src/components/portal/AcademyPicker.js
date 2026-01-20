@@ -35,21 +35,21 @@ export function AcademyPicker({
     <View style={styles.container}>
       <View style={[styles.selectedCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
         <Text variant="caption" color={colors.textMuted}>
-          {t('service.portal.login.academyPicker.selectedLabel')}
+          {t('portal.login.academyPicker.selectedLabel')}
         </Text>
         <View style={styles.selectedRow}>
           <Text variant="body" weight="semibold" color={colors.textPrimary}>
-            {selectedAcademy?.name || t('service.portal.login.academyPicker.choose')}
+            {selectedAcademy?.name || t('portal.login.academyPicker.choose')}
           </Text>
           <Feather name="chevron-down" size={18} color={colors.textMuted} />
         </View>
         <Text variant="bodySmall" color={colors.textSecondary} style={styles.selectedSubtitle}>
-          {selectedAcademy?.subtitle || t('service.portal.login.academyPicker.helper')}
+          {selectedAcademy?.subtitle || t('portal.login.academyPicker.helper')}
         </Text>
       </View>
 
       <Input
-        placeholder={t('service.portal.login.academyPicker.searchPlaceholder')}
+        placeholder={t('portal.login.academyPicker.searchPlaceholder')}
         value={searchQuery}
         onChangeText={onSearchChange}
         leftIcon="search"
@@ -61,7 +61,7 @@ export function AcademyPicker({
           <SporHiveLoader
             size={64}
             fullScreen={false}
-            label={t('service.portal.login.academyPicker.loading')}
+            label={t('portal.login.academyPicker.loading')}
           />
         </View>
       ) : error ? (
@@ -73,8 +73,8 @@ export function AcademyPicker({
       ) : filtered.length === 0 ? (
         <PortalEmptyState
           icon="map"
-          title={t('service.portal.login.academyPicker.emptyTitle')}
-          description={t('service.portal.login.academyPicker.emptyDescription')}
+          title={t('portal.login.academyPicker.emptyTitle')}
+          description={t('portal.login.academyPicker.emptyDescription')}
         />
       ) : (
         <View style={styles.list}>
@@ -84,7 +84,7 @@ export function AcademyPicker({
               <PortalListItem
                 key={academy.id}
                 leadingIcon="shield"
-                title={academy.name || academy.label || t('service.portal.login.academyFallback')}
+                title={academy.name || academy.label || t('portal.login.academyFallback')}
                 subtitle={academy.subtitle || academy.client_name || ''}
                 onPress={() => onSelect?.(academy)}
                 rightSlot={

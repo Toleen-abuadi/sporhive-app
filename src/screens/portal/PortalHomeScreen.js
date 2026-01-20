@@ -19,7 +19,7 @@ export function PortalHomeScreen() {
   const router = useRouter();
   const { overview, loading } = usePortalOverview();
   const { refreshing, onRefresh } = usePortalRefresh();
-  const placeholder = t('service.portal.common.placeholder');
+  const placeholder = t('portal.common.placeholder');
 
   useFocusEffect(
     useCallback(() => {
@@ -51,7 +51,7 @@ export function PortalHomeScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentOrange} />}
       showsVerticalScrollIndicator={false}
     >
-      <PortalHeader title={t('service.portal.home.title')} subtitle={t('service.portal.home.subtitle')} />
+      <PortalHeader title={t('portal.home.title')} subtitle={t('portal.home.subtitle')} />
 
       <PortalCard style={styles.card}>
         <View style={styles.identityRow}>
@@ -61,25 +61,25 @@ export function PortalHomeScreen() {
               <Image source={{ uri: overview.player.imageBase64 }} style={styles.avatarImage} />
             ) : (
               <Text variant="h3" weight="bold" color={colors.textPrimary}>
-                {(overview?.player?.fullName || t('service.portal.common.player')).slice(0, 1)}
+                {(overview?.player?.fullName || t('portal.common.player')).slice(0, 1)}
               </Text>
             )}
           </View>
           <View style={styles.identityText}>
             <Text variant="body" weight="semibold" color={colors.textPrimary}>
-              {overview?.player?.fullName || t('service.portal.home.welcomeBack')}
+              {overview?.player?.fullName || t('portal.home.welcomeBack')}
             </Text>
             <Text variant="bodySmall" color={colors.textSecondary}>
-              {overview?.academyName || t('service.portal.home.academy')}
+              {overview?.academyName || t('portal.home.academy')}
             </Text>
           </View>
         </View>
         <View style={styles.identityMeta}>
           <Text variant="caption" color={colors.textMuted}>
-            {t('service.portal.home.registrationStatus')}
+            {t('portal.home.registrationStatus')}
           </Text>
           <Text variant="bodySmall" color={colors.textPrimary}>
-            {overview?.registration?.registration_type || t('service.portal.home.activePlayer')}
+            {overview?.registration?.registration_type || t('portal.home.activePlayer')}
           </Text>
         </View>
       </PortalCard>
@@ -87,34 +87,34 @@ export function PortalHomeScreen() {
       <View style={styles.gridRow}>
         <PortalCard style={[styles.card, styles.gridCard]}>
           <Text variant="body" weight="semibold" color={colors.textPrimary}>
-            {t('service.portal.home.registration')}
+            {t('portal.home.registration')}
           </Text>
           <Text variant="bodySmall" color={colors.textSecondary} style={styles.cardSubtitle}>
-            {overview?.registration?.groupName || t('service.portal.home.trainingGroup')}
+            {overview?.registration?.groupName || t('portal.home.trainingGroup')}
           </Text>
           <Text variant="caption" color={colors.textMuted} style={styles.cardSubtitle}>
-            {t('service.portal.home.courseLabel', { course: overview?.registration?.courseName || placeholder })}
+            {t('portal.home.courseLabel', { course: overview?.registration?.courseName || placeholder })}
           </Text>
         </PortalCard>
         <PortalCard style={[styles.card, styles.gridCard]}>
           <Text variant="body" weight="semibold" color={colors.textPrimary}>
-            {t('service.portal.home.credits')}
+            {t('portal.home.credits')}
           </Text>
           <Text variant="h3" weight="bold" color={colors.textPrimary} style={styles.metricValue}>
             {overview?.credits?.totalRemaining ?? 0}
           </Text>
           <Text variant="caption" color={colors.textMuted}>
-            {t('service.portal.home.nextExpiry', { date: overview?.credits?.nextExpiry || placeholder })}
+            {t('portal.home.nextExpiry', { date: overview?.credits?.nextExpiry || placeholder })}
           </Text>
         </PortalCard>
       </View>
 
       <PortalCard style={styles.card}>
         <Text variant="body" weight="semibold" color={colors.textPrimary}>
-          {t('service.portal.home.sessionsProgress')}
+          {t('portal.home.sessionsProgress')}
         </Text>
         <Text variant="bodySmall" color={colors.textSecondary} style={styles.cardSubtitle}>
-          {t('service.portal.home.sessionsRemaining', {
+          {t('portal.home.sessionsRemaining', {
             remaining: overview?.registration?.remainingSessions ?? 0,
             total: overview?.registration?.totalSessions ?? 0,
           })}
@@ -134,18 +134,18 @@ export function PortalHomeScreen() {
         <View style={styles.metricRow}>
           <View>
             <Text variant="caption" color={colors.textMuted}>
-              {t('service.portal.home.performanceScore')}
+              {t('portal.home.performanceScore')}
             </Text>
             <Text variant="body" weight="semibold" color={colors.textPrimary}>
-              {overview?.performance?.metrics?.score || t('service.portal.home.performanceFallback')}
+              {overview?.performance?.metrics?.score || t('portal.home.performanceFallback')}
             </Text>
           </View>
           <View>
             <Text variant="caption" color={colors.textMuted}>
-              {t('service.portal.home.attendance')}
+              {t('portal.home.attendance')}
             </Text>
             <Text variant="body" weight="semibold" color={colors.textPrimary}>
-              {overview?.performance?.metrics?.attendance || t('service.portal.home.attendanceFallback')}
+              {overview?.performance?.metrics?.attendance || t('portal.home.attendanceFallback')}
             </Text>
           </View>
         </View>
@@ -153,7 +153,7 @@ export function PortalHomeScreen() {
 
       <PortalCard style={styles.card}>
         <Text variant="body" weight="semibold" color={colors.textPrimary}>
-          {t('service.portal.home.upcomingPayments')}
+          {t('portal.home.upcomingPayments')}
         </Text>
         {paymentsPreview.length ? (
           <View style={styles.listStack}>
@@ -161,10 +161,10 @@ export function PortalHomeScreen() {
               <PortalListItem
                 key={payment?.id ?? index}
                 leadingIcon="credit-card"
-                title={payment?.title || t('service.portal.home.invoice')}
-                subtitle={t('service.portal.home.paymentDue', {
-                  date: payment?.dueDate || t('service.portal.home.soon'),
-                  status: payment?.status || t('service.portal.home.pending'),
+                title={payment?.title || t('portal.home.invoice')}
+                subtitle={t('portal.home.paymentDue', {
+                  date: payment?.dueDate || t('portal.home.soon'),
+                  status: payment?.status || t('portal.home.pending'),
                 })}
                 onPress={() => router.push('/portal/payments')}
               />
@@ -172,19 +172,19 @@ export function PortalHomeScreen() {
           </View>
         ) : (
           <Text variant="bodySmall" color={colors.textSecondary} style={styles.cardSubtitle}>
-            {t('service.portal.home.noPendingInvoices')}
+            {t('portal.home.noPendingInvoices')}
           </Text>
         )}
       </PortalCard>
 
       <View style={styles.quickGrid}>
         {[
-          { label: t('service.portal.home.quick.profile'), icon: 'user', route: '/portal/(tabs)/profile' },
-          { label: t('service.portal.home.quick.renewals'), icon: 'calendar', route: '/portal/(tabs)/renewals' },
-          { label: t('service.portal.home.quick.freezes'), icon: 'pause-circle', route: '/portal/freezes' },
-          { label: t('service.portal.home.quick.payments'), icon: 'credit-card', route: '/portal/payments' },
-          { label: t('service.portal.home.quick.uniforms'), icon: 'shopping-bag', route: '/portal/uniform-store' },
-          { label: t('service.portal.home.quick.performance'), icon: 'trending-up', route: '/portal/performance' },
+          { label: t('portal.home.quick.profile'), icon: 'user', route: '/portal/(tabs)/profile' },
+          { label: t('portal.home.quick.renewals'), icon: 'calendar', route: '/portal/(tabs)/renewals' },
+          { label: t('portal.home.quick.freezes'), icon: 'pause-circle', route: '/portal/freezes' },
+          { label: t('portal.home.quick.payments'), icon: 'credit-card', route: '/portal/payments' },
+          { label: t('portal.home.quick.uniforms'), icon: 'shopping-bag', route: '/portal/uniform-store' },
+          { label: t('portal.home.quick.performance'), icon: 'trending-up', route: '/portal/performance' },
         ].map((action) => (
           <TouchableOpacity
             key={action.label}
@@ -195,7 +195,7 @@ export function PortalHomeScreen() {
               {action.label}
             </Text>
             <Text variant="caption" color={colors.textMuted} style={styles.quickSubtitle}>
-              {t('service.portal.home.open')}
+              {t('portal.home.open')}
             </Text>
           </TouchableOpacity>
         ))}

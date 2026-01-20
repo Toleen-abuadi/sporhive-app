@@ -55,13 +55,13 @@ export function PortalLoginScreen() {
             : [];
         const items = customers.map((c) => ({
           id: Number(c.id),
-          name: c.academy_name || c.label || t('service.portal.login.academyFallback'),
+          name: c.academy_name || c.label || t('portal.login.academyFallback'),
           subtitle: c.client_name || '',
           label: c.label || '',
         }));
         setAcademies(items);
       } else {
-        setAcademyError(res?.error?.message || t('service.portal.login.academiesError'));
+        setAcademyError(res?.error?.message || t('portal.login.academiesError'));
       }
       setAcademyLoading(false);
     };
@@ -88,18 +88,18 @@ export function PortalLoginScreen() {
   }, []);
 
   const subtitle = useMemo(() => {
-    if (academy?.name) return t('service.portal.login.subtitleWithAcademy', { academy: academy.name });
-    return t('service.portal.login.subtitle');
+    if (academy?.name) return t('portal.login.subtitleWithAcademy', { academy: academy.name });
+    return t('portal.login.subtitle');
   }, [academy, t]);
 
   const onSubmit = async () => {
     setFormError('');
     if (!academy?.id) {
-      setFormError(t('service.portal.login.errors.selectAcademy'));
+      setFormError(t('portal.login.errors.selectAcademy'));
       return;
     }
     if (!username.trim() || !password) {
-      setFormError(t('service.portal.login.errors.enterCredentials'));
+      setFormError(t('portal.login.errors.enterCredentials'));
       return;
     }
 
@@ -110,7 +110,7 @@ export function PortalLoginScreen() {
         if (finished) runOnJS(router.replace)('/portal/(tabs)/home');
       });
     } else {
-      setFormError(result?.error || error || t('service.portal.login.errors.loginFailed'));
+      setFormError(result?.error || error || t('portal.login.errors.loginFailed'));
     }
   };
 
@@ -120,22 +120,22 @@ export function PortalLoginScreen() {
         colors={[colors.background, colors.surface]}
         style={styles.background}
       >
-        <PortalHeader title={t('service.portal.login.title')} subtitle={subtitle} />
+        <PortalHeader title={t('portal.login.title')} subtitle={subtitle} />
 
         <Animated.View entering={FadeInUp.delay(100).duration(500)} style={fadeStyle}>
           <PortalCard style={styles.card}>
             <View style={styles.formRow}>
               <Input
-                label={t('service.portal.login.username')}
-                placeholder={t('service.portal.login.usernamePlaceholder')}
+                label={t('portal.login.username')}
+                placeholder={t('portal.login.usernamePlaceholder')}
                 value={username}
                 onChangeText={setUsername}
                 leftIcon="user"
                 autoCapitalize="none"
               />
               <Input
-                label={t('service.portal.login.password')}
-                placeholder={t('service.portal.login.passwordPlaceholder')}
+                label={t('portal.login.password')}
+                placeholder={t('portal.login.passwordPlaceholder')}
                 value={password}
                 onChangeText={setPassword}
                 leftIcon="lock"
@@ -151,13 +151,13 @@ export function PortalLoginScreen() {
               {isSuccess ? (
                 <View style={[styles.successBanner, { backgroundColor: colors.success + '1F' }]}>
                   <Text variant="bodySmall" color={colors.success}>
-                    {t('service.portal.login.success')}
+                    {t('portal.login.success')}
                   </Text>
                 </View>
               ) : null}
               <TouchableOpacity onPress={() => router.push('/portal/reset-password')}>
                 <Text variant="bodySmall" color={colors.textSecondary} style={styles.forgot}>
-                  {t('service.portal.login.forgotPassword')}
+                  {t('portal.login.forgotPassword')}
                 </Text>
               </TouchableOpacity>
               <Button
@@ -166,7 +166,7 @@ export function PortalLoginScreen() {
                 disabled={!academy?.id || !username || !password}
                 style={styles.button}
               >
-                {t('service.portal.login.submit')}
+                {t('portal.login.submit')}
               </Button>
             </View>
           </PortalCard>

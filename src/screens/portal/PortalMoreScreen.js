@@ -13,43 +13,43 @@ export function PortalMoreScreen() {
 
   return (
     <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
-      <PortalHeader title={t('service.portal.more.title')} subtitle={t('service.portal.more.subtitle')} />
+      <PortalHeader title={t('portal.more.title')} subtitle={t('portal.more.subtitle')} />
 
       <View style={styles.list}>
         <PortalListItem
           leadingIcon="pause-circle"
-          title={t('service.portal.more.freezes.title')}
-          subtitle={t('service.portal.more.freezes.subtitle')}
+          title={t('portal.more.freezes.title')}
+          subtitle={t('portal.more.freezes.subtitle')}
           onPress={() => router.push('/portal/freezes')}
         />
         <PortalListItem
           leadingIcon="trending-up"
-          title={t('service.portal.more.performance.title')}
-          subtitle={t('service.portal.more.performance.subtitle')}
+          title={t('portal.more.performance.title')}
+          subtitle={t('portal.more.performance.subtitle')}
           onPress={() => router.push('/portal/performance')}
         />
         <PortalListItem
           leadingIcon="shopping-bag"
-          title={t('service.portal.more.uniforms.title')}
-          subtitle={t('service.portal.more.uniforms.subtitle')}
+          title={t('portal.more.uniforms.title')}
+          subtitle={t('portal.more.uniforms.subtitle')}
           onPress={() => router.push('/portal/uniform-store')}
         />
         <PortalListItem
           leadingIcon="package"
-          title={t('service.portal.more.orders.title')}
-          subtitle={t('service.portal.more.orders.subtitle')}
+          title={t('portal.more.orders.title')}
+          subtitle={t('portal.more.orders.subtitle')}
           onPress={() => router.push('/portal/my-orders')}
         />
         <PortalListItem
           leadingIcon="volume-2"
-          title={t('service.portal.more.news.title')}
-          subtitle={t('service.portal.more.news.subtitle')}
+          title={t('portal.more.news.title')}
+          subtitle={t('portal.more.news.subtitle')}
           onPress={() => router.push('/portal/news')}
         />
         <PortalListItem
           leadingIcon="credit-card"
-          title={t('service.portal.more.payments.title')}
-          subtitle={t('service.portal.more.payments.subtitle')}
+          title={t('portal.more.payments.title')}
+          subtitle={t('portal.more.payments.subtitle')}
           onPress={() => router.push('/portal/payments')}
         />
       </View>

@@ -15,16 +15,16 @@ export function PortalResetPasswordScreen() {
   return (
     <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
       <PortalHeader
-        title={t('service.portal.reset.title')}
-        subtitle={t('service.portal.reset.subtitle')}
+        title={t('portal.reset.title')}
+        subtitle={t('portal.reset.subtitle')}
       />
       <PortalEmptyState
         icon="key"
-        title={t('service.portal.reset.comingSoonTitle')}
-        description={t('service.portal.reset.comingSoonDescription')}
+        title={t('portal.reset.comingSoonTitle')}
+        description={t('portal.reset.comingSoonDescription')}
         action={
           <Button variant="secondary" onPress={() => router.back()}>
-            {t('service.portal.reset.backToLogin')}
+            {t('portal.reset.backToLogin')}
           </Button>
         }
       />

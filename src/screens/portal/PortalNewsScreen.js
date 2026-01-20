@@ -20,7 +20,7 @@ export function PortalNewsScreen() {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const placeholder = t('service.portal.common.placeholder');
+  const placeholder = t('portal.common.placeholder');
 
   const [academyId, setAcademyId] = useState(null);
 
@@ -99,7 +99,7 @@ const resolveNewsImageUrl = useCallback((imageUrl) => {
 
       setNews(list);
     } else {
-      setError(res?.error?.message || t('service.portal.news.error'));
+      setError(res?.error?.message || t('portal.news.error'));
     }
 
     setLoading(false);
@@ -120,19 +120,19 @@ const resolveNewsImageUrl = useCallback((imageUrl) => {
   return (
     <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
       <PortalHeader
-        title={t('service.portal.news.title')}
-        subtitle={t('service.portal.news.subtitle')}
+        title={t('portal.news.title')}
+        subtitle={t('portal.news.subtitle')}
       />
 
       {error ? (
         <PortalEmptyState
           icon="alert-triangle"
-          title={t('service.portal.news.errorTitle')}
+          title={t('portal.news.errorTitle')}
           description={error}
           action={(
             <TouchableOpacity onPress={loadNews} style={styles.retryButton}>
               <Text variant="bodySmall" color={colors.textPrimary}>
-                {t('service.portal.common.retry')}
+                {t('portal.common.retry')}
               </Text>
             </TouchableOpacity>
           )}
@@ -149,7 +149,7 @@ const resolveNewsImageUrl = useCallback((imageUrl) => {
               <TouchableOpacity key={item?.id ?? index}>
                 <PortalCard style={styles.card}>
                   <Text variant="body" weight="semibold" color={colors.textPrimary}>
-                    {item?.title || t('service.portal.news.defaultTitle')}
+                    {item?.title || t('portal.news.defaultTitle')}
                   </Text>
 
                   <Text variant="caption" color={colors.textMuted} style={styles.meta}>
@@ -175,7 +175,7 @@ const resolveNewsImageUrl = useCallback((imageUrl) => {
                   )}
 
                   <Text variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>
-                    {item?.description || t('service.portal.news.defaultDescription')}
+                    {item?.description || t('portal.news.defaultDescription')}
                   </Text>
                 </PortalCard>
               </TouchableOpacity>
@@ -185,8 +185,8 @@ const resolveNewsImageUrl = useCallback((imageUrl) => {
       ) : (
         <PortalEmptyState
           icon="volume-2"
-          title={t('service.portal.news.emptyTitle')}
-          description={t('service.portal.news.emptyDescription')}
+          title={t('portal.news.emptyTitle')}
+          description={t('portal.news.emptyDescription')}
         />
       )}
     </Screen>

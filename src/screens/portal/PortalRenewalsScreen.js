@@ -460,8 +460,8 @@ export function PortalRenewalsScreen() {
   const { colors, isDark } = useTheme();
   const toast = useToast();
   const { t, locale, isRTL } = useTranslation();
-  const placeholder = t('service.portal.common.placeholder');
-  const scheduleSeparator = t('service.portal.renewals.scheduleSeparator');
+  const placeholder = t('portal.common.placeholder');
+  const scheduleSeparator = t('portal.renewals.scheduleSeparator');
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -489,15 +489,15 @@ export function PortalRenewalsScreen() {
   const courses = useMemo(() => {
     return (availableCoursesRaw || []).map((c) => ({
       id: c.id,
-      label: c.name || t('service.portal.renewals.courseLabel', { id: c.id }),
+      label: c.name || t('portal.renewals.courseLabel', { id: c.id }),
       subLabel:
         c.start_date && c.end_date
-          ? t('service.portal.renewals.courseRange', {
+          ? t('portal.renewals.courseRange', {
               start: c.start_date,
               end: c.end_date,
               sessions: c.num_of_sessions || 0,
             })
-          : t('service.portal.renewals.courseSessions', { sessions: c.num_of_sessions || 0 }),
+          : t('portal.renewals.courseSessions', { sessions: c.num_of_sessions || 0 }),
       meta: c,
     }));
   }, [availableCoursesRaw, t]);
@@ -511,12 +511,12 @@ export function PortalRenewalsScreen() {
               .slice(0, 2)
               .map((s) => `${weekdayLabel(s?.day)} ${s?.time?.start || ''}-${s?.time?.end || ''}`.trim())
               .join(scheduleSeparator)
-          : t('service.portal.renewals.scheduleEmpty');
+          : t('portal.renewals.scheduleEmpty');
       return {
         id: g.id,
-        label: g.name || t('service.portal.renewals.groupLabel', { id: g.id }),
+        label: g.name || t('portal.renewals.groupLabel', { id: g.id }),
         subLabel: g.capacity
-          ? t('service.portal.renewals.groupCapacity', { schedule: scheduleLabel, count: g.capacity })
+          ? t('portal.renewals.groupCapacity', { schedule: scheduleLabel, count: g.capacity })
           : scheduleLabel,
         meta: g,
       };
@@ -657,7 +657,7 @@ export function PortalRenewalsScreen() {
 
   const submit = useCallback(async () => {
     if (!canSubmit) {
-      toast?.show?.({ type: 'error', message: t('service.portal.renewals.errors.completeFields'), duration: 3000 });
+      toast?.show?.({ type: 'error', message: t('portal.renewals.errors.completeFields'), duration: 3000 });
       return;
     }
 
@@ -678,8 +678,8 @@ export function PortalRenewalsScreen() {
 
       toast?.show?.({
         type: 'success',
-        message: t('service.portal.renewals.submit.successTitle'),
-        description: t('service.portal.renewals.submit.successMessage'),
+        message: t('portal.renewals.submit.successTitle'),
+        description: t('portal.renewals.submit.successMessage'),
         duration: 4000,
       });
 
@@ -688,8 +688,8 @@ export function PortalRenewalsScreen() {
     } catch (e) {
       toast?.show?.({
         type: 'error',
-        message: t('service.portal.renewals.submit.errorTitle'),
-        description: e?.message || t('service.portal.renewals.submit.errorMessage'),
+        message: t('portal.renewals.submit.errorTitle'),
+        description: e?.message || t('portal.renewals.submit.errorMessage'),
         duration: 4000,
       });
     } finally {
@@ -747,8 +747,8 @@ export function PortalRenewalsScreen() {
     return (
       <Screen>
         <PortalHeader
-          title={t('service.portal.renewals.title')}
-          subtitle={t('service.portal.renewals.subtitle')}
+          title={t('portal.renewals.title')}
+          subtitle={t('portal.renewals.subtitle')}
           right={HeaderRight}
         />
         <SporHiveLoader />
@@ -760,16 +760,16 @@ export function PortalRenewalsScreen() {
     return (
       <Screen>
         <PortalHeader
-          title={t('service.portal.renewals.title')}
-          subtitle={t('service.portal.renewals.subtitle')}
+          title={t('portal.renewals.title')}
+          subtitle={t('portal.renewals.subtitle')}
           right={HeaderRight}
         />
         <View style={styles.errorContainer}>
           <PortalEmptyState
             icon={AlertCircle}
-            title={t('service.portal.renewals.errors.loadTitle')}
+            title={t('portal.renewals.errors.loadTitle')}
             subtitle={fatalError}
-            actionLabel={t('service.portal.renewals.actions.retry')}
+            actionLabel={t('portal.renewals.actions.retry')}
             onAction={() => {
               setRefreshing(true);
               fetchAll();
@@ -785,8 +785,8 @@ export function PortalRenewalsScreen() {
   return (
     <Screen>
       <PortalHeader
-        title={t('service.portal.renewals.title')}
-        subtitle={t('service.portal.renewals.subtitle')}
+        title={t('portal.renewals.title')}
+        subtitle={t('portal.renewals.subtitle')}
         right={HeaderRight}
       />
 
@@ -817,7 +817,7 @@ export function PortalRenewalsScreen() {
                   )}
                 </View>
                 <PremiumBadge
-                  text={eligible ? t('service.portal.renewals.eligible') : t('service.portal.renewals.notEligible')}
+                  text={eligible ? t('portal.renewals.eligible') : t('portal.renewals.notEligible')}
                   variant={eligible ? 'success' : 'warning'}
                   icon={eligible ? ShieldCheck : AlertCircle}
                 />
@@ -828,13 +828,13 @@ export function PortalRenewalsScreen() {
               <View style={styles.statsGrid}>
                 <View style={styles.statItem}>
                   <CalendarDays size={16} color={colors.textSecondary} />
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('service.portal.renewals.ends')}</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('portal.renewals.ends')}</Text>
                   <Text style={[styles.statValue, { color: colors.textPrimary }]}>{formatPrettyDate(topSummary.end, locale, placeholder)}</Text>
                 </View>
 
                 <View style={styles.statItem}>
                   <Clock size={16} color={colors.textSecondary} />
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('service.portal.renewals.daysLeft')}</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('portal.renewals.daysLeft')}</Text>
                   <Text style={[styles.statValue, { color: colors.textPrimary }]}>
                     {Number.isFinite(Number(topSummary.daysLeft)) ? safeStr(topSummary.daysLeft) : placeholder}
                   </Text>
@@ -842,7 +842,7 @@ export function PortalRenewalsScreen() {
 
                 <View style={styles.statItem}>
                   <Target size={16} color={colors.textSecondary} />
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('service.portal.renewals.current')}</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('portal.renewals.current')}</Text>
                   <Text style={[styles.statValue, { color: colors.textPrimary }]}>
                     {registrationInfo?.registration_type ? String(registrationInfo.registration_type).toUpperCase() : placeholder}
                   </Text>
@@ -856,8 +856,8 @@ export function PortalRenewalsScreen() {
               <GradientCard style={styles.notEligibleCard}>
                 <SectionTitle
                   icon={AlertCircle}
-                  title={t('service.portal.renewals.notAvailable.title')}
-                  subtitle={t('service.portal.renewals.notAvailable.subtitle')}
+                  title={t('portal.renewals.notAvailable.title')}
+                  subtitle={t('portal.renewals.notAvailable.subtitle')}
                   colors={colors}
                   tone="warning"
                 />
@@ -869,9 +869,9 @@ export function PortalRenewalsScreen() {
                         <Clock size={16} color={colors.warning} />
                       </View>
                       <View style={{ flex: 1, gap: 4 }}>
-                        <Text style={[styles.reasonTitle, { color: colors.textPrimary }]}>{t('service.portal.renewals.notAvailable.pendingTitle')}</Text>
+                        <Text style={[styles.reasonTitle, { color: colors.textPrimary }]}>{t('portal.renewals.notAvailable.pendingTitle')}</Text>
                         <Text style={[styles.reasonBody, { color: colors.textSecondary }]}>
-                          {t('service.portal.renewals.notAvailable.pendingBody')}
+                          {t('portal.renewals.notAvailable.pendingBody')}
                         </Text>
                       </View>
                     </View>
@@ -883,31 +883,31 @@ export function PortalRenewalsScreen() {
                         <Zap size={16} color={colors.warning} />
                       </View>
                       <View style={{ flex: 1, gap: 4 }}>
-                        <Text style={[styles.reasonTitle, { color: colors.textPrimary }]}>{t('service.portal.renewals.notAvailable.activeTitle')}</Text>
+                        <Text style={[styles.reasonTitle, { color: colors.textPrimary }]}>{t('portal.renewals.notAvailable.activeTitle')}</Text>
                         <Text style={[styles.reasonBody, { color: colors.textSecondary }]}>
-                          {t('service.portal.renewals.notAvailable.activeBody')}
+                          {t('portal.renewals.notAvailable.activeBody')}
                         </Text>
                       </View>
                     </View>
                   )}
                 </View>
 
-                <Button title={t('service.portal.renewals.actions.back')} onPress={() => router.back()} variant="outline" style={{ marginTop: 24 }} />
+                <Button title={t('portal.renewals.actions.back')} onPress={() => router.back()} variant="outline" style={{ marginTop: 24 }} />
               </GradientCard>
             ) : (
               <GradientCard>
                 <SectionTitle
                   icon={Sparkles}
-                  title={t('service.portal.renewals.request.title')}
-                  subtitle={t('service.portal.renewals.request.subtitle')}
+                  title={t('portal.renewals.request.title')}
+                  subtitle={t('portal.renewals.request.subtitle')}
                   colors={colors}
                   tone="primary"
                 />
 
                 <View style={styles.formContent}>
                   <PremiumDDL
-                    label={t('service.portal.renewals.request.courseLabel')}
-                    placeholder={t('service.portal.renewals.request.coursePlaceholder')}
+                    label={t('portal.renewals.request.courseLabel')}
+                    placeholder={t('portal.renewals.request.coursePlaceholder')}
                     items={courses}
                     selectedId={selectedCourseId}
                     onSelect={(item) => setSelectedCourseId(item?.id || null)}
@@ -916,8 +916,8 @@ export function PortalRenewalsScreen() {
                   />
 
                   <PremiumDDL
-                    label={t('service.portal.renewals.request.groupLabel')}
-                    placeholder={t('service.portal.renewals.request.groupPlaceholder')}
+                    label={t('portal.renewals.request.groupLabel')}
+                    placeholder={t('portal.renewals.request.groupPlaceholder')}
                     items={groups}
                     selectedId={selectedGroupId}
                     onSelect={(item) => setSelectedGroupId(item?.id || null)}
@@ -929,39 +929,39 @@ export function PortalRenewalsScreen() {
                     <View style={[styles.schedulePreview, { backgroundColor: alpha(colors.accentOrange, '10'), borderColor: alpha(colors.accentOrange, '30') }]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         <CalendarClock size={16} color={colors.accentOrange} />
-                        <Text style={[styles.scheduleTitle, { color: colors.accentOrange }]}>{t('service.portal.renewals.request.scheduleTitle')}</Text>
+                        <Text style={[styles.scheduleTitle, { color: colors.accentOrange }]}>{t('portal.renewals.request.scheduleTitle')}</Text>
                       </View>
                       <Text style={[styles.scheduleText, { color: colors.textPrimary }]}>
                         {Array.isArray(selectedGroup?.schedule) && selectedGroup.schedule.length > 0
                           ? selectedGroup.schedule
                               .map((s) => `${weekdayLabel(s?.day)} ${s?.time?.start || ''}-${s?.time?.end || ''}`.trim())
                               .join(scheduleSeparator)
-                          : t('service.portal.renewals.request.scheduleEmpty')}
+                          : t('portal.renewals.request.scheduleEmpty')}
                       </Text>
                       <Text style={[styles.scheduleNote, { color: colors.textSecondary }]}>
-                        {t('service.portal.renewals.request.sessionsPerWeek', { count: sessionsPerWeek })}
+                        {t('portal.renewals.request.sessionsPerWeek', { count: sessionsPerWeek })}
                       </Text>
                     </View>
                   )}
 
                   <View style={styles.dateGrid}>
                     <DatePickerRow
-                      label={t('service.portal.renewals.request.startDate')}
+                      label={t('portal.renewals.request.startDate')}
                       date={startDate}
                       onPick={() => setDatePicker({ open: true, field: 'start' })}
                       colors={colors}
                       locale={locale}
                       icon={Calendar}
-                      emptyLabel={t('service.portal.renewals.request.selectDate')}
+                      emptyLabel={t('portal.renewals.request.selectDate')}
                     />
                     <DatePickerRow
-                      label={t('service.portal.renewals.request.endDate')}
+                      label={t('portal.renewals.request.endDate')}
                       date={endDate}
                       onPick={() => setDatePicker({ open: true, field: 'end' })}
                       colors={colors}
                       locale={locale}
                       icon={CalendarDays}
-                      emptyLabel={t('service.portal.renewals.request.selectDate')}
+                      emptyLabel={t('portal.renewals.request.selectDate')}
                     />
                   </View>
 
@@ -971,33 +971,33 @@ export function PortalRenewalsScreen() {
                     min={1}
                     max={Number(selectedCourse?.num_of_sessions) || 999}
                     colors={colors}
-                    label={t('service.portal.renewals.request.sessionsLabel')}
-                    unitLabel={t('service.portal.renewals.request.sessionsUnit')}
+                    label={t('portal.renewals.request.sessionsLabel')}
+                    unitLabel={t('portal.renewals.request.sessionsUnit')}
                   />
 
                   {startDate && endDate && (
                     <View style={[styles.summaryBox, { backgroundColor: alpha(colors.success, '1A'), borderColor: alpha(colors.success, '40') }]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         <Check size={16} color={colors.success} />
-                        <Text style={[styles.summaryTitle, { color: colors.success }]}>{t('service.portal.renewals.summary.title')}</Text>
+                        <Text style={[styles.summaryTitle, { color: colors.success }]}>{t('portal.renewals.summary.title')}</Text>
                       </View>
                       <Text style={[styles.summaryText, { color: colors.textPrimary }]}>
-                        {t('service.portal.renewals.summary.range', { start: toISODate(startDate), end: toISODate(endDate) })}
+                        {t('portal.renewals.summary.range', { start: toISODate(startDate), end: toISODate(endDate) })}
                       </Text>
                       <Text style={[styles.summaryDetail, { color: colors.textSecondary }]}>
-                        {t('service.portal.renewals.summary.sessionsDetail', { count: sessions, perWeek: sessionsPerWeek })}
+                        {t('portal.renewals.summary.sessionsDetail', { count: sessions, perWeek: sessionsPerWeek })}
                       </Text>
                     </View>
                   )}
 
                   <View style={{ gap: 8 }}>
                     <Text style={[styles.ddlLabel, { color: colors.textMuted }]}>
-                      {t('service.portal.renewals.request.notesLabel')}
+                      {t('portal.renewals.request.notesLabel')}
                     </Text>
                     <Input
                       value={note}
                       onChangeText={setNote}
-                      placeholder={t('service.portal.renewals.request.notesPlaceholder')}
+                      placeholder={t('portal.renewals.request.notesPlaceholder')}
                       multiline
                       numberOfLines={3}
                       style={[
@@ -1008,7 +1008,7 @@ export function PortalRenewalsScreen() {
                   </View>
 
                   <Button
-                    title={submitting ? t('service.portal.renewals.actions.submitting') : t('service.portal.renewals.actions.submit')}
+                    title={submitting ? t('portal.renewals.actions.submitting') : t('portal.renewals.actions.submit')}
                     onPress={submit}
                     disabled={!canSubmit || submitting}
                     loading={submitting}
@@ -1017,7 +1017,7 @@ export function PortalRenewalsScreen() {
                   />
 
                   <Text style={[styles.disclaimer, { color: colors.textSecondary }]}>
-                    {t('service.portal.renewals.request.disclaimer')}
+                    {t('portal.renewals.request.disclaimer')}
                   </Text>
                 </View>
               </GradientCard>
@@ -1045,8 +1045,8 @@ export function PortalRenewalsScreen() {
                 <View style={styles.datePickerHeader}>
                   <Text style={[styles.datePickerTitle, { color: colors.textPrimary }]}>
                     {datePicker.field === 'start'
-                      ? t('service.portal.renewals.datePicker.startTitle')
-                      : t('service.portal.renewals.datePicker.endTitle')}
+                      ? t('portal.renewals.datePicker.startTitle')
+                      : t('portal.renewals.datePicker.endTitle')}
                   </Text>
                   <Pressable onPress={() => setDatePicker({ open: false, field: null })}>
                     <X size={24} color={colors.textPrimary} />
@@ -1067,7 +1067,7 @@ export function PortalRenewalsScreen() {
                 />
 
                 {Platform.OS === 'ios' && (
-                  <Button title={t('service.portal.renewals.datePicker.confirm')} onPress={() => setDatePicker({ open: false, field: null })} style={{ marginTop: 16 }} />
+                  <Button title={t('portal.renewals.datePicker.confirm')} onPress={() => setDatePicker({ open: false, field: null })} style={{ marginTop: 16 }} />
                 )}
               </View>
             </Pressable>

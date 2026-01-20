@@ -20,7 +20,7 @@ const asArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 export function PortalPerformanceScreen() {
   const { colors } = useTheme();
   const { t, isRTL } = useTranslation();
-  const placeholder = t('service.portal.common.placeholder');
+  const placeholder = t('portal.common.placeholder');
   const { overview } = usePortalOverview();
 
   // ✅ FIX: normalized overview puts it here
@@ -38,7 +38,7 @@ export function PortalPerformanceScreen() {
   useEffect(() => {
     const load = async () => {
       if (!tryoutId) {
-        setError(t('service.portal.performance.error'));
+        setError(t('portal.performance.error'));
         return;
       }
 
@@ -50,14 +50,14 @@ export function PortalPerformanceScreen() {
         const raw = typesRes.data?.data ?? typesRes.data;
         setRatingTypes(asArray(raw));
       } else if (typesRes?.error) {
-        setError(typesRes.error?.message || t('service.portal.performance.error'));
+        setError(typesRes.error?.message || t('portal.performance.error'));
       }
 
       const summaryRes = await portalApi.fetchPerformanceSummary({ tryout_id: tryoutId, limit: 10 });
       if (summaryRes?.success) {
         setSummary(summaryRes.data?.data ?? summaryRes.data ?? null);
       } else if (!typesRes?.error && summaryRes?.error) {
-        setError(summaryRes.error?.message || t('service.portal.performance.error'));
+        setError(summaryRes.error?.message || t('portal.performance.error'));
       }
 
       const periodsRes = await portalApi.fetchPerformancePeriods({ tryout_id: tryoutId });
@@ -65,7 +65,7 @@ export function PortalPerformanceScreen() {
         const raw = periodsRes.data?.data ?? periodsRes.data;
         setPeriods(asArray(raw));
       } else if (!typesRes?.error && !summaryRes?.error && periodsRes?.error) {
-        setError(periodsRes.error?.message || t('service.portal.performance.error'));
+        setError(periodsRes.error?.message || t('portal.performance.error'));
       }
 
       setLoading(false);
@@ -100,7 +100,7 @@ export function PortalPerformanceScreen() {
       return {
         key,
         id: type?.id ?? key,
-        name: type?.name || type?.label || t('service.portal.performance.ratingLabel', { index: index + 1 }),
+        name: type?.name || type?.label || t('portal.performance.ratingLabel', { index: index + 1 }),
         score:
           (summary?.type_scores && type?.id != null ? summary.type_scores[type.id] : null) ??
           type?.average ??
@@ -120,13 +120,13 @@ export function PortalPerformanceScreen() {
   return (
     <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
       <PortalHeader
-        title={t('service.portal.performance.title')}
-        subtitle={t('service.portal.performance.subtitle')}
+        title={t('portal.performance.title')}
+        subtitle={t('portal.performance.subtitle')}
       />
 
       <PortalCard style={styles.card}>
         <Text variant="body" weight="semibold" color={colors.textPrimary}>
-          {t('service.portal.performance.overall')}
+          {t('portal.performance.overall')}
         </Text>
 
         <View style={styles.starRow}>
@@ -145,14 +145,14 @@ export function PortalPerformanceScreen() {
         </View>
 
         <Text variant="bodySmall" color={colors.textSecondary}>
-          {t('service.portal.performance.basedOnSessions', { count: recentRatings.length })}
+          {t('portal.performance.basedOnSessions', { count: recentRatings.length })}
         </Text>
       </PortalCard>
 
       {typeMetrics.length ? (
         <PortalCard style={styles.card}>
           <Text variant="body" weight="semibold" color={colors.textPrimary}>
-            {t('service.portal.performance.categories')}
+            {t('portal.performance.categories')}
           </Text>
 
           <View style={styles.metricStack}>
@@ -182,21 +182,21 @@ export function PortalPerformanceScreen() {
       ) : null}
 
       {error ? (
-        <PortalEmptyState icon="alert-triangle" title={t('service.portal.performance.errorTitle')} description={error} />
+        <PortalEmptyState icon="alert-triangle" title={t('portal.performance.errorTitle')} description={error} />
       ) : periods.length ? (
         <PortalCard style={styles.card}>
           <Text variant="body" weight="semibold" color={colors.textPrimary}>
-            {t('service.portal.performance.periods')}
+            {t('portal.performance.periods')}
           </Text>
 
           {periods.map((period, index) => (
             <View key={period?.id ?? index} style={styles.periodRow}>
               <View>
                 <Text variant="bodySmall" color={colors.textPrimary}>
-                  {period?.label || period?.date || t('service.portal.performance.periodLabel', { index: index + 1 })}
+                  {period?.label || period?.date || t('portal.performance.periodLabel', { index: index + 1 })}
                 </Text>
                 <Text variant="caption" color={colors.textMuted}>
-                  {t('service.portal.performance.periodRange', {
+                  {t('portal.performance.periodRange', {
                     start: period?.from || period?.start || placeholder,
                     end: period?.to || period?.end || placeholder,
                   })}
@@ -224,7 +224,7 @@ export function PortalPerformanceScreen() {
           ))}
         </PortalCard>
       ) : (
-        <PortalEmptyState icon="trending-up" title={t('service.portal.performance.emptyTitle')} description={t('service.portal.performance.emptyDescription')} />
+        <PortalEmptyState icon="trending-up" title={t('portal.performance.emptyTitle')} description={t('portal.performance.emptyDescription')} />
       )}
     </Screen>
   );
