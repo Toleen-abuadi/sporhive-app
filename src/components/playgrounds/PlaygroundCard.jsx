@@ -3,6 +3,7 @@ import { ImageBackground, Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MapPin, Star } from 'lucide-react-native';
 
+import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Card } from '../ui/Card';
 import { Text } from '../ui/Text';
@@ -11,6 +12,7 @@ import { spacing, borderRadius, fontSize, shadows } from '../../theme/tokens';
 
 export function PlaygroundCard({ title, location, sport, imageUrl, rating, priceLabel, onPress }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
   const ratingLabel = useMemo(() => {
     if (!rating && rating !== 0) return null;
@@ -22,14 +24,14 @@ export function PlaygroundCard({ title, location, sport, imageUrl, rating, price
       onPress={onPress}
       style={({ pressed }) => [{ opacity: pressed ? 0.96 : 1 }]}
       accessibilityRole="button"
-      accessibilityLabel={`View ${title} details`}
+      accessibilityLabel={t('service.playgrounds.cards.viewDetails', { title })}
     >
       <Card style={[styles.card, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
         <View style={styles.coverWrap}>
           {imageUrl ? (
             <ImageBackground source={{ uri: imageUrl }} style={styles.cover} imageStyle={styles.coverImage}>
               <LinearGradient
-                colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.0)']}
+                colors={[colors.black, colors.black]}
                 style={styles.coverOverlay}
               />
             </ImageBackground>
@@ -39,7 +41,7 @@ export function PlaygroundCard({ title, location, sport, imageUrl, rating, price
           {ratingLabel ? (
             <View style={[styles.ratingBadge, { backgroundColor: colors.surface }]}>
               <Star size={12} color={colors.accentOrange} />
-              <Text variant="caption" weight="bold" style={{ color: colors.textPrimary, marginLeft: 4 }}>
+              <Text variant="caption" weight="bold" style={{ color: colors.textPrimary, marginStart: 4 }}>
                 {ratingLabel}
               </Text>
             </View>
@@ -53,11 +55,11 @@ export function PlaygroundCard({ title, location, sport, imageUrl, rating, price
           <View style={styles.locationRow}>
             <MapPin size={14} color={colors.textMuted} />
             <Text variant="bodySmall" color={colors.textSecondary} style={styles.locationText}>
-              {location || 'Location pending'}
+              {location || t('service.playgrounds.common.locationPending')}
             </Text>
           </View>
           <View style={styles.metaRow}>
-            <Chip label={sport || 'Multi-sport'} />
+            <Chip label={sport || t('service.playgrounds.common.multiSport')} />
             {priceLabel ? (
               <Text variant="bodySmall" weight="semibold" color={colors.textPrimary}>
                 {priceLabel}
@@ -93,6 +95,7 @@ const styles = StyleSheet.create({
   },
   coverOverlay: {
     ...StyleSheet.absoluteFillObject,
+    opacity: 0.35,
   },
   ratingBadge: {
     position: 'absolute',
@@ -114,7 +117,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   locationText: {
-    marginLeft: spacing.xs,
+    marginStart: spacing.xs,
     fontSize: fontSize.sm,
   },
   metaRow: {

@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Chip } from '../../components/ui/Chip';
-import { Skeleton } from '../../components/ui/Skeleton';
+import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
@@ -22,6 +23,7 @@ const STATUS_TABS = ['all', 'pending', 'approved', 'rejected', 'cancelled'];
 
 export function MyBookingsScreen() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const router = useRouter();
 
   const [user, setUser] = useState(null);
@@ -51,11 +53,11 @@ export function MyBookingsScreen() {
         : [];
       setItems(list);
     } catch (err) {
-      setError(err?.message || 'Unable to load bookings.');
+      setError(err?.message || t('service.playgrounds.bookings.errors.load'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadBookings();
@@ -78,34 +80,50 @@ export function MyBookingsScreen() {
     return items.filter((item) => (item.status || '').toLowerCase() === activeStatus);
   }, [activeStatus, items]);
 
+  const statusLabelMap = useMemo(
+    () => ({
+      all: t('service.playgrounds.bookings.status.all'),
+      pending: t('service.playgrounds.bookings.status.pending'),
+      approved: t('service.playgrounds.bookings.status.approved'),
+      rejected: t('service.playgrounds.bookings.status.rejected'),
+      cancelled: t('service.playgrounds.bookings.status.cancelled'),
+    }),
+    [t]
+  );
+
   return (
     <Screen safe>
-      <AppHeader title="My bookings" leftSlot={<BackButton />} />
+      <AppHeader title={t('service.playgrounds.bookings.title')} leftSlot={<BackButton />} />
       {!user?.id && !loading ? (
         <EmptyState
-          title="Sign in required"
-          message="Log in to view your playground bookings."
-          actionLabel="Sign in"
+          title={t('service.playgrounds.bookings.empty.authTitle')}
+          message={t('service.playgrounds.bookings.empty.authMessage')}
+          actionLabel={t('service.playgrounds.bookings.empty.authAction')}
           onAction={() => router.push('/playgrounds/auth')}
         />
       ) : loading ? (
-        <View style={styles.loadingWrap}>
-          {Array.from({ length: 3 }).map((_, index) => (
-            <Skeleton key={`booking-skeleton-${index}`} height={140} style={{ marginBottom: spacing.md }} />
-          ))}
-        </View>
+        <SporHiveLoader message={t('service.playgrounds.bookings.loading')} />
       ) : error ? (
-        <ErrorState title="Unable to load" message={error} onAction={loadBookings} />
+        <ErrorState
+          title={t('service.playgrounds.bookings.errors.title')}
+          message={error}
+          onAction={loadBookings}
+        />
       ) : (
         <>
           <View style={styles.filterRow}>
             {STATUS_TABS.map((status) => (
               <Chip
                 key={status}
-                label={`${status.charAt(0).toUpperCase()}${status.slice(1)} (${counts[status] || 0})`}
+                label={t('service.playgrounds.bookings.filters.labelWithCount', {
+                  label: statusLabelMap[status],
+                  count: counts[status] || 0,
+                })}
                 selected={activeStatus === status}
                 onPress={() => setActiveStatus(status)}
-                accessibilityLabel={`Filter ${status}`}
+                accessibilityLabel={t('service.playgrounds.bookings.filters.accessibility', {
+                  status: statusLabelMap[status],
+                })}
               />
             ))}
           </View>
@@ -120,9 +138,9 @@ export function MyBookingsScreen() {
             />
           ) : (
             <EmptyState
-              title="No bookings found"
-              message="Try another status filter or explore venues."
-              actionLabel="Explore"
+              title={t('service.playgrounds.bookings.empty.title')}
+              message={t('service.playgrounds.bookings.empty.message')}
+              actionLabel={t('service.playgrounds.bookings.empty.action')}
               onAction={() => router.push('/playgrounds/explore')}
             />
           )}
@@ -132,21 +150,21 @@ export function MyBookingsScreen() {
       <BottomSheetModal visible={!!cancelTarget} onClose={() => setCancelTarget(null)}>
         <View style={styles.cancelSheet}>
           <Text variant="h4" weight="semibold">
-            Cancel booking?
+            {t('service.playgrounds.bookings.cancel.title')}
           </Text>
           <Text variant="bodySmall" color={colors.textSecondary}>
-            Please contact support or the venue to confirm any cancellation policy.
+            {t('service.playgrounds.bookings.cancel.message')}
           </Text>
           <View style={styles.cancelActions}>
             <Button variant="secondary" onPress={() => setCancelTarget(null)}>
-              Keep booking
+              {t('service.playgrounds.bookings.cancel.keep')}
             </Button>
             <Button
               onPress={() => {
                 setCancelTarget(null);
               }}
             >
-              Got it
+              {t('service.playgrounds.bookings.cancel.confirm')}
             </Button>
           </View>
         </View>
@@ -156,9 +174,6 @@ export function MyBookingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  loadingWrap: {
-    padding: spacing.lg,
-  },
   filterRow: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,

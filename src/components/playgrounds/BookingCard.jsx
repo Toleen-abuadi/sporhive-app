@@ -2,6 +2,7 @@ import React from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 import { Phone, MessageCircle } from 'lucide-react-native';
 
+import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Text } from '../ui/Text';
 import { Chip } from '../ui/Chip';
@@ -9,30 +10,36 @@ import { Button } from '../ui/Button';
 import { borderRadius, shadows, spacing } from '../../theme/tokens';
 
 const STATUS_LABELS = {
-  pending: { label: 'Pending', tone: 'warning' },
-  approved: { label: 'Approved', tone: 'success' },
-  rejected: { label: 'Rejected', tone: 'danger' },
-  cancelled: { label: 'Cancelled', tone: 'default' },
+  pending: { labelKey: 'service.playgrounds.bookings.status.pending', tone: 'warning' },
+  approved: { labelKey: 'service.playgrounds.bookings.status.approved', tone: 'success' },
+  rejected: { labelKey: 'service.playgrounds.bookings.status.rejected', tone: 'danger' },
+  cancelled: { labelKey: 'service.playgrounds.bookings.status.cancelled', tone: 'default' },
 };
 
 function resolveStatus(status) {
   if (!status) return STATUS_LABELS.pending;
   const key = status.toLowerCase();
-  return STATUS_LABELS[key] || { label: status, tone: 'default' };
+  return (
+    STATUS_LABELS[key] || {
+      labelKey: 'service.playgrounds.bookings.status.custom',
+      tone: 'default',
+      customLabel: status,
+    }
+  );
 }
 
-function formatMoney(amount, currency) {
-  if (amount === null || amount === undefined) return '--';
+function formatMoney(amount, currency, t) {
+  if (amount === null || amount === undefined) return t('service.playgrounds.common.placeholder');
   const parsed = Number(amount);
-  if (Number.isNaN(parsed)) return '--';
+  if (Number.isNaN(parsed)) return t('service.playgrounds.common.placeholder');
   const normalizedCurrency = currency || 'AED';
   return `${normalizedCurrency} ${parsed.toFixed(2)}`;
 }
 
-function formatTimeWindow(booking) {
+function formatTimeWindow(booking, t) {
   const start = booking.start_time || booking.slot?.start_time || booking.slot?.start || '';
   const end = booking.end_time || booking.slot?.end_time || booking.slot?.end || '';
-  if (!start && !end) return 'Time TBD';
+  if (!start && !end) return t('service.playgrounds.bookings.labels.timeTbd');
   if (!end) return start;
   return `${start} - ${end}`;
 }
@@ -43,13 +50,28 @@ function resolveContactPhone(booking) {
 
 export function BookingCard({ booking, onCancel }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const statusMeta = resolveStatus(booking.status);
-  const venueName = booking.venue?.name || booking.venue?.title || 'Playground';
-  const date = booking.booking_date || booking.date || 'Date TBD';
-  const time = formatTimeWindow(booking);
-  const payment = booking.payment_type ? booking.payment_type.toUpperCase() : 'Payment TBD';
-  const total = formatMoney(booking.total || booking.total_price, booking.currency);
+  const venueName =
+    booking.venue?.name || booking.venue?.title || t('service.playgrounds.common.playground');
+  const date =
+    booking.booking_date || booking.date || t('service.playgrounds.bookings.labels.dateTbd');
+  const time = formatTimeWindow(booking, t);
+  const paymentType = booking.payment_type ? booking.payment_type.toLowerCase() : '';
+  const payment = booking.payment_type
+    ? paymentType === 'cash'
+      ? t('service.playgrounds.bookings.payment.cash')
+      : paymentType === 'cliq'
+      ? t('service.playgrounds.bookings.payment.cliq')
+      : t('service.playgrounds.bookings.payment.unknown', {
+          payment: booking.payment_type.toUpperCase(),
+        })
+    : t('service.playgrounds.bookings.payment.tbd');
+  const total = formatMoney(booking.total || booking.total_price, booking.currency, t);
   const phone = resolveContactPhone(booking);
+  const statusLabel = statusMeta.customLabel
+    ? t(statusMeta.labelKey, { status: statusMeta.customLabel })
+    : t(statusMeta.labelKey);
 
   const statusColor = {
     success: colors.success,
@@ -64,14 +86,19 @@ export function BookingCard({ booking, onCancel }) {
         <Text variant="bodySmall" weight="semibold">
           {venueName}
         </Text>
-        <View style={[styles.statusPill, { backgroundColor: `${statusColor}22` }]}>
+        <View
+          style={[
+            styles.statusPill,
+            { backgroundColor: colors.surfaceElevated, borderColor: statusColor },
+          ]}
+        >
           <Text variant="caption" weight="semibold" style={{ color: statusColor }}>
-            {statusMeta.label}
+            {statusLabel}
           </Text>
         </View>
       </View>
       <Text variant="bodySmall" color={colors.textSecondary}>
-        {date} • {time}
+        {t('service.playgrounds.bookings.labels.dateTime', { date, time })}
       </Text>
       <View style={styles.metaRow}>
         <Chip label={payment} selected />
@@ -87,17 +114,17 @@ export function BookingCard({ booking, onCancel }) {
                 variant="secondary"
                 size="small"
                 onPress={() => Linking.openURL(`tel:${phone}`)}
-                accessibilityLabel="Call venue"
+                accessibilityLabel={t('service.playgrounds.bookings.actions.callAccessibility')}
               >
-                <Phone size={14} color={colors.textPrimary} /> Call
+                <Phone size={14} color={colors.textPrimary} /> {t('service.playgrounds.bookings.actions.call')}
               </Button>
               <Button
                 variant="secondary"
                 size="small"
                 onPress={() => Linking.openURL(`https://wa.me/${phone.replace(/\D/g, '')}`)}
-                accessibilityLabel="WhatsApp venue"
+                accessibilityLabel={t('service.playgrounds.bookings.actions.whatsappAccessibility')}
               >
-                <MessageCircle size={14} color={colors.textPrimary} /> WhatsApp
+                <MessageCircle size={14} color={colors.textPrimary} /> {t('service.playgrounds.bookings.actions.whatsapp')}
               </Button>
             </>
           ) : null}
@@ -107,9 +134,9 @@ export function BookingCard({ booking, onCancel }) {
             variant="ghost"
             size="small"
             onPress={() => onCancel(booking)}
-            accessibilityLabel="Cancel booking"
+            accessibilityLabel={t('service.playgrounds.bookings.actions.cancelAccessibility')}
           >
-            Cancel
+            {t('service.playgrounds.bookings.actions.cancel')}
           </Button>
         ) : null}
       </View>
@@ -134,6 +161,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
+    borderWidth: 1,
   },
   metaRow: {
     flexDirection: 'row',

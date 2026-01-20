@@ -8,6 +8,7 @@ import { Input } from '../ui/Input';
 import { Chip } from '../ui/Chip';
 import { Button } from '../ui/Button';
 import { endpoints } from '../../services/api/endpoints';
+import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
 import { borderRadius, shadows, spacing } from '../../theme/tokens';
 
@@ -22,6 +23,7 @@ const DEFAULT_FILTERS = {
 
 export function VenuesFilterSheet({ open, initialFilters, onApply, onClose }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [activities, setActivities] = useState([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
@@ -34,12 +36,18 @@ export function VenuesFilterSheet({ open, initialFilters, onApply, onClose }) {
       if (activity?.name) items.push(activity.name);
     }
     if (filters.date) items.push(filters.date);
-    if (filters.players) items.push(`${filters.players} players`);
+    if (filters.players)
+      items.push(t('service.playgrounds.filters.playersCount', { count: filters.players }));
     if (filters.baseLocation) items.push(filters.baseLocation);
-    if (filters.hasSpecialOffer) items.push('Offers');
-    if (filters.sortBy) items.push(filters.sortBy === 'price_asc' ? 'Lowest price' : 'Top rated');
+    if (filters.hasSpecialOffer) items.push(t('service.playgrounds.filters.offers'));
+    if (filters.sortBy)
+      items.push(
+        filters.sortBy === 'price_asc'
+          ? t('service.playgrounds.filters.sort.lowestPrice')
+          : t('service.playgrounds.filters.sort.topRated')
+      );
     return items;
-  }, [activities, filters]);
+  }, [activities, filters, t]);
 
   const loadActivities = useCallback(async () => {
     setLoadingActivities(true);
@@ -89,23 +97,25 @@ export function VenuesFilterSheet({ open, initialFilters, onApply, onClose }) {
           <View style={styles.headerRow}>
             <SlidersHorizontal size={18} color={colors.textMuted} />
             <Text variant="h4" weight="semibold">
-              Filters
+              {t('service.playgrounds.filters.title')}
             </Text>
           </View>
           <Text variant="bodySmall" color={colors.textSecondary}>
-            {activeFilters.length ? `Active: ${activeFilters.join(' · ')}` : 'No active filters'}
+            {activeFilters.length
+              ? t('service.playgrounds.filters.active', { filters: activeFilters.join(' · ') })
+              : t('service.playgrounds.filters.none')}
           </Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.section}>
             <Text variant="bodySmall" weight="semibold">
-              Activity
+              {t('service.playgrounds.filters.activity')}
             </Text>
             <View style={styles.chipsRow}>
               {loadingActivities ? (
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  Loading activities...
+                  {t('service.playgrounds.filters.loadingActivities')}
                 </Text>
               ) : activities.length ? (
                 activities.map((activity, index) => {
@@ -113,7 +123,7 @@ export function VenuesFilterSheet({ open, initialFilters, onApply, onClose }) {
                   return (
                     <Chip
                       key={String(activity.id)}
-                      label={activity.name || 'Activity'}
+                      label={activity.name || t('service.playgrounds.filters.activityFallback')}
                       selected={String(filters.activityId || '') === String(activity.id)}
                       onPress={() =>
                         setFilters((prev) => ({
@@ -122,13 +132,15 @@ export function VenuesFilterSheet({ open, initialFilters, onApply, onClose }) {
                         }))
                       }
                       icon={<Icon size={12} color={colors.textMuted} />}
-                      accessibilityLabel={`Filter by ${activity.name || 'activity'}`}
+                      accessibilityLabel={t('service.playgrounds.filters.activityAccessibility', {
+                        activity: activity.name || t('service.playgrounds.filters.activityFallback'),
+                      })}
                     />
                   );
                 })
               ) : (
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  No activities available.
+                  {t('service.playgrounds.filters.noActivities')}
                 </Text>
               )}
             </View>
@@ -136,19 +148,19 @@ export function VenuesFilterSheet({ open, initialFilters, onApply, onClose }) {
 
           <View style={styles.section}>
             <Text variant="bodySmall" weight="semibold">
-              Booking date
+              {t('service.playgrounds.filters.bookingDate')}
             </Text>
             <Input
-              label="Date"
+              label={t('service.playgrounds.filters.dateLabel')}
               value={filters.date || ''}
               onChangeText={(value) => setFilters((prev) => ({ ...prev, date: value }))}
-              placeholder="YYYY-MM-DD"
+              placeholder={t('service.playgrounds.filters.datePlaceholder')}
               leftIcon="calendar"
-              accessibilityLabel="Select booking date"
+              accessibilityLabel={t('service.playgrounds.filters.dateAccessibility')}
             />
             <View style={styles.chipsRow}>
               <Chip
-                label="Today"
+                label={t('service.playgrounds.filters.today')}
                 selected={filters.date === new Date().toISOString().slice(0, 10)}
                 onPress={() =>
                   setFilters((prev) => ({ ...prev, date: new Date().toISOString().slice(0, 10) }))
@@ -156,7 +168,7 @@ export function VenuesFilterSheet({ open, initialFilters, onApply, onClose }) {
                 icon={<CalendarDays size={12} color={colors.textMuted} />}
               />
               <Chip
-                label="Clear date"
+                label={t('service.playgrounds.filters.clearDate')}
                 selected={!filters.date}
                 onPress={() => setFilters((prev) => ({ ...prev, date: '' }))}
               />
@@ -165,7 +177,7 @@ export function VenuesFilterSheet({ open, initialFilters, onApply, onClose }) {
 
           <View style={styles.section}>
             <Text variant="bodySmall" weight="semibold">
-              Players
+              {t('service.playgrounds.filters.players')}
             </Text>
             <View style={styles.stepperRow}>
               <Button
@@ -177,7 +189,7 @@ export function VenuesFilterSheet({ open, initialFilters, onApply, onClose }) {
                     players: Math.max(1, (prev.players || 2) - 1),
                   }))
                 }
-                accessibilityLabel="Decrease players"
+                accessibilityLabel={t('service.playgrounds.filters.decreasePlayers')}
               >
                 -
               </Button>
@@ -196,7 +208,7 @@ export function VenuesFilterSheet({ open, initialFilters, onApply, onClose }) {
                     players: (prev.players || 2) + 1,
                   }))
                 }
-                accessibilityLabel="Increase players"
+                accessibilityLabel={t('service.playgrounds.filters.increasePlayers')}
               >
                 +
               </Button>
@@ -205,74 +217,78 @@ export function VenuesFilterSheet({ open, initialFilters, onApply, onClose }) {
 
           <View style={styles.section}>
             <Text variant="bodySmall" weight="semibold">
-              Location
+              {t('service.playgrounds.filters.location')}
             </Text>
             <Input
-              label="Location"
+              label={t('service.playgrounds.filters.locationLabel')}
               value={filters.baseLocation || ''}
               onChangeText={(value) => setFilters((prev) => ({ ...prev, baseLocation: value }))}
-              placeholder="City or area"
+              placeholder={t('service.playgrounds.filters.locationPlaceholder')}
               leftIcon="map-pin"
-              accessibilityLabel="Filter by location"
+              accessibilityLabel={t('service.playgrounds.filters.locationAccessibility')}
             />
             <View style={styles.chipsRow}>
               <Chip
-                label="Use current area"
+                label={t('service.playgrounds.filters.useCurrentArea')}
                 selected={false}
                 onPress={() => {}}
                 icon={<MapPin size={12} color={colors.textMuted} />}
-                accessibilityLabel="Use current location"
+                accessibilityLabel={t('service.playgrounds.filters.useCurrentAreaAccessibility')}
               />
             </View>
           </View>
 
           <View style={styles.section}>
             <Text variant="bodySmall" weight="semibold">
-              Offers
+              {t('service.playgrounds.filters.offers')}
             </Text>
             <View style={styles.chipsRow}>
               <Chip
-                label="All"
+                label={t('service.playgrounds.filters.offersAll')}
                 selected={!filters.hasSpecialOffer}
                 onPress={() => setFilters((prev) => ({ ...prev, hasSpecialOffer: false }))}
-                accessibilityLabel="Show all venues"
+                accessibilityLabel={t('service.playgrounds.filters.offersAllAccessibility')}
               />
               <Chip
-                label="Special offers"
+                label={t('service.playgrounds.filters.offersSpecial')}
                 selected={!!filters.hasSpecialOffer}
                 onPress={() => setFilters((prev) => ({ ...prev, hasSpecialOffer: true }))}
-                accessibilityLabel="Show special offers"
+                accessibilityLabel={t('service.playgrounds.filters.offersSpecialAccessibility')}
               />
             </View>
           </View>
 
           <View style={styles.section}>
             <Text variant="bodySmall" weight="semibold">
-              Sort by
+              {t('service.playgrounds.filters.sort.title')}
             </Text>
             <View style={styles.chipsRow}>
               <Chip
-                label="Top rated"
+                label={t('service.playgrounds.filters.sort.topRated')}
                 selected={filters.sortBy === 'rating_desc'}
                 onPress={() => setFilters((prev) => ({ ...prev, sortBy: 'rating_desc' }))}
-                accessibilityLabel="Sort by top rated"
+                accessibilityLabel={t('service.playgrounds.filters.sort.topRatedAccessibility')}
               />
               <Chip
-                label="Lowest price"
+                label={t('service.playgrounds.filters.sort.lowestPrice')}
                 selected={filters.sortBy === 'price_asc'}
                 onPress={() => setFilters((prev) => ({ ...prev, sortBy: 'price_asc' }))}
-                accessibilityLabel="Sort by lowest price"
+                accessibilityLabel={t('service.playgrounds.filters.sort.lowestPriceAccessibility')}
               />
             </View>
           </View>
         </ScrollView>
 
         <View style={[styles.footer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Button variant="secondary" onPress={handleReset} accessibilityLabel="Reset filters">
-            Reset
+          <Button
+            variant="secondary"
+            onPress={handleReset}
+            accessibilityLabel={t('service.playgrounds.filters.resetAccessibility')}
+          >
+            {t('service.playgrounds.filters.reset')}
           </Button>
-          <Button onPress={handleApply} accessibilityLabel="Apply filters">
-            Apply filters
+          <Button onPress={handleApply} accessibilityLabel={t('service.playgrounds.filters.applyAccessibility')}>
+            {t('service.playgrounds.filters.apply')}
           </Button>
         </View>
       </View>
@@ -316,7 +332,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(0,0,0,0.05)',
   },
   footer: {
     borderTopWidth: 1,

@@ -3,6 +3,7 @@ import { ImageBackground, Platform, Pressable, StyleSheet, View } from 'react-na
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { MapPin, Star, Tag } from 'lucide-react-native';
 
+import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Text } from '../ui/Text';
 import { Chip } from '../ui/Chip';
@@ -22,6 +23,7 @@ export function VenueCard({
   onPress,
 }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const scale = useSharedValue(1);
 
   const pressIn = useCallback(() => {
@@ -41,10 +43,10 @@ export function VenueCard({
       onPress={onPress}
       onPressIn={pressIn}
       onPressOut={pressOut}
-      android_ripple={Platform.OS === 'android' ? { color: 'rgba(0,0,0,0.08)' } : undefined}
+      android_ripple={Platform.OS === 'android' ? { color: colors.surfaceElevated } : undefined}
       style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, animatedStyle]}
       accessibilityRole="button"
-      accessibilityLabel={`View ${title} details`}
+      accessibilityLabel={t('service.playgrounds.cards.viewDetails', { title })}
     >
       <View style={styles.coverWrap}>
         {imageUrl ? (
@@ -55,7 +57,7 @@ export function VenueCard({
         {rating !== null && rating !== undefined ? (
           <View style={[styles.ratingBadge, { backgroundColor: colors.surface }]}>
             <Star size={12} color={colors.accentOrange} />
-            <Text variant="caption" weight="bold" style={{ marginLeft: spacing.xs }}>
+            <Text variant="caption" weight="bold" style={{ marginStart: spacing.xs }}>
               {Number(rating).toFixed(1)}
             </Text>
           </View>
@@ -63,8 +65,8 @@ export function VenueCard({
         {hasOffer ? (
           <View style={[styles.discountBadge, { backgroundColor: colors.accentOrange }]}>
             <Tag size={12} color={colors.white} />
-            <Text variant="caption" weight="bold" style={{ marginLeft: spacing.xs, color: colors.white }}>
-              {discountLabel || 'Offer'}
+            <Text variant="caption" weight="bold" style={{ marginStart: spacing.xs, color: colors.white }}>
+              {discountLabel || t('service.playgrounds.cards.offer')}
             </Text>
           </View>
         ) : null}
@@ -75,14 +77,14 @@ export function VenueCard({
         </Text>
         <View style={styles.locationRow}>
           <MapPin size={14} color={colors.textMuted} />
-          <Text variant="bodySmall" color={colors.textSecondary} style={{ marginLeft: spacing.xs }}>
-            {location || 'Location pending'}
+          <Text variant="bodySmall" color={colors.textSecondary} style={{ marginStart: spacing.xs }}>
+            {location || t('service.playgrounds.common.locationPending')}
           </Text>
         </View>
         <View style={styles.footer}>
           {activityLabel ? <Chip label={activityLabel} /> : null}
           <Text variant="bodySmall" weight="semibold">
-            {priceLabel || 'Check pricing'}
+            {priceLabel || t('service.playgrounds.cards.checkPricing')}
           </Text>
         </View>
       </View>

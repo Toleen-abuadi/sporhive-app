@@ -327,5 +327,457 @@
     "subtitle": "Discover academies, book playgrounds, and track your sports journey in one place.",
     "cta": "Explore Services",
     "logoLabel": "SporHive logo"
+  },
+  "service": {
+    "playgrounds": {
+      "common": {
+        "placeholder": "—",
+        "fromPrice": "From {{price}}",
+        "multiSport": "Multi-sport",
+        "playground": "Playground",
+        "venue": "Venue",
+        "academy": "Academy",
+        "locationPending": "Location pending",
+        "retry": "Retry",
+        "timeTbd": "TBD",
+        "errors": {
+          "generic": "Something went wrong. Please try again."
+        }
+      },
+      "nav": {
+        "explore": "Explore",
+        "bookings": "Bookings",
+        "offers": "Offers",
+        "profile": "Profile"
+      },
+      "explore": {
+        "title": "Playgrounds",
+        "search": {
+          "label": "Search",
+          "placeholder": "Search by venue or location",
+          "accessibilityLabel": "Search venues"
+        },
+        "filters": {
+          "button": "Filters",
+          "applyAccessibility": "Apply filters",
+          "pickDate": "Pick date",
+          "dateSelected": "Date: {{date}}",
+          "players": "{{count}} players",
+          "offers": "Offers"
+        },
+        "activityFallback": "Activity",
+        "tabs": {
+          "all": "All",
+          "offers": "Offers",
+          "allAccessibility": "All venues",
+          "offersAccessibility": "Offers"
+        },
+        "errors": {
+          "title": "Unable to load",
+          "load": "Unable to load playgrounds right now."
+        },
+        "empty": {
+          "title": "No venues found",
+          "message": "Try adjusting filters or resetting your search.",
+          "action": "Reset filters"
+        },
+        "loading": "Loading playgrounds..."
+      },
+      "auth": {
+        "headerTitle": "Playgrounds access",
+        "titles": {
+          "login": "Welcome back",
+          "register": "Create your SporHive account"
+        },
+        "subtitles": {
+          "login": "Sign in to continue your booking and manage reservations.",
+          "register": "Join and book venues faster with your profile."
+        },
+        "tabs": {
+          "signIn": "Sign in",
+          "signUp": "Sign up"
+        },
+        "fields": {
+          "phone": {
+            "label": "Phone number",
+            "placeholder": "+962 7XX XXX XXX",
+            "accessibilityLogin": "Login phone",
+            "accessibilityRegister": "Register phone",
+            "accessibilityReset": "Reset phone"
+          },
+          "password": {
+            "label": "Password",
+            "placeholder": "Enter your password",
+            "createPlaceholder": "Create a strong password",
+            "accessibilityLogin": "Login password",
+            "accessibilityRegister": "Register password"
+          },
+          "confirmPassword": {
+            "label": "Confirm password",
+            "placeholder": "Re-enter your password",
+            "accessibility": "Confirm password"
+          },
+          "firstName": {
+            "label": "First name",
+            "placeholder": "First name",
+            "accessibility": "First name"
+          },
+          "lastName": {
+            "label": "Last name",
+            "placeholder": "Last name",
+            "accessibility": "Last name"
+          },
+          "email": {
+            "label": "Email (optional)",
+            "placeholder": "name@example.com",
+            "accessibility": "Register email"
+          }
+        },
+        "hints": {
+          "phone": "Tip: include country code if needed (e.g., +962…)."
+        },
+        "actions": {
+          "rememberMe": "Remember me",
+          "forgotPassword": "Forgot password?",
+          "continueAccessibility": "Continue",
+          "signIn": "Sign in to continue",
+          "createAccount": "Create account"
+        },
+        "reset": {
+          "title": "Reset your password",
+          "sendCode": "Send reset code",
+          "sendCodeAccessibility": "Send reset code",
+          "codeLabel": "Reset code",
+          "codePlaceholder": "Code from SMS",
+          "codeAccessibility": "Reset code",
+          "newPasswordLabel": "New password",
+          "newPasswordPlaceholder": "New password",
+          "newPasswordAccessibility": "New password",
+          "confirmPasswordLabel": "Confirm password",
+          "confirmPasswordPlaceholder": "Confirm password",
+          "confirmPasswordAccessibility": "Confirm password",
+          "update": "Update password",
+          "updateAccessibility": "Update password",
+          "backToRequest": "Back to code request"
+        },
+        "validation": {
+          "phoneRequired": "Enter your phone number to continue.",
+          "phoneDigits": "Phone number must contain digits only.",
+          "phoneLength": "Phone number must be between 9 and 15 digits.",
+          "loginRequired": "Please enter your phone and password.",
+          "nameRequired": "Please enter your first and last name.",
+          "phoneRequiredRegister": "Please enter your phone number.",
+          "passwordLength": "Password must be at least 6 characters.",
+          "passwordMismatch": "Passwords do not match.",
+          "phoneRequiredReset": "Please enter your phone number.",
+          "resetFields": "Please fill all reset fields."
+        },
+        "errors": {
+          "invalidCredentials": "Invalid phone or password.",
+          "registerFailed": "Unable to create your account. Please try again."
+        },
+        "footerHint": "We’ll resume your booking after you sign in.",
+        "loading": "Checking your account..."
+      },
+      "booking": {
+        "actions": {
+          "back": "Back",
+          "backAccessibility": "Go back",
+          "continue": "Continue",
+          "confirm": "Confirm booking"
+        },
+        "stepCounter": "Step {{current}} of {{total}}",
+        "steps": {
+          "schedule": "Schedule",
+          "players": "Players",
+          "payment": "Payment",
+          "review": "Review"
+        },
+        "titles": {
+          "schedule": "Choose date, time & duration",
+          "players": "Number of players",
+          "payment": "Payment method",
+          "review": "Review & confirm"
+        },
+        "loading": "Preparing your booking...",
+        "errors": {
+          "title": "Booking issue",
+          "loadDraft": "Unable to load booking data.",
+          "loadDurations": "Unable to load durations.",
+          "loadSlots": "Unable to load slots.",
+          "completeSteps": "Please complete all booking steps.",
+          "submit": "Unable to complete booking."
+        },
+        "empty": {
+          "title": "Venue not found",
+          "message": "We couldn't find this venue. Please try again."
+        },
+        "schedule": {
+          "duration": "Duration",
+          "noDurationsTitle": "No durations available",
+          "noDurationsMessage": "Please check again later or select another venue.",
+          "minutesLabel": "{{minutes}} min",
+          "mostPopular": "Most popular",
+          "priceOnRequest": "Price available on request",
+          "date": "Date",
+          "bookingDate": "Booking date",
+          "bookingDatePlaceholder": "YYYY-MM-DD",
+          "bookingDateAccessibility": "Booking date",
+          "today": "Today",
+          "tomorrow": "Tomorrow",
+          "selectDateAccessibility": "Select {{date}}",
+          "availableSlots": "Available time slots",
+          "selectDurationTitle": "Select a duration",
+          "selectDurationMessage": "Pick a duration to see available slots.",
+          "pickDateTitle": "Pick a date",
+          "pickDateMessage": "Select a date to see available time slots.",
+          "noSlotsTitle": "No slots",
+          "noSlotsMessage": "No available slots for this duration on the selected date.",
+          "loadingDurations": "Loading durations...",
+          "loadingSlots": "Loading time slots..."
+        },
+        "players": {
+          "title": "Players",
+          "label": "Players",
+          "allowedRange": "Allowed range: {{min}} - {{max}}",
+          "inputLabel": "Number of players",
+          "placeholder": "2",
+          "accessibilityLabel": "Number of players",
+          "countLabel": "{{count}} players"
+        },
+        "payment": {
+          "title": "Payment method",
+          "subtitle": "Choose how you'd like to pay.",
+          "cash": "Cash",
+          "cliq": "CliQ",
+          "cashTitle": "Pay with cash",
+          "cashSubtitle": "Settle your payment at the academy.",
+          "payOnDate": "Pay on booking date",
+          "payNow": "Pay now",
+          "cashOnDateUnavailable": "Cash on date is not available for this academy.",
+          "cliqTitle": "CliQ transfer",
+          "cliqSubtitle": "Transfer to the academy and upload your screenshot.",
+          "cliqName": "CliQ name: {{name}}",
+          "cliqNumber": "CliQ number: {{number}}",
+          "uploadScreenshot": "Upload screenshot",
+          "uploadRequired": "Upload your CliQ screenshot to continue.",
+          "payOnDateSuffix": "(pay on date)",
+          "payNowSuffix": "(pay now)"
+        },
+        "review": {
+          "title": "Review & confirm",
+          "labels": {
+            "venue": "Venue",
+            "academy": "Academy",
+            "date": "Date",
+            "time": "Time",
+            "duration": "Duration",
+            "players": "Players",
+            "payment": "Payment",
+            "price": "Price"
+          }
+        },
+        "summary": {
+          "total": "Total"
+        },
+        "success": {
+          "title": "✅ Booking confirmed",
+          "message": "Your request has been submitted successfully.",
+          "codeLabel": "Booking code",
+          "viewBookings": "View bookings",
+          "done": "Done",
+          "toastTitle": "Booking confirmed",
+          "toastMessage": "Your booking request was sent."
+        }
+      },
+      "bookings": {
+        "title": "My bookings",
+        "errors": {
+          "title": "Unable to load",
+          "load": "Unable to load bookings."
+        },
+        "empty": {
+          "authTitle": "Sign in required",
+          "authMessage": "Log in to view your playground bookings.",
+          "authAction": "Sign in",
+          "title": "No bookings found",
+          "message": "Try another status filter or explore venues.",
+          "action": "Explore"
+        },
+        "filters": {
+          "labelWithCount": "{{label}} ({{count}})",
+          "accessibility": "Filter {{status}}"
+        },
+        "status": {
+          "all": "All",
+          "pending": "Pending",
+          "approved": "Approved",
+          "rejected": "Rejected",
+          "cancelled": "Cancelled",
+          "custom": "{{status}}"
+        },
+        "labels": {
+          "dateTbd": "Date TBD",
+          "timeTbd": "Time TBD",
+          "dateTime": "{{date}} • {{time}}"
+        },
+        "payment": {
+          "tbd": "Payment TBD",
+          "cash": "Cash",
+          "cliq": "CliQ",
+          "unknown": "Payment: {{payment}}"
+        },
+        "actions": {
+          "call": "Call",
+          "callAccessibility": "Call venue",
+          "whatsapp": "WhatsApp",
+          "whatsappAccessibility": "WhatsApp venue",
+          "cancel": "Cancel",
+          "cancelAccessibility": "Cancel booking"
+        },
+        "cancel": {
+          "title": "Cancel booking?",
+          "message": "Please contact support or the venue to confirm any cancellation policy.",
+          "keep": "Keep booking",
+          "confirm": "Got it"
+        },
+        "loading": "Loading bookings..."
+      },
+      "ratingResolver": {
+        "title": "Rate your experience",
+        "loading": "Resolving rating link...",
+        "invalid": "This rating link is invalid or has expired.",
+        "actions": {
+          "continue": "Continue",
+          "continueAccessibility": "Continue to rating",
+          "back": "Back to explore",
+          "backAccessibility": "Back to explore",
+          "retry": "Retry",
+          "retryAccessibility": "Retry rating link"
+        }
+      },
+      "rating": {
+        "title": "Rate your venue",
+        "subtitle": "Tell us about your experience.",
+        "overall": "Overall rating",
+        "criteria": {
+          "cleanliness": "Cleanliness",
+          "staffService": "Staff service",
+          "fieldQuality": "Field quality",
+          "bookingExperience": "Booking experience",
+          "valueForMoney": "Value for money",
+          "safetySecurity": "Safety & security"
+        },
+        "comment": {
+          "label": "Comment (optional)",
+          "placeholder": "Share a quick note",
+          "accessibility": "Rating comment"
+        },
+        "actions": {
+          "submit": "Submit rating",
+          "submitAccessibility": "Submit rating",
+          "bookings": "Go to bookings",
+          "bookingsAccessibility": "Go to bookings"
+        },
+        "errors": {
+          "alreadyRated": "You have already rated this booking.",
+          "verify": "Unable to verify rating eligibility.",
+          "overallRequired": "Please select an overall rating.",
+          "submit": "Unable to submit rating."
+        },
+        "success": {
+          "title": "Thank you!",
+          "message": "Your feedback helps improve the experience for everyone."
+        },
+        "loading": "Checking rating eligibility..."
+      },
+      "venue": {
+        "errors": {
+          "notFound": "Venue not found.",
+          "load": "Unable to load venue."
+        },
+        "actions": {
+          "getDirections": "Get directions",
+          "share": "Share venue"
+        },
+        "features": {
+          "title": "Features",
+          "bibs": "Bibs provided",
+          "water": "Water available",
+          "toilets": "Toilets",
+          "parking": "Parking",
+          "ac": "Air conditioned",
+          "indoor": "Indoor"
+        },
+        "academy": {
+          "title": "Academy",
+          "defaultName": "SporHive Academy",
+          "specialOffer": "Special offers available for this venue."
+        },
+        "durations": {
+          "title": "Available durations",
+          "empty": "Ask the venue for available durations."
+        },
+        "address": {
+          "title": "Address",
+          "empty": "Details available at booking."
+        },
+        "cta": {
+          "startingAt": "Starting at",
+          "ready": "Ready to book?",
+          "viewAvailability": "View availability",
+          "book": "Book now",
+          "bookAccessibility": "Book this venue"
+        },
+        "loading": "Loading venue details..."
+      },
+      "filters": {
+        "title": "Filters",
+        "active": "Active: {{filters}}",
+        "none": "No active filters",
+        "activity": "Activity",
+        "activityFallback": "Activity",
+        "loadingActivities": "Loading activities...",
+        "noActivities": "No activities available.",
+        "activityAccessibility": "Filter by {{activity}}",
+        "bookingDate": "Booking date",
+        "dateLabel": "Date",
+        "datePlaceholder": "YYYY-MM-DD",
+        "dateAccessibility": "Select booking date",
+        "today": "Today",
+        "clearDate": "Clear date",
+        "players": "Players",
+        "playersCount": "{{count}} players",
+        "decreasePlayers": "Decrease players",
+        "increasePlayers": "Increase players",
+        "location": "Location",
+        "locationLabel": "Location",
+        "locationPlaceholder": "City or area",
+        "locationAccessibility": "Filter by location",
+        "useCurrentArea": "Use current area",
+        "useCurrentAreaAccessibility": "Use current location",
+        "offers": "Offers",
+        "offersAll": "All",
+        "offersAllAccessibility": "Show all venues",
+        "offersSpecial": "Special offers",
+        "offersSpecialAccessibility": "Show special offers",
+        "sort": {
+          "title": "Sort by",
+          "topRated": "Top rated",
+          "topRatedAccessibility": "Sort by top rated",
+          "lowestPrice": "Lowest price",
+          "lowestPriceAccessibility": "Sort by lowest price"
+        },
+        "reset": "Reset",
+        "resetAccessibility": "Reset filters",
+        "apply": "Apply filters",
+        "applyAccessibility": "Apply filters"
+      },
+      "cards": {
+        "viewDetails": "View {{title}} details",
+        "offer": "Offer",
+        "checkPricing": "Check pricing"
+      }
+    }
   }
 }

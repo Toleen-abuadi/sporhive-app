@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader } from '../../components/ui/AppHeader';
@@ -17,6 +18,7 @@ import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { BackButton } from '../../components/ui/BackButton';
+import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 
 import { endpoints } from '../../services/api/endpoints';
 import {
@@ -41,7 +43,7 @@ const RESET_STEPS = {
 
 const normalizePhoneDigits = (raw) => String(raw || '').replace(/[^\d]/g, '');
 
-const validatePhoneRealtime = (raw) => {
+const validatePhoneRealtime = (raw, t) => {
   const v = String(raw || '');
   const digits = normalizePhoneDigits(v);
 
@@ -49,7 +51,7 @@ const validatePhoneRealtime = (raw) => {
     return {
       ok: false,
       soft: true,
-      message: 'Enter your phone number to continue.',
+      message: t('service.playgrounds.auth.validation.phoneRequired'),
     };
   }
 
@@ -58,7 +60,7 @@ const validatePhoneRealtime = (raw) => {
     return {
       ok: false,
       soft: false,
-      message: 'Phone number must contain digits only.',
+      message: t('service.playgrounds.auth.validation.phoneDigits'),
     };
   }
 
@@ -66,26 +68,27 @@ const validatePhoneRealtime = (raw) => {
     return {
       ok: false,
       soft: false,
-      message: 'Phone number must be between 9 and 15 digits.',
+      message: t('service.playgrounds.auth.validation.phoneLength'),
     };
   }
 
   return { ok: true };
 };
 
-const getErrorMessage = (err) => {
+const getErrorMessage = (err, t) => {
   const detail = err?.detail || err?.response?.data?.detail;
   const msg =
     detail ||
     err?.response?.data?.error ||
     err?.response?.data?.message ||
     err?.message ||
-    'Something went wrong. Please try again.';
+    t('service.playgrounds.common.errors.generic');
   return msg;
 };
 
 export function PlaygroundsAuthScreen() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const router = useRouter();
   const { fromBooking } = useLocalSearchParams();
 
@@ -115,6 +118,7 @@ export function PlaygroundsAuthScreen() {
 
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
 
   const [error, setError] = useState('');
   const [loginPhoneHint, setLoginPhoneHint] = useState(null);
@@ -122,14 +126,14 @@ export function PlaygroundsAuthScreen() {
   const [resetPhoneHint, setResetPhoneHint] = useState(null);
 
   const pageTitle = useMemo(() => {
-    if (mode === MODES.REGISTER) return 'Create your SporHive account';
-    return 'Welcome back';
-  }, [mode]);
+    if (mode === MODES.REGISTER) return t('service.playgrounds.auth.titles.register');
+    return t('service.playgrounds.auth.titles.login');
+  }, [mode, t]);
 
   const pageSubtitle = useMemo(() => {
-    if (mode === MODES.REGISTER) return 'Join and book venues faster with your profile.';
-    return 'Sign in to continue your booking and manage reservations.';
-  }, [mode]);
+    if (mode === MODES.REGISTER) return t('service.playgrounds.auth.subtitles.register');
+    return t('service.playgrounds.auth.subtitles.login');
+  }, [mode, t]);
 
   const goAfterAuth = useCallback(async () => {
     const draft = await getBookingDraft();
@@ -141,9 +145,13 @@ export function PlaygroundsAuthScreen() {
   }, [fromBooking, router]);
 
   const restoreSession = useCallback(async () => {
-    const existingUser = await getPublicUser();
-    if (existingUser?.id) {
-      await goAfterAuth();
+    try {
+      const existingUser = await getPublicUser();
+      if (existingUser?.id) {
+        await goAfterAuth();
+      }
+    } finally {
+      setInitializing(false);
     }
   }, [goAfterAuth]);
 
@@ -164,27 +172,27 @@ export function PlaygroundsAuthScreen() {
       setLoginPhoneHint(null);
       return;
     }
-    const res = validatePhoneRealtime(loginPhone);
+    const res = validatePhoneRealtime(loginPhone, t);
     setLoginPhoneHint(res.ok ? null : res);
-  }, [loginPhone]);
+  }, [loginPhone, t]);
 
   useEffect(() => {
     if (!registerPhone) {
       setRegisterPhoneHint(null);
       return;
     }
-    const res = validatePhoneRealtime(registerPhone);
+    const res = validatePhoneRealtime(registerPhone, t);
     setRegisterPhoneHint(res.ok ? null : res);
-  }, [registerPhone]);
+  }, [registerPhone, t]);
 
   useEffect(() => {
     if (!resetPhone) {
       setResetPhoneHint(null);
       return;
     }
-    const res = validatePhoneRealtime(resetPhone);
+    const res = validatePhoneRealtime(resetPhone, t);
     setResetPhoneHint(res.ok ? null : res);
-  }, [resetPhone]);
+  }, [resetPhone, t]);
 
   const openReset = useCallback(() => {
     setError('');
@@ -209,11 +217,11 @@ export function PlaygroundsAuthScreen() {
 
     try {
       if (!loginPhone.trim() || !loginPassword) {
-        setError('Please enter your phone and password.');
+        setError(t('service.playgrounds.auth.validation.loginRequired'));
         return;
       }
 
-      const phoneRes = validatePhoneRealtime(loginPhone);
+      const phoneRes = validatePhoneRealtime(loginPhone, t);
       if (!phoneRes.ok && !phoneRes.soft) {
         setError(phoneRes.message);
         return;
@@ -242,7 +250,7 @@ export function PlaygroundsAuthScreen() {
         null;
 
       if (!user?.id) {
-        setError('Invalid phone or password.');
+        setError(t('service.playgrounds.auth.errors.invalidCredentials'));
         return;
       }
 
@@ -253,11 +261,11 @@ export function PlaygroundsAuthScreen() {
 
       await goAfterAuth();
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
     } finally {
       setLoading(false);
     }
-  }, [goAfterAuth, loginPassword, loginPhone, rememberMe]);
+  }, [goAfterAuth, loginPassword, loginPhone, rememberMe, t]);
 
   const handleRegister = useCallback(async () => {
     setLoading(true);
@@ -265,28 +273,28 @@ export function PlaygroundsAuthScreen() {
 
     try {
       if (!firstName.trim() || !lastName.trim()) {
-        setError('Please enter your first and last name.');
+        setError(t('service.playgrounds.auth.validation.nameRequired'));
         return;
       }
 
       if (!registerPhone.trim()) {
-        setError('Please enter your phone number.');
+        setError(t('service.playgrounds.auth.validation.phoneRequiredRegister'));
         return;
       }
 
-      const phoneRes = validatePhoneRealtime(registerPhone);
+      const phoneRes = validatePhoneRealtime(registerPhone, t);
       if (!phoneRes.ok && !phoneRes.soft) {
         setError(phoneRes.message);
         return;
       }
 
       if (!registerPassword || registerPassword.length < 6) {
-        setError('Password must be at least 6 characters.');
+        setError(t('service.playgrounds.auth.validation.passwordLength'));
         return;
       }
 
       if (registerPassword !== registerConfirmPassword) {
-        setError('Passwords do not match.');
+        setError(t('service.playgrounds.auth.validation.passwordMismatch'));
         return;
       }
 
@@ -316,7 +324,7 @@ export function PlaygroundsAuthScreen() {
         null;
 
       if (!user?.id) {
-        setError('Unable to create your account. Please try again.');
+        setError(t('service.playgrounds.auth.errors.registerFailed'));
         return;
       }
 
@@ -327,7 +335,7 @@ export function PlaygroundsAuthScreen() {
 
       await goAfterAuth();
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
     } finally {
       setLoading(false);
     }
@@ -340,6 +348,7 @@ export function PlaygroundsAuthScreen() {
     registerGender,
     registerPassword,
     registerPhone,
+    t,
   ]);
 
   const handleResetRequest = useCallback(async () => {
@@ -348,11 +357,11 @@ export function PlaygroundsAuthScreen() {
 
     try {
       if (!resetPhone.trim()) {
-        setError('Please enter your phone number.');
+        setError(t('service.playgrounds.auth.validation.phoneRequiredReset'));
         return;
       }
 
-      const phoneRes = validatePhoneRealtime(resetPhone);
+      const phoneRes = validatePhoneRealtime(resetPhone, t);
       if (!phoneRes.ok && !phoneRes.soft) {
         setError(phoneRes.message);
         return;
@@ -365,11 +374,11 @@ export function PlaygroundsAuthScreen() {
 
       setResetStep(RESET_STEPS.CONFIRM);
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
     } finally {
       setResetLoading(false);
     }
-  }, [resetPhone]);
+  }, [resetPhone, t]);
 
   const handleResetConfirm = useCallback(async () => {
     setResetLoading(true);
@@ -377,17 +386,17 @@ export function PlaygroundsAuthScreen() {
 
     try {
       if (!resetPhone.trim() || !resetCode.trim() || !resetNewPassword || !resetConfirmPassword) {
-        setError('Please fill all reset fields.');
+        setError(t('service.playgrounds.auth.validation.resetFields'));
         return;
       }
 
       if (resetNewPassword.length < 6) {
-        setError('Password must be at least 6 characters.');
+        setError(t('service.playgrounds.auth.validation.passwordLength'));
         return;
       }
 
       if (resetNewPassword !== resetConfirmPassword) {
-        setError('Passwords do not match.');
+        setError(t('service.playgrounds.auth.validation.passwordMismatch'));
         return;
       }
 
@@ -404,11 +413,11 @@ export function PlaygroundsAuthScreen() {
       closeReset();
       setMode(MODES.LOGIN);
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
     } finally {
       setResetLoading(false);
     }
-  }, [closeReset, resetCode, resetConfirmPassword, resetNewPassword, resetPhone]);
+  }, [closeReset, resetCode, resetConfirmPassword, resetNewPassword, resetPhone, t]);
 
   const onPrimaryAction = useCallback(() => {
     if (mode === MODES.LOGIN) return handleLogin();
@@ -417,46 +426,59 @@ export function PlaygroundsAuthScreen() {
 
   return (
     <Screen safe>
-      <AppHeader title="Playgrounds access" leftSlot={<BackButton />} />
+      <AppHeader title={t('service.playgrounds.auth.headerTitle')} leftSlot={<BackButton />} />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+      {initializing ? (
+        <SporHiveLoader message={t('service.playgrounds.auth.loading')} />
+      ) : (
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
         >
-          {/* Hero (mirror web card header) */}
-          <View style={styles.hero}>
-            <Text variant="title" style={{ textAlign: 'center' }}>
-              {pageTitle}
-            </Text>
-            <Text
-              variant="bodySmall"
-              color={colors.textSecondary}
-              style={{ textAlign: 'center', marginTop: spacing.xs }}
-            >
-              {pageSubtitle}
-            </Text>
-          </View>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Hero (mirror web card header) */}
+            <View style={styles.hero}>
+              <Text variant="title" style={{ textAlign: 'center' }}>
+                {pageTitle}
+              </Text>
+              <Text
+                variant="bodySmall"
+                color={colors.textSecondary}
+                style={{ textAlign: 'center', marginTop: spacing.xs }}
+              >
+                {pageSubtitle}
+              </Text>
+            </View>
 
           {/* Auth Card */}
-          <View style={[styles.card, { borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.card,
+              { borderColor: colors.border, backgroundColor: colors.surface },
+            ]}
+          >
             <SegmentedControl
               value={mode}
               onChange={onChangeMode}
               options={[
-                { value: MODES.LOGIN, label: 'Sign in' },
-                { value: MODES.REGISTER, label: 'Sign up' },
+                { value: MODES.LOGIN, label: t('service.playgrounds.auth.tabs.signIn') },
+                { value: MODES.REGISTER, label: t('service.playgrounds.auth.tabs.signUp') },
               ]}
             />
 
             {/* Error (mirror web alert box) */}
             {error ? (
-              <View style={[styles.errorBox, { borderColor: colors.error }]}>
+              <View
+                style={[
+                  styles.errorBox,
+                  { borderColor: colors.error, backgroundColor: colors.surfaceElevated },
+                ]}
+              >
                 <Text variant="caption" color={colors.error} style={{ flex: 1 }}>
                   {error}
                 </Text>
@@ -472,12 +494,12 @@ export function PlaygroundsAuthScreen() {
             {mode === MODES.LOGIN ? (
               <>
                 <Input
-                  label="Phone number"
+                  label={t('service.playgrounds.auth.fields.phone.label')}
                   value={loginPhone}
                   onChangeText={setLoginPhone}
-                  placeholder="+962 7XX XXX XXX"
+                  placeholder={t('service.playgrounds.auth.fields.phone.placeholder')}
                   keyboardType="phone-pad"
-                  accessibilityLabel="Login phone"
+                  accessibilityLabel={t('service.playgrounds.auth.fields.phone.accessibilityLogin')}
                 />
                 {loginPhoneHint?.message ? (
                   <Text
@@ -489,17 +511,17 @@ export function PlaygroundsAuthScreen() {
                   </Text>
                 ) : (
                   <Text variant="caption" color={colors.textSecondary} style={{ marginTop: -6 }}>
-                    Tip: include country code if needed (e.g., +962…).
+                    {t('service.playgrounds.auth.hints.phone')}
                   </Text>
                 )}
 
                 <Input
-                  label="Password"
+                  label={t('service.playgrounds.auth.fields.password.label')}
                   value={loginPassword}
                   onChangeText={setLoginPassword}
-                  placeholder="Enter your password"
+                  placeholder={t('service.playgrounds.auth.fields.password.placeholder')}
                   secureTextEntry
-                  accessibilityLabel="Login password"
+                  accessibilityLabel={t('service.playgrounds.auth.fields.password.accessibilityLogin')}
                 />
 
                 {/* Remember me + Forgot password (mirror web row) */}
@@ -513,29 +535,37 @@ export function PlaygroundsAuthScreen() {
                       style={[
                         styles.checkbox,
                         {
-                          borderColor: rememberMe ? colors.primary : colors.border,
-                          backgroundColor: rememberMe ? colors.primary : 'transparent',
+                          borderColor: rememberMe ? colors.accentOrange : colors.border,
+                          backgroundColor: rememberMe ? colors.accentOrange : colors.surface,
                         },
                       ]}
                     />
                     <Text variant="bodySmall" color={colors.textSecondary}>
-                      Remember me
+                      {t('service.playgrounds.auth.actions.rememberMe')}
                     </Text>
                   </Pressable>
 
                   <Pressable onPress={openReset} hitSlop={10}>
-                    <Text variant="bodySmall" color={colors.primary}>
-                      Forgot password?
+                    <Text variant="bodySmall" color={colors.accentOrange}>
+                      {t('service.playgrounds.auth.actions.forgotPassword')}
                     </Text>
                   </Pressable>
                 </View>
 
                 {/* Reset panel (inline, 2 steps) */}
                 {resetOpen ? (
-                  <View style={[styles.resetPanel, { borderColor: colors.border }]}>
+                  <View
+                    style={[
+                      styles.resetPanel,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.surfaceElevated,
+                      },
+                    ]}
+                  >
                     <View style={styles.rowBetween}>
                       <Text variant="bodySmall" style={{ fontWeight: '700' }}>
-                        Reset your password
+                        {t('service.playgrounds.auth.reset.title')}
                       </Text>
                       <Pressable onPress={closeReset} hitSlop={10}>
                         <Text variant="bodySmall" color={colors.textSecondary}>
@@ -547,12 +577,12 @@ export function PlaygroundsAuthScreen() {
                     {resetStep === RESET_STEPS.REQUEST ? (
                       <>
                         <Input
-                          label="Phone number"
+                          label={t('service.playgrounds.auth.fields.phone.label')}
                           value={resetPhone}
                           onChangeText={setResetPhone}
-                          placeholder="+962 7XX XXX XXX"
+                          placeholder={t('service.playgrounds.auth.fields.phone.placeholder')}
                           keyboardType="phone-pad"
-                          accessibilityLabel="Reset phone"
+                          accessibilityLabel={t('service.playgrounds.auth.fields.phone.accessibilityReset')}
                         />
                         {resetPhoneHint?.message ? (
                           <Text
@@ -567,46 +597,46 @@ export function PlaygroundsAuthScreen() {
                         <Button
                           onPress={handleResetRequest}
                           loading={resetLoading}
-                          accessibilityLabel="Send reset code"
+                          accessibilityLabel={t('service.playgrounds.auth.reset.sendCodeAccessibility')}
                         >
-                          Send reset code
+                          {t('service.playgrounds.auth.reset.sendCode')}
                         </Button>
                       </>
                     ) : (
                       <>
                         <Input
-                          label="Reset code"
+                          label={t('service.playgrounds.auth.reset.codeLabel')}
                           value={resetCode}
                           onChangeText={setResetCode}
-                          placeholder="Code from SMS"
+                          placeholder={t('service.playgrounds.auth.reset.codePlaceholder')}
                           keyboardType="number-pad"
-                          accessibilityLabel="Reset code"
+                          accessibilityLabel={t('service.playgrounds.auth.reset.codeAccessibility')}
                         />
 
                         <Input
-                          label="New password"
+                          label={t('service.playgrounds.auth.reset.newPasswordLabel')}
                           value={resetNewPassword}
                           onChangeText={setResetNewPassword}
-                          placeholder="New password"
+                          placeholder={t('service.playgrounds.auth.reset.newPasswordPlaceholder')}
                           secureTextEntry
-                          accessibilityLabel="New password"
+                          accessibilityLabel={t('service.playgrounds.auth.reset.newPasswordAccessibility')}
                         />
 
                         <Input
-                          label="Confirm password"
+                          label={t('service.playgrounds.auth.reset.confirmPasswordLabel')}
                           value={resetConfirmPassword}
                           onChangeText={setResetConfirmPassword}
-                          placeholder="Confirm password"
+                          placeholder={t('service.playgrounds.auth.reset.confirmPasswordPlaceholder')}
                           secureTextEntry
-                          accessibilityLabel="Confirm password"
+                          accessibilityLabel={t('service.playgrounds.auth.reset.confirmPasswordAccessibility')}
                         />
 
                         <Button
                           onPress={handleResetConfirm}
                           loading={resetLoading}
-                          accessibilityLabel="Update password"
+                          accessibilityLabel={t('service.playgrounds.auth.reset.updateAccessibility')}
                         >
-                          Update password
+                          {t('service.playgrounds.auth.reset.update')}
                         </Button>
 
                         <Pressable
@@ -619,7 +649,7 @@ export function PlaygroundsAuthScreen() {
                             color={colors.textSecondary}
                             style={{ textAlign: 'center' }}
                           >
-                            Back to code request
+                            {t('service.playgrounds.auth.reset.backToRequest')}
                           </Text>
                         </Pressable>
                       </>
@@ -634,30 +664,30 @@ export function PlaygroundsAuthScreen() {
               <>
                 <View style={styles.row}>
                   <Input
-                    label="First name"
+                    label={t('service.playgrounds.auth.fields.firstName.label')}
                     value={firstName}
                     onChangeText={setFirstName}
-                    placeholder="First name"
+                    placeholder={t('service.playgrounds.auth.fields.firstName.placeholder')}
                     style={styles.rowInput}
-                    accessibilityLabel="First name"
+                    accessibilityLabel={t('service.playgrounds.auth.fields.firstName.accessibility')}
                   />
                   <Input
-                    label="Last name"
+                    label={t('service.playgrounds.auth.fields.lastName.label')}
                     value={lastName}
                     onChangeText={setLastName}
-                    placeholder="Last name"
+                    placeholder={t('service.playgrounds.auth.fields.lastName.placeholder')}
                     style={styles.rowInput}
-                    accessibilityLabel="Last name"
+                    accessibilityLabel={t('service.playgrounds.auth.fields.lastName.accessibility')}
                   />
                 </View>
 
                 <Input
-                  label="Phone number"
+                  label={t('service.playgrounds.auth.fields.phone.label')}
                   value={registerPhone}
                   onChangeText={setRegisterPhone}
-                  placeholder="+962 7XX XXX XXX"
+                  placeholder={t('service.playgrounds.auth.fields.phone.placeholder')}
                   keyboardType="phone-pad"
-                  accessibilityLabel="Register phone"
+                  accessibilityLabel={t('service.playgrounds.auth.fields.phone.accessibilityRegister')}
                 />
                 {registerPhoneHint?.message ? (
                   <Text
@@ -669,56 +699,63 @@ export function PlaygroundsAuthScreen() {
                   </Text>
                 ) : (
                   <Text variant="caption" color={colors.textSecondary} style={{ marginTop: -6 }}>
-                    Tip: include country code if needed (e.g., +962…).
+                    {t('service.playgrounds.auth.hints.phone')}
                   </Text>
                 )}
 
                 <Input
-                  label="Email (optional)"
+                  label={t('service.playgrounds.auth.fields.email.label')}
                   value={registerEmail}
                   onChangeText={setRegisterEmail}
-                  placeholder="name@example.com"
+                  placeholder={t('service.playgrounds.auth.fields.email.placeholder')}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  accessibilityLabel="Register email"
+                  accessibilityLabel={t('service.playgrounds.auth.fields.email.accessibility')}
                 />
 
                 {/* If you want a gender selector later, you can swap this Input to a Select/Picker component */}
                 {/* <Input label="Gender (optional)" value={registerGender} onChangeText={setRegisterGender} /> */}
 
                 <Input
-                  label="Password"
+                  label={t('service.playgrounds.auth.fields.password.label')}
                   value={registerPassword}
                   onChangeText={setRegisterPassword}
-                  placeholder="Create a strong password"
+                  placeholder={t('service.playgrounds.auth.fields.password.createPlaceholder')}
                   secureTextEntry
-                  accessibilityLabel="Register password"
+                  accessibilityLabel={t('service.playgrounds.auth.fields.password.accessibilityRegister')}
                 />
 
                 <Input
-                  label="Confirm password"
+                  label={t('service.playgrounds.auth.fields.confirmPassword.label')}
                   value={registerConfirmPassword}
                   onChangeText={setRegisterConfirmPassword}
-                  placeholder="Re-enter your password"
+                  placeholder={t('service.playgrounds.auth.fields.confirmPassword.placeholder')}
                   secureTextEntry
-                  accessibilityLabel="Register confirm password"
+                  accessibilityLabel={t('service.playgrounds.auth.fields.confirmPassword.accessibility')}
                 />
               </>
             ) : null}
 
-            <Button onPress={onPrimaryAction} loading={loading} accessibilityLabel="Continue">
-              {mode === MODES.LOGIN ? 'Sign in to continue' : 'Create account'}
+            <Button
+              onPress={onPrimaryAction}
+              loading={loading}
+              accessibilityLabel={t('service.playgrounds.auth.actions.continueAccessibility')}
+            >
+              {mode === MODES.LOGIN
+                ? t('service.playgrounds.auth.actions.signIn')
+                : t('service.playgrounds.auth.actions.createAccount')}
             </Button>
 
             {/* Footer hint (mirror: resume booking) */}
             <View style={styles.footerHint}>
               <Text variant="bodySmall" color={colors.textSecondary} style={{ textAlign: 'center' }}>
-                We’ll resume your booking after you sign in.
+                {t('service.playgrounds.auth.footerHint')}
               </Text>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      )}
     </Screen>
   );
 }

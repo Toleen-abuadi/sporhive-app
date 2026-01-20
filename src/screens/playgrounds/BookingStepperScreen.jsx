@@ -12,6 +12,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 
 import { useToast } from '../../components/ui/ToastHost';
+import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
@@ -20,8 +21,7 @@ import { Chip } from '../../components/ui/Chip';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
-import { LoadingState } from '../../components/ui/LoadingState';
-import { Skeleton } from '../../components/ui/Skeleton';
+import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { endpoints } from '../../services/api/endpoints';
 import {
   getBookingDraft,
@@ -31,7 +31,6 @@ import {
 } from '../../services/playgrounds/storage';
 import { borderRadius, shadows, spacing } from '../../theme/tokens';
 
-const STEP_LABELS = ['Schedule', 'Players', 'Payment', 'Review'];
 const QUICK_PLAYER_SUGGESTIONS = [2, 4, 6, 8];
 const CURRENCY = 'JOD';
 
@@ -39,10 +38,10 @@ function formatIsoDate(date) {
   return date.toISOString().slice(0, 10);
 }
 
-function formatSlotLabel(slot) {
+function formatSlotLabel(slot, t) {
   const start = slot?.start_time || slot?.start || '';
   const end = slot?.end_time || slot?.end || '';
-  if (!start && !end) return 'TBD';
+  if (!start && !end) return t('service.playgrounds.common.timeTbd');
   if (!end) return start;
   return `${start} - ${end}`;
 }
@@ -62,7 +61,7 @@ function buildDraftPayload(venueId, state) {
   };
 }
 
-function StepperHeader({ currentStep, onBack, colors }) {
+function StepperHeader({ currentStep, onBack, colors, stepLabels, t }) {
   return (
     <View style={styles.stepperHeader}>
       <View style={styles.stepperTopRow}>
@@ -80,14 +79,17 @@ function StepperHeader({ currentStep, onBack, colors }) {
             },
           ]}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('service.playgrounds.booking.actions.backAccessibility')}
         >
           <Text variant="bodySmall" weight="semibold">
-            Back
+            {t('service.playgrounds.booking.actions.back')}
           </Text>
         </Pressable>
         <Text variant="bodySmall" color={colors.textSecondary}>
-          Step {currentStep + 1} of {STEP_LABELS.length}
+          {t('service.playgrounds.booking.stepCounter', {
+            current: currentStep + 1,
+            total: stepLabels.length,
+          })}
         </Text>
       </View>
       <View
@@ -101,13 +103,13 @@ function StepperHeader({ currentStep, onBack, colors }) {
             styles.progressBar,
             {
               backgroundColor: colors.accentOrange,
-              width: `${((currentStep + 1) / STEP_LABELS.length) * 100}%`,
+              width: `${((currentStep + 1) / stepLabels.length) * 100}%`,
             },
           ]}
         />
       </View>
       <View style={styles.stepLabelRow}>
-        {STEP_LABELS.map((label, index) => {
+        {stepLabels.map((label, index) => {
           const isActive = index === currentStep;
           const isDone = index < currentStep;
           return (
@@ -162,23 +164,33 @@ function StickyFooterCTA({
   disableBack,
   disableNext,
   submitting,
+  colors,
+  stepLabels,
+  t,
 }) {
   const primaryLabel =
-    currentStep < STEP_LABELS.length - 1 ? 'Continue' : 'Confirm booking';
+    currentStep < stepLabels.length - 1
+      ? t('service.playgrounds.booking.actions.continue')
+      : t('service.playgrounds.booking.actions.confirm');
 
   return (
-    <View style={styles.stickyFooter}>
+    <View
+      style={[
+        styles.stickyFooter,
+        { backgroundColor: colors.surface, borderTopColor: colors.border },
+      ]}
+    >
       <View>
-        <Text variant="bodySmall" color="#8A8A8A">
-          Total
+        <Text variant="bodySmall" color={colors.textSecondary}>
+          {t('service.playgrounds.booking.summary.total')}
         </Text>
         <Text variant="bodySmall" weight="semibold">
-          {priceLabel || '--'}
+          {priceLabel || t('service.playgrounds.common.placeholder')}
         </Text>
       </View>
       <View style={styles.footerButtons}>
         <Button variant="secondary" onPress={onBack} disabled={disableBack}>
-          Back
+          {t('service.playgrounds.booking.actions.back')}
         </Button>
         <Button onPress={onNext} disabled={disableNext} loading={submitting}>
           {primaryLabel}
@@ -190,6 +202,7 @@ function StickyFooterCTA({
 
 export function BookingStepperScreen() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const router = useRouter();
   const { venueId } = useLocalSearchParams();
   const toast = useToast();
@@ -330,11 +343,11 @@ export function BookingStepperScreen() {
         }
       }
     } catch (err) {
-      setErrorText(err?.message || 'Unable to load booking data.');
+      setErrorText(err?.message || t('service.playgrounds.booking.errors.loadDraft'));
     } finally {
       setLoading(false);
     }
-  }, [venueId]);
+  }, [t, venueId]);
 
   const loadDurations = useCallback(async () => {
     if (!venue?.id) return;
@@ -368,11 +381,11 @@ export function BookingStepperScreen() {
         }
       }
     } catch (err) {
-      setErrorText(err?.message || 'Unable to load durations.');
+      setErrorText(err?.message || t('service.playgrounds.booking.errors.loadDurations'));
     } finally {
       setDurationsLoading(false);
     }
-  }, [selectedDurationId, venue?.id]);
+  }, [selectedDurationId, t, venue?.id]);
 
   const loadSlots = useCallback(
     async (dateValue, durationValue) => {
@@ -401,12 +414,12 @@ export function BookingStepperScreen() {
       } catch (err) {
         setSlots([]);
         setSelectedSlot(null);
-        setErrorText(err?.message || 'Unable to load slots.');
+        setErrorText(err?.message || t('service.playgrounds.booking.errors.loadSlots'));
       } finally {
         setSlotsLoading(false);
       }
     },
-    [venue?.id]
+    [t, venue?.id]
   );
 
   useEffect(() => {
@@ -458,6 +471,16 @@ export function BookingStepperScreen() {
     }
   }, [allowCash, allowCashOnDate, allowCliq, cashOnDate, paymentType]);
 
+  const stepLabels = useMemo(
+    () => [
+      t('service.playgrounds.booking.steps.schedule'),
+      t('service.playgrounds.booking.steps.players'),
+      t('service.playgrounds.booking.steps.payment'),
+      t('service.playgrounds.booking.steps.review'),
+    ],
+    [t]
+  );
+
   const handleSelectDuration = useCallback((id) => {
     setSelectedDurationId(String(id));
     setSelectedSlot(null);
@@ -472,12 +495,12 @@ export function BookingStepperScreen() {
 
   const handleNextStep = useCallback(() => {
     if (currentStep === 2 && paymentType === 'cliq' && !cliqImage) {
-      setInlinePaymentError('Upload your CliQ screenshot to continue.');
+      setInlinePaymentError(t('service.playgrounds.booking.payment.uploadRequired'));
       return;
     }
     setInlinePaymentError('');
-    setCurrentStep((prev) => Math.min(prev + 1, STEP_LABELS.length - 1));
-  }, [cliqImage, currentStep, paymentType]);
+    setCurrentStep((prev) => Math.min(prev + 1, stepLabels.length - 1));
+  }, [cliqImage, currentStep, paymentType, stepLabels.length, t]);
 
   const handleBackStep = useCallback(() => {
     setCurrentStep((prev) => Math.max(prev - 1, 0));
@@ -496,7 +519,7 @@ export function BookingStepperScreen() {
 
   const handleSubmitBooking = useCallback(async () => {
     if (!allValid || !selectedDuration || !selectedSlot) {
-      setErrorText('Please complete all booking steps.');
+      setErrorText(t('service.playgrounds.booking.errors.completeSteps'));
       return;
     }
 
@@ -508,7 +531,7 @@ export function BookingStepperScreen() {
 
     if (paymentType === 'cliq' && !cliqImage) {
       setCurrentStep(2);
-      setInlinePaymentError('Upload your CliQ screenshot to continue.');
+      setInlinePaymentError(t('service.playgrounds.booking.payment.uploadRequired'));
       return;
     }
 
@@ -543,8 +566,8 @@ export function BookingStepperScreen() {
 
       await setBookingDraft(null);
 
-      toast.success('Your booking request was sent.', {
-        title: 'Booking confirmed',
+      toast.success(t('service.playgrounds.booking.success.toastMessage'), {
+        title: t('service.playgrounds.booking.success.toastTitle'),
       });
       setBookingResult(res?.data || res || null);
       setBookingSuccess(true);
@@ -552,7 +575,7 @@ export function BookingStepperScreen() {
         router.replace('/playgrounds/bookings');
       }, 30000);
     } catch (err) {
-      setErrorText(err?.message || 'Unable to complete booking.');
+      setErrorText(err?.message || t('service.playgrounds.booking.errors.submit'));
     } finally {
       setSubmitting(false);
     }
@@ -568,6 +591,7 @@ export function BookingStepperScreen() {
     router,
     selectedDuration,
     selectedSlot,
+    t,
     toast,
     venue?.academy_profile_id,
     venue?.activity_id,
@@ -594,22 +618,22 @@ export function BookingStepperScreen() {
 
   const stepTitle =
     currentStep === 0
-      ? 'Choose date, time & duration'
+      ? t('service.playgrounds.booking.titles.schedule')
       : currentStep === 1
-      ? 'Number of players'
+      ? t('service.playgrounds.booking.titles.players')
       : currentStep === 2
-      ? 'Payment method'
-      : 'Review & confirm';
+      ? t('service.playgrounds.booking.titles.payment')
+      : t('service.playgrounds.booking.titles.review');
 
   const priceLabel =
     basePrice !== null && basePrice !== undefined
       ? `${basePrice} ${CURRENCY}`
-      : '--';
+      : t('service.playgrounds.common.placeholder');
 
   if (loading) {
     return (
       <Screen safe>
-        <LoadingState message="Preparing your booking..." />
+        <SporHiveLoader message={t('service.playgrounds.booking.loading')} />
       </Screen>
     );
   }
@@ -618,7 +642,7 @@ export function BookingStepperScreen() {
     return (
       <Screen safe>
         <ErrorState
-          title="Booking issue"
+          title={t('service.playgrounds.booking.errors.title')}
           message={errorText}
           onAction={loadVenue}
         />
@@ -630,8 +654,8 @@ export function BookingStepperScreen() {
     return (
       <Screen safe>
         <EmptyState
-          title="Venue not found"
-          message="We couldn't find this venue. Please try again."
+          title={t('service.playgrounds.booking.empty.title')}
+          message={t('service.playgrounds.booking.empty.message')}
         />
       </Screen>
     );
@@ -643,6 +667,8 @@ export function BookingStepperScreen() {
         currentStep={currentStep}
         onBack={handleBackStep}
         colors={colors}
+        stepLabels={stepLabels}
+        t={t}
       />
       <ScrollView
         contentContainerStyle={styles.container}
@@ -650,7 +676,7 @@ export function BookingStepperScreen() {
       >
         <View style={styles.stepHeader}>
           <Text variant="bodySmall" color={colors.textSecondary}>
-            {venue?.academy_profile?.public_name || 'Academy'}
+            {venue?.academy_profile?.public_name || t('service.playgrounds.common.academy')}
           </Text>
           <Text variant="h4" weight="semibold">
             {stepTitle}
@@ -662,18 +688,20 @@ export function BookingStepperScreen() {
             <View style={styles.sectionHeaderRow}>
               <CalendarDays size={18} color={colors.textMuted} />
               <Text variant="bodySmall" weight="semibold">
-                Duration
+                {t('service.playgrounds.booking.schedule.duration')}
               </Text>
             </View>
             {durationsLoading ? (
-              <View style={styles.skeletonGroup}>
-                <Skeleton height={72} />
-                <Skeleton height={72} />
-              </View>
+              <SporHiveLoader
+                message={t('service.playgrounds.booking.schedule.loadingDurations')}
+                size={72}
+                style={styles.inlineLoader}
+                contentStyle={styles.inlineLoaderContent}
+              />
             ) : durations.length === 0 ? (
               <EmptyState
-                title="No durations available"
-                message="Please check again later or select another venue."
+                title={t('service.playgrounds.booking.schedule.noDurationsTitle')}
+                message={t('service.playgrounds.booking.schedule.noDurationsMessage')}
               />
             ) : (
               <View style={styles.durationCards}>
@@ -701,7 +729,7 @@ export function BookingStepperScreen() {
                     >
                       <View style={styles.durationCardTop}>
                         <Text variant="bodySmall" weight="semibold">
-                          {minutes} min
+                          {t('service.playgrounds.booking.schedule.minutesLabel', { minutes })}
                         </Text>
                         {duration.is_default ? (
                           <Text
@@ -709,7 +737,7 @@ export function BookingStepperScreen() {
                             color={colors.accentOrange}
                             weight="semibold"
                           >
-                            Most popular
+                            {t('service.playgrounds.booking.schedule.mostPopular')}
                           </Text>
                         ) : null}
                       </View>
@@ -717,7 +745,7 @@ export function BookingStepperScreen() {
                         {duration.base_price !== null &&
                         duration.base_price !== undefined
                           ? `${Number(duration.base_price)} ${CURRENCY}`
-                          : 'Price available on request'}
+                          : t('service.playgrounds.booking.schedule.priceOnRequest')}
                       </Text>
                       {duration.note ? (
                         <Text variant="caption" color={colors.textSecondary}>
@@ -733,28 +761,34 @@ export function BookingStepperScreen() {
             <View style={styles.sectionHeaderRow}>
               <CalendarDays size={18} color={colors.textMuted} />
               <Text variant="bodySmall" weight="semibold">
-                Date
+                {t('service.playgrounds.booking.schedule.date')}
               </Text>
             </View>
             <Input
-              label="Booking date"
+              label={t('service.playgrounds.booking.schedule.bookingDate')}
               value={bookingDate}
               onChangeText={handleSelectDate}
-              placeholder="YYYY-MM-DD"
-              accessibilityLabel="Booking date"
+              placeholder={t('service.playgrounds.booking.schedule.bookingDatePlaceholder')}
+              accessibilityLabel={t('service.playgrounds.booking.schedule.bookingDateAccessibility')}
             />
             <View style={styles.quickDateRow}>
               {quickDates.map((dateValue, index) => {
                 const isSelected = bookingDate === dateValue;
                 const label =
-                  index === 0 ? 'Today' : index === 1 ? 'Tomorrow' : dateValue;
+                  index === 0
+                    ? t('service.playgrounds.booking.schedule.today')
+                    : index === 1
+                    ? t('service.playgrounds.booking.schedule.tomorrow')
+                    : dateValue;
                 return (
                   <Chip
                     key={dateValue}
                     label={label}
                     selected={isSelected}
                     onPress={() => handleSelectDate(dateValue)}
-                    accessibilityLabel={`Select ${dateValue}`}
+                    accessibilityLabel={t('service.playgrounds.booking.schedule.selectDateAccessibility', {
+                      date: dateValue,
+                    })}
                   />
                 );
               })}
@@ -763,37 +797,39 @@ export function BookingStepperScreen() {
             <View style={styles.sectionHeaderRow}>
               <CalendarDays size={18} color={colors.textMuted} />
               <Text variant="bodySmall" weight="semibold">
-                Available time slots
+                {t('service.playgrounds.booking.schedule.availableSlots')}
               </Text>
             </View>
             {!selectedDurationId ? (
               <EmptyState
-                title="Select a duration"
-                message="Pick a duration to see available slots."
+                title={t('service.playgrounds.booking.schedule.selectDurationTitle')}
+                message={t('service.playgrounds.booking.schedule.selectDurationMessage')}
               />
             ) : slotsLoading ? (
-              <View style={styles.skeletonGroup}>
-                <Skeleton height={52} />
-                <Skeleton height={52} />
-              </View>
+              <SporHiveLoader
+                message={t('service.playgrounds.booking.schedule.loadingSlots')}
+                size={72}
+                style={styles.inlineLoader}
+                contentStyle={styles.inlineLoaderContent}
+              />
             ) : !bookingDate ? (
               <EmptyState
-                title="Pick a date"
-                message="Select a date to see available time slots."
+                title={t('service.playgrounds.booking.schedule.pickDateTitle')}
+                message={t('service.playgrounds.booking.schedule.pickDateMessage')}
               />
             ) : slots.length === 0 ? (
               <EmptyState
-                title="No slots"
-                message="No available slots for this duration on the selected date."
+                title={t('service.playgrounds.booking.schedule.noSlotsTitle')}
+                message={t('service.playgrounds.booking.schedule.noSlotsMessage')}
               />
             ) : (
               <View style={styles.slotsGrid}>
                 {slots.map((slot, index) => {
                   const slotKey = slot.id ? String(slot.id) : `${index}`;
-                  const label = formatSlotLabel(slot);
+                  const label = formatSlotLabel(slot, t);
                   const isSelected = selectedSlot?.id
                     ? selectedSlot.id === slot.id
-                    : formatSlotLabel(selectedSlot || {}) === label;
+                    : formatSlotLabel(selectedSlot || {}, t) === label;
                   const phase = getSlotPhase(slot.start_time || slot.start);
                   return (
                     <Chip
@@ -821,14 +857,17 @@ export function BookingStepperScreen() {
             <View style={styles.sectionHeaderRow}>
               <Users size={18} color={colors.textMuted} />
               <Text variant="bodySmall" weight="semibold">
-                Players
+                {t('service.playgrounds.booking.players.title')}
               </Text>
             </View>
             <View
-              style={[styles.playersDisplay, { borderColor: colors.border }]}
+              style={[
+                styles.playersDisplay,
+                { borderColor: colors.border, backgroundColor: colors.surface },
+              ]}
             >
               <Text variant="caption" color={colors.textSecondary}>
-                Players
+                {t('service.playgrounds.booking.players.label')}
               </Text>
               <Text variant="h2" weight="bold">
                 {players}
@@ -853,21 +892,24 @@ export function BookingStepperScreen() {
               </Button>
             </View>
             <Text variant="bodySmall" color={colors.textSecondary}>
-              Allowed range: {minPlayers} - {maxPlayers}
+              {t('service.playgrounds.booking.players.allowedRange', {
+                min: minPlayers,
+                max: maxPlayers,
+              })}
             </Text>
             <Input
-              label="Number of players"
+              label={t('service.playgrounds.booking.players.inputLabel')}
               value={String(players)}
               onChangeText={handlePlayersChange}
-              placeholder="2"
+              placeholder={t('service.playgrounds.booking.players.placeholder')}
               keyboardType="number-pad"
-              accessibilityLabel="Number of players"
+              accessibilityLabel={t('service.playgrounds.booking.players.accessibilityLabel')}
             />
             <View style={styles.quickPlayersRow}>
               {QUICK_PLAYER_SUGGESTIONS.map((count) => (
                 <Chip
                   key={count}
-                  label={`${count} players`}
+                  label={t('service.playgrounds.booking.players.countLabel', { count })}
                   selected={players === count}
                   onPress={() => setPlayers(count)}
                 />
@@ -881,76 +923,96 @@ export function BookingStepperScreen() {
             <View style={styles.sectionHeaderRow}>
               <CreditCard size={18} color={colors.textMuted} />
               <Text variant="bodySmall" weight="semibold">
-                Payment method
+                {t('service.playgrounds.booking.payment.title')}
               </Text>
             </View>
             <Text variant="bodySmall" color={colors.textSecondary}>
-              Choose how you'd like to pay.
+              {t('service.playgrounds.booking.payment.subtitle')}
             </Text>
             <View style={styles.chipsWrap}>
               {allowCash ? (
                 <Chip
-                  label="Cash"
+                  label={t('service.playgrounds.booking.payment.cash')}
                   selected={paymentType === 'cash'}
                   onPress={() => setPaymentType('cash')}
                 />
               ) : null}
               {allowCliq ? (
                 <Chip
-                  label="CliQ"
+                  label={t('service.playgrounds.booking.payment.cliq')}
                   selected={paymentType === 'cliq'}
                   onPress={() => setPaymentType('cliq')}
                 />
               ) : null}
             </View>
             {paymentType === 'cash' ? (
-              <View style={styles.paymentDetailCard}>
+              <View
+                style={[
+                  styles.paymentDetailCard,
+                  {
+                    backgroundColor: colors.accentOrangeSoft,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
                 <Text variant="bodySmall" weight="semibold">
-                  Pay with cash
+                  {t('service.playgrounds.booking.payment.cashTitle')}
                 </Text>
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  Settle your payment at the academy.
+                  {t('service.playgrounds.booking.payment.cashSubtitle')}
                 </Text>
                 {allowCashOnDate ? (
                   <View style={styles.chipsWrap}>
                     <Chip
-                      label="Pay on booking date"
+                      label={t('service.playgrounds.booking.payment.payOnDate')}
                       selected={cashOnDate}
                       onPress={() => setCashOnDate(true)}
                     />
                     <Chip
-                      label="Pay now"
+                      label={t('service.playgrounds.booking.payment.payNow')}
                       selected={!cashOnDate}
                       onPress={() => setCashOnDate(false)}
                     />
                   </View>
                 ) : (
                   <Text variant="caption" color={colors.textSecondary}>
-                    Cash on date is not available for this academy.
+                    {t('service.playgrounds.booking.payment.cashOnDateUnavailable')}
                   </Text>
                 )}
               </View>
             ) : null}
             {paymentType === 'cliq' ? (
-              <View style={styles.paymentDetailCard}>
+              <View
+                style={[
+                  styles.paymentDetailCard,
+                  {
+                    backgroundColor: colors.accentOrangeSoft,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
                 <Text variant="bodySmall" weight="semibold">
-                  CliQ transfer
+                  {t('service.playgrounds.booking.payment.cliqTitle')}
                 </Text>
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  Transfer to the academy and upload your screenshot.
+                  {t('service.playgrounds.booking.payment.cliqSubtitle')}
                 </Text>
                 {(cliqName || cliqNumber) && (
                   <View style={styles.cliqDetails}>
                     {cliqName ? (
-                      <Text variant="bodySmall">CliQ name: {cliqName}</Text>
+                      <Text variant="bodySmall">
+                        {t('service.playgrounds.booking.payment.cliqName', { name: cliqName })}
+                      </Text>
                     ) : null}
                     {cliqNumber ? (
-                      <Text variant="bodySmall">CliQ number: {cliqNumber}</Text>
+                      <Text variant="bodySmall">
+                        {t('service.playgrounds.booking.payment.cliqNumber', { number: cliqNumber })}
+                      </Text>
                     ) : null}
                   </View>
                 )}
                 <Button variant="secondary" onPress={handlePickCliqImage}>
-                  Upload screenshot
+                  {t('service.playgrounds.booking.payment.uploadScreenshot')}
                 </Button>
                 {cliqImage?.uri ? (
                   <Image
@@ -973,59 +1035,70 @@ export function BookingStepperScreen() {
             <View style={styles.sectionHeaderRow}>
               <Check size={18} color={colors.textMuted} />
               <Text variant="bodySmall" weight="semibold">
-                Review & confirm
+                {t('service.playgrounds.booking.review.title')}
               </Text>
             </View>
-            <View style={[styles.summaryCard, { borderColor: colors.border }]}>
+            <View
+              style={[
+                styles.summaryCard,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.surfaceElevated,
+                },
+              ]}
+            >
               <View style={styles.summaryRow}>
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  Venue
+                  {t('service.playgrounds.booking.review.labels.venue')}
                 </Text>
                 <Text variant="bodySmall" weight="semibold">
-                  {venue.name || 'Venue'}
+                  {venue.name || t('service.playgrounds.common.venue')}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  Academy
+                  {t('service.playgrounds.booking.review.labels.academy')}
                 </Text>
                 <Text variant="bodySmall" weight="semibold">
-                  {academy?.public_name || 'Academy'}
+                  {academy?.public_name || t('service.playgrounds.common.academy')}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  Date
+                  {t('service.playgrounds.booking.review.labels.date')}
                 </Text>
                 <Text variant="bodySmall" weight="semibold">
-                  {bookingDate || '--'}
+                  {bookingDate || t('service.playgrounds.common.placeholder')}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  Time
+                  {t('service.playgrounds.booking.review.labels.time')}
                 </Text>
                 <Text variant="bodySmall" weight="semibold">
-                  {selectedSlot ? formatSlotLabel(selectedSlot) : '--'}
+                  {selectedSlot
+                    ? formatSlotLabel(selectedSlot, t)
+                    : t('service.playgrounds.common.placeholder')}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  Duration
+                  {t('service.playgrounds.booking.review.labels.duration')}
                 </Text>
                 <Text variant="bodySmall" weight="semibold">
                   {selectedDuration
-                    ? `${
-                        selectedDuration.minutes ||
-                        selectedDuration.duration_minutes ||
-                        60
-                      } min`
-                    : '--'}
+                    ? t('service.playgrounds.booking.schedule.minutesLabel', {
+                        minutes:
+                          selectedDuration.minutes ||
+                          selectedDuration.duration_minutes ||
+                          60,
+                      })
+                    : t('service.playgrounds.common.placeholder')}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  Players
+                  {t('service.playgrounds.booking.review.labels.players')}
                 </Text>
                 <Text variant="bodySmall" weight="semibold">
                   {players}
@@ -1033,20 +1106,22 @@ export function BookingStepperScreen() {
               </View>
               <View style={styles.summaryRow}>
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  Payment
+                  {t('service.playgrounds.booking.review.labels.payment')}
                 </Text>
                 <Text variant="bodySmall" weight="semibold">
-                  {paymentType}
+                  {paymentType === 'cash'
+                    ? t('service.playgrounds.booking.payment.cash')
+                    : t('service.playgrounds.booking.payment.cliq')}
                   {paymentType === 'cash' && allowCashOnDate
                     ? cashOnDate
-                      ? ' (pay on date)'
-                      : ' (pay now)'
+                      ? ` ${t('service.playgrounds.booking.payment.payOnDateSuffix')}`
+                      : ` ${t('service.playgrounds.booking.payment.payNowSuffix')}`
                     : ''}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  Price
+                  {t('service.playgrounds.booking.review.labels.price')}
                 </Text>
                 <Text variant="bodySmall" weight="semibold">
                   {priceLabel}
@@ -1057,20 +1132,23 @@ export function BookingStepperScreen() {
               <View
                 style={[
                   styles.successCard,
-                  { borderColor: colors.accentOrange },
+                  {
+                    borderColor: colors.accentOrange,
+                    backgroundColor: colors.accentOrangeSoft,
+                  },
                 ]}
               >
                 <Text variant="bodySmall" weight="semibold">
-                  ✅ Booking confirmed
+                  {t('service.playgrounds.booking.success.title')}
                 </Text>
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  Your request has been submitted successfully.
+                  {t('service.playgrounds.booking.success.message')}
                 </Text>
 
                 {bookingResult?.booking_code ? (
                   <View style={{ marginTop: spacing.sm }}>
                     <Text variant="caption" color={colors.textSecondary}>
-                      Booking code
+                      {t('service.playgrounds.booking.success.codeLabel')}
                     </Text>
                     <Text variant="bodySmall" weight="semibold">
                       {bookingResult.booking_code}
@@ -1089,14 +1167,21 @@ export function BookingStepperScreen() {
                     variant="secondary"
                     onPress={() => router.push('/playgrounds/bookings')}
                   >
-                    View bookings
+                    {t('service.playgrounds.booking.success.viewBookings')}
                   </Button>
-                  <Button onPress={() => router.back()}>Done</Button>
+                  <Button onPress={() => router.back()}>
+                    {t('service.playgrounds.booking.success.done')}
+                  </Button>
                 </View>
               </View>
             ) : null}
             {errorText ? (
-              <View style={[styles.errorCard, { borderColor: colors.error }]}>
+              <View
+                style={[
+                  styles.errorCard,
+                  { borderColor: colors.error, backgroundColor: colors.surfaceElevated },
+                ]}
+              >
                 <Text variant="bodySmall" color={colors.error}>
                   {errorText}
                 </Text>
@@ -1112,7 +1197,7 @@ export function BookingStepperScreen() {
         onNext={
           bookingSuccess
             ? () => router.push('/playgrounds/bookings')
-            : currentStep < STEP_LABELS.length - 1
+            : currentStep < stepLabels.length - 1
             ? handleNextStep
             : handleSubmitBooking
         }
@@ -1126,6 +1211,9 @@ export function BookingStepperScreen() {
           (currentStep === 3 && (!allValid || submitting))
         }
         submitting={submitting}
+        colors={colors}
+        stepLabels={stepLabels}
+        t={t}
       />
     </Screen>
   );
@@ -1240,7 +1328,7 @@ const styles = StyleSheet.create({
   paymentDetailCard: {
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    backgroundColor: 'rgba(255, 132, 0, 0.08)',
+    borderWidth: 1,
     gap: spacing.sm,
   },
   cliqDetails: {
@@ -1255,7 +1343,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     gap: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     ...shadows.sm,
   },
   summaryRow: {
@@ -1267,10 +1354,13 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 1,
-    backgroundColor: 'rgba(255, 0, 0, 0.08)',
   },
-  skeletonGroup: {
-    gap: spacing.sm,
+  inlineLoader: {
+    flex: 0,
+    paddingVertical: spacing.lg,
+  },
+  inlineLoaderContent: {
+    paddingHorizontal: spacing.lg,
   },
   stickyFooter: {
     flexDirection: 'row',
@@ -1279,18 +1369,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.08)',
-    backgroundColor: 'white',
   },
   footerButtons: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
-    successCard: {
+  successCard: {
     padding: spacing.md,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
-    backgroundColor: 'rgba(255, 132, 0, 0.10)',
     gap: spacing.xs,
   },
 

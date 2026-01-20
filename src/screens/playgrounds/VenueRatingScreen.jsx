@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader } from '../../components/ui/AppHeader';
@@ -9,16 +10,17 @@ import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { BackButton } from '../../components/ui/BackButton';
+import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { endpoints } from '../../services/api/endpoints';
 import { spacing } from '../../theme/tokens';
 
 const CRITERIA = [
-  { key: 'cleanliness', label: 'Cleanliness' },
-  { key: 'staff_service', label: 'Staff service' },
-  { key: 'field_quality', label: 'Field quality' },
-  { key: 'booking_experience', label: 'Booking experience' },
-  { key: 'value_for_money', label: 'Value for money' },
-  { key: 'safety_security', label: 'Safety & security' },
+  { key: 'cleanliness', labelKey: 'service.playgrounds.rating.criteria.cleanliness' },
+  { key: 'staff_service', labelKey: 'service.playgrounds.rating.criteria.staffService' },
+  { key: 'field_quality', labelKey: 'service.playgrounds.rating.criteria.fieldQuality' },
+  { key: 'booking_experience', labelKey: 'service.playgrounds.rating.criteria.bookingExperience' },
+  { key: 'value_for_money', labelKey: 'service.playgrounds.rating.criteria.valueForMoney' },
+  { key: 'safety_security', labelKey: 'service.playgrounds.rating.criteria.safetySecurity' },
 ];
 
 function StarsRow({ value, onChange, label }) {
@@ -47,6 +49,7 @@ function StarsRow({ value, onChange, label }) {
 
 export function VenueRatingScreen() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const router = useRouter();
   const { bookingId, userId } = useLocalSearchParams();
 
@@ -64,8 +67,10 @@ export function VenueRatingScreen() {
   const [canRate, setCanRate] = useState(true);
   const [message, setMessage] = useState('');
   const [success, setSuccess] = useState(false);
+  const [checkingEligibility, setCheckingEligibility] = useState(true);
 
   const checkCanRate = useCallback(async () => {
+    setCheckingEligibility(true);
     try {
       const res = await endpoints.playgrounds.ratingCanRate({
         booking_id: bookingId,
@@ -74,13 +79,15 @@ export function VenueRatingScreen() {
       const allowed = res?.can_rate ?? res?.data?.can_rate ?? true;
       if (!allowed) {
         setCanRate(false);
-        setMessage(res?.message || 'You have already rated this booking.');
+        setMessage(res?.message || t('service.playgrounds.rating.errors.alreadyRated'));
       }
     } catch (err) {
       setCanRate(false);
-      setMessage(err?.message || 'Unable to verify rating eligibility.');
+      setMessage(err?.message || t('service.playgrounds.rating.errors.verify'));
+    } finally {
+      setCheckingEligibility(false);
     }
-  }, [bookingId, userId]);
+  }, [bookingId, t, userId]);
 
   useEffect(() => {
     checkCanRate();
@@ -88,7 +95,7 @@ export function VenueRatingScreen() {
 
   const handleSubmit = useCallback(async () => {
     if (!rating) {
-      setMessage('Please select an overall rating.');
+      setMessage(t('service.playgrounds.rating.errors.overallRequired'));
       return;
     }
     setLoading(true);
@@ -103,69 +110,84 @@ export function VenueRatingScreen() {
       });
       setSuccess(true);
     } catch (err) {
-      setMessage(err?.message || 'Unable to submit rating.');
+      setMessage(err?.message || t('service.playgrounds.rating.errors.submit'));
     } finally {
       setLoading(false);
     }
-  }, [bookingId, comment, criteria, rating, userId]);
+  }, [bookingId, comment, criteria, rating, t, userId]);
 
   return (
     <Screen safe>
-      <AppHeader title="Rate your venue" leftSlot={<BackButton />} />
-      <View style={styles.container}>
-        <Text variant="bodySmall" color={colors.textSecondary}>
-          Tell us about your experience.
-        </Text>
-        {!canRate ? (
+      <AppHeader title={t('service.playgrounds.rating.title')} leftSlot={<BackButton />} />
+      {checkingEligibility ? (
+        <SporHiveLoader message={t('service.playgrounds.rating.loading')} />
+      ) : (
+        <View style={styles.container}>
           <Text variant="bodySmall" color={colors.textSecondary}>
-            {message}
+            {t('service.playgrounds.rating.subtitle')}
           </Text>
-        ) : success ? (
-          <View style={styles.successCard}>
-            <Text variant="h4" weight="semibold">
-              Thank you!
-            </Text>
+          {!canRate ? (
             <Text variant="bodySmall" color={colors.textSecondary}>
-              Your feedback helps improve the experience for everyone.
+              {message}
             </Text>
-            <Button onPress={() => router.replace('/playgrounds/bookings')} accessibilityLabel="Go to bookings">
-              Go to bookings
-            </Button>
-          </View>
-        ) : (
-          <>
-            <StarsRow label="Overall rating" value={rating} onChange={setRating} />
-            {CRITERIA.map((criterion) => (
-              <StarsRow
-                key={criterion.key}
-                label={criterion.label}
-                value={criteria[criterion.key]}
-                onChange={(value) =>
-                  setCriteria((prev) => ({
-                    ...prev,
-                    [criterion.key]: value,
-                  }))
-                }
-              />
-            ))}
-            <Input
-              label="Comment (optional)"
-              value={comment}
-              onChangeText={setComment}
-              placeholder="Share a quick note"
-              accessibilityLabel="Rating comment"
-            />
-            {message ? (
-              <Text variant="caption" color={colors.error}>
-                {message}
+          ) : success ? (
+            <View style={styles.successCard}>
+              <Text variant="h4" weight="semibold">
+                {t('service.playgrounds.rating.success.title')}
               </Text>
-            ) : null}
-            <Button onPress={handleSubmit} loading={loading} accessibilityLabel="Submit rating">
-              Submit rating
-            </Button>
-          </>
-        )}
-      </View>
+              <Text variant="bodySmall" color={colors.textSecondary}>
+                {t('service.playgrounds.rating.success.message')}
+              </Text>
+              <Button
+                onPress={() => router.replace('/playgrounds/bookings')}
+                accessibilityLabel={t('service.playgrounds.rating.actions.bookingsAccessibility')}
+              >
+                {t('service.playgrounds.rating.actions.bookings')}
+              </Button>
+            </View>
+          ) : (
+            <>
+              <StarsRow
+                label={t('service.playgrounds.rating.overall')}
+                value={rating}
+                onChange={setRating}
+              />
+              {CRITERIA.map((criterion) => (
+                <StarsRow
+                  key={criterion.key}
+                  label={t(criterion.labelKey)}
+                  value={criteria[criterion.key]}
+                  onChange={(value) =>
+                    setCriteria((prev) => ({
+                      ...prev,
+                      [criterion.key]: value,
+                    }))
+                  }
+                />
+              ))}
+              <Input
+                label={t('service.playgrounds.rating.comment.label')}
+                value={comment}
+                onChangeText={setComment}
+                placeholder={t('service.playgrounds.rating.comment.placeholder')}
+                accessibilityLabel={t('service.playgrounds.rating.comment.accessibility')}
+              />
+              {message ? (
+                <Text variant="caption" color={colors.error}>
+                  {message}
+                </Text>
+              ) : null}
+              <Button
+                onPress={handleSubmit}
+                loading={loading}
+                accessibilityLabel={t('service.playgrounds.rating.actions.submitAccessibility')}
+              >
+                {t('service.playgrounds.rating.actions.submit')}
+              </Button>
+            </>
+          )}
+        </View>
+      )}
     </Screen>
   );
 }

@@ -327,5 +327,457 @@
     "subtitle": "اكتشف الأكاديميات واحجز الملاعب وتابع رحلتك الرياضية في مكان واحد.",
     "cta": "استكشف الخدمات",
     "logoLabel": "شعار سبور هايف"
+  },
+  "service": {
+    "playgrounds": {
+      "common": {
+        "placeholder": "—",
+        "fromPrice": "ابتداءً من {{price}}",
+        "multiSport": "متعدد الرياضات",
+        "playground": "ملعب",
+        "venue": "الملعب",
+        "academy": "الأكاديمية",
+        "locationPending": "الموقع غير متوفر",
+        "retry": "إعادة المحاولة",
+        "timeTbd": "غير محدد",
+        "errors": {
+          "generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى."
+        }
+      },
+      "nav": {
+        "explore": "استكشاف",
+        "bookings": "الحجوزات",
+        "offers": "العروض",
+        "profile": "الملف الشخصي"
+      },
+      "explore": {
+        "title": "الملاعب",
+        "search": {
+          "label": "بحث",
+          "placeholder": "ابحث عن ملعب أو موقع",
+          "accessibilityLabel": "ابحث عن الملاعب"
+        },
+        "filters": {
+          "button": "الفلاتر",
+          "applyAccessibility": "تطبيق الفلاتر",
+          "pickDate": "اختر التاريخ",
+          "dateSelected": "التاريخ: {{date}}",
+          "players": "{{count}} لاعب",
+          "offers": "عروض"
+        },
+        "activityFallback": "نشاط",
+        "tabs": {
+          "all": "الكل",
+          "offers": "العروض",
+          "allAccessibility": "كل الملاعب",
+          "offersAccessibility": "العروض"
+        },
+        "errors": {
+          "title": "تعذر التحميل",
+          "load": "تعذر تحميل الملاعب الآن."
+        },
+        "empty": {
+          "title": "لا توجد ملاعب",
+          "message": "جرّب تعديل الفلاتر أو إعادة ضبط البحث.",
+          "action": "إعادة ضبط الفلاتر"
+        },
+        "loading": "جارٍ تحميل الملاعب..."
+      },
+      "auth": {
+        "headerTitle": "الوصول إلى الملاعب",
+        "titles": {
+          "login": "مرحبًا بعودتك",
+          "register": "أنشئ حساب SporHive"
+        },
+        "subtitles": {
+          "login": "سجّل الدخول لمتابعة الحجز وإدارة الحجوزات.",
+          "register": "انضم واحجز الملاعب بسرعة عبر ملفك."
+        },
+        "tabs": {
+          "signIn": "تسجيل الدخول",
+          "signUp": "إنشاء حساب"
+        },
+        "fields": {
+          "phone": {
+            "label": "رقم الهاتف",
+            "placeholder": "+962 7XX XXX XXX",
+            "accessibilityLogin": "هاتف تسجيل الدخول",
+            "accessibilityRegister": "هاتف التسجيل",
+            "accessibilityReset": "هاتف إعادة التعيين"
+          },
+          "password": {
+            "label": "كلمة المرور",
+            "placeholder": "أدخل كلمة المرور",
+            "createPlaceholder": "أنشئ كلمة مرور قوية",
+            "accessibilityLogin": "كلمة مرور تسجيل الدخول",
+            "accessibilityRegister": "كلمة مرور التسجيل"
+          },
+          "confirmPassword": {
+            "label": "تأكيد كلمة المرور",
+            "placeholder": "أعد إدخال كلمة المرور",
+            "accessibility": "تأكيد كلمة المرور"
+          },
+          "firstName": {
+            "label": "الاسم الأول",
+            "placeholder": "الاسم الأول",
+            "accessibility": "الاسم الأول"
+          },
+          "lastName": {
+            "label": "اسم العائلة",
+            "placeholder": "اسم العائلة",
+            "accessibility": "اسم العائلة"
+          },
+          "email": {
+            "label": "البريد الإلكتروني (اختياري)",
+            "placeholder": "name@example.com",
+            "accessibility": "البريد الإلكتروني للتسجيل"
+          }
+        },
+        "hints": {
+          "phone": "نصيحة: أضف رمز الدولة عند الحاجة (مثال +962...)."
+        },
+        "actions": {
+          "rememberMe": "تذكرني",
+          "forgotPassword": "هل نسيت كلمة المرور؟",
+          "continueAccessibility": "متابعة",
+          "signIn": "سجّل الدخول للمتابعة",
+          "createAccount": "إنشاء حساب"
+        },
+        "reset": {
+          "title": "إعادة تعيين كلمة المرور",
+          "sendCode": "إرسال رمز إعادة التعيين",
+          "sendCodeAccessibility": "إرسال رمز إعادة التعيين",
+          "codeLabel": "رمز إعادة التعيين",
+          "codePlaceholder": "الرمز من الرسالة",
+          "codeAccessibility": "رمز إعادة التعيين",
+          "newPasswordLabel": "كلمة مرور جديدة",
+          "newPasswordPlaceholder": "كلمة مرور جديدة",
+          "newPasswordAccessibility": "كلمة مرور جديدة",
+          "confirmPasswordLabel": "تأكيد كلمة المرور",
+          "confirmPasswordPlaceholder": "تأكيد كلمة المرور",
+          "confirmPasswordAccessibility": "تأكيد كلمة المرور",
+          "update": "تحديث كلمة المرور",
+          "updateAccessibility": "تحديث كلمة المرور",
+          "backToRequest": "العودة لطلب الرمز"
+        },
+        "validation": {
+          "phoneRequired": "يرجى إدخال رقم الهاتف للمتابعة.",
+          "phoneDigits": "يجب أن يحتوي رقم الهاتف على أرقام فقط.",
+          "phoneLength": "يجب أن يتكون رقم الهاتف من 9 إلى 15 رقمًا.",
+          "loginRequired": "يرجى إدخال رقم الهاتف وكلمة المرور.",
+          "nameRequired": "يرجى إدخال الاسم الأول واسم العائلة.",
+          "phoneRequiredRegister": "يرجى إدخال رقم الهاتف.",
+          "passwordLength": "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.",
+          "passwordMismatch": "كلمتا المرور غير متطابقتين.",
+          "phoneRequiredReset": "يرجى إدخال رقم الهاتف.",
+          "resetFields": "يرجى تعبئة جميع حقول إعادة التعيين."
+        },
+        "errors": {
+          "invalidCredentials": "رقم الهاتف أو كلمة المرور غير صحيحة.",
+          "registerFailed": "تعذر إنشاء الحساب. حاول مرة أخرى."
+        },
+        "footerHint": "سنستأنف الحجز بعد تسجيل الدخول.",
+        "loading": "جارٍ التحقق من الحساب..."
+      },
+      "booking": {
+        "actions": {
+          "back": "رجوع",
+          "backAccessibility": "العودة",
+          "continue": "متابعة",
+          "confirm": "تأكيد الحجز"
+        },
+        "stepCounter": "الخطوة {{current}} من {{total}}",
+        "steps": {
+          "schedule": "الجدولة",
+          "players": "اللاعبون",
+          "payment": "الدفع",
+          "review": "المراجعة"
+        },
+        "titles": {
+          "schedule": "اختر التاريخ والوقت والمدة",
+          "players": "عدد اللاعبين",
+          "payment": "طريقة الدفع",
+          "review": "المراجعة والتأكيد"
+        },
+        "loading": "جارٍ تجهيز الحجز...",
+        "errors": {
+          "title": "مشكلة في الحجز",
+          "loadDraft": "تعذر تحميل بيانات الحجز.",
+          "loadDurations": "تعذر تحميل المدد.",
+          "loadSlots": "تعذر تحميل الأوقات.",
+          "completeSteps": "يرجى إكمال جميع خطوات الحجز.",
+          "submit": "تعذر إتمام الحجز."
+        },
+        "empty": {
+          "title": "الملعب غير موجود",
+          "message": "لم نتمكن من العثور على هذا الملعب. حاول مرة أخرى."
+        },
+        "schedule": {
+          "duration": "المدة",
+          "noDurationsTitle": "لا توجد مدد متاحة",
+          "noDurationsMessage": "يرجى المحاولة لاحقًا أو اختيار ملعب آخر.",
+          "minutesLabel": "{{minutes}} دقيقة",
+          "mostPopular": "الأكثر طلبًا",
+          "priceOnRequest": "السعر متاح عند الطلب",
+          "date": "التاريخ",
+          "bookingDate": "تاريخ الحجز",
+          "bookingDatePlaceholder": "YYYY-MM-DD",
+          "bookingDateAccessibility": "تاريخ الحجز",
+          "today": "اليوم",
+          "tomorrow": "غدًا",
+          "selectDateAccessibility": "اختر {{date}}",
+          "availableSlots": "الأوقات المتاحة",
+          "selectDurationTitle": "اختر مدة",
+          "selectDurationMessage": "اختر مدة لعرض الأوقات المتاحة.",
+          "pickDateTitle": "اختر تاريخًا",
+          "pickDateMessage": "اختر تاريخًا لعرض الأوقات المتاحة.",
+          "noSlotsTitle": "لا توجد أوقات",
+          "noSlotsMessage": "لا توجد أوقات متاحة لهذه المدة في التاريخ المحدد.",
+          "loadingDurations": "جارٍ تحميل المدد...",
+          "loadingSlots": "جارٍ تحميل الأوقات..."
+        },
+        "players": {
+          "title": "اللاعبون",
+          "label": "اللاعبون",
+          "allowedRange": "النطاق المسموح: {{min}} - {{max}}",
+          "inputLabel": "عدد اللاعبين",
+          "placeholder": "2",
+          "accessibilityLabel": "عدد اللاعبين",
+          "countLabel": "{{count}} لاعب"
+        },
+        "payment": {
+          "title": "طريقة الدفع",
+          "subtitle": "اختر طريقة الدفع المناسبة.",
+          "cash": "نقدًا",
+          "cliq": "CliQ",
+          "cashTitle": "الدفع نقدًا",
+          "cashSubtitle": "سدّد الدفع في الأكاديمية.",
+          "payOnDate": "الدفع في تاريخ الحجز",
+          "payNow": "ادفع الآن",
+          "cashOnDateUnavailable": "الدفع في التاريخ غير متاح لهذه الأكاديمية.",
+          "cliqTitle": "تحويل CliQ",
+          "cliqSubtitle": "حوّل إلى الأكاديمية وارفع لقطة الشاشة.",
+          "cliqName": "اسم CliQ: {{name}}",
+          "cliqNumber": "رقم CliQ: {{number}}",
+          "uploadScreenshot": "رفع لقطة الشاشة",
+          "uploadRequired": "يرجى رفع لقطة شاشة CliQ للمتابعة.",
+          "payOnDateSuffix": "(الدفع في التاريخ)",
+          "payNowSuffix": "(ادفع الآن)"
+        },
+        "review": {
+          "title": "المراجعة والتأكيد",
+          "labels": {
+            "venue": "الملعب",
+            "academy": "الأكاديمية",
+            "date": "التاريخ",
+            "time": "الوقت",
+            "duration": "المدة",
+            "players": "اللاعبون",
+            "payment": "الدفع",
+            "price": "السعر"
+          }
+        },
+        "summary": {
+          "total": "الإجمالي"
+        },
+        "success": {
+          "title": "✅ تم تأكيد الحجز",
+          "message": "تم إرسال طلبك بنجاح.",
+          "codeLabel": "رمز الحجز",
+          "viewBookings": "عرض الحجوزات",
+          "done": "تم",
+          "toastTitle": "تم تأكيد الحجز",
+          "toastMessage": "تم إرسال طلب الحجز."
+        }
+      },
+      "bookings": {
+        "title": "حجوزاتي",
+        "errors": {
+          "title": "تعذر التحميل",
+          "load": "تعذر تحميل الحجوزات."
+        },
+        "empty": {
+          "authTitle": "يتطلب تسجيل الدخول",
+          "authMessage": "سجّل الدخول لعرض حجوزات الملاعب.",
+          "authAction": "تسجيل الدخول",
+          "title": "لا توجد حجوزات",
+          "message": "جرّب فلترة أخرى أو استكشف الملاعب.",
+          "action": "استكشاف"
+        },
+        "filters": {
+          "labelWithCount": "{{label}} ({{count}})",
+          "accessibility": "تصفية {{status}}"
+        },
+        "status": {
+          "all": "الكل",
+          "pending": "قيد الانتظار",
+          "approved": "مقبول",
+          "rejected": "مرفوض",
+          "cancelled": "ملغي",
+          "custom": "{{status}}"
+        },
+        "labels": {
+          "dateTbd": "التاريخ غير محدد",
+          "timeTbd": "الوقت غير محدد",
+          "dateTime": "{{time}} • {{date}}"
+        },
+        "payment": {
+          "tbd": "الدفع غير محدد",
+          "cash": "نقدًا",
+          "cliq": "CliQ",
+          "unknown": "الدفع: {{payment}}"
+        },
+        "actions": {
+          "call": "اتصال",
+          "callAccessibility": "الاتصال بالملعب",
+          "whatsapp": "واتساب",
+          "whatsappAccessibility": "مراسلة واتساب",
+          "cancel": "إلغاء",
+          "cancelAccessibility": "إلغاء الحجز"
+        },
+        "cancel": {
+          "title": "هل تريد إلغاء الحجز؟",
+          "message": "يرجى التواصل مع الدعم أو الملعب لتأكيد سياسة الإلغاء.",
+          "keep": "الاحتفاظ بالحجز",
+          "confirm": "حسنًا"
+        },
+        "loading": "جارٍ تحميل الحجوزات..."
+      },
+      "ratingResolver": {
+        "title": "قيّم تجربتك",
+        "loading": "جارٍ التحقق من رابط التقييم...",
+        "invalid": "رابط التقييم غير صالح أو منتهي.",
+        "actions": {
+          "continue": "متابعة",
+          "continueAccessibility": "المتابعة للتقييم",
+          "back": "العودة للاستكشاف",
+          "backAccessibility": "العودة للاستكشاف",
+          "retry": "إعادة المحاولة",
+          "retryAccessibility": "إعادة محاولة رابط التقييم"
+        }
+      },
+      "rating": {
+        "title": "قيّم الملعب",
+        "subtitle": "أخبرنا عن تجربتك.",
+        "overall": "التقييم العام",
+        "criteria": {
+          "cleanliness": "النظافة",
+          "staffService": "خدمة الموظفين",
+          "fieldQuality": "جودة الملعب",
+          "bookingExperience": "تجربة الحجز",
+          "valueForMoney": "القيمة مقابل المال",
+          "safetySecurity": "السلامة والأمان"
+        },
+        "comment": {
+          "label": "تعليق (اختياري)",
+          "placeholder": "اكتب ملاحظة سريعة",
+          "accessibility": "تعليق التقييم"
+        },
+        "actions": {
+          "submit": "إرسال التقييم",
+          "submitAccessibility": "إرسال التقييم",
+          "bookings": "الانتقال إلى الحجوزات",
+          "bookingsAccessibility": "الانتقال إلى الحجوزات"
+        },
+        "errors": {
+          "alreadyRated": "لقد قيّمت هذا الحجز بالفعل.",
+          "verify": "تعذر التحقق من أهلية التقييم.",
+          "overallRequired": "يرجى اختيار التقييم العام.",
+          "submit": "تعذر إرسال التقييم."
+        },
+        "success": {
+          "title": "شكرًا لك!",
+          "message": "ملاحظاتك تساعد على تحسين التجربة للجميع."
+        },
+        "loading": "جارٍ التحقق من أهلية التقييم..."
+      },
+      "venue": {
+        "errors": {
+          "notFound": "الملعب غير موجود.",
+          "load": "تعذر تحميل بيانات الملعب."
+        },
+        "actions": {
+          "getDirections": "الحصول على الاتجاهات",
+          "share": "مشاركة الملعب"
+        },
+        "features": {
+          "title": "المميزات",
+          "bibs": "صدريات متوفرة",
+          "water": "مياه متوفرة",
+          "toilets": "دورات مياه",
+          "parking": "مواقف سيارات",
+          "ac": "مكيف",
+          "indoor": "داخلي"
+        },
+        "academy": {
+          "title": "الأكاديمية",
+          "defaultName": "أكاديمية SporHive",
+          "specialOffer": "تتوفر عروض خاصة لهذا الملعب."
+        },
+        "durations": {
+          "title": "المدد المتاحة",
+          "empty": "اسأل الملعب عن المدد المتاحة."
+        },
+        "address": {
+          "title": "العنوان",
+          "empty": "التفاصيل متاحة عند الحجز."
+        },
+        "cta": {
+          "startingAt": "يبدأ من",
+          "ready": "هل أنت جاهز للحجز؟",
+          "viewAvailability": "عرض التوفر",
+          "book": "احجز الآن",
+          "bookAccessibility": "احجز هذا الملعب"
+        },
+        "loading": "جارٍ تحميل تفاصيل الملعب..."
+      },
+      "filters": {
+        "title": "الفلاتر",
+        "active": "نشط: {{filters}}",
+        "none": "لا توجد فلاتر نشطة",
+        "activity": "النشاط",
+        "activityFallback": "نشاط",
+        "loadingActivities": "جارٍ تحميل الأنشطة...",
+        "noActivities": "لا توجد أنشطة متاحة.",
+        "activityAccessibility": "تصفية حسب {{activity}}",
+        "bookingDate": "تاريخ الحجز",
+        "dateLabel": "التاريخ",
+        "datePlaceholder": "YYYY-MM-DD",
+        "dateAccessibility": "اختر تاريخ الحجز",
+        "today": "اليوم",
+        "clearDate": "مسح التاريخ",
+        "players": "اللاعبون",
+        "playersCount": "{{count}} لاعب",
+        "decreasePlayers": "تقليل اللاعبين",
+        "increasePlayers": "زيادة اللاعبين",
+        "location": "الموقع",
+        "locationLabel": "الموقع",
+        "locationPlaceholder": "المدينة أو المنطقة",
+        "locationAccessibility": "تصفية حسب الموقع",
+        "useCurrentArea": "استخدام الموقع الحالي",
+        "useCurrentAreaAccessibility": "استخدام الموقع الحالي",
+        "offers": "العروض",
+        "offersAll": "الكل",
+        "offersAllAccessibility": "عرض جميع الملاعب",
+        "offersSpecial": "عروض خاصة",
+        "offersSpecialAccessibility": "عرض العروض الخاصة",
+        "sort": {
+          "title": "الترتيب حسب",
+          "topRated": "الأعلى تقييمًا",
+          "topRatedAccessibility": "الترتيب حسب الأعلى تقييمًا",
+          "lowestPrice": "الأقل سعرًا",
+          "lowestPriceAccessibility": "الترتيب حسب الأقل سعرًا"
+        },
+        "reset": "إعادة ضبط",
+        "resetAccessibility": "إعادة ضبط الفلاتر",
+        "apply": "تطبيق الفلاتر",
+        "applyAccessibility": "تطبيق الفلاتر"
+      },
+      "cards": {
+        "viewDetails": "عرض تفاصيل {{title}}",
+        "offer": "عرض",
+        "checkPricing": "تحقق من السعر"
+      }
+    }
   }
 }
