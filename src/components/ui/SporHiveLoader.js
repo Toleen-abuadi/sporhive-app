@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Animated, Easing, Image, AccessibilityInfo } from 'react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
+import { Text } from './Text';
 
 const logoSource = require('../../../assets/images/logo.png');
 
 export function SporHiveLoader({
   size = 96,
   label = 'Loading',
+  message,
   fullScreen = true,
   style,
 }) {
@@ -73,12 +75,12 @@ export function SporHiveLoader({
   }, [opacity, reduceMotionEnabled, scale]);
 
   const haloStyle = useMemo(() => {
-    const base = colors.accentOrange || '#F97316';
+    const base = colors.accentOrange || colors.textPrimary;
     return {
       backgroundColor: `${base}22`,
       borderColor: `${base}55`,
     };
-  }, [colors.accentOrange]);
+  }, [colors.accentOrange, colors.textPrimary]);
 
   return (
     <View
@@ -96,6 +98,11 @@ export function SporHiveLoader({
       <Animated.View style={[styles.logoWrap, { transform: [{ scale }], opacity }]}>
         <Image source={logoSource} style={{ width: size, height: size }} resizeMode="contain" />
       </Animated.View>
+      {message ? (
+        <Text variant="bodySmall" style={[styles.message, { color: colors.textSecondary }]}>
+          {message}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -112,6 +119,10 @@ const styles = StyleSheet.create({
   logoWrap: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  message: {
+    marginTop: spacing.md,
+    textAlign: 'center',
   },
   halo: {
     position: 'absolute',

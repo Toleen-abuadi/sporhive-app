@@ -11,6 +11,7 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { useTheme } from '../../theme/ThemeProvider';
+import { useI18n } from '../../services/i18n/i18n';
 import { Card } from '../ui/Card';
 import { Text } from '../ui/Text';
 import { Badge } from '../ui/Badge';
@@ -81,6 +82,7 @@ function AnimatedPress({ children, disabled }) {
 
 export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
   const { colors, isDark } = useTheme();
+  const { t } = useI18n();
   const theme = useMemo(() => makeADTheme(colors, isDark), [colors, isDark]);
   const cs = useMemo(() => cardStyles(theme), [theme]);
   const grads = useMemo(() => adGradients(theme), [theme]);
@@ -94,7 +96,7 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
     if (!academy) return null;
 
     const slug = academy.slug || '';
-    const name = academy.name_en || academy.name_ar || 'Academy';
+    const name = academy.name_en || academy.name_ar || t('service.academy.common.defaultName');
     const city = academy.city || '';
     const country = academy.country || '';
     const isPro = !!academy.is_pro;
@@ -140,6 +142,7 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
   const showCover = !!vm.coverUri && !coverFailed;
   const showLogo = !!vm.logoUri && !logoFailed;
   const locationText = [vm.city, vm.country].filter(Boolean).join(', ');
+  const emptyValue = t('service.academy.common.emptyValue');
   const canJoin = vm.regEnabled && vm.regOpen;
 
   return (
@@ -169,7 +172,7 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
 
             {/* readability overlay */}
             <LinearGradient
-              colors={['rgba(0,0,0,0.58)', 'rgba(0,0,0,0.14)', 'rgba(0,0,0,0.0)']}
+              colors={grads.coverOverlay}
               style={StyleSheet.absoluteFill}
               start={{ x: 0.5, y: 1.0 }}
               end={{ x: 0.5, y: 0.0 }}
@@ -183,7 +186,7 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
                     <Crown size={12} color={theme.text.onDark} />
                     <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
                       {' '}
-                      PRO
+                      {t('service.academy.card.pro')}
                     </Text>
                   </View>
                 </Badge>
@@ -195,7 +198,7 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
                     <Sparkles size={12} color={theme.accent.orange} />
                     <Text variant="caption" weight="bold" style={{ color: theme.accent.orange }}>
                       {' '}
-                      Featured
+                      {t('service.academy.card.featured')}
                     </Text>
                   </View>
                 </Badge>
@@ -212,7 +215,7 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
                   ]}
                 >
                   <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                    {canJoin ? 'Registration open' : 'Not open on SporHive'}
+                    {canJoin ? t('service.academy.card.registrationOpen') : t('service.academy.card.registrationClosed')}
                   </Text>
                 </Badge>
 
@@ -222,7 +225,7 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
                       <ShieldCheck size={12} color={theme.text.onDark} />
                       <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
                         {' '}
-                        Facilities
+                        {t('service.academy.card.facilities')}
                       </Text>
                     </View>
                   </Badge>
@@ -271,7 +274,7 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
                   <MapPin size={14} color={theme.text.muted} />
                   <Text variant="caption" color={theme.text.secondary} numberOfLines={1}>
                     {' '}
-                    {locationText || '—'}
+                    {locationText || emptyValue}
                   </Text>
                 </View>
               </View>
@@ -284,11 +287,11 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
                   <Wallet size={14} color={theme.accent.orange} />
                   <Text variant="caption" color={theme.text.muted}>
                     {' '}
-                    Fees
+                    {t('service.academy.card.fees')}
                   </Text>
                 </View>
                 <Text variant="caption" weight="bold" style={{ color: theme.text.primary }} numberOfLines={1}>
-                  {vm.feesAmount != null ? `${vm.feesAmount}` : '—'}
+                  {vm.feesAmount != null ? `${vm.feesAmount}` : emptyValue}
                   {vm.feesType ? ` (${vm.feesType})` : ''}
                 </Text>
               </View>
@@ -298,11 +301,13 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
                   <Users size={14} color={theme.accent.orange} />
                   <Text variant="caption" color={theme.text.muted}>
                     {' '}
-                    Ages
+                    {t('service.academy.card.ages')}
                   </Text>
                 </View>
                 <Text variant="caption" weight="bold" style={{ color: theme.text.primary }} numberOfLines={1}>
-                  {vm.agesFrom != null || vm.agesTo != null ? `${vm.agesFrom ?? '—'} - ${vm.agesTo ?? '—'}` : '—'}
+                  {vm.agesFrom != null || vm.agesTo != null
+                    ? `${vm.agesFrom ?? emptyValue} - ${vm.agesTo ?? emptyValue}`
+                    : emptyValue}
                 </Text>
               </View>
 
@@ -311,11 +316,11 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
                   <CalendarDays size={14} color={theme.accent.orange} />
                   <Text variant="caption" color={theme.text.muted}>
                     {' '}
-                    Sport
+                    {t('service.academy.card.sport')}
                   </Text>
                 </View>
                 <Text variant="caption" weight="bold" style={{ color: theme.text.primary }} numberOfLines={1}>
-                  {vm.sports?.length ? vm.sports[0] : '—'}
+                  {vm.sports?.length ? vm.sports[0] : emptyValue}
                   {vm.sports?.length > 1 ? ` +${vm.sports.length - 1}` : ''}
                 </Text>
               </View>
@@ -333,7 +338,7 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
               >
                 <View style={cs.btnRow}>
                   <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                    View
+                    {t('service.academy.card.view')}
                   </Text>
                   <ArrowRight size={14} color={theme.text.onDark} />
                 </View>
@@ -345,7 +350,7 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
                   style={({ pressed }) => [cs.secondaryBtn, pressed && cs.pressedOpacity]}
                 >
                   <Text variant="caption" weight="bold" style={{ color: theme.accent.orange }}>
-                    Join
+                    {t('service.academy.card.join')}
                   </Text>
                 </Pressable>
               ) : null}

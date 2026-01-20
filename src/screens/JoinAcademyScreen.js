@@ -44,6 +44,7 @@ import { Badge } from '../components/ui/Badge';
 import { Divider } from '../components/ui/Divider';
 import { useToast } from '../components/ui/ToastHost';
 import { BackButton } from '../components/ui/BackButton';
+import { SporHiveLoader } from '../components/ui/SporHiveLoader';
 
 import {
   AlertCircle,
@@ -61,7 +62,7 @@ import {
   X,
 } from 'lucide-react-native';
 
-import { ad, makeADTheme, pressableScaleConfig, getShadow } from '../theme/academyDiscovery.styles';
+import { ad, makeADTheme, pressableScaleConfig, getShadow, alphaHex } from '../theme/academyDiscovery.styles';
 
 const { width: W } = Dimensions.get('window');
 
@@ -199,15 +200,20 @@ function InlineErrorSummary({ theme, visible, errors, t }) {
   return (
     <Animated.View entering={FadeInDown.duration(220)} exiting={FadeOutDown.duration(160)}>
       <View style={[styles.summaryBar, theme.shadow.sm, { backgroundColor: theme.surface1, borderColor: theme.hairline }]}>
-        <View style={[styles.summaryIcon, { backgroundColor: 'rgba(239,68,68,0.12)', borderColor: 'rgba(239,68,68,0.22)' }]}>
-          <AlertCircle size={16} color="#EF4444" />
+        <View
+          style={[
+            styles.summaryIcon,
+            { backgroundColor: alphaHex(theme.error, '1F'), borderColor: alphaHex(theme.error, '38') },
+          ]}
+        >
+          <AlertCircle size={16} color={theme.error} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text weight="bold" numberOfLines={1} style={{ color: theme.text.primary }}>
-            {t('academies.join.fixErrors', 'Please fix the highlighted fields.')}
+            {t('service.academy.join.errors.fix')}
           </Text>
           <Text variant="caption" numberOfLines={1} style={{ color: theme.text.secondary, marginTop: 2 }}>
-            {count} {count === 1 ? t('common.error', 'error') : t('common.errors', 'errors')}
+            {count} {count === 1 ? t('service.academy.join.errors.single') : t('service.academy.join.errors.plural')}
           </Text>
         </View>
       </View>
@@ -225,6 +231,7 @@ export function JoinAcademyScreen() {
   const toast = useToast();
 
   const theme = useMemo(() => makeADTheme(colors, isDark), [colors, isDark]);
+  const emptyValue = t('service.academy.common.emptyValue');
   const isWide = W >= 410;
 
   const [loading, setLoading] = useState(true);
@@ -296,7 +303,7 @@ export function JoinAcademyScreen() {
         const normalized = res?.data?.academy ? res.data : res?.academy ? res : { academy: res?.data || res };
         if (mounted) setAcademyBundle(normalized);
       } catch (e) {
-        if (mounted) setLoadError(e?.message || t('common.error', 'Something went wrong'));
+        if (mounted) setLoadError(e?.message || t('service.academy.join.error.generic'));
       } finally {
         if (mounted) setLoading(false);
       }
@@ -318,28 +325,28 @@ export function JoinAcademyScreen() {
 
     const fe = safeText(form.first_eng_name);
     const le = safeText(form.last_eng_name);
-    if (!fe) e.first_eng_name = t('academies.join.err.firstEngRequired', 'First name (English) is required.');
-    else if (!latinNameRe.test(fe)) e.first_eng_name = t('academies.join.err.firstEngInvalid', 'Use English letters only.');
-    if (!le) e.last_eng_name = t('academies.join.err.lastEngRequired', 'Last name (English) is required.');
-    else if (!latinNameRe.test(le)) e.last_eng_name = t('academies.join.err.lastEngInvalid', 'Use English letters only.');
+    if (!fe) e.first_eng_name = t('service.academy.join.errors.firstEngRequired');
+    else if (!latinNameRe.test(fe)) e.first_eng_name = t('service.academy.join.errors.firstEngInvalid');
+    if (!le) e.last_eng_name = t('service.academy.join.errors.lastEngRequired');
+    else if (!latinNameRe.test(le)) e.last_eng_name = t('service.academy.join.errors.lastEngInvalid');
 
     const fa = safeText(form.first_ar_name);
     const la = safeText(form.last_ar_name);
-    if (!fa) e.first_ar_name = t('academies.join.err.firstArRequired', 'First name (Arabic) is required.');
-    else if (!arabicNameRe.test(fa)) e.first_ar_name = t('academies.join.err.firstArInvalid', 'استخدم أحرف عربية فقط.');
-    if (!la) e.last_ar_name = t('academies.join.err.lastArRequired', 'Last name (Arabic) is required.');
-    else if (!arabicNameRe.test(la)) e.last_ar_name = t('academies.join.err.lastArInvalid', 'استخدم أحرف عربية فقط.');
+    if (!fa) e.first_ar_name = t('service.academy.join.errors.firstArRequired');
+    else if (!arabicNameRe.test(fa)) e.first_ar_name = t('service.academy.join.errors.firstArInvalid');
+    if (!la) e.last_ar_name = t('service.academy.join.errors.lastArRequired');
+    else if (!arabicNameRe.test(la)) e.last_ar_name = t('service.academy.join.errors.lastArInvalid');
 
-    if (!safeText(form.phone1)) e.phone1 = t('academies.join.err.phone1Required', 'Primary phone is required.');
-    else if (!isValidPhone(form.phone1)) e.phone1 = t('academies.join.err.phoneInvalid', 'Invalid phone number.');
-    if (safeText(form.phone2) && !isValidPhone(form.phone2)) e.phone2 = t('academies.join.err.phone2Invalid', 'Invalid secondary phone number.');
+    if (!safeText(form.phone1)) e.phone1 = t('service.academy.join.errors.phone1Required');
+    else if (!isValidPhone(form.phone1)) e.phone1 = t('service.academy.join.errors.phoneInvalid');
+    if (safeText(form.phone2) && !isValidPhone(form.phone2)) e.phone2 = t('service.academy.join.errors.phone2Invalid');
 
     const dob = safeText(form.dob);
-    if (!dob) e.dob = t('academies.join.err.dobRequired', 'Date of birth is required.');
+    if (!dob) e.dob = t('service.academy.join.errors.dobRequired');
     else {
       const d = parseISODate(dob);
-      if (!d) e.dob = t('academies.join.err.dobInvalid', 'Invalid date. Use YYYY-MM-DD.');
-      else if (!isAtLeastAge(dob, 3)) e.dob = t('academies.join.err.dobMinAge', 'Player must be 3 years old or more.');
+      if (!d) e.dob = t('service.academy.join.errors.dobInvalid');
+      else if (!isAtLeastAge(dob, 3)) e.dob = t('service.academy.join.errors.dobMinAge');
     }
 
     setErrors(e);
@@ -350,15 +357,14 @@ export function JoinAcademyScreen() {
     if (!academy) return;
 
     if (!academy.registration_enabled) {
-      toast?.warning?.(
-        t('academies.join.disabled', 'This academy is not accepting registrations on SporHive.'),
-        { title: t('common.notice', 'Notice') }
-      );
+      toast?.warning?.(t('service.academy.join.toast.disabled'), {
+        title: t('service.academy.common.notice'),
+      });
       return;
     }
     if (!academy.registration_open) {
-      toast?.warning?.(t('academies.join.closedToast', 'Registration is currently closed.'), {
-        title: t('academies.join.closed', 'Closed'),
+      toast?.warning?.(t('service.academy.join.toast.closed'), {
+        title: t('service.academy.join.badges.closed'),
       });
       return;
     }
@@ -366,8 +372,8 @@ export function JoinAcademyScreen() {
     setAttempted(true);
     const e = validateAll();
     if (Object.keys(e).length) {
-      toast?.warning?.(t('academies.join.fixErrors', 'Please fix the highlighted fields.'), {
-        title: t('common.checkForm', 'Check your form'),
+      toast?.warning?.(t('service.academy.join.errors.fix'), {
+        title: t('service.academy.common.checkForm'),
       });
       return;
     }
@@ -392,14 +398,14 @@ export function JoinAcademyScreen() {
       await endpoints.publicAcademies.joinSubmit(slug, payload);
       setSubmitted(true);
 
-      toast?.success?.(t('academies.join.sent', 'Request sent successfully!'), {
-        title: t('common.done', 'Done'),
-        actionLabel: t('academies.view', 'View academy'),
+      toast?.success?.(t('service.academy.join.toast.sent'), {
+        title: t('service.academy.common.done'),
+        actionLabel: t('service.academy.join.actions.viewAcademy'),
         onAction: () => router.push(`/academies/${slug}`),
       });
     } catch (e2) {
-      toast?.error?.(e2?.message || t('common.error', 'Something went wrong'), {
-        title: t('common.error', 'Error'),
+      toast?.error?.(e2?.message || t('service.academy.common.errorMessage'), {
+        title: t('service.academy.common.errorTitle'),
       });
     } finally {
       setSubmitting(false);
@@ -411,25 +417,35 @@ export function JoinAcademyScreen() {
 
   // Minimal dynamic styles (colors only) – keep <= 5
   const heroOverlay = useMemo(
-    () => (isDark ? ['rgba(0,0,0,0.78)', 'rgba(0,0,0,0.26)', 'rgba(0,0,0,0.82)'] : ['rgba(0,0,0,0.50)', 'rgba(0,0,0,0.16)', 'rgba(0,0,0,0.60)']),
-    [isDark]
+    () => [
+      alphaHex(theme.black, isDark ? 'C7' : '80'),
+      alphaHex(theme.black, isDark ? '42' : '29'),
+      alphaHex(theme.black, isDark ? 'D1' : '99'),
+    ],
+    [isDark, theme.black]
   );
 
   const bottomGlass = useMemo(
-    () => (isDark ? 'rgba(11,18,32,0.78)' : 'rgba(255,255,255,0.90)'),
-    [isDark]
+    () => alphaHex(theme.surface0, isDark ? 'C7' : 'E6'),
+    [isDark, theme.surface0]
+  );
+
+  const heroFallback = useMemo(
+    () => [theme.surface2, alphaHex(theme.accent.orange, isDark ? '24' : '33')],
+    [isDark, theme.accent.orange, theme.surface2]
+  );
+
+  const successGradient = useMemo(
+    () => [theme.surface0, alphaHex(theme.accent.orange, isDark ? '14' : '1A')],
+    [isDark, theme.accent.orange, theme.surface0]
   );
 
   // ===== Loading =====
   if (loading) {
     return (
       <Screen safe scroll={false} style={ad.screen(theme)}>
-        <View style={styles.pad}>
-          <AppHeader
-            title={t('academies.join.loading', 'Loading…')}
-            leftSlot={<BackButton color={theme.text.primary} />}
-          />
-        </View>
+        <AppHeader title={t('service.academy.join.loading.title')} leftSlot={<BackButton />} />
+        <SporHiveLoader label={t('service.academy.join.loading.title')} />
       </Screen>
     );
   }
@@ -440,25 +456,30 @@ export function JoinAcademyScreen() {
       <Screen safe scroll style={ad.screen(theme)}>
         <View style={styles.pad}>
           <AppHeader
-            title={t('academies.join.notFoundTitle', 'Academy not found')}
+            title={t('service.academy.join.notFound.title')}
             leftSlot={<BackButton color={theme.text.primary} />}
           />
           <View style={styles.centerState}>
-            <View style={[styles.stateIcon, { backgroundColor: 'rgba(239,68,68,0.14)', borderColor: 'rgba(239,68,68,0.22)' }]}>
-              <AlertCircle size={34} color="#EF4444" />
+            <View
+              style={[
+                styles.stateIcon,
+                { backgroundColor: alphaHex(theme.error, '24'), borderColor: alphaHex(theme.error, '38') },
+              ]}
+            >
+              <AlertCircle size={34} color={theme.error} />
             </View>
             <Text variant="h4" weight="bold" style={{ color: theme.text.primary, marginTop: 12 }}>
-              {t('academies.join.notFoundTitle', 'Academy not found')}
+              {t('service.academy.join.notFound.title')}
             </Text>
             <Text variant="body" style={{ color: theme.text.secondary, marginTop: 10, textAlign: 'center' }}>
-              {loadError || t('academies.join.notFoundSub', 'This academy might be unavailable.')}
+              {loadError || t('service.academy.join.notFound.subtitle')}
             </Text>
 
             <View style={{ marginTop: 18 }}>
               <AnimatedPress>
                 <Button onPress={() => router.push('/academies')}>
                   <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                    {t('academies.join.browse', 'Browse academies')}
+                    {t('service.academy.join.actions.browse')}
                   </Text>
                 </Button>
               </AnimatedPress>
@@ -473,34 +494,31 @@ export function JoinAcademyScreen() {
   if (submitted) {
     return (
       <Screen safe scroll={false} style={ad.screen(theme)}>
-        <LinearGradient
-          colors={isDark ? ['#0B1220', 'rgba(255,165,0,0.06)'] : ['#F8FAFC', 'rgba(255,165,0,0.10)']}
-          style={StyleSheet.absoluteFill}
-        />
+        <LinearGradient colors={successGradient} style={StyleSheet.absoluteFill} />
         <Animated.View entering={enterAnim} style={styles.successWrap}>
           <Card style={[styles.successCard, theme.shadow.lg, { backgroundColor: theme.surface2, borderColor: theme.hairline }]}>
             <View style={[styles.successIconWrap, { backgroundColor: theme.accent.orangeSoft, borderColor: theme.accent.orangeHair }]}>
-              <CheckCircle2 size={34} color="#1CC479" />
+              <CheckCircle2 size={34} color={theme.success} />
             </View>
 
             <Text variant="h3" weight="bold" style={{ color: theme.text.primary, textAlign: 'center' }}>
-              {t('academies.join.sentTitle', 'Request received')}
+              {t('service.academy.join.success.title')}
             </Text>
 
             <Text variant="body" style={{ color: theme.text.secondary, textAlign: 'center', marginTop: 10, lineHeight: 22 }}>
-              {t('academies.join.sentSub', 'We sent your request to')}{' '}
+              {t('service.academy.join.success.subtitle')}{' '}
               <Text weight="bold" style={{ color: theme.text.primary }}>
                 {academyName}
               </Text>
               . {'\n'}
-              {t('academies.join.sentHint', 'They will contact you soon via phone.')}
+              {t('service.academy.join.success.hint')}
             </Text>
 
             <View style={styles.successActions}>
               <AnimatedPress>
                 <Button variant="secondary" style={{ flex: 1 }} onPress={() => router.push(`/academies/${slug}`)}>
                   <Text variant="caption" weight="bold" style={{ color: theme.text.primary }}>
-                    {t('academies.view', 'View academy')}
+                    {t('service.academy.join.actions.viewAcademy')}
                   </Text>
                 </Button>
               </AnimatedPress>
@@ -508,7 +526,7 @@ export function JoinAcademyScreen() {
               <AnimatedPress>
                 <Button style={{ flex: 1 }} onPress={() => router.push('/academies')}>
                   <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                    {t('academies.join.findMore', 'Discover more')}
+                    {t('service.academy.join.actions.findMore')}
                   </Text>
                 </Button>
               </AnimatedPress>
@@ -517,7 +535,7 @@ export function JoinAcademyScreen() {
             <AnimatedPress>
               <Button variant="ghost" onPress={() => router.back()} style={{ marginTop: 12, alignSelf: 'center' }}>
                 <Text variant="caption" weight="bold" style={{ color: theme.text.secondary }}>
-                  {t('common.back', 'Back')}
+                  {t('service.academy.common.back')}
                 </Text>
               </Button>
             </AnimatedPress>
@@ -537,46 +555,50 @@ export function JoinAcademyScreen() {
             {coverUri ? (
               <Image source={{ uri: coverUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
             ) : (
-              <LinearGradient colors={isDark ? ['#0B1220', 'rgba(255,165,0,0.14)'] : ['#FFEDD5', '#F8FAFC']} style={StyleSheet.absoluteFill} />
+              <LinearGradient colors={heroFallback} style={StyleSheet.absoluteFill} />
             )}
             <LinearGradient colors={heroOverlay} style={StyleSheet.absoluteFill} />
 
             <View style={styles.heroTop}>
               <AnimatedPress>
-                <BackButton color="white" style={styles.backBtn} />
+                <BackButton color={theme.text.onDark} style={styles.backBtn} />
               </AnimatedPress>
             </View>
 
             <View style={styles.heroBottom}>
               <View style={styles.heroTitleRow}>
-                <View style={[styles.heroLogo, { borderColor: 'rgba(255,255,255,0.28)' }]}>
+                <View style={[styles.heroLogo, { borderColor: alphaHex(theme.white, '47'), backgroundColor: alphaHex(theme.white, '1A') }]}>
                   {logoUri ? (
                     <Image source={{ uri: logoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                   ) : (
                     <View style={styles.logoFallback}>
-                      <Sparkles size={18} color="white" />
+                      <Sparkles size={18} color={theme.text.onDark} />
                     </View>
                   )}
                 </View>
 
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text variant="h3" weight="bold" style={{ color: 'white' }} numberOfLines={1}>
+                  <Text variant="h3" weight="bold" style={{ color: theme.text.onDark }} numberOfLines={1}>
                     {academyName}
                   </Text>
 
                   <View style={styles.heroBadgesRow}>
-                    <Badge style={{ backgroundColor: showClosed ? 'rgba(239,68,68,0.90)' : 'rgba(0,0,0,0.55)' }}>
-                      <Text variant="caption" weight="bold" style={{ color: 'white' }}>
-                        {showClosed ? t('academies.join.closed', 'Closed') : t('academies.join.contact', 'Contact')}
+                    <Badge
+                      style={{
+                        backgroundColor: showClosed ? alphaHex(theme.error, 'E6') : alphaHex(theme.black, '8C'),
+                      }}
+                    >
+                      <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
+                        {showClosed ? t('service.academy.join.badges.closed') : t('service.academy.join.badges.contact')}
                       </Text>
                     </Badge>
 
-                    <Badge style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
+                    <Badge style={{ backgroundColor: alphaHex(theme.black, '8C') }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <ShieldCheck size={12} color="white" />
-                        <Text variant="caption" weight="bold" style={{ color: 'white' }}>
+                        <ShieldCheck size={12} color={theme.text.onDark} />
+                        <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
                           {' '}
-                          {t('academies.join.secure', 'Secure')}
+                          {t('service.academy.join.badges.secure')}
                         </Text>
                       </View>
                     </Badge>
@@ -590,12 +612,14 @@ export function JoinAcademyScreen() {
             <Card style={[styles.dsCard, theme.shadow.md, { backgroundColor: theme.surface2, borderColor: theme.hairline }]}>
               <View style={styles.sectionBody}>
                 <Text variant="h4" weight="bold" style={{ color: theme.text.primary }}>
-                  {showClosed ? t('academies.join.closedTitle', 'Registration closed') : t('academies.join.contactTitle', 'Direct contact required')}
+                  {showClosed
+                    ? t('service.academy.join.closed.title')
+                    : t('service.academy.join.contact.title')}
                 </Text>
                 <Text variant="body" style={{ color: theme.text.secondary, marginTop: 10, lineHeight: 22 }}>
                   {showClosed
-                    ? t('academies.join.closedMsg', 'This academy is not currently accepting applications.')
-                    : t('academies.join.contactMsg', 'Please contact the academy directly.')}
+                    ? t('service.academy.join.closed.message')
+                    : t('service.academy.join.contact.message')}
                 </Text>
 
                 <View style={{ marginTop: 16, gap: 10 }}>
@@ -652,48 +676,52 @@ export function JoinAcademyScreen() {
               {coverUri ? (
                 <Image source={{ uri: coverUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
               ) : (
-                <LinearGradient colors={isDark ? ['#0B1220', 'rgba(255,165,0,0.12)'] : ['#FFEDD5', '#F8FAFC']} style={StyleSheet.absoluteFill} />
+                <LinearGradient colors={heroFallback} style={StyleSheet.absoluteFill} />
               )}
               <LinearGradient colors={heroOverlay} style={StyleSheet.absoluteFill} />
 
               <View style={styles.heroTop}>
                 <AppHeader
-                  title={t('academies.join.title', 'Join academy')}
-                  subtitle={t('academies.join.subtitle', 'A short form — sent directly to the academy.')}
-                  leftSlot={<BackButton color="white" />}
+                  title={t('service.academy.join.title')}
+                  subtitle={t('service.academy.join.subtitle')}
+                  leftSlot={<BackButton color={theme.text.onDark} />}
                 />
               </View>
 
               <View style={styles.heroBottom}>
                 <View style={styles.heroTitleRow}>
-                  <View style={[styles.heroLogo, { borderColor: 'rgba(255,255,255,0.28)' }]}>
+                  <View style={[styles.heroLogo, { borderColor: alphaHex(theme.white, '47'), backgroundColor: alphaHex(theme.white, '1A') }]}>
                     {logoUri ? (
                       <Image source={{ uri: logoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                     ) : (
                       <View style={styles.logoFallback}>
-                        <Sparkles size={18} color="white" />
+                        <Sparkles size={18} color={theme.text.onDark} />
                       </View>
                     )}
                   </View>
 
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text variant="h3" weight="bold" style={{ color: 'white' }} numberOfLines={1}>
+                    <Text variant="h3" weight="bold" style={{ color: theme.text.onDark }} numberOfLines={1}>
                       {academyName}
                     </Text>
 
                     <View style={styles.heroBadgesRow}>
-                      <Badge style={{ backgroundColor: isOpen ? 'rgba(16,185,129,0.92)' : 'rgba(0,0,0,0.55)' }}>
-                        <Text variant="caption" weight="bold" style={{ color: 'white' }}>
-                          {isOpen ? t('academies.join.open', 'Open') : t('academies.join.contact', 'Contact')}
+                      <Badge
+                        style={{
+                          backgroundColor: isOpen ? alphaHex(theme.success, 'EB') : alphaHex(theme.black, '8C'),
+                        }}
+                      >
+                        <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
+                          {isOpen ? t('service.academy.join.badges.open') : t('service.academy.join.badges.contact')}
                         </Text>
                       </Badge>
 
-                      <Badge style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
+                      <Badge style={{ backgroundColor: alphaHex(theme.black, '8C') }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <ShieldCheck size={12} color="white" />
-                          <Text variant="caption" weight="bold" style={{ color: 'white' }}>
+                          <ShieldCheck size={12} color={theme.text.onDark} />
+                          <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
                             {' '}
-                            {t('academies.join.secure', 'Secure')}
+                            {t('service.academy.join.badges.secure')}
                           </Text>
                         </View>
                       </Badge>
@@ -702,11 +730,11 @@ export function JoinAcademyScreen() {
                 </View>
 
                 <View style={styles.stepRow}>
-                  <View style={[styles.stepDot, { backgroundColor: 'rgba(255,149,0,0.98)' }]} />
-                  <View style={[styles.stepDot, { backgroundColor: 'rgba(255,255,255,0.25)' }]} />
-                  <View style={[styles.stepDot, { backgroundColor: 'rgba(255,255,255,0.25)' }]} />
-                  <Text variant="caption" style={{ color: 'rgba(255,255,255,0.86)', marginLeft: 10 }}>
-                    {t('academies.join.steps', 'Step 1 of 3 • Player details')}
+                  <View style={[styles.stepDot, { backgroundColor: theme.accent.orange }]} />
+                  <View style={[styles.stepDot, { backgroundColor: alphaHex(theme.white, '40') }]} />
+                  <View style={[styles.stepDot, { backgroundColor: alphaHex(theme.white, '40') }]} />
+                  <Text variant="caption" style={{ color: alphaHex(theme.white, 'DB'), marginLeft: 10 }}>
+                    {t('service.academy.join.steps')}
                   </Text>
                 </View>
               </View>
@@ -719,13 +747,13 @@ export function JoinAcademyScreen() {
               <SectionCard
                 theme={theme}
                 icon={<User size={18} color={theme.accent.orange} />}
-                title={t('academies.join.section.player', 'Player identity')}
-                subtitle={t('academies.join.section.playerSub', 'Names in English and Arabic')}
+                title={t('service.academy.join.sections.player.title')}
+                subtitle={t('service.academy.join.sections.player.subtitle')}
                 enteringDelay={40}
                 right={
                   <Badge style={[styles.reqBadge, { backgroundColor: theme.surface1, borderColor: theme.hairline }]}>
                     <Text variant="caption" weight="bold" style={{ color: theme.text.secondary }}>
-                      {t('common.required', '* required')}
+                      {t('service.academy.common.required')}
                     </Text>
                   </Badge>
                 }
@@ -734,7 +762,7 @@ export function JoinAcademyScreen() {
                   <View style={[styles.rowOrCol, isWide && styles.row]}>
                     <View style={styles.flex1}>
                       <Input
-                        label={t('academies.join.firstEng', 'First name (English) *')}
+                        label={t('service.academy.join.form.firstEng')}
                         value={form.first_eng_name}
                         onChangeText={(v) => setField('first_eng_name', v)}
                         error={attempted ? errors.first_eng_name : ''}
@@ -742,7 +770,7 @@ export function JoinAcademyScreen() {
                     </View>
                     <View style={styles.flex1}>
                       <Input
-                        label={t('academies.join.middleEng', 'Middle (English)')}
+                        label={t('service.academy.join.form.middleEng')}
                         value={form.middle_eng_name}
                         onChangeText={(v) => setField('middle_eng_name', v)}
                       />
@@ -752,17 +780,17 @@ export function JoinAcademyScreen() {
                   <View style={[styles.rowOrCol, isWide && styles.row]}>
                     <View style={styles.flex1}>
                       <Input
-                        label={t('academies.join.lastEng', 'Last name (English) *')}
+                        label={t('service.academy.join.form.lastEng')}
                         value={form.last_eng_name}
                         onChangeText={(v) => setField('last_eng_name', v)}
                         error={attempted ? errors.last_eng_name : ''}
                       />
                     </View>
                     <View style={styles.flex1}>
-                      <View style={styles.softInfo}>
-                        <Sparkles size={14} color={theme.text.secondary} />
+                  <View style={[styles.softInfo, { backgroundColor: alphaHex(theme.text.primary, isDark ? '14' : '0A') }]}>
+                    <Sparkles size={14} color={theme.text.secondary} />
                         <Text variant="caption" style={{ color: theme.text.secondary, marginLeft: 8 }}>
-                          {t('academies.join.nameHint', 'Use official spelling to avoid delays.')}
+                          {t('service.academy.join.form.nameHint')}
                         </Text>
                       </View>
                     </View>
@@ -773,7 +801,7 @@ export function JoinAcademyScreen() {
                   <View style={[styles.rowOrCol, isWide && styles.row]}>
                     <View style={styles.flex1}>
                       <Input
-                        label={t('academies.join.firstAr', 'First name (Arabic) *')}
+                        label={t('service.academy.join.form.firstAr')}
                         value={form.first_ar_name}
                         onChangeText={(v) => setField('first_ar_name', v)}
                         error={attempted ? errors.first_ar_name : ''}
@@ -781,7 +809,7 @@ export function JoinAcademyScreen() {
                     </View>
                     <View style={styles.flex1}>
                       <Input
-                        label={t('academies.join.middleAr', 'Middle (Arabic)')}
+                        label={t('service.academy.join.form.middleAr')}
                         value={form.middle_ar_name}
                         onChangeText={(v) => setField('middle_ar_name', v)}
                       />
@@ -791,14 +819,14 @@ export function JoinAcademyScreen() {
                   <View style={[styles.rowOrCol, isWide && styles.row]}>
                     <View style={styles.flex1}>
                       <Input
-                        label={t('academies.join.lastAr', 'Last name (Arabic) *')}
+                        label={t('service.academy.join.form.lastAr')}
                         value={form.last_ar_name}
                         onChangeText={(v) => setField('last_ar_name', v)}
                         error={attempted ? errors.last_ar_name : ''}
                       />
                     </View>
                     <View style={styles.flex1}>
-                      <FieldHint theme={theme} text={t('academies.join.arHint', 'اكتب الاسم كما هو في الوثائق الرسمية.')} />
+                      <FieldHint theme={theme} text={t('service.academy.join.form.arHint')} />
                     </View>
                   </View>
                 </View>
@@ -808,29 +836,29 @@ export function JoinAcademyScreen() {
               <SectionCard
                 theme={theme}
                 icon={<Contact2 size={18} color={theme.accent.orange} />}
-                title={t('academies.join.section.contact', 'Contact')}
-                subtitle={t('academies.join.section.contactSub', 'Where the academy can reach you')}
+                title={t('service.academy.join.sections.contact.title')}
+                subtitle={t('service.academy.join.sections.contact.subtitle')}
                 enteringDelay={70}
               >
                 <View style={styles.gridGap}>
                   <View style={[styles.rowOrCol, isWide && styles.row]}>
                     <View style={styles.flex1}>
                       <Input
-                        label={t('academies.join.phone1', 'Phone number *')}
+                        label={t('service.academy.join.form.phone1')}
                         value={form.phone1}
                         onChangeText={(v) => setField('phone1', v)}
                         keyboardType="phone-pad"
-                        placeholder="+9627XXXXXXX"
+                        placeholder={t('service.academy.join.form.phonePlaceholder')}
                         error={attempted ? errors.phone1 : ''}
                       />
                     </View>
                     <View style={styles.flex1}>
                       <Input
-                        label={t('academies.join.phone2', 'Secondary phone')}
+                        label={t('service.academy.join.form.phone2')}
                         value={form.phone2}
                         onChangeText={(v) => setField('phone2', v)}
                         keyboardType="phone-pad"
-                        placeholder={t('academies.join.optional', 'Optional')}
+                        placeholder={t('service.academy.common.optional')}
                         error={attempted ? errors.phone2 : ''}
                       />
                     </View>
@@ -839,7 +867,7 @@ export function JoinAcademyScreen() {
                   <View style={styles.trustRow}>
                     <ShieldCheck size={14} color={theme.text.muted} />
                     <Text variant="caption" style={{ color: theme.text.muted, marginLeft: 8, flex: 1 }}>
-                      {t('academies.join.trust', 'Your data is shared only with the academy for registration purposes.')}
+                      {t('service.academy.join.form.trust')}
                     </Text>
                   </View>
                 </View>
@@ -849,8 +877,8 @@ export function JoinAcademyScreen() {
               <SectionCard
                 theme={theme}
                 icon={<ClipboardList size={18} color={theme.accent.orange} />}
-                title={t('academies.join.section.details', 'Details')}
-                subtitle={t('academies.join.section.detailsSub', 'Birth date and notes')}
+                title={t('service.academy.join.sections.details.title')}
+                subtitle={t('service.academy.join.sections.details.subtitle')}
                 enteringDelay={100}
               >
                 <View style={styles.gridGap}>
@@ -866,9 +894,9 @@ export function JoinAcademyScreen() {
                     >
                       <View pointerEvents="none">
                         <Input
-                          label={t('academies.join.dob', 'Date of birth *')}
+                          label={t('service.academy.join.form.dob')}
                           value={form.dob}
-                          placeholder={t('academies.join.dobPlaceholder', 'Tap to select')}
+                          placeholder={t('service.academy.join.form.dobPlaceholder')}
                           error={attempted ? errors.dob : ''}
                         />
                       </View>
@@ -898,7 +926,7 @@ export function JoinAcademyScreen() {
                   {/* iOS: modal with Done/Cancel */}
                   {Platform.OS === 'ios' ? (
                     <Modal visible={dobPickerOpen} transparent animationType="fade" onRequestClose={() => setDobPickerOpen(false)}>
-                      <Pressable style={styles.dobModalBackdrop} onPress={() => setDobPickerOpen(false)}>
+                      <Pressable style={[styles.dobModalBackdrop, { backgroundColor: alphaHex(theme.black, '7A') }]} onPress={() => setDobPickerOpen(false)}>
                         <Pressable
                           style={[
                             styles.dobModalCard,
@@ -909,10 +937,10 @@ export function JoinAcademyScreen() {
                         >
                           <View style={styles.dobModalHead}>
                             <Text weight="bold" variant="bodySmall" style={{ color: theme.text.primary }}>
-                              {t('academies.join.dob', 'Date of birth')}
+                              {t('service.academy.join.form.dobTitle')}
                             </Text>
                             <AnimatedPress>
-                              <Pressable onPress={() => setDobPickerOpen(false)} style={styles.dobCloseBtn}>
+                              <Pressable onPress={() => setDobPickerOpen(false)} style={[styles.dobCloseBtn, { backgroundColor: alphaHex(theme.white, '0F') }]}>
                                 <X size={18} color={theme.text.primary} />
                               </Pressable>
                             </AnimatedPress>
@@ -934,7 +962,7 @@ export function JoinAcademyScreen() {
                             <AnimatedPress>
                               <Button variant="secondary" style={{ flex: 1 }} onPress={() => setDobPickerOpen(false)}>
                                 <Text variant="caption" weight="bold" style={{ color: theme.text.primary }}>
-                                  {t('common.cancel', 'Cancel')}
+                                  {t('service.academy.common.cancel')}
                                 </Text>
                               </Button>
                             </AnimatedPress>
@@ -949,7 +977,7 @@ export function JoinAcademyScreen() {
                                 }}
                               >
                                 <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                                  {t('common.done', 'Done')}
+                                  {t('service.academy.common.done')}
                                 </Text>
                               </Button>
                             </AnimatedPress>
@@ -961,10 +989,10 @@ export function JoinAcademyScreen() {
 
                   {/* Notes */}
                   <Input
-                    label={t('academies.join.notes', 'Notes (optional)')}
+                    label={t('service.academy.join.form.notes')}
                     value={form.notes}
                     onChangeText={(v) => setField('notes', v)}
-                    placeholder={t('academies.join.notesPlaceholder', 'Any special requirements or questions…')}
+                    placeholder={t('service.academy.join.form.notesPlaceholder')}
                     multiline
                     numberOfLines={4}
                     maxLength={200}
@@ -976,52 +1004,52 @@ export function JoinAcademyScreen() {
               <SectionCard
                 theme={theme}
                 icon={<Check size={18} color={theme.accent.orange} />}
-                title={t('academies.join.section.review', 'Review & submit')}
-                subtitle={t('academies.join.section.reviewSub', 'Confirm details before sending')}
+                title={t('service.academy.join.sections.review.title')}
+                subtitle={t('service.academy.join.sections.review.subtitle')}
                 enteringDelay={130}
               >
                 <View style={styles.reviewList}>
                   <View style={[styles.reviewRow, { borderBottomColor: theme.hairline }]}>
                     <Text variant="caption" style={{ color: theme.text.muted }}>
-                      {t('academies.join.review.nameEn', 'Name (English)')}
+                      {t('service.academy.join.review.nameEn')}
                     </Text>
                     <Text weight="bold" numberOfLines={1} style={{ color: theme.text.primary }}>
-                      {reviewNameEn || '—'}
+                      {reviewNameEn || emptyValue}
                     </Text>
                   </View>
 
                   <View style={[styles.reviewRow, { borderBottomColor: theme.hairline }]}>
                     <Text variant="caption" style={{ color: theme.text.muted }}>
-                      {t('academies.join.review.nameAr', 'Name (Arabic)')}
+                      {t('service.academy.join.review.nameAr')}
                     </Text>
                     <Text weight="bold" numberOfLines={1} style={{ color: theme.text.primary }}>
-                      {reviewNameAr || '—'}
+                      {reviewNameAr || emptyValue}
                     </Text>
                   </View>
 
                   <View style={[styles.reviewRow, { borderBottomColor: theme.hairline }]}>
                     <Text variant="caption" style={{ color: theme.text.muted }}>
-                      {t('academies.join.review.phone', 'Phone')}
+                      {t('service.academy.join.review.phone')}
                     </Text>
                     <Text weight="bold" numberOfLines={1} style={{ color: theme.text.primary }}>
-                      {reviewPhone1 || '—'}
-                      {reviewPhone2 ? ` • ${reviewPhone2}` : ''}
+                      {reviewPhone1 || emptyValue}
+                      {reviewPhone2 ? `${t('service.academy.common.separator')}${reviewPhone2}` : ''}
                     </Text>
                   </View>
 
                   <View style={styles.reviewRow}>
                     <Text variant="caption" style={{ color: theme.text.muted }}>
-                      {t('academies.join.review.dob', 'Date of birth')}
+                      {t('service.academy.join.review.dob')}
                     </Text>
                     <Text weight="bold" numberOfLines={1} style={{ color: theme.text.primary }}>
-                      {reviewDob || '—'}
+                      {reviewDob || emptyValue}
                     </Text>
                   </View>
 
                   <View style={[styles.reviewNotice, { backgroundColor: theme.surface1, borderColor: theme.hairline }]}>
                     <ShieldCheck size={16} color={theme.text.secondary} />
                     <Text variant="caption" style={{ color: theme.text.secondary, marginLeft: 8, flex: 1, lineHeight: 18 }}>
-                      {t('academies.join.reviewHint', 'After you submit, the academy will review your request and contact you.')}
+                      {t('service.academy.join.review.hint')}
                     </Text>
                   </View>
                 </View>
@@ -1030,11 +1058,11 @@ export function JoinAcademyScreen() {
           </ScrollView>
 
           {/* Sticky bottom CTA (safe-area aware; guided + trust-first) */}
-          <View style={[styles.bottomBar, getShadow(3, isDark), { backgroundColor: bottomGlass, borderTopColor: theme.hairline }]}>
+          <View style={[styles.bottomBar, getShadow(3, isDark, theme.black), { backgroundColor: bottomGlass, borderTopColor: theme.hairline }]}>
             <View style={styles.bottomBarInner}>
               <View style={styles.bottomMini}>
                 <Text variant="caption" style={{ color: theme.text.secondary }} numberOfLines={1}>
-                  {t('academies.join.sendingTo', 'Sending to')} <Text weight="bold">{academyName}</Text>
+                  {t('service.academy.join.sendingTo')} <Text weight="bold">{academyName}</Text>
                 </Text>
               </View>
 
@@ -1042,7 +1070,7 @@ export function JoinAcademyScreen() {
                 <AnimatedPress disabled={submitting}>
                   <Button variant="secondary" style={styles.bottomBtn} onPress={() => router.back()} disabled={submitting}>
                     <Text variant="caption" weight="bold" style={{ color: theme.text.primary }}>
-                      {t('common.cancel', 'Cancel')}
+                      {t('service.academy.common.cancel')}
                     </Text>
                   </Button>
                 </AnimatedPress>
@@ -1052,7 +1080,7 @@ export function JoinAcademyScreen() {
                     <Send size={16} color={theme.text.onDark} />
                     <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
                       {' '}
-                      {submitting ? t('academies.join.sending', 'Sending…') : t('academies.join.send', 'Send request')}
+                      {submitting ? t('service.academy.join.sending') : t('service.academy.join.send')}
                     </Text>
                   </Button>
                 </AnimatedPress>
@@ -1082,7 +1110,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     overflow: 'hidden',
     borderWidth: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.10)',
   },
   logoFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
@@ -1110,7 +1137,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.04)',
   },
 
   trustRow: { flexDirection: 'row', alignItems: 'center', opacity: 0.95, marginTop: 2 },
@@ -1132,7 +1158,6 @@ const styles = StyleSheet.create({
   // iOS DOB modal
   dobModalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.48)',
     padding: 18,
     justifyContent: 'flex-end',
   },
@@ -1148,7 +1173,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   dobModalActions: { flexDirection: 'row', gap: 12, marginTop: 14 },
 

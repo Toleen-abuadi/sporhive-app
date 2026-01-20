@@ -21,22 +21,24 @@ export function AcademyTemplatePlaceholderScreen() {
     <Screen safe scroll>
       <View style={{ padding: spacing.lg }}>
         <AppHeader
-          title={t('academies.template.title', 'Academy profile')}
-          subtitle={t('academies.template.subtitle', 'We will build this page next.')}
+          title={t('service.academy.placeholder.title')}
+          subtitle={t('service.academy.placeholder.subtitle')}
           leftSlot={<BackButton />}
         />
 
         <View style={{ marginTop: spacing.xl, alignItems: 'center' }}>
           <Sparkles size={42} color={colors.accentOrange} />
           <Text variant="h4" weight="bold" style={{ marginTop: spacing.md, color: colors.textPrimary }}>
-            {t('common.comingSoon', 'Coming Soon')}
+            {t('service.academy.placeholder.comingSoon')}
           </Text>
           <Text variant="body" color={colors.textSecondary} style={{ textAlign: 'center', marginTop: spacing.sm }}>
-            {t('academies.template.comingSoon', 'Template page for')} <Text weight="bold">{String(slug || '')}</Text>
+            {t('service.academy.placeholder.message')} <Text weight="bold">{String(slug || '')}</Text>
           </Text>
 
           <Button style={{ marginTop: spacing.lg }} onPress={() => router.push('/academies')}>
-            <Text variant="caption" weight="bold" style={{ color: colors.white }}>{t('academies.discovery.title', 'Discover academies')}</Text>
+            <Text variant="caption" weight="bold" style={{ color: colors.white }}>
+              {t('service.academy.placeholder.cta')}
+            </Text>
           </Button>
         </View>
       </View>
