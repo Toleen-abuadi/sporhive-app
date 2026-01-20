@@ -5,8 +5,10 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { borderRadius, spacing } from '../../theme/tokens';
 import { Input } from '../ui/Input';
 import { Text } from '../ui/Text';
+import { SporHiveLoader } from '../ui/SporHiveLoader';
 import { PortalListItem } from './PortalListItem';
 import { PortalEmptyState } from './PortalEmptyState';
+import { useTranslation } from '../../services/i18n/i18n';
 
 export function AcademyPicker({
   academies = [],
@@ -18,6 +20,7 @@ export function AcademyPicker({
   error,
 }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
   const filtered = useMemo(() => {
     if (!searchQuery) return academies;
@@ -32,21 +35,21 @@ export function AcademyPicker({
     <View style={styles.container}>
       <View style={[styles.selectedCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
         <Text variant="caption" color={colors.textMuted}>
-          Selected academy
+          {t('service.portal.login.academyPicker.selectedLabel')}
         </Text>
         <View style={styles.selectedRow}>
           <Text variant="body" weight="semibold" color={colors.textPrimary}>
-            {selectedAcademy?.name || 'Choose an academy'}
+            {selectedAcademy?.name || t('service.portal.login.academyPicker.choose')}
           </Text>
           <Feather name="chevron-down" size={18} color={colors.textMuted} />
         </View>
         <Text variant="bodySmall" color={colors.textSecondary} style={styles.selectedSubtitle}>
-          {selectedAcademy?.subtitle || 'Search or scroll to select the correct academy.'}
+          {selectedAcademy?.subtitle || t('service.portal.login.academyPicker.helper')}
         </Text>
       </View>
 
       <Input
-        placeholder="Search academy"
+        placeholder={t('service.portal.login.academyPicker.searchPlaceholder')}
         value={searchQuery}
         onChangeText={onSearchChange}
         leftIcon="search"
@@ -55,9 +58,11 @@ export function AcademyPicker({
 
       {loading ? (
         <View style={[styles.loadingCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-          <Text variant="bodySmall" color={colors.textSecondary}>
-            Loading academies…
-          </Text>
+          <SporHiveLoader
+            size={64}
+            fullScreen={false}
+            label={t('service.portal.login.academyPicker.loading')}
+          />
         </View>
       ) : error ? (
         <View style={[styles.loadingCard, { borderColor: colors.error, backgroundColor: colors.error + '12' }]}>
@@ -68,8 +73,8 @@ export function AcademyPicker({
       ) : filtered.length === 0 ? (
         <PortalEmptyState
           icon="map"
-          title="No academies found"
-          description="Try another name or location."
+          title={t('service.portal.login.academyPicker.emptyTitle')}
+          description={t('service.portal.login.academyPicker.emptyDescription')}
         />
       ) : (
         <View style={styles.list}>
@@ -79,7 +84,7 @@ export function AcademyPicker({
               <PortalListItem
                 key={academy.id}
                 leadingIcon="shield"
-                title={academy.name || academy.label || 'Academy'}
+                title={academy.name || academy.label || t('service.portal.login.academyFallback')}
                 subtitle={academy.subtitle || academy.client_name || ''}
                 onPress={() => onSelect?.(academy)}
                 rightSlot={

@@ -866,5 +866,399 @@
       "sendResetCode": "Send reset code",
       "updatePassword": "Update password"
     }
+    },
+    "portal": {
+      "common": {
+        "placeholder": "—",
+        "player": "Player",
+        "edit": "Edit",
+        "cancel": "Cancel",
+        "retry": "Retry",
+        "loading": "Loading...",
+        "close": "Close",
+        "remove": "Remove"
+      },
+      "home": {
+        "title": "Player Portal",
+        "subtitle": "Your personalised training hub",
+        "welcomeBack": "Welcome back",
+        "academy": "Your academy",
+        "registrationStatus": "Registration status",
+        "activePlayer": "Active player",
+        "registration": "Registration",
+        "trainingGroup": "Training group",
+        "courseLabel": "Course: {{course}}",
+        "credits": "Credits",
+        "nextExpiry": "Next expiry {{date}}",
+        "sessionsProgress": "Sessions progress",
+        "sessionsRemaining": "{{remaining}} of {{total}} sessions left",
+        "performanceScore": "Performance score",
+        "performanceFallback": "—",
+        "attendance": "Attendance",
+        "attendanceFallback": "—",
+        "upcomingPayments": "Upcoming payments",
+        "invoice": "Invoice",
+        "paymentDue": "Due {{date}} • {{status}}",
+        "soon": "soon",
+        "pending": "pending",
+        "noPendingInvoices": "No pending invoices yet.",
+        "open": "Open",
+        "quick": {
+          "profile": "Profile",
+          "renewals": "Renewals",
+          "freezes": "Freezes",
+          "payments": "Payments",
+          "uniforms": "Uniforms",
+          "performance": "Performance"
+        }
+      },
+      "more": {
+        "title": "More",
+        "subtitle": "Everything else in your portal",
+        "freezes": {
+          "title": "Freezes",
+          "subtitle": "Pause your subscription"
+        },
+        "performance": {
+          "title": "Performance",
+          "subtitle": "Coach ratings & insights"
+        },
+        "uniforms": {
+          "title": "Uniform store",
+          "subtitle": "Latest kits and gear"
+        },
+        "orders": {
+          "title": "My orders",
+          "subtitle": "Track deliveries"
+        },
+        "news": {
+          "title": "News",
+          "subtitle": "Academy updates"
+        },
+        "payments": {
+          "title": "Payments",
+          "subtitle": "Invoices and receipts"
+        }
+      },
+      "payments": {
+        "title": "Payments",
+        "subtitle": "Invoices, transactions, and receipts",
+        "currency": "JOD",
+        "status": {
+          "paid": "Paid",
+          "pending": "Pending",
+          "due": "Due",
+          "unknown": "Unknown"
+        },
+        "notPaidToken": "Not paid",
+        "noDate": "No date",
+        "noDateSpecified": "No date specified",
+        "paidOn": "Paid on {{date}}",
+        "dueOn": "Due on {{date}}",
+        "method": "• {{method}}",
+        "type": {
+          "uniformPurchase": "Uniform purchase",
+          "fullPayment": "Full payment",
+          "installment": "Installment {{label}}",
+          "payment": "Payment"
+        },
+        "amount": "Amount:",
+        "invoice": "Invoice:",
+        "fees": {
+          "training": "Training: {{amount}}",
+          "uniform": "Uniform: {{amount}}",
+          "transport": "Transport: {{amount}}"
+        },
+        "empty": {
+          "title": "No payments yet",
+          "subtitle": "When you pay for subscriptions or orders, they’ll appear here.",
+          "error": "Failed to load payments: {{message}}"
+        },
+        "summary": {
+          "paid": "Paid",
+          "pending": "Pending",
+          "overdue": "Overdue"
+        },
+        "errorNote": "Note: {{message}}"
+      },
+      "orders": {
+        "title": "My Orders",
+        "subtitle": "Track your uniform purchases",
+        "error": "Could not load order history.",
+        "summary": {
+          "total": "Total",
+          "pending": "Pending",
+          "collected": "Collected"
+        },
+        "errorTitle": "Unable to load orders",
+        "loading": "Loading your order history.",
+        "emptyTitle": "No orders yet",
+        "emptyDescription": "Once you order uniforms, they will appear here.",
+        "orderLabel": "Order #{{id}}",
+        "subtitleLeft": "{{type}} • Qty: {{qty}}",
+        "subtitleRight": "Size: {{size}}",
+        "ref": "Ref",
+        "player": "Player",
+        "nickname": "Nickname",
+        "viewDetails": "View details",
+        "oneSize": "One size",
+        "fullKit": "Full kit",
+        "status": {
+          "pendingPayment": "Pending payment",
+          "collected": "Collected",
+          "processing": "Processing",
+          "cancelled": "Cancelled",
+          "default": "Processing"
+        },
+        "details": {
+          "title": "Order details",
+          "item": "Item",
+          "uniformType": "Uniform type",
+          "size": "Size",
+          "quantity": "Quantity",
+          "player": "Player",
+          "playerNumber": "Player number",
+          "nickname": "Nickname",
+          "meta": "Order info",
+          "orderId": "Order ID",
+          "productId": "Product ID",
+          "variantId": "Variant ID",
+          "paymentRef": "Payment reference",
+          "createdAt": "Created at",
+          "updatedAt": "Updated at"
+        }
+      },
+      "news": {
+        "title": "News",
+        "subtitle": "Latest academy updates",
+        "errorTitle": "Unable to load news",
+        "error": "Could not load news updates.",
+        "defaultTitle": "Academy update",
+        "defaultDescription": "Stay tuned for upcoming matches and announcements.",
+        "loadingTitle": "Loading news",
+        "loadingDescription": "Fetching the latest updates for you.",
+        "emptyTitle": "No news yet",
+        "emptyDescription": "News posts will appear here as soon as they are published."
+      },
+      "profile": {
+        "title": "Profile",
+        "subtitle": "Manage your player identity",
+        "playerName": "Player name",
+        "academy": "Academy",
+        "playerId": "ID: {{id}}",
+        "contact": "Contact details",
+        "phone1": "Phone 1",
+        "phone2": "Phone 2",
+        "dob": "Date of birth",
+        "heightWeight": "Height / Weight",
+        "heightWeightValue": "{{height}} cm • {{weight}} kg",
+        "noAddress": "No address saved yet.",
+        "noMap": "Google maps pin not added.",
+        "logout": "Logout",
+        "editTitle": "Edit profile",
+        "addPhoto": "Add photo",
+        "photoHint": "Tap to upload image",
+        "firstNameEn": "First name (EN)",
+        "middleNameEn": "Middle name (EN)",
+        "lastNameEn": "Last name (EN)",
+        "firstNameAr": "First name (AR)",
+        "middleNameAr": "Middle name (AR)",
+        "lastNameAr": "Last name (AR)",
+        "maps": "Maps location",
+        "height": "Height (cm)",
+        "weight": "Weight (kg)",
+        "save": "Save changes"
+      },
+      "login": {
+        "title": "Player Portal",
+        "subtitle": "Select your academy to unlock your player portal.",
+        "subtitleWithAcademy": "Signing in to {{academy}}",
+        "academyFallback": "Academy",
+        "academiesError": "Unable to load academies.",
+        "errors": {
+          "selectAcademy": "Please choose your academy.",
+          "enterCredentials": "Enter both your username and password.",
+          "loginFailed": "Login failed. Please try again."
+        },
+        "username": "Username",
+        "usernamePlaceholder": "Email or phone",
+        "password": "Password",
+        "passwordPlaceholder": "••••••••",
+        "success": "Welcome back! Preparing your portal…",
+        "forgotPassword": "Forgot password?",
+        "submit": "Enter Portal",
+        "academyPicker": {
+          "selectedLabel": "Selected academy",
+          "choose": "Choose an academy",
+          "helper": "Search or scroll to select the correct academy.",
+          "searchPlaceholder": "Search academy",
+          "loading": "Loading academies…",
+          "emptyTitle": "No academies found",
+          "emptyDescription": "Try another name or location."
+        }
+      },
+      "reset": {
+        "title": "Reset password",
+        "subtitle": "We’ll help you regain access",
+        "comingSoonTitle": "Password reset coming soon",
+        "comingSoonDescription": "We’re preparing a secure reset flow for the player portal.",
+        "backToLogin": "Back to login"
+      },
+      "freezes": {
+        "title": "Freezes",
+        "subtitle": "Pause your program without missing progress",
+        "currentStatus": "Current status",
+        "approved": "Approved",
+        "pending": "Pending",
+        "rejected": "Rejected",
+        "canceled": "Canceled",
+        "currentFreeze": "Current freeze",
+        "upcomingFreeze": "Upcoming freeze",
+        "lastFreeze": "Last freeze",
+        "period": "Period",
+        "processedBy": "Processed by",
+        "processedAt": "Processed at",
+        "remainingSnapshot": "Remaining sessions snapshot",
+        "reason": "Reason",
+        "notes": "Notes",
+        "requestTitle": "Request a freeze",
+        "requestSubtitle": "Select dates and give a quick reason.",
+        "startDate": "Start date",
+        "endDate": "End date",
+        "reasonPlaceholder": "Tell us why you need a pause",
+        "submit": "Submit request",
+        "emptyTitle": "No freezes yet",
+        "emptyDescription": "Your submitted freezes will appear here.",
+        "validation": "Select dates and add a reason.",
+        "success": "Freeze request submitted.",
+        "error": "Freeze request failed.",
+        "remainingSessions": "Remaining sessions",
+        "remainingSessionsInline": " • Remaining sessions: {{count}}",
+        "summaryLine": "Freeze summary: {{total}} • Approved: {{approved}} • Pending: {{pending}}{{remainingText}}",
+        "range": "{{start}} → {{end}}"
+      },
+      "performance": {
+        "title": "Performance",
+        "subtitle": "Ratings, feedback, and progress",
+        "overall": "Overall rating",
+        "basedOnSessions": "Based on {{count}} recent sessions",
+        "categories": "Rating categories",
+        "periods": "Period analytics",
+        "periodLabel": "Period {{index}}",
+        "periodRange": "{{start}} → {{end}}",
+        "ratingLabel": "Rating {{index}}",
+        "loadingTitle": "Loading performance",
+        "loadingDescription": "Fetching ratings and feedback from your coach.",
+        "emptyTitle": "Performance insights loading",
+        "emptyDescription": "Ratings will appear as soon as your coach publishes them.",
+        "errorTitle": "Unable to load performance",
+        "error": "Could not load performance data."
+      },
+      "renewals": {
+        "title": "Renewals",
+        "subtitle": "Continue your journey",
+        "eligible": "Eligible",
+        "notEligible": "Not eligible",
+        "ends": "Ends",
+        "daysLeft": "Days left",
+        "current": "Current",
+        "scheduleSeparator": " • ",
+        "scheduleEmpty": "No schedule",
+        "courseLabel": "Course #{{id}}",
+        "courseRange": "{{start}} → {{end}} • {{sessions}} sessions",
+        "courseSessions": "{{sessions}} sessions",
+        "groupLabel": "Group #{{id}}",
+        "groupCapacity": "{{schedule}} • {{count}} spots",
+        "errors": {
+          "completeFields": "Please complete all required fields.",
+          "loadTitle": "Couldn't load renewals"
+        },
+        "actions": {
+          "retry": "Try again",
+          "back": "Back to dashboard",
+          "submit": "Submit renewal request",
+          "submitting": "Submitting..."
+        },
+        "submit": {
+          "successTitle": "Renewal request submitted!",
+          "successMessage": "The academy will review your request shortly.",
+          "errorTitle": "Submission failed",
+          "errorMessage": "Please try again."
+        },
+        "notAvailable": {
+          "title": "Renewal not available",
+          "subtitle": "Here's why you can't request a renewal right now",
+          "pendingTitle": "Pending request",
+          "pendingBody": "You already have a renewal request under review. Please wait for it to be processed.",
+          "activeTitle": "Active subscription",
+          "activeBody": "Renewal becomes available closer to your current subscription end date."
+        },
+        "request": {
+          "title": "Request renewal",
+          "subtitle": "Choose your course or group, then set your preferred schedule",
+          "courseLabel": "Select course (optional)",
+          "coursePlaceholder": "Choose a course...",
+          "groupLabel": "Select group (optional)",
+          "groupPlaceholder": "Choose a group...",
+          "scheduleTitle": "Group schedule",
+          "scheduleEmpty": "No schedule set",
+          "sessionsPerWeek": "Sessions per week: {{count}}",
+          "startDate": "Start date",
+          "endDate": "End date",
+          "selectDate": "Select date",
+          "sessionsLabel": "Number of sessions",
+          "sessionsUnit": "sessions",
+          "notesLabel": "Additional notes (optional)",
+          "notesPlaceholder": "Any special requests or notes for the academy...",
+          "disclaimer": "By submitting, you acknowledge that the academy will review your request. You'll be notified once it's processed."
+        },
+        "summary": {
+          "title": "Period summary",
+          "range": "{{start}} → {{end}}",
+          "sessionsDetail": "{{count}} sessions • {{perWeek}}/week"
+        },
+        "datePicker": {
+          "startTitle": "Select start date",
+          "endTitle": "Select end date",
+          "confirm": "Confirm date"
+        }
+      },
+      "uniforms": {
+        "title": "Uniform Store",
+        "subtitle": "Latest kits and merchandise",
+        "loadingTitle": "Loading catalog",
+        "loadingDescription": "Fetching the latest gear from your academy.",
+        "errorTitle": "Unable to load store",
+        "error": "Could not load the uniform store.",
+        "emptyTitle": "Store preparing",
+        "emptyDescription": "Uniform options will appear once the catalog is live.",
+        "kit": "Kit",
+        "defaultName": "Uniform pack",
+        "sizeRequired": "Please select a size.",
+        "priceMissing": "Price not available.",
+        "added": "Added to cart",
+        "validation": "Add items to your cart first.",
+        "success": "Uniform order placed.",
+        "priceNA": "Price unavailable",
+        "oneSizeItem": "One size fits all",
+        "availableSizes": "Available sizes",
+        "oneSize": "One size",
+        "sizeSeparator": " • ",
+        "viewDetails": "View",
+        "cartTitle": "Cart summary • {{count}}",
+        "emptyCartTitle": "Your cart is empty",
+        "emptyCartDesc": "Add uniforms from the catalog.",
+        "sizeLabel": "Size: {{size}} • {{price}} each",
+        "number": "Number",
+        "numberPlaceholder": "00",
+        "nickname": "Nickname",
+        "nicknamePlaceholder": "—",
+        "total": "Total",
+        "checkout": "Checkout",
+        "viewCart": "View",
+        "addToCart": "Add to cart",
+        "size": "Size"
+      }
+    }
   }
 }

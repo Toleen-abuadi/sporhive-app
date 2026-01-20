@@ -6,38 +6,50 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
+import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
-import { BackButton } from '../../components/ui/BackButton';
 import { portalApi } from '../../services/portal/portal.api';
 import { usePortalOverview } from '../../services/portal/portal.hooks';
 import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
 import { normalizeUniformOrders } from '../../services/portal/portal.normalize';
 
-const STATUS_META = {
-  pending_payment: { labelKey: 'portal.orders.status.pendingPayment', tone: 'warning' },
-  collected: { labelKey: 'portal.orders.status.collected', tone: 'success' },
-  processing: { labelKey: 'portal.orders.status.processing', tone: 'info' },
-  cancelled: { labelKey: 'portal.orders.status.cancelled', tone: 'danger' },
+const alphaHex = (hex, alpha = '1A') => {
+  if (!hex) return hex;
+  const normalized = hex.replace('#', '');
+  if (normalized.length === 3) {
+    const [r, g, b] = normalized.split('');
+    return `#${r}${r}${g}${g}${b}${b}${alpha}`;
+  }
+  if (normalized.length === 6) return `#${normalized}${alpha}`;
+  if (normalized.length === 8) return `#${normalized.slice(0, 6)}${alpha}`;
+  return hex;
 };
 
-const normalizeSizeLabel = (s) => {
-  const v = String(s || '').trim();
-  if (!v) return '—';
-  if (v === '__one_size__') return 'One size';
+const STATUS_META = {
+  pending_payment: { labelKey: 'service.portal.orders.status.pendingPayment', tone: 'warning' },
+  collected: { labelKey: 'service.portal.orders.status.collected', tone: 'success' },
+  processing: { labelKey: 'service.portal.orders.status.processing', tone: 'info' },
+  cancelled: { labelKey: 'service.portal.orders.status.cancelled', tone: 'danger' },
+};
+
+const normalizeSizeLabel = (value, labels) => {
+  const v = String(value || '').trim();
+  if (!v) return labels.placeholder;
+  if (v === '__one_size__') return labels.oneSize;
   return v;
 };
 
-const normalizeTypeLabel = (t) => {
-  const v = String(t || '').trim();
-  if (!v) return '—';
-  return v.toLowerCase() === 'full' ? 'Full kit' : v;
+const normalizeTypeLabel = (value, labels) => {
+  const v = String(value || '').trim();
+  if (!v) return labels.placeholder;
+  return v.toLowerCase() === 'full' ? labels.fullKit : v;
 };
 
-const formatDateTime = (iso, locale = 'en') => {
-  if (!iso) return '—';
+const formatDateTime = (iso, locale, placeholder) => {
+  if (!iso) return placeholder;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return String(iso);
   try {
@@ -55,65 +67,46 @@ const formatDateTime = (iso, locale = 'en') => {
 };
 
 function StatusPill({ status, t, colors }) {
-  const meta = STATUS_META[status] || { labelKey: 'portal.orders.status.default', tone: 'neutral' };
+  const meta = STATUS_META[status] || { labelKey: 'service.portal.orders.status.default', tone: 'neutral' };
 
   const label =
     meta.labelKey && typeof t === 'function'
-      ? t(meta.labelKey, { defaultValue: status || t('portal.orders.statusDefault') })
-      : status || '—';
+      ? t(meta.labelKey)
+      : status || t('service.portal.common.placeholder');
 
   const tone = meta.tone;
 
-  const bg =
+  const toneColor =
     tone === 'success'
-      ? 'rgba(34,197,94,0.14)'
+      ? colors.success
       : tone === 'warning'
-        ? 'rgba(245,158,11,0.16)'
+        ? colors.warning
         : tone === 'danger'
-          ? 'rgba(239,68,68,0.14)'
+          ? colors.error
           : tone === 'info'
-            ? 'rgba(59,130,246,0.14)'
-            : 'rgba(148,163,184,0.14)';
-
-  const border =
-    tone === 'success'
-      ? 'rgba(34,197,94,0.28)'
-      : tone === 'warning'
-        ? 'rgba(245,158,11,0.30)'
-        : tone === 'danger'
-          ? 'rgba(239,68,68,0.28)'
-          : tone === 'info'
-            ? 'rgba(59,130,246,0.26)'
-            : 'rgba(148,163,184,0.24)';
-
-  const text =
-    tone === 'success'
-      ? '#22C55E'
-      : tone === 'warning'
-        ? '#F59E0B'
-        : tone === 'danger'
-          ? '#EF4444'
-          : tone === 'info'
-            ? '#60A5FA'
+            ? colors.info
             : colors.textSecondary;
+
+  const bg = alphaHex(toneColor, '1A');
+  const border = alphaHex(toneColor, '33');
 
   return (
     <View style={[styles.pill, { backgroundColor: bg, borderColor: border }]}>
-      <Text variant="caption" weight="semibold" style={{ color: text }}>
+      <Text variant="caption" weight="semibold" style={{ color: toneColor }}>
         {label}
       </Text>
     </View>
   );
 }
 
-function KV({ k, v, colors }) {
+function KV({ k, v, colors, placeholder }) {
   return (
     <View style={styles.kvRow}>
       <Text variant="bodySmall" color={colors.textMuted} style={styles.kvKey}>
         {k}
       </Text>
       <Text variant="bodySmall" color={colors.textPrimary} style={styles.kvVal}>
-        {v || '—'}
+        {v || placeholder}
       </Text>
     </View>
   );
@@ -123,6 +116,11 @@ export function PortalMyOrdersScreen() {
   const { colors } = useTheme();
   const { t, isRTL, locale } = useTranslation();
   const { overview } = usePortalOverview();
+  const labels = useMemo(() => ({
+    placeholder: t('service.portal.common.placeholder'),
+    oneSize: t('service.portal.orders.oneSize'),
+    fullKit: t('service.portal.orders.fullKit'),
+  }), [t]);
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -182,7 +180,7 @@ export function PortalMyOrdersScreen() {
       const list = normalizeUniformOrders(res.data);
       setOrders(list);
     } else {
-      setError(res?.error?.message || t('portal.orders.error'));
+      setError(res?.error?.message || t('service.portal.orders.error'));
     }
 
     setLoading(false);
@@ -224,21 +222,27 @@ export function PortalMyOrdersScreen() {
     });
   }, [animateOut]);
 
+  if (loading && orders.length === 0 && !error) {
+    return (
+      <Screen>
+        <SporHiveLoader />
+      </Screen>
+    );
+  }
 
   return (
     <>
       <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
         <PortalHeader
-          title={t('portal.orders.title')}
-          subtitle={t('portal.orders.subtitle')}
-          leftSlot={<BackButton />}
+          title={t('service.portal.orders.title')}
+          subtitle={t('service.portal.orders.subtitle')}
         />
 
         {/* Top summary like ecommerce apps */}
         <View style={styles.summaryRow}>
           <PortalCard style={[styles.summaryCard, styles.summaryCardLeft]}>
             <Text variant="caption" color={colors.textMuted}>
-              {t('portal.orders.summary.total')}
+              {t('service.portal.orders.summary.total')}
             </Text>
             <Text variant="title" weight="bold" color={colors.textPrimary} style={styles.summaryValue}>
               {stats.total}
@@ -247,7 +251,7 @@ export function PortalMyOrdersScreen() {
 
           <PortalCard style={styles.summaryCard}>
             <Text variant="caption" color={colors.textMuted}>
-              {t('portal.orders.summary.pending')}
+              {t('service.portal.orders.summary.pending')}
             </Text>
             <Text variant="title" weight="bold" color={colors.textPrimary} style={styles.summaryValue}>
               {stats.pending}
@@ -256,7 +260,7 @@ export function PortalMyOrdersScreen() {
 
           <PortalCard style={[styles.summaryCard, styles.summaryCardRight]}>
             <Text variant="caption" color={colors.textMuted}>
-              {t('portal.orders.summary.collected')}
+              {t('service.portal.orders.summary.collected')}
             </Text>
             <Text variant="title" weight="bold" color={colors.textPrimary} style={styles.summaryValue}>
               {stats.collected}
@@ -267,32 +271,30 @@ export function PortalMyOrdersScreen() {
         {error ? (
           <PortalEmptyState
             icon="alert-triangle"
-            title={t('portal.orders.errorTitle')}
+            title={t('service.portal.orders.errorTitle')}
             description={error}
             action={(
               <Button variant="secondary" onPress={loadOrders}>
-                {t('common.retry')}
+                {t('service.portal.common.retry')}
               </Button>
             )}
           />
-        ) : loading ? (
-          <PortalEmptyState icon="package" title={t('common.loading')} description={t('portal.orders.loading')} />
         ) : sorted.length === 0 ? (
           <PortalEmptyState
             icon="package"
-            title={t('portal.orders.emptyTitle')}
-            description={t('portal.orders.emptyDescription')}
+            title={t('service.portal.orders.emptyTitle')}
+            description={t('service.portal.orders.emptyDescription')}
           />
         ) : (
           <View style={styles.list}>
             {sorted.map((order, idx) => {
-              const title = `${t('portal.orders.order')} #${order?.id ?? idx + 1}`;
-              const typeLabel = normalizeTypeLabel(order?.uniform_type);
-              const sizeLabel = normalizeSizeLabel(order?.uniform_size);
+              const title = t('service.portal.orders.orderLabel', { id: order?.id ?? idx + 1 });
+              const typeLabel = normalizeTypeLabel(order?.uniform_type, labels);
+              const sizeLabel = normalizeSizeLabel(order?.uniform_size, labels);
               const qty = Number(order?.uniform_quantity || 0) || 1;
 
-              const subtitleLeft = `${typeLabel} • ${t('portal.orders.qty')}: ${qty}`;
-              const subtitleRight = `${t('portal.orders.size')}: ${sizeLabel}`;
+              const subtitleLeft = t('service.portal.orders.subtitleLeft', { type: typeLabel, qty });
+              const subtitleRight = t('service.portal.orders.subtitleRight', { size: sizeLabel });
 
               return (
                 <Pressable
@@ -307,7 +309,7 @@ export function PortalMyOrdersScreen() {
                           {title}
                         </Text>
                         <Text variant="caption" color={colors.textMuted} style={styles.cardDate}>
-                          {formatDateTime(order?.created_at, locale || 'en')}
+                          {formatDateTime(order?.created_at, locale || 'en', labels.placeholder)}
                         </Text>
                       </View>
                       <StatusPill status={String(order?.status || '')} t={t} colors={colors} />
@@ -323,36 +325,36 @@ export function PortalMyOrdersScreen() {
                     </View>
 
                     <View style={styles.metaRow}>
-                      <View style={styles.metaChip}>
-                        <Text variant="caption" color={colors.textMuted}>
-                          {t('portal.orders.ref')}
-                        </Text>
+                    <View style={[styles.metaChip, { borderColor: alphaHex(colors.border, '66'), backgroundColor: alphaHex(colors.textMuted, '14') }]}>
+                      <Text variant="caption" color={colors.textMuted}>
+                        {t('service.portal.orders.ref')}
+                      </Text>
                         <Text variant="caption" weight="semibold" color={colors.textPrimary}>
-                          {order?.additional_payment_ref ? String(order.additional_payment_ref) : '—'}
+                          {order?.additional_payment_ref ? String(order.additional_payment_ref) : labels.placeholder}
                         </Text>
                       </View>
 
-                      <View style={styles.metaChip}>
-                        <Text variant="caption" color={colors.textMuted}>
-                          {t('portal.orders.player')}
-                        </Text>
+                    <View style={[styles.metaChip, { borderColor: alphaHex(colors.border, '66'), backgroundColor: alphaHex(colors.textMuted, '14') }]}>
+                      <Text variant="caption" color={colors.textMuted}>
+                        {t('service.portal.orders.player')}
+                      </Text>
                         <Text variant="caption" weight="semibold" color={colors.textPrimary}>
-                          {order?.player_number ? `#${order.player_number}` : '—'}
+                          {order?.player_number ? `#${order.player_number}` : labels.placeholder}
                         </Text>
                       </View>
 
-                      <View style={styles.metaChip}>
-                        <Text variant="caption" color={colors.textMuted}>
-                          {t('portal.orders.nickname')}
-                        </Text>
+                    <View style={[styles.metaChip, { borderColor: alphaHex(colors.border, '66'), backgroundColor: alphaHex(colors.textMuted, '14') }]}>
+                      <Text variant="caption" color={colors.textMuted}>
+                        {t('service.portal.orders.nickname')}
+                      </Text>
                         <Text variant="caption" weight="semibold" color={colors.textPrimary} numberOfLines={1}>
-                          {order?.nickname ? String(order.nickname) : '—'}
+                          {order?.nickname ? String(order.nickname) : labels.placeholder}
                         </Text>
                       </View>
                     </View>
                     <View style={styles.cardActions}>
                       <Button variant="secondary" size="small" onPress={() => openDetails(order)} style={[styles.actionBtn, styles.actionBtnSolo]}>
-                        {t('portal.orders.viewDetails')}
+                        {t('service.portal.orders.viewDetails')}
                       </Button>
                     </View>
                   </PortalCard>
@@ -366,23 +368,27 @@ export function PortalMyOrdersScreen() {
       {/* Details “bottom sheet” */}
       <Modal visible={detailsOpen} transparent animationType="none" onRequestClose={closeDetails}>
         <Pressable style={styles.backdrop} onPress={closeDetails}>
-          <Animated.View style={[styles.backdropFill, { opacity: backdropA }]} />
+          <Animated.View style={[styles.backdropFill, { opacity: backdropA, backgroundColor: alphaHex(colors.black, '73') }]} />
 
           <Pressable onPress={() => { }} style={styles.sheetTapBlock}>
             <Animated.View
               style={[
                 styles.sheet,
-                { borderColor: colors.border, transform: [{ translateY: sheetY }] },
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.surfaceElevated || colors.surface,
+                  transform: [{ translateY: sheetY }],
+                },
               ]}
             >
-              <View style={styles.sheetHandle} />
+              <View style={[styles.sheetHandle, { backgroundColor: alphaHex(colors.textMuted, '59') }]} />
               <View style={styles.sheetHeader}>
                 <View style={{ flex: 1 }}>
                   <Text variant="body" weight="bold" color={colors.textPrimary}>
-                    {t('portal.orders.detailsTitle')}
+                    {t('service.portal.orders.details.title')}
                   </Text>
                   <Text variant="caption" color={colors.textMuted}>
-                    {selected?.id ? `${t('portal.orders.order')} #${selected.id}` : '—'}
+                    {selected?.id ? t('service.portal.orders.orderLabel', { id: selected.id }) : labels.placeholder}
                   </Text>
                 </View>
                 <StatusPill status={String(selected?.status || '')} t={t} colors={colors} />
@@ -395,51 +401,54 @@ export function PortalMyOrdersScreen() {
               >
                 <PortalCard style={styles.detailsCard}>
                   <Text variant="bodySmall" weight="semibold" color={colors.textPrimary} style={styles.sectionTitle}>
-                    {t('portal.orders.details.item')}
+                    {t('service.portal.orders.details.item')}
                   </Text>
 
-                  <KV k={t('portal.orders.details.uniformType')} v={normalizeTypeLabel(selected?.uniform_type)} colors={colors} />
-                  <KV k={t('portal.orders.details.size')} v={normalizeSizeLabel(selected?.uniform_size)} colors={colors} />
+                  <KV k={t('service.portal.orders.details.uniformType')} v={normalizeTypeLabel(selected?.uniform_type, labels)} colors={colors} placeholder={labels.placeholder} />
+                  <KV k={t('service.portal.orders.details.size')} v={normalizeSizeLabel(selected?.uniform_size, labels)} colors={colors} placeholder={labels.placeholder} />
                   <KV
-                    k={t('portal.orders.details.quantity')}
-                    v={selected?.uniform_quantity != null ? String(selected.uniform_quantity) : '—'}
+                    k={t('service.portal.orders.details.quantity')}
+                    v={selected?.uniform_quantity != null ? String(selected.uniform_quantity) : labels.placeholder}
                     colors={colors}
+                    placeholder={labels.placeholder}
                   />
                 </PortalCard>
 
                 <PortalCard style={styles.detailsCard}>
                   <Text variant="bodySmall" weight="semibold" color={colors.textPrimary} style={styles.sectionTitle}>
-                    {t('portal.orders.details.player')}
+                    {t('service.portal.orders.details.player')}
                   </Text>
 
                   <KV
-                    k={t('portal.orders.details.playerNumber')}
-                    v={selected?.player_number ? `#${selected.player_number}` : '—'}
+                    k={t('service.portal.orders.details.playerNumber')}
+                    v={selected?.player_number ? `#${selected.player_number}` : labels.placeholder}
                     colors={colors}
+                    placeholder={labels.placeholder}
                   />
-                  <KV k={t('portal.orders.details.nickname')} v={selected?.nickname ? String(selected.nickname) : '—'} colors={colors} />
+                  <KV k={t('service.portal.orders.details.nickname')} v={selected?.nickname ? String(selected.nickname) : labels.placeholder} colors={colors} placeholder={labels.placeholder} />
                 </PortalCard>
 
                 <PortalCard style={styles.detailsCard}>
                   <Text variant="bodySmall" weight="semibold" color={colors.textPrimary} style={styles.sectionTitle}>
-                    {t('portal.orders.details.meta')}
+                    {t('service.portal.orders.details.meta')}
                   </Text>
 
-                  <KV k={t('portal.orders.details.orderId')} v={selected?.id != null ? String(selected.id) : '—'} colors={colors} />
-                  <KV k={t('portal.orders.details.productId')} v={selected?.product_id != null ? String(selected.product_id) : '—'} colors={colors} />
-                  <KV k={t('portal.orders.details.variantId')} v={selected?.variant_id != null ? String(selected.variant_id) : '—'} colors={colors} />
+                  <KV k={t('service.portal.orders.details.orderId')} v={selected?.id != null ? String(selected.id) : labels.placeholder} colors={colors} placeholder={labels.placeholder} />
+                  <KV k={t('service.portal.orders.details.productId')} v={selected?.product_id != null ? String(selected.product_id) : labels.placeholder} colors={colors} placeholder={labels.placeholder} />
+                  <KV k={t('service.portal.orders.details.variantId')} v={selected?.variant_id != null ? String(selected.variant_id) : labels.placeholder} colors={colors} placeholder={labels.placeholder} />
                   <KV
-                    k={t('portal.orders.details.paymentRef')}
-                    v={selected?.additional_payment_ref ? String(selected.additional_payment_ref) : '—'}
+                    k={t('service.portal.orders.details.paymentRef')}
+                    v={selected?.additional_payment_ref ? String(selected.additional_payment_ref) : labels.placeholder}
                     colors={colors}
+                    placeholder={labels.placeholder}
                   />
-                  <KV k={t('portal.orders.details.createdAt')} v={formatDateTime(selected?.created_at, locale || 'en')} colors={colors} />
-                  <KV k={t('portal.orders.details.updatedAt')} v={formatDateTime(selected?.updated_at, locale || 'en')} colors={colors} />
+                  <KV k={t('service.portal.orders.details.createdAt')} v={formatDateTime(selected?.created_at, locale || 'en', labels.placeholder)} colors={colors} placeholder={labels.placeholder} />
+                  <KV k={t('service.portal.orders.details.updatedAt')} v={formatDateTime(selected?.updated_at, locale || 'en', labels.placeholder)} colors={colors} placeholder={labels.placeholder} />
                 </PortalCard>
 
                 <View style={styles.sheetFooter}>
                   <Button variant="secondary" onPress={closeDetails} style={styles.footerBtn}>
-                    {t('common.close')}
+                    {t('service.portal.common.close')}
                   </Button>
                 </View>
 
@@ -539,8 +548,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148,163,184,0.18)',
-    backgroundColor: 'rgba(148,163,184,0.08)',
     flexDirection: 'row',
     gap: spacing.xs,
     alignItems: 'center',
@@ -565,7 +572,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: '#0F1A2E',
     paddingTop: spacing.sm,
     maxHeight: '85%',
   },
@@ -573,7 +579,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 5,
     borderRadius: 999,
-    backgroundColor: 'rgba(148,163,184,0.35)',
     alignSelf: 'center',
     marginBottom: spacing.sm,
   },
@@ -621,7 +626,6 @@ const styles = StyleSheet.create({
   },
   backdropFill: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   sheetTapBlock: {
     width: '100%',

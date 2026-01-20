@@ -4,11 +4,24 @@ import { View, FlatList, RefreshControl, StyleSheet } from 'react-native';
 import { usePortalPayments } from '../../services/portal/portal.hooks';
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
+import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
-import { BackButton } from '../../components/ui/BackButton';
 import { useTheme } from '../../theme/ThemeProvider';
+import { useTranslation } from '../../services/i18n/i18n';
+
+const alphaHex = (hex, alpha = '1A') => {
+  if (!hex) return hex;
+  const normalized = hex.replace('#', '');
+  if (normalized.length === 3) {
+    const [r, g, b] = normalized.split('');
+    return `#${r}${r}${g}${g}${b}${b}${alpha}`;
+  }
+  if (normalized.length === 6) return `#${normalized}${alpha}`;
+  if (normalized.length === 8) return `#${normalized.slice(0, 6)}${alpha}`;
+  return hex;
+};
 
 function formatMoney(amount, currency) {
   const a = Number(amount || 0);
@@ -16,12 +29,14 @@ function formatMoney(amount, currency) {
   return `${a.toFixed(2)} ${c}`;
 }
 
-function formatDate(dateString) {
-  if (!dateString || dateString === 'Not paid') return 'No date';
+function formatDate(dateString, locale, { notPaidToken, noDateLabel }) {
+  if (!dateString || dateString === notPaidToken) {
+    return noDateLabel;
+  }
   
   try {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(locale || 'en-US', {
       day: 'numeric',
       month: 'short',
       year: 'numeric'
@@ -35,49 +50,57 @@ function getStatusColor(status, colors) {
   const statusLower = (status || '').toLowerCase();
   
   if (statusLower.includes('paid')) {
-    return colors.success || '#10B981'; // green
+    return colors.success;
   }
   
   if (statusLower.includes('pending')) {
     // Check if overdue
     if (statusLower.includes('overdue') || statusLower.includes('due')) {
-      return colors.error || '#EF4444'; // red
+      return colors.error;
     }
-    return colors.warning || '#F59E0B'; // orange
+    return colors.warning;
   }
   
   if (statusLower.includes('due')) {
-    return colors.error || '#EF4444'; // red
+    return colors.error;
   }
   
-  return colors.text || '#000000'; // default
+  return colors.textPrimary;
 }
 
-function getStatusText(status) {
+function getStatusText(status, t) {
   const statusLower = (status || '').toLowerCase();
   
-  if (statusLower.includes('paid')) return 'Paid';
-  if (statusLower.includes('pending')) return 'Pending';
-  if (statusLower.includes('due')) return 'Due';
-  return status || 'Unknown';
+  if (statusLower.includes('paid')) return t('service.portal.payments.status.paid');
+  if (statusLower.includes('pending')) return t('service.portal.payments.status.pending');
+  if (statusLower.includes('due')) return t('service.portal.payments.status.due');
+  return status || t('service.portal.payments.status.unknown');
 }
 
-function getDisplayDate(item) {
+function getDisplayDate(item, locale, labels) {
   // If paid, show paid date
-  if (item.status?.toLowerCase().includes('paid') && item.paidOn && item.paidOn !== 'Not paid') {
-    return `Paid on ${formatDate(item.paidOn)}`;
+  if (item.status?.toLowerCase().includes('paid') && item.paidOn && item.paidOn !== labels.notPaidToken) {
+    return labels.paidOn({ date: formatDate(item.paidOn, locale, labels) });
   }
   
   // Otherwise show due date
   if (item.dueDate) {
-    return `Due on ${formatDate(item.dueDate)}`;
+    return labels.dueOn({ date: formatDate(item.dueDate, locale, labels) });
   }
   
-  return 'No date specified';
+  return labels.noDateSpecified;
 }
 
 function PaymentRow({ item }) {
   const { colors } = useTheme();
+  const { t, locale } = useTranslation();
+  const labels = useMemo(() => ({
+    notPaidToken: t('service.portal.payments.notPaidToken'),
+    noDateLabel: t('service.portal.payments.noDate'),
+    noDateSpecified: t('service.portal.payments.noDateSpecified'),
+    paidOn: (params) => t('service.portal.payments.paidOn', params),
+    dueOn: (params) => t('service.portal.payments.dueOn', params),
+  }), [t]);
   
   // Determine status color
   const statusColor = getStatusColor(item.status, colors);
@@ -85,15 +108,15 @@ function PaymentRow({ item }) {
   // Get payment type/description
   const getPaymentType = () => {
     if (item.type === 'full' && item.subType === 'additional_uniform') {
-      return 'Uniform Purchase';
+      return t('service.portal.payments.type.uniformPurchase');
     }
     if (item.type === 'full') {
-      return 'Full Payment';
+      return t('service.portal.payments.type.fullPayment');
     }
     if (item.type === 'installment') {
-      return `Installment ${item.subType || ''}`.trim();
+      return t('service.portal.payments.type.installment', { label: item.subType || '' }).trim();
     }
-    return item.type || 'Payment';
+    return item.type || t('service.portal.payments.type.payment');
   };
   
   const paymentType = getPaymentType();
@@ -108,41 +131,41 @@ function PaymentRow({ item }) {
       <View style={styles.rowContainer}>
         <View style={styles.leftColumn}>
           <View style={styles.headerRow}>
-            <Text style={[styles.title, { flex: 1 }]} numberOfLines={1}>
+            <Text style={[styles.title, { flex: 1, color: colors.textPrimary }]} numberOfLines={1}>
               {paymentType}
             </Text>
             <View style={[
               styles.statusBadge, 
-              { backgroundColor: statusColor + '20' } // 20 = 12% opacity
+              { backgroundColor: alphaHex(statusColor, '20') }
             ]}>
               <Text style={[styles.statusText, { color: statusColor }]}>
-                {getStatusText(item.status)}
+                {getStatusText(item.status, t)}
               </Text>
             </View>
           </View>
           
           <View style={styles.detailsRow}>
             <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Amount:</Text>
-              <Text style={styles.detailValue}>{formatMoney(item.amount)}</Text>
+              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{t('service.portal.payments.amount')}</Text>
+              <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{formatMoney(item.amount, t('service.portal.payments.currency'))}</Text>
             </View>
             
             {item.invoiceId && (
               <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Invoice:</Text>
-                <Text style={styles.detailValue}>#{item.invoiceId}</Text>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{t('service.portal.payments.invoice')}</Text>
+                <Text style={[styles.detailValue, { color: colors.textPrimary }]}>#{item.invoiceId}</Text>
               </View>
             )}
           </View>
           
           <View style={styles.dateRow}>
-            <Text style={styles.dateText}>
-              {getDisplayDate(item)}
+            <Text style={[styles.dateText, { color: colors.textPrimary }]}>
+              {getDisplayDate(item, locale, labels)}
             </Text>
             
             {item.paymentMethod && (
-              <Text style={styles.methodText}>
-                • {item.paymentMethod}
+              <Text style={[styles.methodText, { color: colors.textSecondary }]}>
+                {t('service.portal.payments.method', { method: item.paymentMethod })}
               </Text>
             )}
           </View>
@@ -150,13 +173,19 @@ function PaymentRow({ item }) {
           {item.fees && (
             <View style={styles.feesRow}>
               {item.fees.trainingFees > 0 && (
-                <Text style={styles.feeText}>Training: {formatMoney(item.fees.trainingFees)}</Text>
+                <Text style={[styles.feeText, { backgroundColor: alphaHex(colors.surfaceElevated || colors.surface, 'CC'), color: colors.textSecondary }]}>
+                  {t('service.portal.payments.fees.training', { amount: formatMoney(item.fees.trainingFees, t('service.portal.payments.currency')) })}
+                </Text>
               )}
               {item.fees.uniformFees > 0 && (
-                <Text style={styles.feeText}>Uniform: {formatMoney(item.fees.uniformFees)}</Text>
+                <Text style={[styles.feeText, { backgroundColor: alphaHex(colors.surfaceElevated || colors.surface, 'CC'), color: colors.textSecondary }]}>
+                  {t('service.portal.payments.fees.uniform', { amount: formatMoney(item.fees.uniformFees, t('service.portal.payments.currency')) })}
+                </Text>
               )}
               {item.fees.transportationFees > 0 && (
-                <Text style={styles.feeText}>Transport: {formatMoney(item.fees.transportationFees)}</Text>
+                <Text style={[styles.feeText, { backgroundColor: alphaHex(colors.surfaceElevated || colors.surface, 'CC'), color: colors.textSecondary }]}>
+                  {t('service.portal.payments.fees.transport', { amount: formatMoney(item.fees.transportationFees, t('service.portal.payments.currency')) })}
+                </Text>
               )}
             </View>
           )}
@@ -165,9 +194,9 @@ function PaymentRow({ item }) {
         <View style={styles.rightColumn}>
           <Text style={[
             styles.amount, 
-            { color: item.status?.toLowerCase().includes('paid') ? colors.success : colors.text }
+            { color: item.status?.toLowerCase().includes('paid') ? colors.success : colors.textPrimary }
           ]}>
-            {formatMoney(item.amount)}
+            {formatMoney(item.amount, t('service.portal.payments.currency'))}
           </Text>
         </View>
       </View>
@@ -177,6 +206,7 @@ function PaymentRow({ item }) {
 
 export function PortalPaymentsScreen() {
   const { colors } = useTheme();
+  const { t, isRTL } = useTranslation();
   const { payments, loading, error, reload } = usePortalPayments();
 
   const onRefresh = useCallback(() => {
@@ -187,15 +217,15 @@ export function PortalPaymentsScreen() {
     if (loading) return null;
     return (
       <PortalEmptyState
-        title="No payments yet"
+        title={t('service.portal.payments.empty.title')}
         subtitle={
           error
-            ? `Failed to load payments: ${error.message || error}`
-            : 'When you pay for subscriptions or orders, they\'ll appear here.'
+            ? t('service.portal.payments.empty.error', { message: error.message || error })
+            : t('service.portal.payments.empty.subtitle')
         }
       />
     );
-  }, [loading, error]);
+  }, [loading, error, t]);
 
   // Calculate summary statistics
   const summary = useMemo(() => {
@@ -224,12 +254,19 @@ export function PortalPaymentsScreen() {
     };
   }, [payments]);
 
+  if (loading && (!payments || payments.length === 0) && !error) {
+    return (
+      <Screen>
+        <SporHiveLoader />
+      </Screen>
+    );
+  }
+
   return (
-    <Screen>
+    <Screen style={isRTL && styles.rtl}>
       <PortalHeader
-        title="Payments"
-        subtitle="Invoices, transactions, and receipts"
-        leftSlot={<BackButton />}
+        title={t('service.portal.payments.title')}
+        subtitle={t('service.portal.payments.subtitle')}
       />
       
       {summary && (
@@ -240,31 +277,31 @@ export function PortalPaymentsScreen() {
                 <Text style={[styles.summaryValue, { color: colors.success }]}>
                   {summary.paidCount}
                 </Text>
-                <Text style={styles.summaryLabel}>Paid</Text>
-                <Text style={styles.summaryAmount}>
-                  {formatMoney(summary.totalPaid)}
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t('service.portal.payments.summary.paid')}</Text>
+                <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>
+                  {formatMoney(summary.totalPaid, t('service.portal.payments.currency'))}
                 </Text>
               </View>
               
-              <View style={styles.summaryDivider} />
+              <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
               
               <View style={styles.summaryItem}>
                 <Text style={[styles.summaryValue, { color: colors.warning }]}>
                   {summary.pendingCount}
                 </Text>
-                <Text style={styles.summaryLabel}>Pending</Text>
-                <Text style={styles.summaryAmount}>
-                  {formatMoney(summary.totalPending)}
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t('service.portal.payments.summary.pending')}</Text>
+                <Text style={[styles.summaryAmount, { color: colors.textPrimary }]}>
+                  {formatMoney(summary.totalPending, t('service.portal.payments.currency'))}
                 </Text>
               </View>
               
-              <View style={styles.summaryDivider} />
+              <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
               
               <View style={styles.summaryItem}>
                 <Text style={[styles.summaryValue, { color: colors.error }]}>
                   {summary.overdueCount}
                 </Text>
-                <Text style={styles.summaryLabel}>Overdue</Text>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t('service.portal.payments.summary.overdue')}</Text>
               </View>
             </View>
           </PortalCard>
@@ -285,14 +322,15 @@ export function PortalPaymentsScreen() {
           <RefreshControl 
             refreshing={loading} 
             onRefresh={onRefresh} 
+            tintColor={colors.accentOrange}
           />
         }
         ListHeaderComponent={
           payments?.length && error ? (
             <View style={{ marginBottom: 10 }}>
               <PortalCard>
-                <Text style={{ color: colors.warning ?? '#F59E0B' }}>
-                  Note: {error.message || error}
+                <Text style={{ color: colors.warning }}>
+                  {t('service.portal.payments.errorNote', { message: error.message || error })}
                 </Text>
               </PortalCard>
             </View>
@@ -304,6 +342,9 @@ export function PortalPaymentsScreen() {
 }
 
 const styles = StyleSheet.create({
+  rtl: {
+    direction: 'rtl',
+  },
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
@@ -341,7 +382,6 @@ const styles = StyleSheet.create({
   summaryDivider: {
     width: 1,
     height: 40,
-    backgroundColor: '#E5E7EB',
   },
   rowContainer: {
     flexDirection: 'row',
@@ -418,7 +458,6 @@ const styles = StyleSheet.create({
   feeText: {
     fontSize: 11,
     opacity: 0.6,
-    backgroundColor: '#F3F4F6',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
