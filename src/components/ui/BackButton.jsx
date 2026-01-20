@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { I18nManager, Pressable, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
@@ -8,8 +9,10 @@ import { Icon } from './Icon';
 
 export function BackButton({ label, color, size = 20, style, onPress }) {
   const router = useRouter();
+  const navigation = useNavigation();
   const { colors } = useTheme();
   const { t, isRTL } = useTranslation();
+  const isNavigatingRef = useRef(false);
 
   const resolvedLabel = label || t('common.back', 'Back');
   const iconName = useMemo(() => {
@@ -17,12 +20,33 @@ export function BackButton({ label, color, size = 20, style, onPress }) {
     return rtl ? 'chevron-right' : 'chevron-left';
   }, [isRTL]);
 
-  const handlePress = () => {
-    router.back();
+  const canGoBack = useMemo(() => {
+    const navigationCanGoBack = typeof navigation?.canGoBack === 'function' ? navigation.canGoBack() : false;
+    const routerCanGoBack = typeof router?.canGoBack === 'function' ? router.canGoBack() : false;
+    return navigationCanGoBack || routerCanGoBack;
+  }, [navigation, router]);
+
+  const handlePress = useCallback(() => {
+    if (!canGoBack || isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    if (typeof router?.canGoBack === 'function' && router.canGoBack()) {
+      router.back();
+    } else if (typeof navigation?.canGoBack === 'function' && navigation.canGoBack()) {
+      navigation.goBack();
+    } else if (typeof navigation?.dismiss === 'function') {
+      navigation.dismiss();
+    } else if (typeof router?.dismiss === 'function') {
+      router.dismiss();
+    }
     if (typeof onPress === 'function') {
       onPress();
     }
-  };
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, 350);
+  }, [canGoBack, navigation, onPress, router]);
+
+  if (!canGoBack) return null;
 
   return (
     <Pressable

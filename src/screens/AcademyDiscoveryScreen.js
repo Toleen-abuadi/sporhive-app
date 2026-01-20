@@ -7,6 +7,7 @@ import Animated, {
   FadeInDown,
   FadeOutUp,
   interpolate,
+  interpolateColor,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
@@ -27,12 +28,14 @@ import { Button } from '../components/ui/Button';
 import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ErrorState } from '../components/ui/ErrorState';
+import { SporHiveLoader } from '../components/ui/SporHiveLoader';
+import { BackButton } from '../components/ui/BackButton';
 import { AcademyCard } from '../components/discovery/AcademyCard';
 import { endpoints } from '../services/api/endpoints';
 import { API_BASE_URL } from '../services/api/client';
 import { Filter, Search, SlidersHorizontal, Navigation, Sparkles, Star, X } from 'lucide-react-native';
 
-import { ad, makeADTheme, pressableScaleConfig, chipStyles } from '../theme/academyDiscovery.styles';
+import { ad, makeADTheme, pressableScaleConfig, chipStyles, alphaHex } from '../theme/academyDiscovery.styles';
 
 function useDebouncedValue(value, delay = 350) {
   const [debounced, setDebounced] = useState(value);
@@ -100,6 +103,7 @@ export function AcademyDiscoveryScreen() {
 
   const theme = useMemo(() => makeADTheme(colors, isDark), [colors, isDark]);
   const chip = useMemo(() => chipStyles(theme), [theme]);
+  const emptyValue = t('service.academy.common.emptyValue');
 
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebouncedValue(query, 400);
@@ -132,17 +136,17 @@ export function AcademyDiscoveryScreen() {
     return [
       {
         value: 'recommended',
-        label: t('academies.sort.recommended', 'Recommended'),
+        label: t('service.academy.discovery.sort.recommended'),
         icon: (active, c) => <Sparkles size={16} color={active ? c.accentOrange : c.textMuted} />,
       },
       {
         value: 'newest',
-        label: t('academies.sort.newest', 'Newest'),
+        label: t('service.academy.discovery.sort.newest'),
         icon: (active, c) => <Star size={16} color={active ? c.accentOrange : c.textMuted} />,
       },
       {
         value: 'nearest',
-        label: t('academies.sort.nearest', 'Nearest'),
+        label: t('service.academy.discovery.sort.nearest'),
         icon: (active, c) => <Navigation size={16} color={active ? c.accentOrange : c.textMuted} />,
       },
     ];
@@ -209,7 +213,7 @@ export function AcademyDiscoveryScreen() {
         setItems((prev) => (append ? [...prev, ...list] : list));
         if (isFirst) setPage(1);
       } catch (e) {
-        setError(e?.message || t('common.error', 'Something went wrong'));
+        setError(e?.message || t('service.academy.discovery.error.message'));
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -275,15 +279,21 @@ export function AcademyDiscoveryScreen() {
 
   const activeChips = useMemo(() => {
     const out = [];
-    if (debouncedQuery) out.push({ key: 'q', label: `${t('common.search', 'Search')}: ${debouncedQuery}` });
-    if (sport) out.push({ key: 'sport', label: `${t('academies.sport', 'Sport')}: ${sport}` });
-    if (city) out.push({ key: 'city', label: `${t('academies.city', 'City')}: ${city}` });
-    if (ageFrom || ageTo) out.push({ key: 'age', label: `${t('academies.ages', 'Ages')}: ${ageFrom || '—'}-${ageTo || '—'}` });
-    if (registrationEnabled) out.push({ key: 'reg', label: t('academies.filter.registrationEnabled', 'Registration enabled') });
-    if (proOnly) out.push({ key: 'pro', label: t('academies.filter.proOnly', 'PRO only') });
-    if (sort && sort !== 'recommended') out.push({ key: 'sort', label: `${t('common.sort', 'Sort')}: ${sort}` });
+    if (debouncedQuery)
+      out.push({ key: 'q', label: `${t('service.academy.discovery.chips.search')}: ${debouncedQuery}` });
+    if (sport) out.push({ key: 'sport', label: `${t('service.academy.discovery.chips.sport')}: ${sport}` });
+    if (city) out.push({ key: 'city', label: `${t('service.academy.discovery.chips.city')}: ${city}` });
+    if (ageFrom || ageTo)
+      out.push({
+        key: 'age',
+        label: `${t('service.academy.discovery.chips.ages')}: ${ageFrom || emptyValue}-${ageTo || emptyValue}`,
+      });
+    if (registrationEnabled) out.push({ key: 'reg', label: t('service.academy.discovery.chips.registrationEnabled') });
+    if (proOnly) out.push({ key: 'pro', label: t('service.academy.discovery.chips.proOnly') });
+    if (sort && sort !== 'recommended')
+      out.push({ key: 'sort', label: `${t('service.academy.discovery.chips.sort')}: ${sort}` });
     return out;
-  }, [ageFrom, ageTo, city, debouncedQuery, proOnly, registrationEnabled, sort, sport, t]);
+  }, [ageFrom, ageTo, city, debouncedQuery, emptyValue, proOnly, registrationEnabled, sort, sport, t]);
 
   const removeChip = useCallback((key) => {
     if (key === 'q') setQuery('');
@@ -321,29 +331,32 @@ export function AcademyDiscoveryScreen() {
   });
 
   const headerSurfaceA = useAnimatedStyle(() => {
-    const borderBoost = interpolate(scrollY.value, [0, 28], [0.7, 1], Extrapolate.CLAMP);
     const opacityBoost = interpolate(scrollY.value, [0, 28], [1, 1], Extrapolate.CLAMP);
+    const borderColor = interpolateColor(
+      scrollY.value,
+      [0, 28],
+      [alphaHex(theme.hairline, '00'), theme.hairline]
+    );
 
     // inline dynamic styles limit: this is 1 of max 5, and only uses colors from theme
     return {
       opacity: opacityBoost,
-      borderBottomColor: theme.isDark
-        ? `rgba(255,255,255,${0.08 * borderBoost})`
-        : `rgba(0,0,0,${0.06 * borderBoost})`,
+      borderBottomColor: borderColor,
     };
-  }, [theme.isDark]);
+  }, [theme.hairline]);
 
   const header = useMemo(() => {
     return (
       <Animated.View style={[ad.headerWrap(theme), headerSurfaceA]}>
         <View style={ad.headerInner(theme)}>
           <AppHeader
-            title={t('academies.discovery.title', 'Discover academies')}
-            subtitle={t('academies.discovery.subtitle', 'Filter, compare, then join in a few taps.')}
+            title={t('service.academy.discovery.title')}
+            subtitle={t('service.academy.discovery.subtitle')}
+            leftSlot={<BackButton />}
             rightAction={{
               icon: <SlidersHorizontal size={20} color={colors.textPrimary} />,
               onPress: () => setFiltersOpen(true),
-              accessibilityLabel: t('academies.filters.open', 'Filters'),
+              accessibilityLabel: t('service.academy.discovery.filters.open'),
             }}
           />
 
@@ -356,7 +369,7 @@ export function AcademyDiscoveryScreen() {
               <Navigation size={16} color={colors.textPrimary} />
               <Text variant="caption" weight="bold" style={{ color: colors.textPrimary }}>
                 {' '}
-                {t('academies.map.open', 'Map')}
+                {t('service.academy.discovery.map.open')}
               </Text>
             </Button>
 
@@ -364,7 +377,7 @@ export function AcademyDiscoveryScreen() {
               <SlidersHorizontal size={16} color={colors.white} />
               <Text variant="caption" weight="bold" style={{ color: colors.white }}>
                 {' '}
-                {t('academies.filters.open', 'Filters')}
+                {t('service.academy.discovery.filters.open')}
               </Text>
             </Button>
           </View>
@@ -373,7 +386,7 @@ export function AcademyDiscoveryScreen() {
             <Input
               value={query}
               onChangeText={setQuery}
-              placeholder={t('academies.searchPlaceholder', 'Search academies…')}
+              placeholder={t('service.academy.discovery.search.placeholder')}
               leftIcon={<Search size={18} color={colors.textMuted} />}
               returnKeyType="search"
             />
@@ -417,14 +430,24 @@ export function AcademyDiscoveryScreen() {
   ]);
 
   const listEmpty = useCallback(() => {
-    if (loading) return null;
+    if (loading) {
+      return (
+        <View style={ad.stateWrap(theme)}>
+          <SporHiveLoader
+            fullScreen={false}
+            label={t('service.academy.discovery.loading.title')}
+            message={t('service.academy.discovery.loading.subtitle')}
+          />
+        </View>
+      );
+    }
     if (error) {
       return (
         <View style={ad.stateWrap(theme)}>
           <ErrorState
-            title={t('common.error', 'Error')}
+            title={t('service.academy.discovery.error.title')}
             message={error}
-            actionLabel={t('common.tryAgain', 'Try Again')}
+            actionLabel={t('service.academy.discovery.error.tryAgain')}
             onAction={() => fetchPage(1, { append: false })}
           />
         </View>
@@ -433,9 +456,9 @@ export function AcademyDiscoveryScreen() {
     return (
       <View style={ad.stateWrap(theme)}>
         <EmptyState
-          title={t('academies.empty.title', 'No academies match your filters')}
-          message={t('academies.empty.subtitle', 'Try adjusting filters or clearing them to explore more.')}
-          actionLabel={t('common.clearAll', 'Clear all')}
+          title={t('service.academy.discovery.empty.title')}
+          message={t('service.academy.discovery.empty.subtitle')}
+          actionLabel={t('service.academy.discovery.empty.clearAll')}
           onAction={clearAll}
         />
       </View>
@@ -486,10 +509,10 @@ export function AcademyDiscoveryScreen() {
             <View style={ad.sheetHeader(theme)}>
               <View style={ad.sheetHeaderLeft()}>
                 <Text variant="h4" weight="bold" style={{ color: colors.textPrimary }}>
-                  {t('academies.filters.title', 'Smart filters')}
+                  {t('service.academy.discovery.filters.title')}
                 </Text>
                 <Text variant="caption" color={colors.textSecondary}>
-                  {t('academies.filters.subtitle', 'Refine results to match what you need.')}
+                  {t('service.academy.discovery.filters.subtitle')}
                 </Text>
               </View>
 
@@ -500,34 +523,34 @@ export function AcademyDiscoveryScreen() {
 
             <View style={ad.sheetBody(theme)}>
               <Input
-                label={t('academies.sport', 'Sport')}
+                label={t('service.academy.discovery.filters.sport.label')}
                 value={sport}
                 onChangeText={setSport}
-                placeholder={t('academies.sportPlaceholder', 'e.g. Football')}
+                placeholder={t('service.academy.discovery.filters.sport.placeholder')}
               />
               <Input
-                label={t('academies.city', 'City')}
+                label={t('service.academy.discovery.filters.city.label')}
                 value={city}
                 onChangeText={setCity}
-                placeholder={t('academies.cityPlaceholder', 'e.g. Amman')}
+                placeholder={t('service.academy.discovery.filters.city.placeholder')}
               />
 
               <View style={ad.sheetRow(theme)}>
                 <View style={ad.sheetCol()}>
                   <Input
-                    label={t('academies.ageFrom', 'Age from')}
+                    label={t('service.academy.discovery.filters.ageFrom.label')}
                     value={ageFrom}
                     onChangeText={setAgeFrom}
-                    placeholder="8"
+                    placeholder={t('service.academy.discovery.filters.ageFrom.placeholder')}
                     keyboardType="number-pad"
                   />
                 </View>
                 <View style={ad.sheetCol()}>
                   <Input
-                    label={t('academies.ageTo', 'Age to')}
+                    label={t('service.academy.discovery.filters.ageTo.label')}
                     value={ageTo}
                     onChangeText={setAgeTo}
-                    placeholder="18"
+                    placeholder={t('service.academy.discovery.filters.ageTo.placeholder')}
                     keyboardType="number-pad"
                   />
                 </View>
@@ -535,14 +558,14 @@ export function AcademyDiscoveryScreen() {
 
               <View style={ad.togglesRow(theme)}>
                 <Chip
-                  label={t('academies.filter.registrationEnabled', 'Registration enabled')}
+                  label={t('service.academy.discovery.filters.registrationEnabled')}
                   selected={registrationEnabled}
                   onPress={() => setRegistrationEnabled((v) => !v)}
                   icon={<Filter size={14} color={registrationEnabled ? colors.accentOrange : colors.textMuted} />}
                   style={ad.toggleChip(theme)}
                 />
                 <Chip
-                  label={t('academies.filter.proOnly', 'PRO only')}
+                  label={t('service.academy.discovery.filters.proOnly')}
                   selected={proOnly}
                   onPress={() => setProOnly((v) => !v)}
                   icon={<Sparkles size={14} color={proOnly ? colors.accentOrange : colors.textMuted} />}
@@ -553,12 +576,12 @@ export function AcademyDiscoveryScreen() {
               {sort === 'nearest' ? (
                 <View style={ad.hintBox(theme)}>
                   <Text variant="caption" weight="bold" style={{ color: colors.textPrimary }}>
-                    {t('academies.location.title', 'Nearest sorting')}
+                    {t('service.academy.discovery.location.title')}
                   </Text>
                   <Text variant="caption" color={colors.textSecondary} style={{ marginTop: 4 }}>
                     {locationStatus === 'granted'
-                      ? t('academies.location.granted', 'Location enabled. Showing nearest results.')
-                      : t('academies.location.prompt', 'Enable location for better nearest results.')}
+                      ? t('service.academy.discovery.location.granted')
+                      : t('service.academy.discovery.location.prompt')}
                   </Text>
 
                   {locationStatus !== 'granted' ? (
@@ -567,8 +590,8 @@ export function AcademyDiscoveryScreen() {
                       <Text variant="caption" weight="bold" style={{ color: colors.white }}>
                         {' '}
                         {locationStatus === 'asking'
-                          ? t('academies.location.asking', 'Requesting…')
-                          : t('academies.location.enable', 'Enable location')}
+                          ? t('service.academy.discovery.location.asking')
+                          : t('service.academy.discovery.location.enable')}
                       </Text>
                     </Button>
                   ) : null}
@@ -578,12 +601,12 @@ export function AcademyDiscoveryScreen() {
               <View style={ad.sheetActionsRow(theme)}>
                 <Button variant="secondary" onPress={clearAll} style={ad.sheetActionBtn()}>
                   <Text variant="caption" weight="bold" style={{ color: colors.textPrimary }}>
-                    {t('common.reset', 'Reset')}
+                    {t('service.academy.discovery.filters.reset')}
                   </Text>
                 </Button>
                 <Button onPress={() => setFiltersOpen(false)} style={ad.sheetActionBtn()}>
                   <Text variant="caption" weight="bold" style={{ color: colors.white }}>
-                    {t('common.apply', 'Apply')}
+                    {t('service.academy.discovery.filters.apply')}
                   </Text>
                 </Button>
               </View>

@@ -16,13 +16,25 @@ export const pressableScaleConfig = {
   to: 0.97,
 };
 
-export function getShadow(level = 1, isDark = true) {
+export function alphaHex(hex, alpha = 'FF') {
+  if (!hex || typeof hex !== 'string') return hex;
+  const normalized = hex.replace('#', '');
+  if (normalized.length === 3) {
+    const [r, g, b] = normalized;
+    return `#${r}${r}${g}${g}${b}${b}${alpha}`;
+  }
+  if (normalized.length === 6) return `#${normalized}${alpha}`;
+  if (normalized.length === 8) return `#${normalized.slice(0, 6)}${alpha}`;
+  return hex;
+}
+
+export function getShadow(level = 1, isDark = true, shadowColor) {
   // Keep it subtle and consistent across platforms
   // Use smaller Android elevation in dark mode
   const elevation = Math.max(0, Math.min(8, level * (isDark ? 1 : 1.2)));
 
   const ios = {
-    shadowColor: '#000',
+    shadowColor,
     shadowOpacity: isDark ? 0.24 : 0.12,
     shadowRadius: level * 6,
     shadowOffset: { width: 0, height: level * 3 },
@@ -36,10 +48,10 @@ export function getShadow(level = 1, isDark = true) {
 export function makeADTheme(colors, isDark) {
   // These are style “semantic tokens” so screens stay consistent.
   const baseBg = colors.background;
-  const surface0 = isDark ? '#0B1220' : colors.background;
+  const surface0 = colors.background;
   const surface1 = colors.surface; // your theme already provides
   const surface2 = colors.surfaceElevated;
-  const hairline = isDark ? 'rgba(255,255,255,0.08)' : colors.border;
+  const hairline = colors.border;
 
   const orange = colors.accentOrange;
 
@@ -80,6 +92,8 @@ export function makeADTheme(colors, isDark) {
     surface1,
     surface2,
     hairline,
+    white: colors.white,
+    black: colors.black,
 
     text: {
       primary: colors.textPrimary,
@@ -90,18 +104,21 @@ export function makeADTheme(colors, isDark) {
 
     accent: {
       orange,
-      orangeSoft: isDark ? 'rgba(255,149,0,0.10)' : '#FFF7ED',
-      orangeHair: isDark ? 'rgba(255,149,0,0.22)' : 'rgba(255,149,0,0.18)',
+      orangeSoft: colors.accentOrangeSoft,
+      orangeHair: alphaHex(colors.accentOrange, isDark ? '38' : '2E'),
     },
 
     radius,
     space,
     typography,
 
+    success: colors.success,
+    error: colors.error,
+
     shadow: {
-      sm: getShadow(1, isDark),
-      md: getShadow(2, isDark),
-      lg: getShadow(3, isDark),
+      sm: getShadow(1, isDark, colors.black),
+      md: getShadow(2, isDark, colors.black),
+      lg: getShadow(3, isDark, colors.black),
     },
   };
 }
@@ -214,7 +231,7 @@ export const ad = {
     width: 56,
     height: 5,
     borderRadius: t.radius.full,
-    backgroundColor: t.isDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.10)',
+    backgroundColor: alphaHex(t.text.muted, t.isDark ? '52' : '1A'),
     marginBottom: t.space.md,
   }),
 
@@ -258,7 +275,7 @@ export const ad = {
     borderColor: t.hairline,
     borderRadius: t.radius.md,
     padding: t.space.md,
-    backgroundColor: t.isDark ? '#101B31' : '#F8FAFC',
+    backgroundColor: t.surface1,
   }),
 
   sheetActionsRow: (t) => ({
@@ -339,7 +356,7 @@ export function cardStyles(theme) {
       paddingHorizontal: 10,
       paddingVertical: 6,
       borderRadius: theme.radius.full,
-      backgroundColor: 'rgba(0,0,0,0.55)',
+      backgroundColor: alphaHex(theme.black, '8C'),
     },
 
     distancePill: {
@@ -348,7 +365,7 @@ export function cardStyles(theme) {
       paddingHorizontal: 10,
       paddingVertical: 6,
       borderRadius: theme.radius.full,
-      backgroundColor: 'rgba(255,255,255,0.92)',
+      backgroundColor: alphaHex(theme.white, 'EB'),
     },
 
     // Content block
@@ -399,9 +416,9 @@ export function cardStyles(theme) {
       flex: 1,
       borderRadius: theme.radius.md,
       padding: theme.space.sm,
-      backgroundColor: theme.isDark ? '#101B31' : '#F8FAFC',
+      backgroundColor: theme.surface1,
       borderWidth: 1,
-      borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+      borderColor: theme.hairline,
     },
 
     statLabel: {
@@ -453,8 +470,9 @@ export function cardStyles(theme) {
 // Safe (never-null) gradient fallbacks — avoids Android LinearGradient crashes due to null colors.
 export function adGradients(theme) {
   return {
-    coverFallback: theme.isDark ? ['#1A2642', '#0B1220'] : ['#FFEDD5', '#F8FAFC'],
-    logoFallback: theme.isDark ? ['#2B3B5D', '#101B31'] : ['#FDBA74', '#F1F5F9'],
+    coverFallback: [alphaHex(theme.accent.orange, theme.isDark ? '26' : '33'), theme.surface1],
+    logoFallback: [alphaHex(theme.accent.orange, theme.isDark ? '33' : '26'), theme.surface1],
+    coverOverlay: [alphaHex(theme.black, '94'), alphaHex(theme.black, '24'), alphaHex(theme.black, '00')],
   };
 }
 
@@ -464,13 +482,13 @@ export function adBadges(theme) {
       backgroundColor: theme.accent.orange,
     },
     featured: {
-      backgroundColor: 'rgba(255,255,255,0.92)',
+      backgroundColor: alphaHex(theme.white, 'EB'),
     },
     statusOpen: {
-      backgroundColor: theme.isDark ? 'rgba(28, 196, 121, 0.92)' : 'rgba(16, 185, 129, 0.95)',
+      backgroundColor: alphaHex(theme.success, theme.isDark ? 'EB' : 'F2'),
     },
     statusClosed: {
-      backgroundColor: 'rgba(0,0,0,0.55)',
+      backgroundColor: alphaHex(theme.black, '8C'),
     },
   };
 }

@@ -71,10 +71,12 @@ import { Screen } from '../components/ui/Screen';
 import { Text } from '../components/ui/Text';
 import { Button } from '../components/ui/Button';
 import { BackButton } from '../components/ui/BackButton';
+import { AppHeader } from '../components/ui/AppHeader';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { LoadingState } from '../components/ui/LoadingState';
 import { ErrorState } from '../components/ui/ErrorState';
+import { SporHiveLoader } from '../components/ui/SporHiveLoader';
+import { alphaHex } from '../theme/academyDiscovery.styles';
 
 const { width: W, height: H } = Dimensions.get('window');
 const HERO_H = Math.max(340, Math.min(440, Math.round(W * 0.92)));
@@ -87,9 +89,11 @@ function safeText(v) {
   return String(v).trim();
 }
 
-function safeGradientColors(arr, fallbackA = '#FF7A00', fallbackB = '#FFB15A') {
+function safeGradientColors(arr, fallback = []) {
+  const fallbackA = fallback[0];
+  const fallbackB = fallback[1] || fallbackA;
   const a = typeof arr?.[0] === 'string' && arr[0] ? arr[0] : fallbackA;
-  const b = typeof arr?.[1] === 'string' && arr[1] ? arr[1] : a; // if missing, reuse a
+  const b = typeof arr?.[1] === 'string' && arr[1] ? arr[1] : a || fallbackB;
   return [a, b];
 }
 
@@ -162,7 +166,7 @@ function GlassIconButton({ onPress, children, style }) {
     <Pressable onPress={onPress} style={({ pressed }) => [style, { opacity: pressed ? 0.85 : 1 }]}>
       <BlurView intensity={70} style={StyleSheet.absoluteFill} />
       <LinearGradient
-        colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.05)']}
+        colors={[alphaHex(colors.white, '26'), alphaHex(colors.white, '0D')]}
         style={StyleSheet.absoluteFill}
       />
       {children}
@@ -176,7 +180,10 @@ function SectionHeader({ icon, title, subtitle, right }) {
     <View style={styles.sectionHeaderRow}>
       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
         <LinearGradient
-          colors={isDark ? ['rgba(255,107,0,0.2)', 'rgba(255,165,0,0.1)'] : ['rgba(255,165,0,0.15)', 'rgba(255,165,0,0.05)']}
+          colors={[
+            alphaHex(colors.accentOrange, isDark ? '33' : '26'),
+            alphaHex(colors.accentOrange, isDark ? '1A' : '0D'),
+          ]}
           style={[styles.sectionIcon, { borderColor: colors.accentOrange }]}
         >
           {icon}
@@ -198,20 +205,18 @@ function SectionHeader({ icon, title, subtitle, right }) {
 }
 
 function FeaturePill({ icon, label, value, color = 'orange' }) {
-  const { colors } = useTheme();
-const gradientColorsRaw = {
-  orange: [colors.accentOrange, colors.accentOrangeLight],
-  amber: [colors.amber, colors.amberLight],
-  yellow: [colors.yellow, colors.yellowLight],
-  green: [colors.success, colors.successLight],
-}[color] || [colors.accentOrange, colors.accentOrangeLight];
-
-const gradientColors = safeGradientColors(
-  gradientColorsRaw,
-  colors.accentOrange || '#FF7A00',
-  colors.accentOrangeLight || colors.accentOrange || '#FFB15A'
-);
-
+  const { colors, isDark } = useTheme();
+  const toneMap = {
+    orange: colors.accentOrange,
+    amber: colors.warning || colors.accentOrange,
+    yellow: colors.warning || colors.accentOrange,
+    green: colors.success || colors.accentOrange,
+  };
+  const tone = toneMap[color] || colors.accentOrange;
+  const gradientColors = safeGradientColors(null, [
+    tone,
+    alphaHex(tone, isDark ? 'B3' : '99'),
+  ]);
 
   return (
     <LinearGradient
@@ -220,14 +225,14 @@ const gradientColors = safeGradientColors(
       end={{ x: 1, y: 1 }}
       style={styles.featurePill}
     >
-      <View style={[styles.featurePillIcon, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+      <View style={[styles.featurePillIcon, { backgroundColor: alphaHex(colors.white, '40') }]}>
         {icon}
       </View>
       <View style={{ flex: 1 }}>
-        <Text variant="caption" weight="medium" style={{ color: 'rgba(255,255,255,0.9)' }}>
+        <Text variant="caption" weight="medium" style={{ color: alphaHex(colors.white, 'E6') }}>
           {label}
         </Text>
-        <Text variant="bodySmall" weight="bold" numberOfLines={1} style={{ color: 'white', marginTop: 2 }}>
+        <Text variant="bodySmall" weight="bold" numberOfLines={1} style={{ color: colors.white, marginTop: 2 }}>
           {value}
         </Text>
       </View>
@@ -244,18 +249,18 @@ function NavChip({ icon, label, onPress, isActive = false }) {
         styles.navChip,
         {
           backgroundColor: isActive
-            ? 'rgba(255,255,255,0.25)'
+            ? alphaHex(colors.white, '40')
             : pressed
-              ? 'rgba(255,255,255,0.18)'
-              : 'rgba(255,255,255,0.12)',
-          borderColor: isActive ? colors.accentOrange : 'rgba(255,255,255,0.22)',
+              ? alphaHex(colors.white, '2E')
+              : alphaHex(colors.white, '1F'),
+          borderColor: isActive ? colors.accentOrange : alphaHex(colors.white, '38'),
           borderWidth: isActive ? 2 : 1,
         },
       ]}
     >
       {icon}
       <Text variant="caption" weight="medium" style={{
-        color: isActive ? colors.accentOrange : 'white',
+        color: isActive ? colors.accentOrange : colors.white,
         marginLeft: 8
       }}>
         {label}
@@ -283,22 +288,27 @@ function MediaCarousel({ items, onOpen }) {
           <Image source={{ uri: mediaSrc }} style={styles.carouselImage} resizeMode="cover" />
         ) : (
           <LinearGradient
-            colors={[colors.accentOrange, colors.accentOrangeLight]}
+            colors={[colors.accentOrange, alphaHex(colors.accentOrange, 'B3')]}
             style={styles.carouselFallback}
           >
-            <Camera size={48} color="white" />
+            <Camera size={48} color={colors.white} />
           </LinearGradient>
         )}
         <LinearGradient
-          colors={['rgba(0,0,0,0.7)', 'transparent', 'transparent', 'rgba(0,0,0,0.7)']}
+          colors={[
+            alphaHex(colors.black, 'B3'),
+            alphaHex(colors.black, '00'),
+            alphaHex(colors.black, '00'),
+            alphaHex(colors.black, 'B3'),
+          ]}
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.carouselOverlay}>
           <Badge variant="accent" style={{ position: 'absolute', top: 12, right: 12 }}>
-            <Maximize2 size={14} color="white" />
+            <Maximize2 size={14} color={colors.white} />
           </Badge>
           <View style={{ position: 'absolute', bottom: 12, left: 12 }}>
-            <Text variant="caption" weight="bold" style={{ color: 'white' }}>
+            <Text variant="caption" weight="bold" style={{ color: colors.white }}>
               {currentIndex + 1} / {items.length}
             </Text>
           </View>
@@ -309,9 +319,12 @@ function MediaCarousel({ items, onOpen }) {
         <Pressable
           onPress={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
           disabled={currentIndex === 0}
-          style={[styles.carouselButton, { opacity: currentIndex === 0 ? 0.3 : 1 }]}
+          style={[
+            styles.carouselButton,
+            { opacity: currentIndex === 0 ? 0.3 : 1, backgroundColor: alphaHex(colors.black, '33') },
+          ]}
         >
-          <ChevronRight size={20} color="white" style={{ transform: [{ rotate: '180deg' }] }} />
+          <ChevronRight size={20} color={colors.white} style={{ transform: [{ rotate: '180deg' }] }} />
         </Pressable>
 
         <View style={styles.carouselDots}>
@@ -322,7 +335,7 @@ function MediaCarousel({ items, onOpen }) {
               style={[
                 styles.carouselDot,
                 {
-                  backgroundColor: idx === currentIndex ? colors.accentOrange : 'rgba(255,255,255,0.3)',
+                  backgroundColor: idx === currentIndex ? colors.accentOrange : alphaHex(colors.white, '4D'),
                   width: idx === currentIndex ? 20 : 8,
                 },
               ]}
@@ -333,9 +346,12 @@ function MediaCarousel({ items, onOpen }) {
         <Pressable
           onPress={() => setCurrentIndex(prev => Math.min(items.length - 1, prev + 1))}
           disabled={currentIndex === items.length - 1}
-          style={[styles.carouselButton, { opacity: currentIndex === items.length - 1 ? 0.3 : 1 }]}
+          style={[
+            styles.carouselButton,
+            { opacity: currentIndex === items.length - 1 ? 0.3 : 1, backgroundColor: alphaHex(colors.black, '33') },
+          ]}
         >
-          <ChevronRight size={20} color="white" />
+          <ChevronRight size={20} color={colors.white} />
         </Pressable>
       </View>
     </View>
@@ -344,6 +360,7 @@ function MediaCarousel({ items, onOpen }) {
 
 function GalleryGrid({ items, onOpen, filter = 'all' }) {
   const { colors, isDark } = useTheme();
+  const { t } = useI18n();
 
   const filteredItems = filter === 'all'
     ? items
@@ -354,7 +371,7 @@ function GalleryGrid({ items, onOpen, filter = 'all' }) {
       <View style={styles.emptyGallery}>
         <ImageIcon size={48} color={colors.textSecondary} />
         <Text variant="body" color={colors.textSecondary} style={{ marginTop: 12 }}>
-          No media available
+          {t('service.academy.template.media.empty')}
         </Text>
       </View>
     );
@@ -381,18 +398,27 @@ function GalleryGrid({ items, onOpen, filter = 'all' }) {
               <Image source={{ uri: mediaSrc }} style={styles.galleryImage} resizeMode="cover" />
             ) : (
               <LinearGradient
-                colors={isDark ? ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] : ['rgba(0,0,0,0.05)', 'rgba(0,0,0,0.02)']}
+                colors={
+                  isDark
+                    ? [alphaHex(colors.white, '1A'), alphaHex(colors.white, '0D')]
+                    : [alphaHex(colors.black, '0D'), alphaHex(colors.black, '05')]
+                }
                 style={styles.galleryFallback}
               >
                 <Camera size={24} color={colors.textSecondary} />
               </LinearGradient>
             )}
             <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.7)']}
+              colors={[alphaHex(colors.black, '00'), alphaHex(colors.black, 'B3')]}
               style={styles.galleryOverlay}
             />
-            <Text variant="caption" weight="medium" style={styles.galleryCaption} numberOfLines={2}>
-              {item.caption_en || item.caption_ar || 'Media'}
+            <Text
+              variant="caption"
+              weight="medium"
+              style={[styles.galleryCaption, { color: colors.white }]}
+              numberOfLines={2}
+            >
+              {item.caption_en || item.caption_ar || t('service.academy.template.media.itemFallback')}
             </Text>
           </Pressable>
         );
@@ -403,7 +429,8 @@ function GalleryGrid({ items, onOpen, filter = 'all' }) {
 
 function CourseCard({ course, i18n, t }) {
   const { colors, isDark } = useTheme();
-  const title = getLocalized(i18n, course?.name_en, course?.name_ar) || t('academies.course', 'Course');
+  const title = getLocalized(i18n, course?.name_en, course?.name_ar) || t('service.academy.template.course.defaultTitle');
+  const emptyValue = t('service.academy.common.emptyValue');
   const schedules = normalizeArray(course?.schedules);
   const coaches = normalizeArray(course?.coaches);
   const posterSrc = dataUrlFromBase64({
@@ -412,19 +439,23 @@ function CourseCard({ course, i18n, t }) {
   });
 
   const dayLabel = (d) => {
-    if (d === 0) return t('common.sunday', 'Sunday');
-    if (d === 1) return t('common.monday', 'Monday');
-    if (d === 2) return t('common.tuesday', 'Tuesday');
-    if (d === 3) return t('common.wednesday', 'Wednesday');
-    if (d === 4) return t('common.thursday', 'Thursday');
-    if (d === 5) return t('common.friday', 'Friday');
-    return t('common.saturday', 'Saturday');
+    if (d === 0) return t('service.academy.template.schedule.days.sunday');
+    if (d === 1) return t('service.academy.template.schedule.days.monday');
+    if (d === 2) return t('service.academy.template.schedule.days.tuesday');
+    if (d === 3) return t('service.academy.template.schedule.days.wednesday');
+    if (d === 4) return t('service.academy.template.schedule.days.thursday');
+    if (d === 5) return t('service.academy.template.schedule.days.friday');
+    return t('service.academy.template.schedule.days.saturday');
   };
 
   return (
     <Card elevation={3} style={[styles.courseCard, { marginBottom: 16 }]}>
       <LinearGradient
-        colors={isDark ? ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)'] : ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+        colors={
+          isDark
+            ? [alphaHex(colors.surfaceElevated || colors.surface, '0D'), alphaHex(colors.surfaceElevated || colors.surface, '08')]
+            : [alphaHex(colors.surfaceElevated || colors.surface, 'E6'), alphaHex(colors.surfaceElevated || colors.surface, 'B3')]
+        }
         style={StyleSheet.absoluteFill}
       />
 
@@ -433,14 +464,14 @@ function CourseCard({ course, i18n, t }) {
           <View style={styles.courseImageContainer}>
             <Image source={{ uri: posterSrc }} style={styles.courseImage} resizeMode="cover" />
             <LinearGradient
-              colors={['rgba(0,0,0,0.4)', 'transparent']}
+              colors={[alphaHex(colors.black, '66'), alphaHex(colors.black, '00')]}
               style={styles.courseImageOverlay}
             />
             {course?.is_featured && (
               <Badge variant="accent" style={styles.featuredBadge}>
-                <Star size={12} color="white" />
-                <Text variant="caption" weight="bold" style={{ color: 'white', marginLeft: 4 }}>
-                  {t('academies.featured', 'Featured')}
+                <Star size={12} color={colors.white} />
+                <Text variant="caption" weight="bold" style={{ color: colors.white, marginLeft: 4 }}>
+                  {t('service.academy.template.badges.featured')}
                 </Text>
               </Badge>
             )}
@@ -459,7 +490,7 @@ function CourseCard({ course, i18n, t }) {
                   <View style={styles.metaItem}>
                     <Users size={14} color={colors.textSecondary} />
                     <Text variant="caption" style={{ marginLeft: 6, color: colors.textSecondary }}>
-                      {course?.age_from ?? '--'}–{course?.age_to ?? '--'} {t('academies.years', 'years')}
+                      {course?.age_from ?? emptyValue}–{course?.age_to ?? emptyValue} {t('service.academy.template.course.years')}
                     </Text>
                   </View>
                 )}
@@ -479,7 +510,7 @@ function CourseCard({ course, i18n, t }) {
           {coaches.length > 0 && (
             <View style={styles.courseSection}>
               <Text variant="bodySmall" weight="medium" style={{ marginBottom: 8, color: colors.textPrimary }}>
-                {t('academies.coaches', 'Coaches')}
+                {t('service.academy.template.course.coaches')}
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -488,12 +519,16 @@ function CourseCard({ course, i18n, t }) {
                       key={`${c}-${idx}`}
                       style={[
                         styles.coachChip,
-                        { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' },
+                        {
+                          backgroundColor: isDark
+                            ? alphaHex(colors.white, '14')
+                            : alphaHex(colors.black, '0A'),
+                        },
                       ]}
                     >
                       <User size={12} color={colors.textSecondary} />
                       <Text variant="caption" style={{ marginLeft: 4, color: colors.textSecondary }}>
-                        {safeText(c) || t('common.unknown', 'Unknown')}
+                        {safeText(c) || t('service.academy.template.course.unknownCoach')}
                       </Text>
                     </View>
                   ))}
@@ -505,11 +540,11 @@ function CourseCard({ course, i18n, t }) {
           {schedules.length > 0 && (
             <View style={styles.courseSection}>
               <Text variant="bodySmall" weight="medium" style={{ marginBottom: 8, color: colors.textPrimary }}>
-                {t('academies.schedule', 'Schedule')}
+                {t('service.academy.template.course.schedule')}
               </Text>
               <View style={{ gap: 10 }}>
                 {schedules.slice(0, 4).map((s, idx) => (
-                  <View key={idx} style={styles.scheduleItem}>
+                  <View key={idx} style={[styles.scheduleItem, { borderBottomColor: alphaHex(colors.border, '33') }]}>
                     <CalendarDays size={16} color={colors.accentOrange} />
                     <Text variant="caption" weight="medium" style={{ marginLeft: 8, color: colors.textPrimary }}>
                       {dayLabel(s?.day_of_week)}
@@ -532,7 +567,7 @@ function SuccessStoryCard({ story, i18n, t, onOpen }) {
   const { colors, isDark } = useTheme();
   const title = getLocalized(i18n, story?.title_en, story?.title_ar) ||
     getLocalized(i18n, story?.name_en, story?.name_ar) ||
-    t('academies.story.defaultTitle', 'Success Story');
+    t('service.academy.template.story.defaultTitle');
 
   const content = getLocalized(i18n, story?.content_en, story?.content_ar) ||
     getLocalized(i18n, story?.description_en, story?.description_ar) || '';
@@ -545,7 +580,10 @@ function SuccessStoryCard({ story, i18n, t, onOpen }) {
   return (
     <Card elevation={3} style={[styles.successStoryCard, { marginBottom: 16 }]}>
       <LinearGradient
-        colors={isDark ? ['rgba(255,165,0,0.1)', 'rgba(255,165,0,0.05)'] : ['rgba(255,165,0,0.08)', 'rgba(255,165,0,0.03)']}
+        colors={[
+          alphaHex(colors.accentOrange, isDark ? '1A' : '14'),
+          alphaHex(colors.accentOrange, isDark ? '0D' : '08'),
+        ]}
         style={StyleSheet.absoluteFill}
       />
 
@@ -554,10 +592,10 @@ function SuccessStoryCard({ story, i18n, t, onOpen }) {
           <Award size={24} color={colors.accentOrange} />
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text variant="h4" weight="bold" style={{ marginBottom: 4 }}>
-              {t('academies.story.title', 'Success Story')}
+              {t('service.academy.template.story.title')}
             </Text>
             <Text variant="bodySmall" color={colors.textSecondary}>
-              {t('academies.story.subtitle', 'Real achievements')}
+              {t('service.academy.template.story.subtitle')}
             </Text>
           </View>
         </View>
@@ -577,7 +615,7 @@ function SuccessStoryCard({ story, i18n, t, onOpen }) {
             <Pressable onPress={() => onOpen(story)} style={{ flex: 1 }}>
               <Image source={{ uri: mediaSrc }} style={styles.storyImage} resizeMode="cover" />
               <LinearGradient
-                colors={['rgba(0,0,0,0.3)', 'transparent']}
+                colors={[alphaHex(colors.black, '4D'), alphaHex(colors.black, '00')]}
                 style={styles.storyImageOverlay}
               />
             </Pressable>
@@ -587,10 +625,10 @@ function SuccessStoryCard({ story, i18n, t, onOpen }) {
             <Button
               variant="secondary"
               onPress={() => onOpen(story)}
-              leftIcon={<Maximize2 size={16} color="white" />}
+              leftIcon={<Maximize2 size={16} color={colors.white} />}
               style={{ alignSelf: 'flex-start' }}
             >
-              {t('academies.media.viewStory', 'View Full Story')}
+              {t('service.academy.template.story.view')}
             </Button>
           </View>
         </View>
@@ -604,6 +642,7 @@ export function AcademyTemplateScreen({ slug }) {
   const router = useRouter();
   const { t, i18n } = useI18n();
   const { colors, isDark } = useTheme();
+  const separator = t('service.academy.common.separator');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -635,7 +674,11 @@ export function AcademyTemplateScreen({ slug }) {
   // Academy data
   const academyName = useMemo(() => {
     if (!academy) return '';
-    return getLocalized(i18n, academy?.name_en, academy?.name_ar) || safeText(academy?.name) || t('academies.unnamed', 'Academy');
+    return (
+      getLocalized(i18n, academy?.name_en, academy?.name_ar) ||
+      safeText(academy?.name) ||
+      t('service.academy.common.defaultName')
+    );
   }, [academy, i18n, t]);
 
   const aboutText = useMemo(() => {
@@ -695,10 +738,10 @@ export function AcademyTemplateScreen({ slug }) {
       setError('');
       const res = await endpoints.publicAcademies.templateGet(slug);
       const normalized = normalizePayload(res);
-      if (!normalized?.academy) throw new Error(t('common.notFound', 'Not found'));
+      if (!normalized?.academy) throw new Error(t('service.academy.common.notFound'));
       setPayload(normalized);
     } catch (e) {
-      setError(e?.message || t('common.error', 'Something went wrong'));
+      setError(e?.message || t('service.academy.common.errorMessage'));
     } finally {
       setLoading(false);
     }
@@ -707,7 +750,7 @@ export function AcademyTemplateScreen({ slug }) {
   useEffect(() => {
     if (!slug) {
       setLoading(false);
-      setError(t('common.notFound', 'Not found'));
+      setError(t('service.academy.common.notFound'));
       return;
     }
     load();
@@ -749,7 +792,10 @@ export function AcademyTemplateScreen({ slug }) {
   const onShare = useCallback(async () => {
     try {
       await Share.share({
-        message: `${academyName}\n\n${t('academies.shareMessage', 'Check out this academy!')}\n${mapUrl || ''}`.trim(),
+        message: t('service.academy.template.shareMessage', {
+          academyName,
+          mapUrl: mapUrl || '',
+        }).trim(),
       });
     } catch {
       // ignore
@@ -803,26 +849,50 @@ export function AcademyTemplateScreen({ slug }) {
   const navItems = useMemo(() => {
     const items = [];
     if (templateSections.about && aboutText) {
-      items.push({ key: 'about', label: t('academies.about.title', 'About'), icon: <Info size={16} color="white" /> });
+      items.push({
+        key: 'about',
+        label: t('service.academy.template.nav.about'),
+        icon: <Info size={16} color={colors.white} />,
+      });
     }
     if (templateSections.stats && (sportTypes.length > 0 || awards.length > 0 || certificates.length > 0)) {
-      items.push({ key: 'sports', label: t('academies.sports', 'Sports'), icon: <Trophy size={16} color="white" /> });
+      items.push({
+        key: 'sports',
+        label: t('service.academy.template.nav.sports'),
+        icon: <Trophy size={16} color={colors.white} />,
+      });
     }
     if (templateSections.courses && courses.length > 0) {
-      items.push({ key: 'courses', label: t('academies.courses', 'Courses'), icon: <GraduationCap size={16} color="white" /> });
+      items.push({
+        key: 'courses',
+        label: t('service.academy.template.nav.courses'),
+        icon: <GraduationCap size={16} color={colors.white} />,
+      });
     }
     if ((templateSections.media_ads || templateSections.media_gallery) && (ads.length > 0 || galleryItems.length > 0)) {
-      items.push({ key: 'media', label: t('academies.media.galleryTitle', 'Media'), icon: <ImageIcon size={16} color="white" /> });
+      items.push({
+        key: 'media',
+        label: t('service.academy.template.nav.media'),
+        icon: <ImageIcon size={16} color={colors.white} />,
+      });
     }
     if (templateSections.success_story && successStory) {
-      items.push({ key: 'story', label: t('academies.story.title', 'Success'), icon: <Award size={16} color="white" /> });
+      items.push({
+        key: 'story',
+        label: t('service.academy.template.nav.story'),
+        icon: <Award size={16} color={colors.white} />,
+      });
     }
     if (templateSections.location) {
-      items.push({ key: 'location', label: t('academies.location.title', 'Location'), icon: <MapPin size={16} color="white" /> });
+      items.push({
+        key: 'location',
+        label: t('service.academy.template.nav.location'),
+        icon: <MapPin size={16} color={colors.white} />,
+      });
     }
-    items.push({ key: 'contact', label: t('academies.contact', 'Contact'), icon: <Mail size={16} color="white" /> });
+    items.push({ key: 'contact', label: t('service.academy.template.nav.contact'), icon: <Mail size={16} color={colors.white} /> });
     return items;
-  }, [templateSections, aboutText, sportTypes, awards, certificates, courses, ads, galleryItems, successStory, t]);
+  }, [ads, awards, colors.white, courses, galleryItems, successStory, sportTypes, templateSections, aboutText, certificates, t]);
 
   // Lightbox source
   const lightboxSrc = useMemo(() => {
@@ -835,9 +905,10 @@ export function AcademyTemplateScreen({ slug }) {
   if (loading) {
     return (
       <Screen safe>
-        <LoadingState
-          title={t('academies.loading', 'Loading')}
-          subtitle={t('academies.loadingSubtitle', 'Fetching academy details…')}
+        <AppHeader title={t('service.academy.template.loading.title')} leftSlot={<BackButton />} />
+        <SporHiveLoader
+          label={t('service.academy.template.loading.title')}
+          message={t('service.academy.template.loading.subtitle')}
         />
       </Screen>
     );
@@ -847,10 +918,11 @@ export function AcademyTemplateScreen({ slug }) {
   if (error) {
     return (
       <Screen safe>
+        <AppHeader title={t('service.academy.template.error.title')} leftSlot={<BackButton />} />
         <ErrorState
-          title={t('common.error', 'Something went wrong')}
+          title={t('service.academy.template.error.title')}
           subtitle={error}
-          actionLabel={t('common.retry', 'Retry')}
+          actionLabel={t('service.academy.template.error.retry')}
           onAction={load}
         />
       </Screen>
@@ -866,7 +938,7 @@ export function AcademyTemplateScreen({ slug }) {
           {
             borderBottomColor: colors.border,
             opacity: headerOpacity,
-            backgroundColor: isDark ? 'rgba(16,16,18,0.85)' : 'rgba(255,255,255,0.92)',
+            backgroundColor: alphaHex(colors.surface, isDark ? 'D9' : 'EB'),
           },
         ]}
       >
@@ -914,7 +986,7 @@ export function AcademyTemplateScreen({ slug }) {
               <Image source={coverSource} style={styles.heroImg} resizeMode="cover" />
             ) : (
               <LinearGradient
-                colors={[colors.accentOrange, colors.accentOrangeLight]}
+                colors={[colors.accentOrange, alphaHex(colors.accentOrange, 'B3')]}
                 start={{ x: 0.1, y: 0.0 }}
                 end={{ x: 0.9, y: 1.0 }}
                 style={styles.heroImg}
@@ -923,11 +995,19 @@ export function AcademyTemplateScreen({ slug }) {
 
             {/* Multi-layer overlays */}
             <LinearGradient
-              colors={['rgba(0,0,0,0.85)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.9)']}
+              colors={[
+                alphaHex(colors.black, 'D9'),
+                alphaHex(colors.black, '66'),
+                alphaHex(colors.black, 'E6'),
+              ]}
               style={StyleSheet.absoluteFill}
             />
             <LinearGradient
-              colors={['rgba(255,165,0,0.25)', 'transparent', 'rgba(255,106,0,0.2)']}
+              colors={[
+                alphaHex(colors.accentOrange, '40'),
+                alphaHex(colors.accentOrange, '00'),
+                alphaHex(colors.accentOrange, '33'),
+              ]}
               style={StyleSheet.absoluteFill}
             />
           </Animated.View>
@@ -953,59 +1033,59 @@ export function AcademyTemplateScreen({ slug }) {
               <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 {academy?.is_pro ? (
                   <Badge variant="primary" style={styles.badgeRow}>
-                    <Crown size={14} color="white" />
-                    <Text variant="caption" weight="bold" style={styles.badgeText}>
-                      {t('academies.pro', 'PRO')}
+                    <Crown size={14} color={colors.white} />
+                    <Text variant="caption" weight="bold" style={[styles.badgeText, { color: colors.white }]}>
+                      {t('service.academy.template.badges.pro')}
                     </Text>
                   </Badge>
                 ) : null}
                 {academy?.is_featured ? (
                   <Badge variant="accent" style={styles.badgeRow}>
-                    <Flame size={14} color="white" />
-                    <Text variant="caption" weight="bold" style={styles.badgeText}>
-                      {t('academies.featured', 'Featured')}
+                    <Flame size={14} color={colors.white} />
+                    <Text variant="caption" weight="bold" style={[styles.badgeText, { color: colors.white }]}>
+                      {t('service.academy.template.badges.featured')}
                     </Text>
                   </Badge>
                 ) : null}
                 {academy?.has_facilities_booking ? (
                   <Badge variant="secondary" style={styles.badgeRow}>
-                    <CheckCircle2 size={14} color="white" />
-                    <Text variant="caption" weight="bold" style={styles.badgeText}>
-                      {t('academies.facilities', 'Facilities')}
+                    <CheckCircle2 size={14} color={colors.white} />
+                    <Text variant="caption" weight="bold" style={[styles.badgeText, { color: colors.white }]}>
+                      {t('service.academy.template.badges.facilities')}
                     </Text>
                   </Badge>
                 ) : null}
               </View>
 
-              <GlassIconButton onPress={onShare} style={styles.heroActionBtn}>
-                <Share2 size={18} color="white" />
+              <GlassIconButton onPress={onShare} style={[styles.heroActionBtn, { borderColor: alphaHex(colors.white, '47') }]}>
+                <Share2 size={18} color={colors.white} />
               </GlassIconButton>
             </View>
 
             {/* Title area */}
             <View style={styles.heroTitleRow}>
               {logoSource ? (
-                <View style={styles.logoBox}>
+                <View style={[styles.logoBox, { borderColor: alphaHex(colors.white, '47') }]}>
                   <BlurView intensity={40} style={StyleSheet.absoluteFill} />
                   <Image source={logoSource} style={styles.logoImg} resizeMode="contain" />
                 </View>
               ) : (
-                <View style={styles.logoBox}>
+                <View style={[styles.logoBox, { borderColor: alphaHex(colors.white, '47') }]}>
                   <BlurView intensity={40} style={StyleSheet.absoluteFill} />
-                  <Sparkles size={22} color="white" />
+                  <Sparkles size={22} color={colors.white} />
                 </View>
               )}
 
               <View style={{ flex: 1 }}>
-                <Text variant="h1" weight="bold" style={styles.heroTitle} numberOfLines={2}>
+                <Text variant="h1" weight="bold" style={[styles.heroTitle, { color: colors.white }]} numberOfLines={2}>
                   {academyName}
                 </Text>
 
                 <View style={styles.heroSubRow}>
-                  <MapPin size={16} color="rgba(255,255,255,0.9)" />
-                  <Text variant="bodySmall" style={styles.heroSub} numberOfLines={1}>
+                  <MapPin size={16} color={alphaHex(colors.white, 'E6')} />
+                  <Text variant="bodySmall" style={[styles.heroSub, { color: alphaHex(colors.white, 'E0') }]} numberOfLines={1}>
                     {safeText(academy?.city || '')}
-                    {academy?.city && academy?.address ? ' • ' : ''}
+                    {academy?.city && academy?.address ? separator : ''}
                     {safeText(academy?.address || '')}
                   </Text>
                 </View>
@@ -1013,16 +1093,16 @@ export function AcademyTemplateScreen({ slug }) {
                 {academy?.registration_open !== undefined && (
                   <View style={[styles.statusBadge, {
                     backgroundColor: academy.registration_open
-                      ? 'rgba(34,197,94,0.2)'
-                      : 'rgba(239,68,68,0.2)',
+                      ? alphaHex(colors.success, '33')
+                      : alphaHex(colors.error, '33'),
                     borderColor: academy.registration_open ? colors.success : colors.error,
                   }]}>
                     <Text variant="caption" weight="bold" style={{
                       color: academy.registration_open ? colors.success : colors.error,
                     }}>
                       {academy.registration_open
-                        ? t('academies.registrationOpen', 'Registration Open')
-                        : t('academies.registrationClosed', 'Registration Closed')}
+                        ? t('service.academy.template.status.registrationOpen')
+                        : t('service.academy.template.status.registrationClosed')}
                     </Text>
                   </View>
                 )}
@@ -1033,36 +1113,40 @@ export function AcademyTemplateScreen({ slug }) {
             <View style={styles.featureRow}>
               {academy?.ages_from != null && academy?.ages_to != null ? (
                 <FeaturePill
-                  icon={<Users size={18} color="white" />}
-                  label={t('academies.ageRange', 'Age Range')}
-                  value={`${academy.ages_from}-${academy.ages_to} ${t('academies.years', 'years')}`}
+                  icon={<Users size={18} color={colors.white} />}
+                  label={t('service.academy.template.feature.ageRange')}
+                  value={`${academy.ages_from}-${academy.ages_to} ${t('service.academy.template.feature.years')}`}
                   color="orange"
                 />
               ) : null}
 
               {sportTypes.length > 0 ? (
                 <FeaturePill
-                  icon={<Trophy size={18} color="white" />}
-                  label={t('academies.sports', 'Sports')}
-                  value={`${sportTypes.length} ${sportTypes.length === 1 ? t('academies.sport', 'sport') : t('academies.sports', 'sports')}`}
+                  icon={<Trophy size={18} color={colors.white} />}
+                  label={t('service.academy.template.feature.sports')}
+                  value={`${sportTypes.length} ${
+                    sportTypes.length === 1
+                      ? t('service.academy.template.feature.sportSingle')
+                      : t('service.academy.template.feature.sportPlural')
+                  }`}
                   color="amber"
                 />
               ) : null}
 
               {academy?.subscription_fee_amount ? (
                 <FeaturePill
-                  icon={<Wallet size={18} color="white" />}
-                  label={t('academies.startingFrom', 'Starting from')}
-                  value={`${academy.subscription_fee_amount} ${safeText(academy?.subscription_fee_type) || '/month'}`}
+                  icon={<Wallet size={18} color={colors.white} />}
+                  label={t('service.academy.template.feature.startingFrom')}
+                  value={`${academy.subscription_fee_amount} ${safeText(academy?.subscription_fee_type) || t('service.academy.template.feature.perMonth')}`}
                   color="yellow"
                 />
               ) : null}
 
               {academy?.has_facilities_booking ? (
                 <FeaturePill
-                  icon={<CalendarDays size={18} color="white" />}
-                  label={t('academies.facilities', 'Facilities')}
-                  value={t('academies.bookingAvailable', 'Booking Available')}
+                  icon={<CalendarDays size={18} color={colors.white} />}
+                  label={t('service.academy.template.feature.facilities')}
+                  value={t('service.academy.template.feature.bookingAvailable')}
                   color="green"
                 />
               ) : null}
@@ -1100,11 +1184,11 @@ export function AcademyTemplateScreen({ slug }) {
             >
               <SectionHeader
                 icon={<Info size={18} color={colors.accentOrange} />}
-                title={t('academies.about.title', 'About Academy')}
-                subtitle={t('academies.about.subtitle', 'Our mission and vision')}
+                title={t('service.academy.template.sections.about.title')}
+                subtitle={t('service.academy.template.sections.about.subtitle')}
               />
 
-              <Card elevation={3} style={styles.sectionCard}>
+              <Card elevation={3} style={[styles.sectionCard, { shadowColor: colors.black }]}>
                 <View style={styles.sectionCardContent}>
                   <Text style={{ lineHeight: 24, fontSize: 16, color: colors.textPrimary }}>
                     {aboutText}
@@ -1116,16 +1200,19 @@ export function AcademyTemplateScreen({ slug }) {
                         <View style={styles.metaRow}>
                           <CalendarDays size={16} color={colors.textSecondary} />
                           <Text variant="body" style={{ marginLeft: 8, color: colors.textPrimary }}>
-                            {t('academies.yearFounded', 'Founded')}: {yearFounded}
+                            {t('service.academy.template.about.founded')}: {yearFounded}
                           </Text>
                         </View>
                       )}
 
                       {website && (
-                        <Pressable onPress={onOpenWebsite} style={styles.websiteButton}>
+                        <Pressable
+                          onPress={onOpenWebsite}
+                          style={[styles.websiteButton, { backgroundColor: alphaHex(colors.accentOrange, '1A') }]}
+                        >
                           <Globe size={16} color={colors.accentOrange} />
                           <Text variant="body" weight="medium" style={{ marginLeft: 8, color: colors.accentOrange }}>
-                            {t('academies.openWebsite', 'Visit Website')}
+                            {t('service.academy.template.about.visitWebsite')}
                           </Text>
                           <ExternalLink size={14} color={colors.accentOrange} style={{ marginLeft: 4 }} />
                         </Pressable>
@@ -1134,13 +1221,21 @@ export function AcademyTemplateScreen({ slug }) {
                   )}
 
                   {languages.length > 0 && (
-                    <View style={styles.languagesSection}>
+                    <View style={[styles.languagesSection, { borderTopColor: alphaHex(colors.border, '33') }]}>
                       <Text variant="bodySmall" weight="medium" style={{ marginBottom: 12, color: colors.textPrimary }}>
-                        {t('academies.languages', 'Languages Spoken')}
+                        {t('service.academy.template.about.languages')}
                       </Text>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                         {languages.slice(0, 6).map((lang, idx) => (
-                          <Badge key={idx} variant="outline" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }}>
+                          <Badge
+                            key={idx}
+                            variant="outline"
+                            style={{
+                              backgroundColor: isDark
+                                ? alphaHex(colors.white, '0D')
+                                : alphaHex(colors.black, '05'),
+                            }}
+                          >
                             <Text variant="caption" style={{ color: colors.textPrimary }}>
                               {lang}
                             </Text>
@@ -1162,24 +1257,27 @@ export function AcademyTemplateScreen({ slug }) {
             >
               <SectionHeader
                 icon={<Trophy size={18} color={colors.accentOrange} />}
-                title={t('academies.sports', 'Sports & Credentials')}
-                subtitle={t('academies.sportsSubtitle', 'Professional training programs')}
+                title={t('service.academy.template.sections.sports.title')}
+                subtitle={t('service.academy.template.sections.sports.subtitle')}
                 right={sportTypes.length > 0 ? <Badge variant="accent">{sportTypes.length}</Badge> : null}
               />
 
-              <Card elevation={3} style={styles.sectionCard}>
+              <Card elevation={3} style={[styles.sectionCard, { shadowColor: colors.black }]}>
                 <View style={styles.sectionCardContent}>
                   {/* Sports Grid */}
                   {sportTypes.length > 0 && (
                     <View style={{ marginBottom: 24 }}>
                       <Text variant="body" weight="medium" style={{ marginBottom: 16, color: colors.textPrimary }}>
-                        {t('academies.sportsOffered', 'Sports Offered')}
+                        {t('service.academy.template.sports.offered')}
                       </Text>
                       <View style={styles.sportsGrid}>
                         {sportTypes.map((sport, idx) => (
                           <View key={`${sport}-${idx}`} style={styles.sportItem}>
                             <LinearGradient
-                              colors={isDark ? ['rgba(255,165,0,0.2)', 'rgba(255,165,0,0.1)'] : ['rgba(255,165,0,0.15)', 'rgba(255,165,0,0.05)']}
+                              colors={[
+                                alphaHex(colors.accentOrange, isDark ? '33' : '26'),
+                                alphaHex(colors.accentOrange, isDark ? '1A' : '0D'),
+                              ]}
                               style={styles.sportIcon}
                             >
                               <Trophy size={22} color={colors.accentOrange} />
@@ -1196,53 +1294,53 @@ export function AcademyTemplateScreen({ slug }) {
                   {/* Stats */}
                   <View style={{ marginBottom: 24 }}>
                     <Text variant="body" weight="medium" style={{ marginBottom: 16, color: colors.textPrimary }}>
-                      {t('academies.stats.title', 'Statistics')}
+                      {t('service.academy.template.stats.title')}
                     </Text>
                     <View style={styles.statsGrid}>
                       {academy?.number_of_players != null && (
-                        <View style={styles.statItem}>
+                        <View style={[styles.statItem, { backgroundColor: alphaHex(colors.textPrimary, isDark ? '0D' : '05') }]}>
                           <Users size={20} color={colors.accentOrange} />
                           <Text variant="h3" weight="bold" style={{ marginTop: 8, color: colors.textPrimary }}>
                             {academy.number_of_players}
                           </Text>
                           <Text variant="caption" color={colors.textSecondary}>
-                            {t('academies.stats.players', 'Players')}
+                            {t('service.academy.template.stats.players')}
                           </Text>
                         </View>
                       )}
 
                       {academy?.number_of_coaches != null && (
-                        <View style={styles.statItem}>
+                        <View style={[styles.statItem, { backgroundColor: alphaHex(colors.textPrimary, isDark ? '0D' : '05') }]}>
                           <User size={20} color={colors.accentOrange} />
                           <Text variant="h3" weight="bold" style={{ marginTop: 8, color: colors.textPrimary }}>
                             {academy.number_of_coaches}
                           </Text>
                           <Text variant="caption" color={colors.textSecondary}>
-                            {t('academies.stats.coaches', 'Coaches')}
+                            {t('service.academy.template.stats.coaches')}
                           </Text>
                         </View>
                       )}
 
                       {awards.length > 0 && (
-                        <View style={styles.statItem}>
+                        <View style={[styles.statItem, { backgroundColor: alphaHex(colors.textPrimary, isDark ? '0D' : '05') }]}>
                           <Award size={20} color={colors.accentOrange} />
                           <Text variant="h3" weight="bold" style={{ marginTop: 8, color: colors.textPrimary }}>
                             {awards.length}
                           </Text>
                           <Text variant="caption" color={colors.textSecondary}>
-                            {t('academies.stats.awards', 'Awards')}
+                            {t('service.academy.template.stats.awards')}
                           </Text>
                         </View>
                       )}
 
                       {certificates.length > 0 && (
-                        <View style={styles.statItem}>
+                        <View style={[styles.statItem, { backgroundColor: alphaHex(colors.textPrimary, isDark ? '0D' : '05') }]}>
                           <BadgeCheck size={20} color={colors.accentOrange} />
                           <Text variant="h3" weight="bold" style={{ marginTop: 8, color: colors.textPrimary }}>
                             {certificates.length}
                           </Text>
                           <Text variant="caption" color={colors.textSecondary}>
-                            {t('academies.stats.certificates', 'Certificates')}
+                            {t('service.academy.template.stats.certificates')}
                           </Text>
                         </View>
                       )}
@@ -1253,21 +1351,21 @@ export function AcademyTemplateScreen({ slug }) {
                   {(awards.length > 0 || certificates.length > 0) && (
                     <View>
                       <Text variant="body" weight="medium" style={{ marginBottom: 16, color: colors.textPrimary }}>
-                        {t('academies.achievements', 'Achievements')}
+                        {t('service.academy.template.stats.achievements')}
                       </Text>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                         {awards.slice(0, 4).map((award, idx) => (
                           <Badge key={idx} variant="accent">
-                            <Award size={12} color="white" />
-                            <Text variant="caption" weight="medium" style={{ color: 'white', marginLeft: 4 }}>
+                            <Award size={12} color={colors.white} />
+                            <Text variant="caption" weight="medium" style={{ color: colors.white, marginLeft: 4 }}>
                               {award}
                             </Text>
                           </Badge>
                         ))}
                         {certificates.slice(0, 4).map((cert, idx) => (
                           <Badge key={idx} variant="secondary">
-                            <BadgeCheck size={12} color="white" />
-                            <Text variant="caption" weight="medium" style={{ color: 'white', marginLeft: 4 }}>
+                            <BadgeCheck size={12} color={colors.white} />
+                            <Text variant="caption" weight="medium" style={{ color: colors.white, marginLeft: 4 }}>
                               {cert}
                             </Text>
                           </Badge>
@@ -1288,8 +1386,8 @@ export function AcademyTemplateScreen({ slug }) {
             >
               <SectionHeader
                 icon={<GraduationCap size={18} color={colors.accentOrange} />}
-                title={t('academies.courses', 'Courses & Programs')}
-                subtitle={t('academies.coursesSubtitle', 'Structured training sessions')}
+                title={t('service.academy.template.sections.courses.title')}
+                subtitle={t('service.academy.template.sections.courses.subtitle')}
                 right={<Badge variant="primary">{courses.length}</Badge>}
               />
 
@@ -1309,8 +1407,8 @@ export function AcademyTemplateScreen({ slug }) {
             >
               <SectionHeader
                 icon={<ImageIcon size={18} color={colors.accentOrange} />}
-                title={t('academies.media.galleryTitle', 'Media Gallery')}
-                subtitle={t('academies.media.gallerySubtitle', 'Photos and videos')}
+                title={t('service.academy.template.sections.media.title')}
+                subtitle={t('service.academy.template.sections.media.subtitle')}
                 right={
                   galleryItems.length > 0 ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -1322,19 +1420,19 @@ export function AcademyTemplateScreen({ slug }) {
                           <Pressable onPress={() => setMediaFilter('all')}>
                             <Text variant="caption" weight={mediaFilter === 'all' ? 'bold' : 'normal'}
                               style={{ color: mediaFilter === 'all' ? colors.accentOrange : colors.textSecondary }}>
-                              All
+                              {t('service.academy.template.media.filters.all')}
                             </Text>
                           </Pressable>
                           <Pressable onPress={() => setMediaFilter('team')}>
                             <Text variant="caption" weight={mediaFilter === 'team' ? 'bold' : 'normal'}
                               style={{ color: mediaFilter === 'team' ? colors.accentOrange : colors.textSecondary }}>
-                              Team
+                              {t('service.academy.template.media.filters.team')}
                             </Text>
                           </Pressable>
                           <Pressable onPress={() => setMediaFilter('poster')}>
                             <Text variant="caption" weight={mediaFilter === 'poster' ? 'bold' : 'normal'}
                               style={{ color: mediaFilter === 'poster' ? colors.accentOrange : colors.textSecondary }}>
-                              Posters
+                              {t('service.academy.template.media.filters.posters')}
                             </Text>
                           </Pressable>
                         </View>
@@ -1345,10 +1443,10 @@ export function AcademyTemplateScreen({ slug }) {
               />
 
               {ads.length > 0 && (
-                <Card elevation={3} style={[styles.sectionCard, { marginBottom: 24 }]}>
+                <Card elevation={3} style={[styles.sectionCard, { marginBottom: 24, shadowColor: colors.black }]}>
                   <View style={styles.sectionCardContent}>
                     <Text variant="body" weight="medium" style={{ marginBottom: 16, color: colors.textPrimary }}>
-                      {t('academies.media.adsTitle', 'Highlights & Ads')}
+                      {t('service.academy.template.media.adsTitle')}
                     </Text>
                     <MediaCarousel items={ads} onOpen={openLightbox} />
                   </View>
@@ -1356,10 +1454,10 @@ export function AcademyTemplateScreen({ slug }) {
               )}
 
               {galleryItems.length > 0 && (
-                <Card elevation={3} style={styles.sectionCard}>
+                <Card elevation={3} style={[styles.sectionCard, { shadowColor: colors.black }]}>
                   <View style={styles.sectionCardContent}>
                     <Text variant="body" weight="medium" style={{ marginBottom: 16, color: colors.textPrimary }}>
-                      {t('academies.media.galleryTitle', 'Gallery')}
+                      {t('service.academy.template.media.galleryTitle')}
                     </Text>
                     <GalleryGrid items={galleryItems} onOpen={openLightbox} filter={mediaFilter} />
                   </View>
@@ -1386,29 +1484,37 @@ export function AcademyTemplateScreen({ slug }) {
             >
               <SectionHeader
                 icon={<MapPin size={18} color={colors.accentOrange} />}
-                title={t('academies.location.title', 'Location & Facilities')}
-                subtitle={t('academies.location.subtitle', 'Find us easily')}
+                title={t('service.academy.template.sections.location.title')}
+                subtitle={t('service.academy.template.sections.location.subtitle')}
                 right={
                   mapUrl ? (
-                    <Button variant="secondary" size="small" onPress={onOpenMaps} leftIcon={<Navigation2 size={16} color="white" />}>
-                      {t('academies.location.openMaps', 'Navigate')}
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      onPress={onOpenMaps}
+                      leftIcon={<Navigation2 size={16} color={colors.white} />}
+                    >
+                      {t('service.academy.template.location.navigate')}
                     </Button>
                   ) : null
                 }
               />
 
-              <Card elevation={3} style={styles.sectionCard}>
+              <Card elevation={3} style={[styles.sectionCard, { shadowColor: colors.black }]}>
                 <View style={styles.sectionCardContent}>
                   <View style={styles.locationRow}>
                     <LinearGradient
-                      colors={isDark ? ['rgba(255,165,0,0.2)', 'rgba(255,165,0,0.1)'] : ['rgba(255,165,0,0.15)', 'rgba(255,165,0,0.05)']}
+                      colors={[
+                        alphaHex(colors.accentOrange, isDark ? '33' : '26'),
+                        alphaHex(colors.accentOrange, isDark ? '1A' : '0D'),
+                      ]}
                       style={styles.locationBadge}
                     >
                       <MapPin size={22} color={colors.accentOrange} />
                     </LinearGradient>
                     <View style={{ flex: 1 }}>
                       <Text weight="bold" style={{ marginBottom: 4, fontSize: 16, color: colors.textPrimary }}>
-                        {safeText(academy?.address) || t('academies.address.empty', 'Address not provided')}
+                        {safeText(academy?.address) || t('service.academy.template.location.addressEmpty')}
                       </Text>
                       <Text variant="bodySmall" color={colors.textSecondary}>
                         {safeText(academy?.city)}{safeText(academy?.country) ? `, ${safeText(academy?.country)}` : ''}
@@ -1429,7 +1535,7 @@ export function AcademyTemplateScreen({ slug }) {
                     <View style={[styles.inlineRow, { marginTop: 16 }]}>
                       <CheckCircle2 size={18} color={colors.success} />
                       <Text variant="bodySmall" style={{ marginLeft: 8, color: colors.success }}>
-                        {t('academies.facilitiesBooking', 'Facilities booking available')}
+                        {t('service.academy.template.location.facilitiesBooking')}
                       </Text>
                     </View>
                   ) : null}
@@ -1441,7 +1547,7 @@ export function AcademyTemplateScreen({ slug }) {
                       leftIcon={<Navigation2 size={16} color={colors.accentOrange} />}
                       style={{ marginTop: 20 }}
                     >
-                      {t('academies.location.getDirections', 'Get Directions')}
+                      {t('service.academy.template.location.getDirections')}
                     </Button>
                   )}
                 </View>
@@ -1457,11 +1563,11 @@ export function AcademyTemplateScreen({ slug }) {
             >
               <SectionHeader
                 icon={<Mail size={18} color={colors.accentOrange} />}
-                title={t('academies.contact.title', 'Get in Touch')}
-                subtitle={t('academies.contact.subtitle', 'Reach out for more information')}
+                title={t('service.academy.template.sections.contact.title')}
+                subtitle={t('service.academy.template.sections.contact.subtitle')}
               />
 
-              <Card elevation={3} style={styles.sectionCard}>
+              <Card elevation={3} style={[styles.sectionCard, { shadowColor: colors.black }]}>
                 <View style={styles.sectionCardContent}>
                   <Button
                     onPress={onPrimary}
@@ -1469,21 +1575,35 @@ export function AcademyTemplateScreen({ slug }) {
                     style={{ marginBottom: 20 }}
                   >
                     {academy?.registration_open
-                      ? t('academies.registerNow', 'Register Now')
-                      : t('academies.contact', 'Contact Academy')}
+                      ? t('service.academy.template.contact.registerNow')
+                      : t('service.academy.template.contact.contactAcademy')}
                   </Button>
 
                   <View style={{ gap: 16 }}>
                     {contactPhones.length > 0 ? (
-                      <Pressable onPress={onCall} style={({ pressed }) => [styles.contactRow, { opacity: pressed ? 0.88 : 1 }]}>
-                        <View style={[styles.contactIcon, { backgroundColor: isDark ? 'rgba(34,197,94,0.14)' : 'rgba(34,197,94,0.12)' }]}>
+                      <Pressable
+                        onPress={onCall}
+                        style={({ pressed }) => [
+                          styles.contactRow,
+                          { opacity: pressed ? 0.88 : 1, backgroundColor: alphaHex(colors.textPrimary, isDark ? '0D' : '05') },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.contactIcon,
+                            { backgroundColor: alphaHex(colors.success, isDark ? '24' : '1F') },
+                          ]}
+                        >
                           <Phone size={20} color={colors.success} />
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text weight="medium" style={{ color: colors.textPrimary }}>{t('academies.call', 'Call')}</Text>
+                          <Text weight="medium" style={{ color: colors.textPrimary }}>{t('service.academy.template.contact.call')}</Text>
                           <Text variant="bodySmall" color={colors.textSecondary}>
                             {safeText(contactPhones[0])}
-                            {contactPhones.length > 1 && ` (+${contactPhones.length - 1} more)`}
+                            {contactPhones.length > 1 &&
+                              ` ${t('service.academy.template.contact.morePhones', {
+                                count: contactPhones.length - 1,
+                              })}`}
                           </Text>
                         </View>
                         <Navigation2 size={18} color={colors.textSecondary} />
@@ -1491,12 +1611,23 @@ export function AcademyTemplateScreen({ slug }) {
                     ) : null}
 
                     {academy?.contact_email ? (
-                      <Pressable onPress={onEmail} style={({ pressed }) => [styles.contactRow, { opacity: pressed ? 0.88 : 1 }]}>
-                        <View style={[styles.contactIcon, { backgroundColor: isDark ? 'rgba(255,165,0,0.14)' : 'rgba(255,165,0,0.12)' }]}>
+                      <Pressable
+                        onPress={onEmail}
+                        style={({ pressed }) => [
+                          styles.contactRow,
+                          { opacity: pressed ? 0.88 : 1, backgroundColor: alphaHex(colors.textPrimary, isDark ? '0D' : '05') },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.contactIcon,
+                            { backgroundColor: alphaHex(colors.accentOrange, isDark ? '24' : '1F') },
+                          ]}
+                        >
                           <Mail size={20} color={colors.accentOrange} />
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text weight="medium" style={{ color: colors.textPrimary }}>{t('academies.email', 'Email')}</Text>
+                          <Text weight="medium" style={{ color: colors.textPrimary }}>{t('service.academy.template.contact.email')}</Text>
                           <Text variant="bodySmall" color={colors.textSecondary}>
                             {safeText(academy.contact_email)}
                           </Text>
@@ -1534,9 +1665,9 @@ export function AcademyTemplateScreen({ slug }) {
           },
         ]}
       >
-        <View style={styles.fabShadow}>
+        <View style={[styles.fabShadow, { shadowColor: colors.black }]}>
           <LinearGradient
-            colors={[colors.accentOrange, colors.accentOrangeLight]}
+            colors={[colors.accentOrange, alphaHex(colors.accentOrange, 'B3')]}
             start={{ x: 0.0, y: 0.2 }}
             end={{ x: 1.0, y: 0.8 }}
             style={styles.fabGradient}
@@ -1545,9 +1676,11 @@ export function AcademyTemplateScreen({ slug }) {
             onPress={onPrimary}
             size="large"
             leftIcon={academy?.registration_open ? 'person-add' : 'chatbubble'}
-            style={styles.fabBtn}
+            style={[styles.fabBtn, { backgroundColor: alphaHex(colors.accentOrange, '00') }]}
           >
-            {academy?.registration_open ? t('academies.joinNow', 'Join Now') : t('academies.contact', 'Contact')}
+            {academy?.registration_open
+              ? t('service.academy.template.cta.joinNow')
+              : t('service.academy.template.cta.contact')}
           </Button>
         </View>
       </Animated.View>
@@ -1559,17 +1692,17 @@ export function AcademyTemplateScreen({ slug }) {
         animationType="fade"
         onRequestClose={closeLightbox}
       >
-        <View style={styles.lightboxContainer}>
+        <View style={[styles.lightboxContainer, { backgroundColor: alphaHex(colors.black, 'E6') }]}>
           <BlurView intensity={80} style={StyleSheet.absoluteFill} />
           <Pressable style={StyleSheet.absoluteFill} onPress={closeLightbox} />
 
-          <View style={styles.lightboxContent}>
+          <View style={[styles.lightboxContent, { backgroundColor: alphaHex(colors.surface, 'F2') }]}>
             <View style={styles.lightboxHeader}>
-              <Text variant="h4" weight="bold" style={{ color: 'white' }} numberOfLines={2}>
-                {lightboxItem?.caption_en || lightboxItem?.caption_ar || t('academies.media.preview', 'Preview')}
+              <Text variant="h4" weight="bold" style={{ color: colors.white }} numberOfLines={2}>
+                {lightboxItem?.caption_en || lightboxItem?.caption_ar || t('service.academy.template.media.preview')}
               </Text>
-              <Pressable onPress={closeLightbox} style={styles.lightboxClose}>
-                <X size={24} color="white" />
+              <Pressable onPress={closeLightbox} style={[styles.lightboxClose, { backgroundColor: alphaHex(colors.white, '1A') }]}>
+                <X size={24} color={colors.white} />
               </Pressable>
             </View>
 
@@ -1581,16 +1714,16 @@ export function AcademyTemplateScreen({ slug }) {
               />
             ) : (
               <View style={styles.lightboxFallback}>
-                <ImageIcon size={48} color="white" />
-                <Text variant="body" style={{ color: 'white', marginTop: 16 }}>
-                  {t('academies.media.noPreview', 'No preview available')}
+                <ImageIcon size={48} color={colors.white} />
+                <Text variant="body" style={{ color: colors.white, marginTop: 16 }}>
+                  {t('service.academy.template.media.noPreview')}
                 </Text>
               </View>
             )}
 
             <View style={styles.lightboxActions}>
               <Button variant="secondary" onPress={closeLightbox} style={{ flex: 1 }}>
-                {t('common.close', 'Close')}
+                {t('service.academy.common.close')}
               </Button>
             </View>
           </View>
@@ -1657,7 +1790,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   badgeText: {
-    color: 'white',
     marginLeft: 6,
   },
   heroActionBtn: {
@@ -1668,7 +1800,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.28)',
   },
   heroTitleRow: {
     flexDirection: 'row',
@@ -1684,14 +1815,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.28)',
   },
   logoImg: {
     width: '82%',
     height: '82%',
   },
   heroTitle: {
-    color: 'white',
     fontSize: 28,
     letterSpacing: -0.6,
     lineHeight: 34,
@@ -1703,7 +1832,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   heroSub: {
-    color: 'rgba(255,255,255,0.88)',
   },
   statusBadge: {
     alignSelf: 'flex-start',
@@ -1769,7 +1897,6 @@ const styles = StyleSheet.create({
   sectionCard: {
     borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.10,
     shadowRadius: 14,
@@ -1795,13 +1922,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,165,0,0.1)',
   },
   languagesSection: {
     marginTop: 20,
     paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
   },
 
   // Sports & Stats
@@ -1835,7 +1960,6 @@ const styles = StyleSheet.create({
     minWidth: '22%',
     padding: 12,
     borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.02)',
   },
 
   // Courses
@@ -1900,7 +2024,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
 
   // Media
@@ -1938,7 +2061,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.2)',
   },
   carouselDots: {
     flexDirection: 'row',
@@ -1979,7 +2101,6 @@ const styles = StyleSheet.create({
     bottom: 8,
     left: 8,
     right: 8,
-    color: 'white',
   },
   emptyGallery: {
     alignItems: 'center',
@@ -2035,7 +2156,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.02)',
   },
   contactIcon: {
     width: 46,
@@ -2057,7 +2177,6 @@ const styles = StyleSheet.create({
   fabShadow: {
     borderRadius: 26,
     overflow: 'hidden',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.22,
     shadowRadius: 16,
@@ -2067,7 +2186,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   fabBtn: {
-    backgroundColor: 'transparent',
   },
 
   // Lightbox
@@ -2075,12 +2193,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.9)',
   },
   lightboxContent: {
     width: '90%',
     maxHeight: '80%',
-    backgroundColor: 'rgba(30,30,32,0.95)',
     borderRadius: 24,
     overflow: 'hidden',
     padding: 20,
@@ -2097,7 +2213,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   lightboxImage: {
     width: '100%',

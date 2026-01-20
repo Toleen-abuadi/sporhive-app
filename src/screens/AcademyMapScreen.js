@@ -18,6 +18,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
 import { endpoints } from '../services/api/endpoints';
 import { API_BASE_URL } from '../services/api/client';
+import { spacing } from '../theme/tokens';
 
 import { Screen } from '../components/ui/Screen';
 import { AppHeader } from '../components/ui/AppHeader';
@@ -30,10 +31,11 @@ import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ErrorState } from '../components/ui/ErrorState';
 import { BackButton } from '../components/ui/BackButton';
+import { SporHiveLoader } from '../components/ui/SporHiveLoader';
 
 import { MapPin, X, Filter, ChevronRight } from 'lucide-react-native';
 
-import { ad, makeADTheme, pressableScaleConfig } from '../theme/academyDiscovery.styles';
+import { ad, makeADTheme, pressableScaleConfig, alphaHex } from '../theme/academyDiscovery.styles';
 
 function safeText(v) {
   if (v === null || v === undefined) return '';
@@ -95,6 +97,7 @@ export function AcademyMapScreen() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const { t } = useI18n();
+  const separator = t('service.academy.common.separator');
 
   const theme = useMemo(() => makeADTheme(colors, isDark), [colors, isDark]);
 
@@ -148,7 +151,7 @@ export function AcademyMapScreen() {
         }, 250);
       }
     } catch (e) {
-      setError(e?.message || t('common.error', 'Something went wrong'));
+      setError(e?.message || t('service.academy.map.error.message'));
     } finally {
       setLoading(false);
     }
@@ -204,14 +207,14 @@ export function AcademyMapScreen() {
 
   // Glass surface (dynamic style #1)
   const glassBg = useMemo(
-    () => (isDark ? 'rgba(11,18,32,0.72)' : 'rgba(248,250,252,0.78)'),
-    [isDark]
+    () => alphaHex(theme.surface0, isDark ? 'B8' : 'C7'),
+    [isDark, theme.surface0]
   );
 
   // Compact state card bg (dynamic style #2)
   const stateBg = useMemo(
-    () => (isDark ? 'rgba(15,23,42,0.80)' : 'rgba(255,255,255,0.86)'),
-    [isDark]
+    () => alphaHex(theme.surface2, isDark ? 'CC' : 'DB'),
+    [isDark, theme.surface2]
   );
 
   // Header “lift” when preview is open (subtle connected feel)
@@ -224,6 +227,24 @@ export function AcademyMapScreen() {
     const y = interpolate(lift.value, [0, 1], [0, -6], Extrapolate.CLAMP);
     return { transform: [{ translateY: y }] };
   }, []);
+
+  if (loading && !items.length) {
+    return (
+      <Screen safe scroll={false} style={ad.screen(theme)}>
+        <View style={styles.loadingHeader}>
+          <AppHeader
+            title={t('service.academy.map.title')}
+            subtitle={t('service.academy.map.subtitle')}
+            leftSlot={<BackButton />}
+          />
+        </View>
+        <SporHiveLoader
+          label={t('service.academy.map.loading')}
+          message={t('service.academy.map.loadingSubtitle')}
+        />
+      </Screen>
+    );
+  }
 
   return (
     <Screen safe scroll={false} style={ad.screen(theme)}>
@@ -259,13 +280,13 @@ export function AcademyMapScreen() {
         >
           <View style={styles.headerInner}>
             <AppHeader
-              title={t('academies.map.title', 'Academies map')}
-              subtitle={t('academies.map.subtitle', 'Explore nearby academies and open the template in one tap.')}
+              title={t('service.academy.map.title')}
+              subtitle={t('service.academy.map.subtitle')}
               leftSlot={<BackButton color={colors.textPrimary} />}
               rightAction={{
                 icon: <Filter size={20} color={colors.textPrimary} />,
                 onPress: () => setFiltersOpen(true),
-                accessibilityLabel: t('academies.filters.open', 'Filters'),
+                accessibilityLabel: t('service.academy.map.filters.open'),
               }}
             />
           </View>
@@ -278,12 +299,12 @@ export function AcademyMapScreen() {
             exiting={FadeOutUp.duration(160)}
             style={[styles.stateFloat, theme.shadow.md, { backgroundColor: stateBg, borderColor: theme.hairline }]}
           >
-            <Text weight="bold" style={{ color: theme.text.primary }}>
-              {t('common.loading', 'Loading')}…
-            </Text>
-            <Text variant="caption" color={theme.text.secondary} style={{ marginTop: 6 }}>
-              {t('academies.map.loadingSub', 'Fetching academies for the map…')}
-            </Text>
+            <SporHiveLoader
+              fullScreen={false}
+              size={72}
+              label={t('service.academy.map.loading')}
+              message={t('service.academy.map.loadingSubtitle')}
+            />
           </Animated.View>
         ) : error ? (
           <Animated.View
@@ -291,9 +312,9 @@ export function AcademyMapScreen() {
             style={[styles.stateWide, theme.shadow.md, { backgroundColor: stateBg, borderColor: theme.hairline }]}
           >
             <ErrorState
-              title={t('common.error', 'Error')}
+              title={t('service.academy.map.error.title')}
               message={error}
-              actionLabel={t('common.tryAgain', 'Try again')}
+              actionLabel={t('service.academy.map.error.tryAgain')}
               onAction={fetchMap}
             />
           </Animated.View>
@@ -303,9 +324,9 @@ export function AcademyMapScreen() {
             style={[styles.stateWide, theme.shadow.md, { backgroundColor: stateBg, borderColor: theme.hairline }]}
           >
             <EmptyState
-              title={t('academies.map.emptyTitle', 'No academies on map')}
-              message={t('academies.map.emptySub', 'Try removing filters to see more results.')}
-              actionLabel={t('common.reset', 'Reset')}
+              title={t('service.academy.map.empty.title')}
+              message={t('service.academy.map.empty.subtitle')}
+              actionLabel={t('service.academy.map.empty.reset')}
               onAction={() => {
                 setSport('');
                 setCity('');
@@ -324,10 +345,10 @@ export function AcademyMapScreen() {
           <View style={ad.sheetHeader(theme)}>
             <View style={ad.sheetHeaderLeft()}>
               <Text variant="h4" weight="bold" style={{ color: theme.text.primary }}>
-                {t('academies.filters.title', 'Smart filters')}
+                {t('service.academy.map.filters.title')}
               </Text>
               <Text variant="caption" color={theme.text.secondary}>
-                {t('academies.map.filtersSub', 'Filters affect what appears on the map.')}
+                {t('service.academy.map.filters.subtitle')}
               </Text>
             </View>
 
@@ -338,16 +359,16 @@ export function AcademyMapScreen() {
 
           <View style={[ad.sheetBody(theme), { marginTop: theme.space.lg }]}>
             <Input
-              label={t('academies.sport', 'Sport')}
+              label={t('service.academy.map.filters.sport.label')}
               value={sport}
               onChangeText={setSport}
-              placeholder="e.g. Football"
+              placeholder={t('service.academy.map.filters.sport.placeholder')}
             />
             <Input
-              label={t('academies.city', 'City')}
+              label={t('service.academy.map.filters.city.label')}
               value={city}
               onChangeText={setCity}
-              placeholder="e.g. Amman"
+              placeholder={t('service.academy.map.filters.city.placeholder')}
             />
 
             <Divider />
@@ -363,7 +384,7 @@ export function AcademyMapScreen() {
                   }}
                 >
                   <Text variant="caption" weight="bold" style={{ color: theme.text.primary }}>
-                    {t('common.reset', 'Reset')}
+                    {t('service.academy.map.filters.reset')}
                   </Text>
                 </Button>
               </AnimatedPress>
@@ -377,7 +398,7 @@ export function AcademyMapScreen() {
                   }}
                 >
                   <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                    {t('common.apply', 'Apply')}
+                    {t('service.academy.map.filters.apply')}
                   </Text>
                 </Button>
               </AnimatedPress>
@@ -395,16 +416,16 @@ export function AcademyMapScreen() {
           <View style={ad.sheetHeader(theme)}>
             <View style={ad.sheetHeaderLeft()}>
               <Text variant="caption" color={theme.text.muted} style={{ marginBottom: 6 }}>
-                {t('academies.map.previewHint', 'Open the full template or join directly.')}
+                {t('service.academy.map.preview.hint')}
               </Text>
 
               <Text variant="h4" weight="bold" numberOfLines={1} style={{ color: theme.text.primary }}>
-                {safeText(selected?.name_en || selected?.name_ar || selected?.name) || t('academies.unnamed', 'Academy')}
+                {safeText(selected?.name_en || selected?.name_ar || selected?.name) || t('service.academy.common.defaultName')}
               </Text>
 
               <Text variant="caption" color={theme.text.secondary} numberOfLines={1}>
                 {safeText(selected?.city)}
-                {safeText(selected?.address) ? ` • ${safeText(selected.address)}` : ''}
+                {safeText(selected?.address) ? `${separator}${safeText(selected.address)}` : ''}
               </Text>
             </View>
 
@@ -433,12 +454,12 @@ export function AcademyMapScreen() {
 
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text variant="caption" color={theme.text.muted} numberOfLines={1}>
-                  {t('academies.map.previewConnected', 'Selected on map')}
+                  {t('service.academy.map.preview.selected')}
                 </Text>
                 <Text weight="bold" numberOfLines={1} style={{ color: theme.text.primary, marginTop: 2 }}>
-                  {safeText(selected?.name_en || selected?.name_ar || selected?.name) || t('academies.unnamed', 'Academy')}
-                </Text>
-              </View>
+                {safeText(selected?.name_en || selected?.name_ar || selected?.name) || t('service.academy.common.defaultName')}
+              </Text>
+            </View>
             </View>
 
             <View style={styles.previewActions}>
@@ -446,7 +467,7 @@ export function AcademyMapScreen() {
                 <Button variant="secondary" style={{ flex: 1 }} onPress={onViewTemplate}>
                   <View style={styles.btnRow}>
                     <Text variant="caption" weight="bold" style={{ color: theme.text.primary }}>
-                      {t('academies.view', 'View')}
+                      {t('service.academy.map.preview.view')}
                     </Text>
                     <ChevronRight size={14} color={theme.text.primary} />
                   </View>
@@ -456,7 +477,7 @@ export function AcademyMapScreen() {
               <AnimatedPress>
                 <Button style={{ flex: 1 }} onPress={onJoin}>
                   <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                    {t('academies.joinNow', 'Join')}
+                    {t('service.academy.map.preview.join')}
                   </Text>
                 </Button>
               </AnimatedPress>
@@ -489,6 +510,9 @@ const styles = StyleSheet.create({
   headerInner: {
     paddingHorizontal: 4,
     paddingBottom: 6,
+  },
+  loadingHeader: {
+    marginBottom: spacing.md,
   },
 
   // Compact state cards
