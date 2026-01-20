@@ -148,7 +148,7 @@ export function HomeServicesScreen() {
   const resolvePlaygroundsRoute = useCallback(async () => {
     const [mode, user] = await Promise.all([getPublicUserMode(), getPublicUser()]);
     if (mode === 'registered' && user?.id) {
-      return '/playgrounds/explore';
+      return '/playgrounds';
     }
     return '/playgrounds/auth';
   }, []);
@@ -180,24 +180,6 @@ export function HomeServicesScreen() {
       color: colors.success,
       screen: 'PlaygroundsExplore',
       href: '/playgrounds/explore',
-    },
-    {
-      id: 'playgrounds-bookings',
-      title: t('home.playgrounds.bookings.title'),
-      description: t('home.playgrounds.bookings.description'),
-      icon: 'calendar',
-      color: colors.accentOrange,
-      screen: 'PlaygroundsBookings',
-      href: '/playgrounds/bookings',
-    },
-    {
-      id: 'playgrounds-rate',
-      title: t('home.playgrounds.rate.title'),
-      description: t('home.playgrounds.rate.description'),
-      icon: 'star',
-      color: colors.warning,
-      screen: 'PlaygroundsRate',
-      href: '/playgrounds/rate',
     },
   ];
 
@@ -287,13 +269,6 @@ export function HomeServicesScreen() {
                 const target = await resolvePlaygroundsRoute();
                 router.replace(target);
                 return;
-              }
-              if (service.id === 'playgrounds-bookings') {
-                const [mode, user] = await Promise.all([getPublicUserMode(), getPublicUser()]);
-                if (mode !== 'registered' || !user?.id) {
-                  router.replace('/playgrounds/auth');
-                  return;
-                }
               }
               router.push(service.href);
             }}

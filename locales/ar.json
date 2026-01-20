@@ -779,5 +779,92 @@
         "checkPricing": "تحقق من السعر"
       }
     }
+  },
+  "playgrounds": {
+    "explore": {
+      "header": "الملاعب",
+      "searchLabel": "بحث",
+      "searchPlaceholder": "ابحث باسم الملعب أو الموقع",
+      "filters": "الفلاتر",
+      "pickDate": "اختر التاريخ",
+      "players": "لاعبين",
+      "offers": "العروض",
+      "all": "الكل",
+      "noVenuesTitle": "لا توجد ملاعب",
+      "noVenuesMessage": "حاول تعديل الفلاتر أو إعادة تعيين البحث.",
+      "resetFilters": "إعادة التعيين",
+      "errorTitle": "تعذر التحميل",
+      "multiSport": "متعدد الرياضات",
+      "fromPrice": "ابتداءً من {{price}}"
+    },
+    "booking": {
+      "steps": {
+        "schedule": "الجدولة",
+        "players": "اللاعبون",
+        "payment": "الدفع",
+        "review": "المراجعة"
+      },
+      "stepIndicator": "الخطوة {{current}} من {{total}}",
+      "continue": "متابعة",
+      "confirmBooking": "تأكيد الحجز",
+      "total": "الإجمالي",
+      "chooseSchedule": "اختر التاريخ والوقت والمدة",
+      "numberOfPlayers": "عدد اللاعبين",
+      "paymentMethod": "طريقة الدفع",
+      "reviewConfirm": "مراجعة وتأكيد",
+      "duration": "المدة",
+      "date": "التاريخ",
+      "bookingDate": "تاريخ الحجز",
+      "today": "اليوم",
+      "tomorrow": "غدًا",
+      "availableSlots": "الأوقات المتاحة",
+      "selectDuration": "اختر المدة",
+      "pickDateFirst": "اختر التاريخ أولاً",
+      "noSlots": "لا توجد أوقات متاحة",
+      "playersAllowed": "العدد المسموح: {{min}} - {{max}}",
+      "cash": "نقدًا",
+      "cliq": "كليك",
+      "payOnDate": "الدفع يوم الحجز",
+      "payNow": "الدفع الآن",
+      "uploadScreenshot": "رفع صورة التحويل",
+      "bookingConfirmed": "تم تأكيد الحجز",
+      "bookingSuccess": "تم إرسال طلب الحجز بنجاح.",
+      "bookingCode": "رمز الحجز",
+      "viewBookings": "عرض الحجوزات",
+      "done": "تم"
+    },
+    "bookings": {
+      "title": "حجوزاتي",
+      "signInRequired": "تسجيل الدخول مطلوب",
+      "signInMessage": "سجّل الدخول لعرض حجوزات الملاعب.",
+      "signIn": "تسجيل الدخول",
+      "status": {
+        "all": "الكل",
+        "pending": "قيد الانتظار",
+        "approved": "مقبول",
+        "rejected": "مرفوض",
+        "cancelled": "ملغي"
+      },
+      "noBookings": "لا توجد حجوزات",
+      "noBookingsMessage": "جرّب فلترة أخرى أو استكشف الملاعب.",
+      "explore": "استكشف",
+      "cancelTitle": "إلغاء الحجز؟",
+      "cancelMessage": "يرجى التواصل مع الدعم أو الملعب لمعرفة سياسة الإلغاء.",
+      "keepBooking": "الاحتفاظ بالحجز",
+      "gotIt": "حسنًا"
+    },
+    "auth": {
+      "access": "الدخول إلى الملاعب",
+      "welcomeBack": "مرحبًا بعودتك",
+      "createAccount": "إنشاء حساب سبور هايف",
+      "signIn": "تسجيل الدخول",
+      "signUp": "إنشاء حساب",
+      "rememberMe": "تذكرني",
+      "forgotPassword": "نسيت كلمة المرور؟",
+      "resumeBooking": "سيتم استكمال الحجز بعد تسجيل الدخول.",
+      "resetPassword": "إعادة تعيين كلمة المرور",
+      "sendResetCode": "إرسال رمز التعيين",
+      "updatePassword": "تحديث كلمة المرور"
+    }
   }
 }

@@ -779,5 +779,92 @@
         "checkPricing": "Check pricing"
       }
     }
+  },
+  "playgrounds": {
+    "explore": {
+      "header": "Playgrounds",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Search by venue or location",
+      "filters": "Filters",
+      "pickDate": "Pick date",
+      "players": "players",
+      "offers": "Offers",
+      "all": "All",
+      "noVenuesTitle": "No venues found",
+      "noVenuesMessage": "Try adjusting filters or resetting your search.",
+      "resetFilters": "Reset filters",
+      "errorTitle": "Unable to load",
+      "multiSport": "Multi-sport",
+      "fromPrice": "From {{price}}"
+    },
+    "booking": {
+      "steps": {
+        "schedule": "Schedule",
+        "players": "Players",
+        "payment": "Payment",
+        "review": "Review"
+      },
+      "stepIndicator": "Step {{current}} of {{total}}",
+      "continue": "Continue",
+      "confirmBooking": "Confirm booking",
+      "total": "Total",
+      "chooseSchedule": "Choose date, time & duration",
+      "numberOfPlayers": "Number of players",
+      "paymentMethod": "Payment method",
+      "reviewConfirm": "Review & confirm",
+      "duration": "Duration",
+      "date": "Date",
+      "bookingDate": "Booking date",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "availableSlots": "Available time slots",
+      "selectDuration": "Select a duration",
+      "pickDateFirst": "Pick a date",
+      "noSlots": "No available slots",
+      "playersAllowed": "Allowed range: {{min}} - {{max}}",
+      "cash": "Cash",
+      "cliq": "CliQ",
+      "payOnDate": "Pay on booking date",
+      "payNow": "Pay now",
+      "uploadScreenshot": "Upload screenshot",
+      "bookingConfirmed": "Booking confirmed",
+      "bookingSuccess": "Your request has been submitted successfully.",
+      "bookingCode": "Booking code",
+      "viewBookings": "View bookings",
+      "done": "Done"
+    },
+    "bookings": {
+      "title": "My bookings",
+      "signInRequired": "Sign in required",
+      "signInMessage": "Log in to view your playground bookings.",
+      "signIn": "Sign in",
+      "status": {
+        "all": "All",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled"
+      },
+      "noBookings": "No bookings found",
+      "noBookingsMessage": "Try another status filter or explore venues.",
+      "explore": "Explore",
+      "cancelTitle": "Cancel booking?",
+      "cancelMessage": "Please contact support or the venue to confirm any cancellation policy.",
+      "keepBooking": "Keep booking",
+      "gotIt": "Got it"
+    },
+    "auth": {
+      "access": "Playgrounds access",
+      "welcomeBack": "Welcome back",
+      "createAccount": "Create your SporHive account",
+      "signIn": "Sign in",
+      "signUp": "Sign up",
+      "rememberMe": "Remember me",
+      "forgotPassword": "Forgot password?",
+      "resumeBooking": "We’ll resume your booking after you sign in.",
+      "resetPassword": "Reset your password",
+      "sendResetCode": "Send reset code",
+      "updatePassword": "Update password"
+    }
   }
 }
