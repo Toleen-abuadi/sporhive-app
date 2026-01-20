@@ -1,11 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   CalendarDays,
@@ -79,7 +73,9 @@ function StepperHeader({ currentStep, onBack, colors }) {
             styles.backButton,
             {
               opacity: currentStep === 0 ? 0.4 : 1,
-              backgroundColor: pressed ? colors.surfaceElevated : colors.surface,
+              backgroundColor: pressed
+                ? colors.surfaceElevated
+                : colors.surface,
               borderColor: colors.border,
             },
           ]}
@@ -94,7 +90,12 @@ function StepperHeader({ currentStep, onBack, colors }) {
           Step {currentStep + 1} of {STEP_LABELS.length}
         </Text>
       </View>
-      <View style={[styles.progressTrack, { backgroundColor: colors.surfaceElevated }]}>
+      <View
+        style={[
+          styles.progressTrack,
+          { backgroundColor: colors.surfaceElevated },
+        ]}
+      >
         <View
           style={[
             styles.progressBar,
@@ -120,7 +121,8 @@ function StepperHeader({ currentStep, onBack, colors }) {
                       : isActive
                       ? colors.surface
                       : colors.surfaceElevated,
-                    borderColor: isActive || isDone ? colors.accentOrange : colors.border,
+                    borderColor:
+                      isActive || isDone ? colors.accentOrange : colors.border,
                   },
                 ]}
               >
@@ -138,7 +140,9 @@ function StepperHeader({ currentStep, onBack, colors }) {
               </View>
               <Text
                 variant="caption"
-                color={isActive || isDone ? colors.textPrimary : colors.textSecondary}
+                color={
+                  isActive || isDone ? colors.textPrimary : colors.textSecondary
+                }
               >
                 {label}
               </Text>
@@ -212,6 +216,9 @@ export function BookingStepperScreen() {
   const [inlinePaymentError, setInlinePaymentError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [bookingResult, setBookingResult] = useState(null); // {booking_id, booking_code, total_price, ...}
+
   const academy = venue?.academy_profile || null;
   const allowCash =
     typeof academy?.allow_cash === 'boolean' ? academy.allow_cash : true;
@@ -225,8 +232,9 @@ export function BookingStepperScreen() {
 
   const selectedDuration = useMemo(
     () =>
-      durations.find((duration) => String(duration.id) === String(selectedDurationId)) ||
-      null,
+      durations.find(
+        (duration) => String(duration.id) === String(selectedDurationId)
+      ) || null,
     [durations, selectedDurationId]
   );
 
@@ -237,19 +245,18 @@ export function BookingStepperScreen() {
       : null;
 
   const quickDates = useMemo(
-    () => Array.from({ length: 6 }).map((_, index) => {
-      const date = new Date();
-      date.setDate(date.getDate() + index);
-      return formatIsoDate(date);
-    }),
+    () =>
+      Array.from({ length: 6 }).map((_, index) => {
+        const date = new Date();
+        date.setDate(date.getDate() + index);
+        return formatIsoDate(date);
+      }),
     []
   );
 
-  const scheduleReady =
-    !!selectedDurationId && !!bookingDate && !!selectedSlot;
+  const scheduleReady = !!selectedDurationId && !!bookingDate && !!selectedSlot;
   const playersValid = players >= minPlayers && players <= maxPlayers;
-  const paymentReady =
-    !!paymentType && (paymentType !== 'cliq' || !!cliqImage);
+  const paymentReady = !!paymentType && (paymentType !== 'cliq' || !!cliqImage);
   const allValid = scheduleReady && playersValid && paymentReady;
 
   const draftPayload = useMemo(
@@ -260,7 +267,9 @@ export function BookingStepperScreen() {
         players,
         selectedSlot: selectedSlot
           ? {
-              start_time: String(selectedSlot.start_time || selectedSlot.start || ''),
+              start_time: String(
+                selectedSlot.start_time || selectedSlot.start || ''
+              ),
               end_time: String(selectedSlot.end_time || selectedSlot.end || ''),
             }
           : undefined,
@@ -415,8 +424,7 @@ export function BookingStepperScreen() {
       (duration) => String(duration.id) === String(selectedDurationId)
     );
     if (!durationObj) return;
-    const minutes =
-      durationObj.minutes || durationObj.duration_minutes || 60;
+    const minutes = durationObj.minutes || durationObj.duration_minutes || 60;
     loadSlots(bookingDate, minutes);
   }, [bookingDate, durations, loadSlots, selectedDurationId]);
 
@@ -532,15 +540,17 @@ export function BookingStepperScreen() {
       }
 
       const res = await endpoints.playgrounds.createBooking(formData);
+
       await setBookingDraft(null);
-      router.replace('/playgrounds/bookings');
+
       toast.success('Your booking request was sent.', {
         title: 'Booking confirmed',
       });
-
-      if (res?.booking_code) {
-        setErrorText(`Booking confirmed: ${res.booking_code}`);
-      }
+      setBookingResult(res?.data || res || null);
+      setBookingSuccess(true);
+      setTimeout(() => {
+        router.replace('/playgrounds/bookings');
+      }, 30000);
     } catch (err) {
       setErrorText(err?.message || 'Unable to complete booking.');
     } finally {
@@ -781,10 +791,9 @@ export function BookingStepperScreen() {
                 {slots.map((slot, index) => {
                   const slotKey = slot.id ? String(slot.id) : `${index}`;
                   const label = formatSlotLabel(slot);
-                  const isSelected =
-                    selectedSlot?.id
-                      ? selectedSlot.id === slot.id
-                      : formatSlotLabel(selectedSlot || {}) === label;
+                  const isSelected = selectedSlot?.id
+                    ? selectedSlot.id === slot.id
+                    : formatSlotLabel(selectedSlot || {}) === label;
                   const phase = getSlotPhase(slot.start_time || slot.start);
                   return (
                     <Chip
@@ -815,7 +824,8 @@ export function BookingStepperScreen() {
                 Players
               </Text>
             </View>
-            <View style={[styles.playersDisplay, { borderColor: colors.border }]}
+            <View
+              style={[styles.playersDisplay, { borderColor: colors.border }]}
             >
               <Text variant="caption" color={colors.textSecondary}>
                 Players
@@ -966,8 +976,7 @@ export function BookingStepperScreen() {
                 Review & confirm
               </Text>
             </View>
-            <View style={[styles.summaryCard, { borderColor: colors.border }]}
-            >
+            <View style={[styles.summaryCard, { borderColor: colors.border }]}>
               <View style={styles.summaryRow}>
                 <Text variant="bodySmall" color={colors.textSecondary}>
                   Venue
@@ -1006,7 +1015,11 @@ export function BookingStepperScreen() {
                 </Text>
                 <Text variant="bodySmall" weight="semibold">
                   {selectedDuration
-                    ? `${selectedDuration.minutes || selectedDuration.duration_minutes || 60} min`
+                    ? `${
+                        selectedDuration.minutes ||
+                        selectedDuration.duration_minutes ||
+                        60
+                      } min`
                     : '--'}
                 </Text>
               </View>
@@ -1040,9 +1053,50 @@ export function BookingStepperScreen() {
                 </Text>
               </View>
             </View>
-            {errorText ? (
-              <View style={[styles.errorCard, { borderColor: colors.error }]}
+            {bookingSuccess ? (
+              <View
+                style={[
+                  styles.successCard,
+                  { borderColor: colors.accentOrange },
+                ]}
               >
+                <Text variant="bodySmall" weight="semibold">
+                  ✅ Booking confirmed
+                </Text>
+                <Text variant="bodySmall" color={colors.textSecondary}>
+                  Your request has been submitted successfully.
+                </Text>
+
+                {bookingResult?.booking_code ? (
+                  <View style={{ marginTop: spacing.sm }}>
+                    <Text variant="caption" color={colors.textSecondary}>
+                      Booking code
+                    </Text>
+                    <Text variant="bodySmall" weight="semibold">
+                      {bookingResult.booking_code}
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View
+                  style={{
+                    marginTop: spacing.md,
+                    flexDirection: 'row',
+                    gap: spacing.sm,
+                  }}
+                >
+                  <Button
+                    variant="secondary"
+                    onPress={() => router.push('/playgrounds/bookings')}
+                  >
+                    View bookings
+                  </Button>
+                  <Button onPress={() => router.back()}>Done</Button>
+                </View>
+              </View>
+            ) : null}
+            {errorText ? (
+              <View style={[styles.errorCard, { borderColor: colors.error }]}>
                 <Text variant="bodySmall" color={colors.error}>
                   {errorText}
                 </Text>
@@ -1056,13 +1110,16 @@ export function BookingStepperScreen() {
         currentStep={currentStep}
         onBack={handleBackStep}
         onNext={
-          currentStep < STEP_LABELS.length - 1
+          bookingSuccess
+            ? () => router.push('/playgrounds/bookings')
+            : currentStep < STEP_LABELS.length - 1
             ? handleNextStep
             : handleSubmitBooking
         }
         priceLabel={priceLabel}
         disableBack={currentStep === 0}
         disableNext={
+          bookingSuccess ||
           (currentStep === 0 && !scheduleReady) ||
           (currentStep === 1 && !playersValid) ||
           (currentStep === 2 && !paymentReady) ||
@@ -1229,4 +1286,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
+    successCard: {
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    backgroundColor: 'rgba(255, 132, 0, 0.10)',
+    gap: spacing.xs,
+  },
+
 });
