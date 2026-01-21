@@ -102,6 +102,10 @@ export function AcademyDiscoveryScreen() {
   const { t } = useI18n();
 
   const theme = useMemo(() => makeADTheme(colors, isDark), [colors, isDark]);
+  const hairlineTransparent = useMemo(
+    () => alphaHex(theme.hairline, '00'),
+    [theme.hairline]
+  );
   const chip = useMemo(() => chipStyles(theme), [theme]);
   const emptyValue = t('service.academy.common.emptyValue');
 
@@ -331,19 +335,16 @@ export function AcademyDiscoveryScreen() {
   });
 
   const headerSurfaceA = useAnimatedStyle(() => {
-    const opacityBoost = interpolate(scrollY.value, [0, 28], [1, 1], Extrapolate.CLAMP);
     const borderColor = interpolateColor(
       scrollY.value,
       [0, 28],
-      [alphaHex(theme.hairline, '00'), theme.hairline]
+      [hairlineTransparent, theme.hairline]
     );
 
-    // inline dynamic styles limit: this is 1 of max 5, and only uses colors from theme
     return {
-      opacity: opacityBoost,
       borderBottomColor: borderColor,
     };
-  }, [theme.hairline]);
+  }, [hairlineTransparent, theme.hairline]);
 
   const header = useMemo(() => {
     return (

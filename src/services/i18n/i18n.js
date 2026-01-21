@@ -1,5 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { I18nManager } from 'react-native';
+import '@formatjs/intl-pluralrules/polyfill';
+import '@formatjs/intl-pluralrules/locale-data/en';
+import '@formatjs/intl-pluralrules/locale-data/ar';
 import i18n from 'i18next';
 import { initReactI18next, I18nextProvider, useTranslation as useI18NextTranslation } from 'react-i18next';
 import { storage, APP_STORAGE_KEYS } from '../storage/storage';
