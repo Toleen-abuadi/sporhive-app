@@ -1,5 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Image, Modal, Pressable, StyleSheet, View } from 'react-native';
+import {
+  Animated,
+  FlatList,
+  Image,
+  Modal,
+  Pressable,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '../components/ui/Screen';
@@ -13,7 +22,8 @@ import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
 import { useAuth } from '../services/auth/auth.store';
 import { getAvailableServices } from '../services/services/services.catalog';
-import { spacing, borderRadius } from '../theme/tokens';
+import { spacing, borderRadius, shadows } from '../theme/tokens';
+import { playgroundsApi } from '../services/playgrounds/playgrounds.api';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -49,25 +59,42 @@ export function HomeServicesScreen() {
   const { t, isRTL } = useI18n();
   const router = useRouter();
   const { logout, session } = useAuth();
-  const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
-  const [themeSheetOpen, setThemeSheetOpen] = useState(false);
+
+  // Role-aware UI
+  const user = session?.user || session?.profile || session || null;
+  const loginAs = session?.login_as || session?.loginAs || user?.type || user?.role || '';
+  const isPlayer = String(loginAs).toLowerCase() === 'player';
+
+  // Avatar
+  const avatarImage =
+    user?.avatar ||
+    user?.avatar_url ||
+    user?.image ||
+    user?.profile_image ||
+    user?.photo ||
+    user?.photo_url ||
+    null;
+
+  const avatarInitials = getInitials(user);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [trending, setTrending] = useState([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [trendingError, setTrendingError] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
 
   const loadTrending = useCallback(async () => {
     setTrendingLoading(true);
     setTrendingError('');
     try {
-      const res = await endpoints.playgrounds.venuesList({});
+      const res = await playgroundsApi.publicVenuesList({});
       const list = Array.isArray(res?.data?.venues)
         ? res.data.venues
         : Array.isArray(res?.venues)
-        ? res.venues
-        : Array.isArray(res?.data)
-        ? res.data
-        : [];
+          ? res.venues
+          : Array.isArray(res?.data)
+            ? res.data
+            : [];
       setTrending(list.slice(0, 8));
     } catch (error) {
       setTrendingError(error?.message || t('services.trending.error'));
@@ -98,7 +125,7 @@ export function HomeServicesScreen() {
       <View style={styles.header}>
         <View style={[styles.brandRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View style={[styles.brandInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={[styles.logoWrap, { backgroundColor: `${colors.accentOrange}1A` }]}> 
+            <View style={[styles.logoWrap, { backgroundColor: `${colors.accentOrange}1A` }]}>
               <Image source={logoSource} style={styles.logo} resizeMode="contain" />
             </View>
             <View style={styles.brandText}>
@@ -111,11 +138,11 @@ export function HomeServicesScreen() {
             </View>
           </View>
           <Pressable onPress={() => setSettingsOpen(true)} style={styles.avatarWrap}>
-            <View style={[styles.avatarRing, { borderColor: colors.accentOrange }]}> 
+            <View style={[styles.avatarRing, { borderColor: colors.accentOrange }]}>
               {avatarImage ? (
                 <Image source={{ uri: avatarImage }} style={styles.avatar} />
               ) : (
-                <View style={[styles.avatarFallback, { backgroundColor: colors.surface }]}> 
+                <View style={[styles.avatarFallback, { backgroundColor: colors.surface }]}>
                   <Text variant="body" weight="bold">
                     {avatarInitials}
                   </Text>
@@ -172,7 +199,7 @@ export function HomeServicesScreen() {
           ))}
         </View>
       ) : trendingError ? (
-        <View style={[styles.errorCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+        <View style={[styles.errorCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text variant="body" weight="semibold">
             {t('services.trending.errorTitle')}
           </Text>
@@ -202,7 +229,7 @@ export function HomeServicesScreen() {
           )}
         />
       ) : (
-        <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+        <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text variant="body" weight="semibold">
             {t('services.trending.emptyTitle')}
           </Text>
@@ -212,7 +239,7 @@ export function HomeServicesScreen() {
         </View>
       )}
 
-      <View style={[styles.bottomNav, { backgroundColor: colors.surface }]}> 
+      <View style={[styles.bottomNav, { backgroundColor: colors.surface }]}>
         {[
           { id: 'services', icon: 'grid', label: t('tabs.home'), href: '/services' },
           { id: 'discover', icon: 'compass', label: t('tabs.discover'), href: '/academies' },
@@ -256,7 +283,7 @@ export function HomeServicesScreen() {
 
       <Modal transparent visible={logoutOpen} animationType="fade">
         <Pressable style={styles.backdrop} onPress={() => setLogoutOpen(false)} />
-        <View style={[styles.confirmCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+        <View style={[styles.confirmCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text variant="h4" weight="bold">
             {t('services.settings.logoutTitle')}
           </Text>

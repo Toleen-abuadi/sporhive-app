@@ -58,7 +58,7 @@ async function registerForPushNotificationsAsync() {
   }
 
   // EAS Project ID (needed for getExpoPushTokenAsync in modern Expo)
-  const projectId = Constants.expo?.extra?.eas?.projectId;
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
 
   if (!projectId) {
     handleRegistrationError('Project ID not found');
