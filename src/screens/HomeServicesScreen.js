@@ -97,15 +97,21 @@ export function HomeServicesScreen() {
             : [];
       setTrending(list.slice(0, 8));
     } catch (error) {
+      if (!isMounted.current) return;
       setTrendingError(error?.message || t('services.trending.error'));
       setTrending([]);
     } finally {
+      if (!isMounted.current) return;
       setTrendingLoading(false);
     }
   }, [t]);
 
   useEffect(() => {
+    isMounted.current = true;
     loadTrending();
+    return () => {
+      isMounted.current = false;
+    };
   }, [loadTrending]);
 
   const handleLogout = async () => {
@@ -113,12 +119,61 @@ export function HomeServicesScreen() {
     router.replace('/(auth)/login');
   };
 
-  const services = getAvailableServices(session).map((service) => ({
-    ...service,
-    title: t(service.titleKey),
-    description: t(service.descriptionKey),
-    color: colors[service.colorKey] || colors.accentOrange,
-  }));
+  const isPlayer =
+    session?.login_as === 'player' || session?.userType === 'player' || session?.user?.type === 'player';
+  const avatarImage =
+    session?.user?.avatar || session?.user?.image || session?.user?.photo || session?.user?.profile_photo || null;
+  const avatarInitials = getInitials(session?.user);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(contentOpacity, {
+        toValue: 1,
+        duration: 360,
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentTranslate, {
+        toValue: 0,
+        duration: 360,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [contentOpacity, contentTranslate]);
+
+  const services = useMemo(() => {
+    const items = [
+      {
+        id: 'academies',
+        title: t('services.cards.discoverTitle'),
+        description: t('services.cards.discoverSubtitle'),
+        icon: 'compass',
+        color: colors.accentOrange,
+        href: '/academies',
+      },
+    ];
+
+    if (isPlayer) {
+      items.push({
+        id: 'portal',
+        title: t('services.cards.portalTitle'),
+        description: t('services.cards.portalSubtitle'),
+        icon: 'user',
+        color: colors.info,
+        href: '/portal/(tabs)/home',
+      });
+    }
+
+    items.push({
+      id: 'playgrounds',
+      title: t('services.cards.playgroundsTitle'),
+      description: t('services.cards.playgroundsSubtitle'),
+      icon: 'map-pin',
+      color: colors.success,
+      href: '/playgrounds/explore',
+    });
+
+    return items;
+  }, [colors.accentOrange, colors.info, colors.success, isPlayer, t]);
 
   return (
     <AppScreen scroll contentStyle={styles.scrollContent}>
@@ -133,7 +188,7 @@ export function HomeServicesScreen() {
         )}
         right={(
           <Pressable onPress={() => setSettingsOpen(true)} style={styles.avatarWrap}>
-            <View style={[styles.avatarRing, { borderColor: colors.accentOrange }]}> 
+            <View style={[styles.avatarRing, { borderColor: colors.primary }]}>
               {avatarImage ? (
                 <Image source={{ uri: avatarImage }} style={styles.avatar} />
               ) : (
@@ -201,25 +256,17 @@ export function HomeServicesScreen() {
           <Text variant="bodySmall" color={colors.textSecondary} style={styles.errorText}>
             {trendingError}
           </Text>
-          <Button size="small" onPress={loadTrending} style={styles.retryButton}>
-            {t('services.trending.retry')}
-          </Button>
         </View>
-      ) : trending.length ? (
-        <FlatList
-          data={trending}
-          keyExtractor={(item, index) => String(item?.id ?? index)}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.trendingList}
-          renderItem={({ item }) => (
-            <TrendingVenueCard
-              title={item?.name || item?.title || t('services.trending.fallback')}
-              imageUrl={resolveVenueImage(item)}
-              onPress={() => {
-                if (!item?.id) return;
-                router.push(`/playgrounds/venue/${item.id}`);
-              }}
+
+        <View style={styles.cardsStack}>
+          {services.map((service) => (
+            <ServiceCard
+              key={service.id}
+              title={service.title}
+              subtitle={service.description}
+              icon={service.icon}
+              color={service.color}
+              onPress={() => service.href && router.push(service.href)}
             />
           )}
         />
@@ -232,7 +279,6 @@ export function HomeServicesScreen() {
             {t('services.trending.emptyMessage')}
           </Text>
         </View>
-      )}
 
       <View style={[styles.bottomNav, { backgroundColor: colors.surface }]}>
         {[
@@ -255,17 +301,19 @@ export function HomeServicesScreen() {
                 size={20}
                 color={active ? colors.accentOrange : colors.textMuted}
               />
-              <Text
-                variant="caption"
-                weight={active ? 'bold' : 'medium'}
-                style={{ color: active ? colors.accentOrange : colors.textMuted }}
-              >
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+            )}
+          />
+        ) : (
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text variant="body" weight="semibold">
+              {t('services.trending.emptyTitle')}
+            </Text>
+            <Text variant="bodySmall" color={colors.textSecondary}>
+              {t('services.trending.emptyMessage')}
+            </Text>
+          </View>
+        )}
+      </Animated.View>
 
       <QuickSettingsSheet
         visible={settingsOpen}
@@ -363,7 +411,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   trendingSkeletonCard: {
-    width: 160,
+    width: 176,
     gap: spacing.sm,
   },
   trendingSkeletonText: {
