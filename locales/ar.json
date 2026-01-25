@@ -757,6 +757,69 @@
         "message": "صفحة القالب لـ",
         "cta": "اكتشف الأكاديميات"
       }
+    },
+    "playgrounds": {
+      "bookings": {
+        "title": "حجوزاتي",
+        "errors": {
+          "title": "تعذر التحميل",
+          "load": "تعذر تحميل الحجوزات.",
+          "unauthorizedTitle": "انتهت الجلسة",
+          "unauthorizedMessage": "يرجى تسجيل الدخول مرة أخرى لعرض الحجوزات.",
+          "signInAction": "تسجيل الدخول",
+          "retryAction": "إعادة المحاولة"
+        },
+        "empty": {
+          "authTitle": "تسجيل الدخول مطلوب",
+          "authMessage": "سجّل الدخول لعرض حجوزات الملاعب.",
+          "authAction": "تسجيل الدخول",
+          "sessionTitle": "الجلسة غير مكتملة",
+          "sessionMessage": "لم نتمكن من التحقق من جلستك. يرجى إعادة المحاولة أو تسجيل الدخول مرة أخرى.",
+          "sessionActionRetry": "إعادة المحاولة",
+          "sessionActionSignIn": "تسجيل الدخول مرة أخرى",
+          "title": "لا توجد حجوزات",
+          "message": "جرّب فلترة أخرى أو استكشف الملاعب.",
+          "action": "استكشف"
+        },
+        "filters": {
+          "labelWithCount": "{{label}} ({{count}})",
+          "accessibility": "تصفية {{status}}"
+        },
+        "status": {
+          "all": "الكل",
+          "pending": "قيد الانتظار",
+          "approved": "مقبول",
+          "rejected": "مرفوض",
+          "cancelled": "ملغي",
+          "custom": "{{status}}"
+        },
+        "labels": {
+          "dateTbd": "التاريخ غير محدد",
+          "timeTbd": "الوقت غير محدد",
+          "dateTime": "{{date}} • {{time}}"
+        },
+        "payment": {
+          "tbd": "الدفع غير محدد",
+          "cash": "نقدًا",
+          "cliq": "كليك",
+          "unknown": "الدفع: {{payment}}"
+        },
+        "actions": {
+          "call": "اتصال",
+          "callAccessibility": "الاتصال بالملعب",
+          "whatsapp": "واتساب",
+          "whatsappAccessibility": "مراسلة الملعب عبر واتساب",
+          "cancel": "إلغاء",
+          "cancelAccessibility": "إلغاء الحجز"
+        },
+        "cancel": {
+          "title": "إلغاء الحجز؟",
+          "message": "يرجى التواصل مع الدعم أو الملعب لتأكيد سياسة الإلغاء.",
+          "keep": "الاحتفاظ بالحجز",
+          "confirm": "حسنًا"
+        },
+        "loading": "جارٍ تحميل الحجوزات..."
+      }
     }
   },
   "playgrounds": {

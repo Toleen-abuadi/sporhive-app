@@ -19,6 +19,8 @@ import { getPublicUser } from '../../services/playgrounds/storage';
 import { BookingCard } from '../../components/playgrounds/BookingCard';
 import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { spacing } from '../../theme/tokens';
+import { useAuth } from '../../services/auth/auth.store';
+import { getPlaygroundsAuthHeaders } from '../../services/auth/authHeaders';
 
 const STATUS_TABS = ['all', 'pending', 'approved', 'rejected', 'cancelled'];
 
@@ -36,6 +38,10 @@ export function MyBookingsScreen() {
   const { listBookings } = usePlaygroundsActions();
   const [activeStatus, setActiveStatus] = useState('all');
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [sessionRefreshAttempted, setSessionRefreshAttempted] = useState(false);
+
+  const authHeaders = useMemo(() => getPlaygroundsAuthHeaders(session), [session]);
+  const loginMode = session?.login_as === 'player' ? 'player' : 'public';
 
   const loadBookings = useCallback(async () => {
     try {
@@ -53,8 +59,20 @@ export function MyBookingsScreen() {
   }, [listBookings]);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!session || !authHeaders) return;
     loadBookings();
-  }, [loadBookings]);
+  }, [authHeaders, authLoading, loadBookings, session]);
+
+  const handleRetrySession = useCallback(async () => {
+    setSessionRefreshAttempted(true);
+    await restoreSession();
+  }, [restoreSession]);
+
+  const handleSignInAgain = useCallback(async () => {
+    await logout();
+    router.replace(`/(auth)/login?mode=${loginMode}`);
+  }, [loginMode, logout, router]);
 
   const counts = useMemo(() => {
     const base = STATUS_TABS.reduce((acc, status) => ({ ...acc, [status]: 0 }), {});
@@ -106,7 +124,7 @@ export function MyBookingsScreen() {
           title={t('service.playgrounds.bookings.empty.authTitle')}
           message={t('service.playgrounds.bookings.empty.authMessage')}
           actionLabel={t('service.playgrounds.bookings.empty.authAction')}
-          onAction={() => router.push('/playgrounds/auth')}
+          onAction={() => router.push('/(auth)/login')}
         />
       ) : bookingsLoading ? (
         <SporHiveLoader message={t('service.playgrounds.bookings.loading')} />

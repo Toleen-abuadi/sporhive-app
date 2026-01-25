@@ -79,8 +79,8 @@ export const playgroundsApi = {
   async createBooking(payload) {
     return endpoints.playgrounds.createBooking(payload);
   },
-  async listBookings(payload = {}) {
-    const res = await endpoints.playgrounds.listBookings(payload);
+  async listBookings(payload = {}, config = {}) {
+    const res = await endpoints.playgrounds.listBookings(payload, config);
     return { raw: res, bookings: normalizeBookingsList(res) };
   },
   async listActivities(payload = {}) {

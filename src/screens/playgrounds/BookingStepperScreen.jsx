@@ -25,6 +25,8 @@ import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { getPublicUser } from '../../services/playgrounds/storage';
 import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { borderRadius, shadows, spacing } from '../../theme/tokens';
+import { useAuth } from '../../services/auth/auth.store';
+import { getPlaygroundsAuthHeaders } from '../../services/auth/authHeaders';
 
 const QUICK_PLAYER_SUGGESTIONS = [2, 4, 6, 8];
 const CURRENCY = 'JOD';
@@ -201,6 +203,7 @@ export function BookingStepperScreen() {
   const router = useRouter();
   const { venueId } = useLocalSearchParams();
   const toast = useToast();
+  const { session } = useAuth();
 
   const [venue, setVenue] = useState(null);
   const [publicUser, setPublicUser] = useState(null);
@@ -569,7 +572,8 @@ export function BookingStepperScreen() {
       await persistBookingDraft(null);
 
       if (publicUser?.id) {
-        await listBookings({ user_id: publicUser.id });
+
+       await listBookings({ user_id: publicUser.id });
       }
 
       toast.success(t('service.playgrounds.booking.success.toastMessage'), {

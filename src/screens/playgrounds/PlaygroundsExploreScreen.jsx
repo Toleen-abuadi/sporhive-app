@@ -11,6 +11,7 @@ import { ErrorState } from '../../components/ui/ErrorState';
 import { Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { Text } from '../../components/ui/Text';
 import { VenueCard } from '../../components/playgrounds/VenueCard';
 import { VenuesFilterSheet } from '../../components/playgrounds/VenuesFilterSheet';
 

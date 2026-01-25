@@ -233,14 +233,29 @@ export const playgroundsStore = {
       return { success: false, error };
     }
   },
-  async listBookings(payload = {}) {
-    setState({ bookingsLoading: true, bookingsError: null });
+  async listBookings(payload = {}, options = {}) {
+    setState({ bookingsLoading: true, bookingsError: null, bookingsErrorStatus: null });
     try {
-      const res = await playgroundsApi.listBookings(payload);
-      setState({ bookings: res.bookings || [], bookingsLoading: false, bookingsError: null });
+      const res = await playgroundsApi.listBookings(payload, options);
+      setState({
+        bookings: res.bookings || [],
+        bookingsLoading: false,
+        bookingsError: null,
+        bookingsErrorStatus: null,
+      });
       return { success: true, data: res.bookings || [] };
     } catch (error) {
-      setState({ bookingsLoading: false, bookingsError: error?.message || 'Unable to load bookings.' });
+      const status =
+        error?.status ||
+        error?.response?.status ||
+        error?.statusCode ||
+        error?.meta?.status ||
+        null;
+      setState({
+        bookingsLoading: false,
+        bookingsError: error?.message || 'Unable to load bookings.',
+        bookingsErrorStatus: status,
+      });
       return { success: false, error };
     }
   },

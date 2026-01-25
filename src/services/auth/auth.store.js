@@ -71,6 +71,7 @@ const buildSession = ({ loginAs, user, token, portalTokens, academyId, username 
     login_as: loginAs,
     user: normalizedUser,
     portal_tokens: portalTokens || undefined,
+    tokens: token ? { access: token } : undefined,
     token: token || undefined,
   };
 };
@@ -103,7 +104,7 @@ export function AuthProvider({ children }) {
           session: session || null,
           user: session?.user || null,
           userType: loginAs,
-          token: token || session?.token || null,
+          token: resolvedToken,
           portalAccessToken,
           lastSelectedAcademyId,
         });

@@ -416,12 +416,20 @@
         "title": "My bookings",
         "errors": {
           "title": "Unable to load",
-          "load": "Unable to load bookings."
+          "load": "Unable to load bookings.",
+          "unauthorizedTitle": "Session expired",
+          "unauthorizedMessage": "Please sign in again to view your bookings.",
+          "signInAction": "Sign in",
+          "retryAction": "Try again"
         },
         "empty": {
           "authTitle": "Sign in required",
           "authMessage": "Log in to view your playground bookings.",
           "authAction": "Sign in",
+          "sessionTitle": "Session incomplete",
+          "sessionMessage": "We could not verify your session. Please retry or sign in again.",
+          "sessionActionRetry": "Retry",
+          "sessionActionSignIn": "Sign in again",
           "title": "No bookings found",
           "message": "Try another status filter or explore venues.",
           "action": "Explore"
