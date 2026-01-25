@@ -13,13 +13,14 @@ export default function Index() {
 
   useEffect(() => {
     const resolveRoute = async () => {
-      const [welcomeSeenRaw, authToken, publicToken] = await Promise.all([
+      const [welcomeSeenRaw, authToken, publicToken, session] = await Promise.all([
         storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN),
         storage.getAuthToken(),
         getPublicUserToken(),
+        storage.getItem(APP_STORAGE_KEYS.AUTH_SESSION),
       ]);
       const welcomeSeen = welcomeSeenRaw === true;
-      const isLoggedIn = Boolean(authToken || publicToken);
+      const isLoggedIn = Boolean(authToken || publicToken || session?.userType);
 
       // Gate everything behind Welcome until Explore is pressed.
       router.replace(isLoggedIn || welcomeSeen ? '/services' : '/welcome');
