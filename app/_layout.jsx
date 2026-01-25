@@ -10,6 +10,7 @@ import { I18nProvider } from "../src/services/i18n/i18n";
 import { ToastHost } from "../src/components/ui/ToastHost";
 import { PortalProvider } from "../src/services/portal/portal.store";
 import { PortalModalsProvider } from "../src/services/portal/portal.modals";
+import { AuthProvider } from "../src/services/auth/auth.store";
 
 function NavThemeBridge({ children }) {
   const { colors, isDark } = useTheme();
@@ -39,16 +40,18 @@ export default function RootLayout() {
   return (
     <AppThemeProvider>
       <I18nProvider>
-        <PortalProvider>
-          <PortalModalsProvider>
-            <ToastHost>
-              <NavThemeBridge>
-                <Stack screenOptions={{ headerShown: false }} />
-                <StatusBar style="auto" />
-              </NavThemeBridge>
-            </ToastHost>
-          </PortalModalsProvider>
-        </PortalProvider>
+        <AuthProvider>
+          <PortalProvider>
+            <PortalModalsProvider>
+              <ToastHost>
+                <NavThemeBridge>
+                  <Stack screenOptions={{ headerShown: false }} />
+                  <StatusBar style="auto" />
+                </NavThemeBridge>
+              </ToastHost>
+            </PortalModalsProvider>
+          </PortalProvider>
+        </AuthProvider>
       </I18nProvider>
     </AppThemeProvider>
   );
