@@ -28,7 +28,6 @@ import {
   clearPlaygroundsAuth,
   getPlaygroundsClientState,
   getPublicUser,
-  getPublicUserMode,
   setPlaygroundsClientState,
 } from '../../services/playgrounds/storage';
 import { borderRadius, shadows, spacing } from '../../theme/tokens';
@@ -121,7 +120,6 @@ export function PlaygroundsExploreScreen() {
   const [activities, setActivities] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  const [publicUserMode, setPublicUserMode] = useState(null);
   const [publicUser, setPublicUser] = useState(null);
   const [playgroundsClientState, setPlaygroundsClientStateLocal] = useState(null);
 
@@ -159,12 +157,7 @@ export function PlaygroundsExploreScreen() {
   }, []);
 
   const loadInitialState = useCallback(async () => {
-    const [mode, user, clientState] = await Promise.all([
-      getPublicUserMode(),
-      getPublicUser(),
-      getPlaygroundsClientState(),
-    ]);
-    setPublicUserMode(mode);
+    const [user, clientState] = await Promise.all([getPublicUser(), getPlaygroundsClientState()]);
     setPublicUser(user);
     setPlaygroundsClientStateLocal(clientState || null);
 
@@ -285,7 +278,6 @@ export function PlaygroundsExploreScreen() {
   const handleLogout = useCallback(async () => {
     await clearPlaygroundsAuth();
     setPublicUser(null);
-    setPublicUserMode(null);
     router.replace('/playgrounds/auth');
   }, [router]);
 

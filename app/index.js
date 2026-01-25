@@ -8,7 +8,6 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 
 import { storage, APP_STORAGE_KEYS } from '../src/services/storage/storage';
-import { getPublicUserToken } from '../src/services/playgrounds/storage';
 import { useTheme } from '../src/theme/ThemeProvider';
 
 // 1) Global notification behavior (foreground)
@@ -133,15 +132,15 @@ export default function Index() {
   useEffect(() => {
     // 3) Your existing routing logic stays exactly the same
     const resolveRoute = async () => {
-      const [welcomeSeenRaw, authToken, publicToken, session] = await Promise.all([
+      const [welcomeSeenRaw, authToken, session] = await Promise.all([
         storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN),
         storage.getAuthToken(),
-        getPublicUserToken(),
         storage.getItem(APP_STORAGE_KEYS.AUTH_SESSION),
       ]);
 
       const welcomeSeen = welcomeSeenRaw === true;
-      const isLoggedIn = Boolean(authToken || publicToken || session?.userType);
+      const loginAs = session?.login_as || session?.user?.type || session?.userType || null;
+      const isLoggedIn = Boolean(authToken || loginAs);
 
       // Gate everything behind Welcome until Explore is pressed.
       router.replace(isLoggedIn || welcomeSeen ? '/services' : '/welcome');

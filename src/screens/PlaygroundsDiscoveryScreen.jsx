@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
-import { CalendarDays, Filter, RefreshCcw, Users } from 'lucide-react-native';
+import { CalendarDays, Filter, RefreshCcw } from 'lucide-react-native';
 
 import { useTheme } from '../theme/ThemeProvider';
 import { Screen } from '../components/ui/Screen';
@@ -21,10 +21,8 @@ import {
   getBookingDraft,
   getPlaygroundsClientState,
   getPublicUser,
-  getPublicUserMode,
   setBookingDraft,
   setPlaygroundsClientState,
-  setPublicUserMode,
   setPublicUser,
 } from '../services/playgrounds/storage';
 import { borderRadius, shadows, spacing } from '../theme/tokens';
@@ -145,11 +143,7 @@ export function PlaygroundsDiscoveryScreen() {
   const [durations, setDurations] = useState([]);
   const [selectedDuration, setSelectedDuration] = useState(null);
   const [bookingDraft, setBookingDraftState] = useState(null);
-  const [userMode, setUserMode] = useState('guest');
   const [publicUser, setPublicUserState] = useState(null);
-  const [guestFirstName, setGuestFirstName] = useState('');
-  const [guestLastName, setGuestLastName] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
   const [paymentType, setPaymentType] = useState('cash');
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -243,10 +237,9 @@ export function PlaygroundsDiscoveryScreen() {
   }, [publicUser?.id]);
 
   const restorePersistedState = useCallback(async () => {
-    const [client, draft, mode, user] = await Promise.all([
+    const [client, draft, user] = await Promise.all([
       getPlaygroundsClientState(),
       getBookingDraft(),
-      getPublicUserMode(),
       getPublicUser(),
     ]);
     if (client?.filters) {
@@ -272,7 +265,6 @@ export function PlaygroundsDiscoveryScreen() {
     if (draft) {
       setBookingDraftState(draft);
     }
-    if (mode) setUserMode(mode);
     if (user) setPublicUserState(user);
   }, []);
 
@@ -299,10 +291,6 @@ export function PlaygroundsDiscoveryScreen() {
   }, [publicUser]);
 
   const onRefresh = useCallback(() => fetchPlaygrounds(true), [fetchPlaygrounds]);
-
-  useEffect(() => {
-    setPublicUserMode(userMode);
-  }, [userMode]);
 
   const openBookingSheet = useCallback(
     async (venue) => {
@@ -398,31 +386,7 @@ export function PlaygroundsDiscoveryScreen() {
   const handleBookNow = useCallback(async () => {
     if (!bookingDraft?.venueId || !bookingDraft?.slot || !bookingDraft?.date) return;
     const numberOfPlayers = Number(players) || 2;
-    let currentUser = publicUser;
-
-    if (userMode === 'guest' && !currentUser) {
-      if (!guestFirstName || !guestLastName || !guestPhone) {
-        setSlotError('Please provide guest name and phone.');
-        return;
-      }
-      try {
-        const res = await endpoints.publicUsers.quickRegister({
-          first_name: guestFirstName,
-          last_name: guestLastName,
-          phone: guestPhone,
-        });
-        const user = res?.user || res?.data?.user || res?.data || res;
-        if (!user?.id) {
-          setSlotError('Unable to register guest.');
-          return;
-        }
-        currentUser = user;
-        setPublicUserState(user);
-      } catch (err) {
-        setSlotError(err?.message || 'Unable to register guest.');
-        return;
-      }
-    }
+    const currentUser = publicUser;
 
     if (!currentUser?.id) {
       setSlotError('Please sign in to complete booking.');
@@ -461,15 +425,11 @@ export function PlaygroundsDiscoveryScreen() {
     }
   }, [
     bookingDraft,
-    guestFirstName,
-    guestLastName,
-    guestPhone,
     paymentType,
     players,
     publicUser,
     selectedVenue?.academy_profile_id,
     selectedVenue?.activity_id,
-    userMode,
   ]);
 
   const draftVenue = useMemo(() => {
@@ -592,23 +552,6 @@ export function PlaygroundsDiscoveryScreen() {
                 ) : (
                   <Chip label="No filters yet" selected={false} />
                 )}
-              </View>
-            </View>
-            <View style={styles.modeRow}>
-              <Text variant="bodySmall" weight="semibold">
-                Booking mode
-              </Text>
-              <View style={styles.modeChips}>
-                <Chip
-                  label="Guest"
-                  selected={userMode === 'guest'}
-                  onPress={() => setUserMode('guest')}
-                />
-                <Chip
-                  label="Registered"
-                  selected={userMode === 'registered'}
-                  onPress={() => setUserMode('registered')}
-                />
               </View>
             </View>
           </View>
@@ -754,40 +697,7 @@ export function PlaygroundsDiscoveryScreen() {
               )}
             </View>
 
-            {userMode === 'guest' && !publicUser ? (
-              <View style={styles.sheetSection}>
-                <View style={styles.sectionTitle}>
-                  <Users size={16} color={colors.textMuted} />
-                  <Text variant="bodySmall" weight="semibold">
-                    Guest details
-                  </Text>
-                </View>
-                <Input
-                  label="First name"
-                  value={guestFirstName}
-                  onChangeText={setGuestFirstName}
-                  placeholder="First name"
-                  accessibilityLabel="Guest first name"
-                />
-                <Input
-                  label="Last name"
-                  value={guestLastName}
-                  onChangeText={setGuestLastName}
-                  placeholder="Last name"
-                  accessibilityLabel="Guest last name"
-                />
-                <Input
-                  label="Phone"
-                  value={guestPhone}
-                  onChangeText={setGuestPhone}
-                  placeholder="+962..."
-                  keyboardType="phone-pad"
-                  accessibilityLabel="Guest phone number"
-                />
-              </View>
-            ) : null}
-
-            {userMode === 'registered' && !publicUser ? (
+            {!publicUser ? (
               <Text variant="bodySmall" color={colors.textSecondary}>
                 Sign in to your SporHive account to complete the booking.
               </Text>
@@ -827,7 +737,7 @@ export function PlaygroundsDiscoveryScreen() {
               </View>
               <Button
                 onPress={handleBookNow}
-                disabled={!bookingDraft?.slot || (userMode === 'registered' && !publicUser)}
+                disabled={!bookingDraft?.slot || !publicUser}
                 accessibilityLabel="Book playground"
               >
                 Book now
@@ -875,14 +785,6 @@ const styles = StyleSheet.create({
   filtersChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  modeRow: {
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  modeChips: {
-    flexDirection: 'row',
     gap: spacing.sm,
   },
   cardWrap: {
