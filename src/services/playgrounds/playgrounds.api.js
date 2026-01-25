@@ -21,27 +21,60 @@ const normalizeActivitiesList = (res) => {
   return [];
 };
 
+const normalizeSlotsList = (res) => {
+  if (Array.isArray(res?.slots)) return res.slots;
+  if (Array.isArray(res?.data?.slots)) return res.data.slots;
+  if (Array.isArray(res?.data)) return res.data;
+  return [];
+};
+
+const requireParam = (value, name) => {
+  if (value === null || value === undefined || value === '') {
+    throw new Error(`Missing ${name}`);
+  }
+};
+
 export const playgroundsApi = {
   async listVenues(params = {}) {
     const res = await endpoints.playgrounds.venuesList(params);
     return { raw: res, venues: normalizeVenueList(res) };
   },
-  async getVenueDetails(venueId, params = {}) {
+  async getVenue(venueId, params = {}) {
+    requireParam(venueId, 'venueId');
     const res = await endpoints.playgrounds.venuesList({ venue_id: venueId, id: venueId, ...params });
     const venues = normalizeVenueList(res);
     const match = venues.find((venue) => String(venue?.id) === String(venueId));
     return { raw: res, venue: match || null };
   },
-  async getVenueDurations(venueId) {
-    return endpoints.playgrounds.venueDurations({ venue_id: venueId });
+  async getVenueDetails(venueId, params = {}) {
+    return playgroundsApi.getVenue(venueId, params);
+  },
+  async getVenueDurations(venueId, params = {}) {
+    requireParam(venueId, 'venueId');
+    return endpoints.playgrounds.venueDurations({ venue_id: venueId, ...params });
+  },
+  async getDurations({ venueId, activityId, academyProfileId } = {}) {
+    requireParam(venueId, 'venueId');
+    return endpoints.playgrounds.venueDurations({
+      venue_id: venueId,
+      activity_id: activityId,
+      academy_profile_id: academyProfileId,
+    });
   },
   async listAvailableSlots({ venueId, date, durationId, ...rest } = {}) {
-    return endpoints.playgrounds.slots({
+    requireParam(venueId, 'venueId');
+    requireParam(date, 'date');
+    const res = await endpoints.playgrounds.slots({
       venue_id: venueId,
       date,
       duration_id: durationId,
       ...rest,
     });
+    return { raw: res, slots: normalizeSlotsList(res) };
+  },
+  async getSlots(payload = {}) {
+    const res = await playgroundsApi.listAvailableSlots(payload);
+    return res;
   },
   async createBooking(payload) {
     return endpoints.playgrounds.createBooking(payload);

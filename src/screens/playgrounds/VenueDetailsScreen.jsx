@@ -12,9 +12,8 @@ import { Button } from '../../components/ui/Button';
 import { Chip } from '../../components/ui/Chip';
 import { IconButton } from '../../components/ui/IconButton';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
-import { endpoints } from '../../services/api/endpoints';
 import { API_BASE_URL } from '../../services/api/client';
-import { getPlaygroundsClientState } from '../../services/playgrounds/storage';
+import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { borderRadius, shadows, spacing } from '../../theme/tokens';
 
 function getVenueImages(venue) {
@@ -69,9 +68,14 @@ export function VenueDetailsScreen() {
   const [heroWidth, setHeroWidth] = useState(0);
 
   const [venue, setVenue] = useState(null);
-  const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const { activities, durationsByVenue } = usePlaygroundsStore((state) => ({
+    activities: state.activities,
+    durationsByVenue: state.durationsByVenue,
+  }));
+  const { getVenueDetails, getVenueDurations, listActivities } = usePlaygroundsActions();
 
   const activityMap = useMemo(() => {
     return new Map(activities.map((activity) => [String(activity.id), activity.name || '']));
@@ -81,43 +85,27 @@ export function VenueDetailsScreen() {
     setLoading(true);
     setError('');
     try {
-      const client = await getPlaygroundsClientState();
-      const cached = Array.isArray(client?.cachedResults) ? client?.cachedResults : [];
-      const fromCache = cached.find((item) => String(item.id) === String(venueId));
-      if (fromCache) {
-        setVenue(fromCache);
+      const res = await getVenueDetails(venueId);
+      if (res?.success && res.data) {
+        setVenue(res.data);
       } else {
-        const res = await endpoints.playgrounds.venuesList({ number_of_players: 2 });
-        const list = Array.isArray(res?.venues)
-          ? res.venues
-          : Array.isArray(res?.data?.venues)
-          ? res.data.venues
-          : Array.isArray(res?.data)
-          ? res.data
-          : [];
-        const match = list.find((item) => String(item.id) === String(venueId));
-        if (match) {
-          setVenue(match);
-        } else {
-          setError(t('service.playgrounds.venue.errors.notFound'));
-        }
+        setError(res?.error?.message || t('service.playgrounds.venue.errors.notFound'));
       }
-
-      const activitiesRes = await endpoints.playgrounds.activitiesList({ include_inactive: false });
-      const activitiesList = Array.isArray(activitiesRes?.activities)
-        ? activitiesRes.activities
-        : Array.isArray(activitiesRes?.data?.activities)
-        ? activitiesRes.data.activities
-        : Array.isArray(activitiesRes?.data)
-        ? activitiesRes.data
-        : [];
-      setActivities(activitiesList);
+      if (!activities.length) {
+        await listActivities({ include_inactive: false });
+      }
+      if (res?.success && res.data?.id) {
+        await getVenueDurations(res.data.id, {
+          activityId: res.data.activity_id,
+          academyProfileId: res.data.academy_profile_id,
+        });
+      }
     } catch (err) {
       setError(err?.message || t('service.playgrounds.venue.errors.load'));
     } finally {
       setLoading(false);
     }
-  }, [t, venueId]);
+  }, [activities.length, getVenueDetails, getVenueDurations, listActivities, t, venueId]);
 
   useEffect(() => {
     loadVenue();
@@ -127,7 +115,7 @@ export function VenueDetailsScreen() {
   const ratingRaw = venue?.rating ?? venue?.avg_rating ?? null;
   const rating = ratingRaw !== null && ratingRaw !== undefined ? Number(ratingRaw) : null;
   const ratingsCount = venue?.ratings_count;
-  const durations = venue?.durations || venue?.venue_durations || [];
+  const durations = durationsByVenue?.[venue?.id] || venue?.durations || venue?.venue_durations || [];
   const slots = venue?.slots || venue?.available_slots || [];
   const currency = venue?.currency || durations?.[0]?.currency || slots?.[0]?.currency || null;
   const priceFrom =
