@@ -15,12 +15,12 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
 import { BackButton } from '../../components/ui/BackButton';
-import { getPublicUser } from '../../services/playgrounds/storage';
 import { BookingCard } from '../../components/playgrounds/BookingCard';
+
+import { getPublicUser } from '../../services/playgrounds/storage';
 import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
-import { spacing } from '../../theme/tokens';
 import { useAuth } from '../../services/auth/auth.store';
-import { getPlaygroundsAuthHeaders } from '../../services/auth/authHeaders';
+import { spacing } from '../../theme/tokens';
 
 const STATUS_TABS = ['all', 'pending', 'approved', 'rejected', 'cancelled'];
 
@@ -29,66 +29,69 @@ export function MyBookingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const [user, setUser] = useState(null);
-  const { bookings, bookingsLoading, bookingsError } = usePlaygroundsStore((state) => ({
-    bookings: state.bookings,
-    bookingsLoading: state.bookingsLoading,
-    bookingsError: state.bookingsError,
-  }));
-  const { listBookings } = usePlaygroundsActions();
-  const [activeStatus, setActiveStatus] = useState('all');
-  const [cancelTarget, setCancelTarget] = useState(null);
-  const [sessionRefreshAttempted, setSessionRefreshAttempted] = useState(false);
+  /** ✅ AUTH (FIX) */
+  const {
+    session,
+    authLoading,
+    restoreSession,
+    logout,
+  } = useAuth();
 
-  const authHeaders = useMemo(() => getPlaygroundsAuthHeaders(session), [session]);
   const loginMode = session?.login_as === 'player' ? 'player' : 'public';
 
+  /** ✅ STORE */
+  const { bookings, bookingsLoading, bookingsError } = usePlaygroundsStore((state) => ({
+    bookings: state.bookings,
+    bookingsLoading: state.bookings.bookingsLoading,
+    bookingsError: state.bookingsError,
+  }));
+
+  const { listBookings } = usePlaygroundsActions();
+
+  /** LOCAL STATE */
+  const [user, setUser] = useState(null);
+  const [activeStatus, setActiveStatus] = useState('all');
+  const [cancelTarget, setCancelTarget] = useState(null);
+
+  /** LOAD BOOKINGS (PUBLIC USER) */
   const loadBookings = useCallback(async () => {
     try {
       const publicUser = await getPublicUser();
       setUser(publicUser);
-      if (!publicUser?.id) {
-        return;
-      }
+
+      if (!publicUser?.id) return;
+
       await listBookings({ user_id: publicUser.id });
     } catch (err) {
-      if (__DEV__) {
-        console.warn('Failed to load bookings', err);
-      }
+      if (__DEV__) console.warn('Failed to load bookings', err);
     }
   }, [listBookings]);
 
+  /** INITIAL LOAD */
   useEffect(() => {
     if (authLoading) return;
-    if (!session || !authHeaders) return;
+    if (!session) return;
+
     loadBookings();
-  }, [authHeaders, authLoading, loadBookings, session]);
+  }, [authLoading, loadBookings, session]);
 
-  const handleRetrySession = useCallback(async () => {
-    setSessionRefreshAttempted(true);
-    await restoreSession();
-  }, [restoreSession]);
-
-  const handleSignInAgain = useCallback(async () => {
-    await logout();
-    router.replace(`/(auth)/login?mode=${loginMode}`);
-  }, [loginMode, logout, router]);
-
+  /** COUNTS */
   const counts = useMemo(() => {
-    const base = STATUS_TABS.reduce((acc, status) => ({ ...acc, [status]: 0 }), {});
+    const base = STATUS_TABS.reduce((acc, s) => ({ ...acc, [s]: 0 }), {});
     bookings.forEach((item) => {
       const status = (item.status || 'pending').toLowerCase();
       base.all += 1;
-      if (base[status] !== undefined) {
-        base[status] += 1;
-      }
+      if (base[status] !== undefined) base[status] += 1;
     });
     return base;
   }, [bookings]);
 
+  /** FILTERED */
   const filteredItems = useMemo(() => {
     if (activeStatus === 'all') return bookings;
-    return bookings.filter((item) => (item.status || '').toLowerCase() === activeStatus);
+    return bookings.filter(
+      (item) => (item.status || '').toLowerCase() === activeStatus
+    );
   }, [activeStatus, bookings]);
 
   const statusLabelMap = useMemo(
@@ -102,16 +105,16 @@ export function MyBookingsScreen() {
     [t]
   );
 
+  /** ---------- UI ---------- */
   return (
     <AppScreen safe>
       <AppHeader title={t('service.playgrounds.bookings.title')} leftSlot={<BackButton />} />
+
       <View style={styles.segmentedWrap}>
         <SegmentedControl
           value="bookings"
           onChange={(value) => {
-            if (value === 'explore') {
-              router.push('/playgrounds/explore');
-            }
+            if (value === 'explore') router.push('/playgrounds/explore');
           }}
           options={[
             { value: 'explore', label: t('playgrounds.explore.header') },
@@ -119,12 +122,13 @@ export function MyBookingsScreen() {
           ]}
         />
       </View>
-      {!user?.id && !bookingsLoading ? (
+
+      {!session && !authLoading ? (
         <EmptyState
           title={t('service.playgrounds.bookings.empty.authTitle')}
           message={t('service.playgrounds.bookings.empty.authMessage')}
           actionLabel={t('service.playgrounds.bookings.empty.authAction')}
-          onAction={() => router.push('/(auth)/login')}
+          onAction={() => router.push(`/(auth)/login?mode=${loginMode}`)}
         />
       ) : bookingsLoading ? (
         <SporHiveLoader message={t('service.playgrounds.bookings.loading')} />
@@ -146,16 +150,16 @@ export function MyBookingsScreen() {
                 })}
                 selected={activeStatus === status}
                 onPress={() => setActiveStatus(status)}
-                accessibilityLabel={t('service.playgrounds.bookings.filters.accessibility', {
-                  status: statusLabelMap[status],
-                })}
               />
             ))}
           </View>
+
           {filteredItems.length ? (
             <FlatList
               data={filteredItems}
-              keyExtractor={(item, index) => String(item.id ?? item.booking_id ?? index)}
+              keyExtractor={(item, index) =>
+                String(item.id ?? item.booking_id ?? index)
+              }
               contentContainerStyle={styles.listContent}
               renderItem={({ item }) => (
                 <BookingCard booking={item} onCancel={setCancelTarget} />
@@ -184,11 +188,7 @@ export function MyBookingsScreen() {
             <Button variant="secondary" onPress={() => setCancelTarget(null)}>
               {t('service.playgrounds.bookings.cancel.keep')}
             </Button>
-            <Button
-              onPress={() => {
-                setCancelTarget(null);
-              }}
-            >
+            <Button onPress={() => setCancelTarget(null)}>
               {t('service.playgrounds.bookings.cancel.confirm')}
             </Button>
           </View>
