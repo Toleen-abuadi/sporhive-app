@@ -1,6 +1,6 @@
 import React from 'react';
-import { PlaygroundsAuthScreen } from '../../src/screens/playgrounds/PlaygroundsAuthScreen';
+import { Redirect } from 'expo-router';
 
 export default function PlaygroundsAuthRoute() {
-  return <PlaygroundsAuthScreen />;
+  return <Redirect href="/(auth)/login" />;
 }

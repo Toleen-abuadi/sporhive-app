@@ -1,6 +1,6 @@
 import React from 'react';
-import { HomeServicesScreen } from '../src/screens/HomeServicesScreen';
+import { Redirect } from 'expo-router';
 
 export default function Services() {
-  return <HomeServicesScreen />;
+  return <Redirect href="/(app)/services" />;
 }

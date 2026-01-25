@@ -21,6 +21,13 @@
   "home": {
     "title": "SporHive",
     "subtitle": "Your Sports Hub",
+    "actions": {
+      "languageTitle": "Language",
+      "themeTitle": "Theme",
+      "logoutTitle": "Log out",
+      "logoutSubtitle": "Are you sure you want to log out?",
+      "logoutConfirm": "Log out"
+    },
     "discoverCard": {
       "title": "Discover Academies",
       "description": "Find the perfect sports academy for your goals"

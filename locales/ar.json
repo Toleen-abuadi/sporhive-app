@@ -21,6 +21,13 @@
   "home": {
     "title": "سبور هايف",
     "subtitle": "مركز رياضاتك",
+    "actions": {
+      "languageTitle": "اللغة",
+      "themeTitle": "المظهر",
+      "logoutTitle": "تسجيل الخروج",
+      "logoutSubtitle": "هل أنت متأكد أنك تريد تسجيل الخروج؟",
+      "logoutConfirm": "تسجيل الخروج"
+    },
     "discoverCard": {
       "title": "اكتشف الأكاديميات",
       "description": "ابحث عن الأكاديمية الرياضية المثالية لأهدافك"
