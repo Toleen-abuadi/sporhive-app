@@ -4,20 +4,22 @@ import { useRouter } from 'expo-router';
 
 import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
-import { Screen } from '../../components/ui/Screen';
+import { AppScreen } from '../../components/ui/AppScreen';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Chip } from '../../components/ui/Chip';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
 import { BackButton } from '../../components/ui/BackButton';
-import { endpoints } from '../../services/api/endpoints';
-import { getPublicUser } from '../../services/playgrounds/storage';
 import { BookingCard } from '../../components/playgrounds/BookingCard';
+import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { spacing } from '../../theme/tokens';
+import { useAuth } from '../../services/auth/auth.store';
+import { getPlaygroundsAuthHeaders } from '../../services/auth/authHeaders';
 
 const STATUS_TABS = ['all', 'pending', 'approved', 'rejected', 'cancelled'];
 
@@ -26,46 +28,57 @@ export function MyBookingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const [user, setUser] = useState(null);
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { session, isLoading: authLoading, restoreSession, logout } = useAuth();
+  const { bookings, bookingsLoading, bookingsError, bookingsErrorStatus } = usePlaygroundsStore((state) => ({
+    bookings: state.bookings,
+    bookingsLoading: state.bookingsLoading,
+    bookingsError: state.bookingsError,
+    bookingsErrorStatus: state.bookingsErrorStatus,
+  }));
+  const { listBookings } = usePlaygroundsActions();
   const [activeStatus, setActiveStatus] = useState('all');
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [sessionRefreshAttempted, setSessionRefreshAttempted] = useState(false);
+
+  const authHeaders = useMemo(() => getPlaygroundsAuthHeaders(session), [session]);
+  const loginMode = session?.login_as === 'player' ? 'player' : 'public';
 
   const loadBookings = useCallback(async () => {
-    setLoading(true);
-    setError('');
     try {
-      const publicUser = await getPublicUser();
-      setUser(publicUser);
-      if (!publicUser?.id) {
-        setLoading(false);
-        return;
+      if (!session) return;
+      const headers = getPlaygroundsAuthHeaders(session);
+      if (!headers) return;
+      const payload = {};
+      if (session?.login_as === 'public' && session?.user?.id) {
+        payload.user_id = session.user.id;
       }
-      const res = await endpoints.playgrounds.listBookings({ user_id: publicUser.id });
-      const list = Array.isArray(res?.bookings)
-        ? res.bookings
-        : Array.isArray(res?.data?.bookings)
-        ? res.data.bookings
-        : Array.isArray(res?.data)
-        ? res.data
-        : [];
-      setItems(list);
+      await listBookings(payload, { headers });
     } catch (err) {
-      setError(err?.message || t('service.playgrounds.bookings.errors.load'));
-    } finally {
-      setLoading(false);
+      if (__DEV__) {
+        console.warn('Failed to load bookings', err);
+      }
     }
-  }, [t]);
+  }, [listBookings, session]);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!session || !authHeaders) return;
     loadBookings();
-  }, [loadBookings]);
+  }, [authHeaders, authLoading, loadBookings, session]);
+
+  const handleRetrySession = useCallback(async () => {
+    setSessionRefreshAttempted(true);
+    await restoreSession();
+  }, [restoreSession]);
+
+  const handleSignInAgain = useCallback(async () => {
+    await logout();
+    router.replace(`/(auth)/login?mode=${loginMode}`);
+  }, [loginMode, logout, router]);
 
   const counts = useMemo(() => {
     const base = STATUS_TABS.reduce((acc, status) => ({ ...acc, [status]: 0 }), {});
-    items.forEach((item) => {
+    bookings.forEach((item) => {
       const status = (item.status || 'pending').toLowerCase();
       base.all += 1;
       if (base[status] !== undefined) {
@@ -73,12 +86,12 @@ export function MyBookingsScreen() {
       }
     });
     return base;
-  }, [items]);
+  }, [bookings]);
 
   const filteredItems = useMemo(() => {
-    if (activeStatus === 'all') return items;
-    return items.filter((item) => (item.status || '').toLowerCase() === activeStatus);
-  }, [activeStatus, items]);
+    if (activeStatus === 'all') return bookings;
+    return bookings.filter((item) => (item.status || '').toLowerCase() === activeStatus);
+  }, [activeStatus, bookings]);
 
   const statusLabelMap = useMemo(
     () => ({
@@ -92,22 +105,64 @@ export function MyBookingsScreen() {
   );
 
   return (
-    <Screen safe>
+    <AppScreen safe>
       <AppHeader title={t('service.playgrounds.bookings.title')} leftSlot={<BackButton />} />
-      {!user?.id && !loading ? (
+      <View style={styles.segmentedWrap}>
+        <SegmentedControl
+          value="bookings"
+          onChange={(value) => {
+            if (value === 'explore') {
+              router.push('/playgrounds/explore');
+            }
+          }}
+          options={[
+            { value: 'explore', label: t('playgrounds.explore.header') },
+            { value: 'bookings', label: t('playgrounds.bookings.title') },
+          ]}
+        />
+      </View>
+      {!authLoading && !session ? (
         <EmptyState
           title={t('service.playgrounds.bookings.empty.authTitle')}
           message={t('service.playgrounds.bookings.empty.authMessage')}
           actionLabel={t('service.playgrounds.bookings.empty.authAction')}
-          onAction={() => router.push('/playgrounds/auth')}
+          onAction={() => router.push('/(auth)/login')}
         />
-      ) : loading ? (
+      ) : !authLoading && session && !authHeaders ? (
+        <EmptyState
+          title={t('service.playgrounds.bookings.empty.sessionTitle')}
+          message={t('service.playgrounds.bookings.empty.sessionMessage')}
+          actionLabel={
+            sessionRefreshAttempted
+              ? t('service.playgrounds.bookings.empty.sessionActionSignIn')
+              : t('service.playgrounds.bookings.empty.sessionActionRetry')
+          }
+          onAction={sessionRefreshAttempted ? handleSignInAgain : handleRetrySession}
+        />
+      ) : bookingsLoading || authLoading ? (
         <SporHiveLoader message={t('service.playgrounds.bookings.loading')} />
-      ) : error ? (
+      ) : bookingsError ? (
         <ErrorState
-          title={t('service.playgrounds.bookings.errors.title')}
-          message={error}
-          onAction={loadBookings}
+          title={
+            bookingsErrorStatus === 401 || bookingsErrorStatus === 403
+              ? t('service.playgrounds.bookings.errors.unauthorizedTitle')
+              : t('service.playgrounds.bookings.errors.title')
+          }
+          message={
+            bookingsErrorStatus === 401 || bookingsErrorStatus === 403
+              ? t('service.playgrounds.bookings.errors.unauthorizedMessage')
+              : bookingsError
+          }
+          actionLabel={
+            bookingsErrorStatus === 401 || bookingsErrorStatus === 403
+              ? t('service.playgrounds.bookings.errors.signInAction')
+              : t('service.playgrounds.bookings.errors.retryAction')
+          }
+          onAction={
+            bookingsErrorStatus === 401 || bookingsErrorStatus === 403
+              ? handleSignInAgain
+              : loadBookings
+          }
         />
       ) : (
         <>
@@ -169,11 +224,15 @@ export function MyBookingsScreen() {
           </View>
         </View>
       </BottomSheetModal>
-    </Screen>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  segmentedWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
   filterRow: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,

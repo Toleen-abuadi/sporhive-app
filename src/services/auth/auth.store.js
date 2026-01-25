@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { authApi } from './auth.api';
+import { getPortalAccessToken, refreshPortalSessionIfNeeded } from './portalSession';
 import { storage, APP_STORAGE_KEYS } from '../storage/storage';
 
 const INITIAL_STATE = {
@@ -70,6 +71,7 @@ const buildSession = ({ loginAs, user, token, portalTokens, academyId, username 
     login_as: loginAs,
     user: normalizedUser,
     portal_tokens: portalTokens || undefined,
+    tokens: token ? { access: token } : undefined,
     token: token || undefined,
   };
 };
@@ -93,10 +95,14 @@ export function AuthProvider({ children }) {
       ]);
       const lastSelectedAcademyId = lastAcademyRaw != null ? Number(lastAcademyRaw) : null;
       const loginAs = session?.login_as || session?.userType || session?.user?.type || null;
-      const portalAccessToken =
-        session?.portal_tokens?.access ||
-        session?.portal_tokens?.access_token ||
-        session?.portalAccessToken ||
+      const portalAccessToken = getPortalAccessToken(session);
+      const resolvedToken =
+        token ||
+        session?.tokens?.access ||
+        session?.tokens?.token ||
+        session?.token ||
+        session?.access_token ||
+        session?.access ||
         null;
       if (loginAs || token) {
         setState({
@@ -106,7 +112,7 @@ export function AuthProvider({ children }) {
           session: session || null,
           user: session?.user || null,
           userType: loginAs,
-          token: token || session?.token || null,
+          token: resolvedToken,
           portalAccessToken,
           lastSelectedAcademyId,
         });
@@ -218,6 +224,19 @@ export function AuthProvider({ children }) {
     [persistSession, setLastSelectedAcademyId]
   );
 
+  const refreshPortalIfNeeded = useCallback(async () => {
+    const result = await refreshPortalSessionIfNeeded(state.session);
+    if (result?.success && result.session) {
+      const portalAccessToken = getPortalAccessToken(result.session);
+      setState((prev) => ({
+        ...prev,
+        session: result.session,
+        portalAccessToken,
+      }));
+    }
+    return result;
+  }, [state.session]);
+
   const logout = useCallback(async () => {
     await Promise.all([
       storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
@@ -235,8 +254,9 @@ export function AuthProvider({ children }) {
       logout,
       restoreSession,
       setLastSelectedAcademyId,
+      refreshPortalSessionIfNeeded: refreshPortalIfNeeded,
     }),
-    [state, loginPublic, loginPlayer, logout, restoreSession, setLastSelectedAcademyId]
+    [state, loginPublic, loginPlayer, logout, restoreSession, setLastSelectedAcademyId, refreshPortalIfNeeded]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -30,7 +30,7 @@ export function QuickSettingsSheet({
 
   return (
     <BottomSheetModal visible={visible} onClose={onClose}>
-      <View style={styles.header}>
+      <View style={[styles.header, isRTL && styles.headerRtl]}>
         <Text variant="h4" weight="bold">
           {t('services.settings.title')}
         </Text>
@@ -73,6 +73,7 @@ export function QuickSettingsSheet({
         onPress={onLogoutPress}
         style={({ pressed }) => [
           styles.logoutButton,
+          isRTL && styles.logoutButtonRtl,
           {
             backgroundColor: colors.surface,
             borderColor: colors.border,
@@ -81,7 +82,11 @@ export function QuickSettingsSheet({
         ]}
       >
         <Feather name="log-out" size={16} color={colors.textPrimary} />
-        <Text variant="body" weight="semibold" style={styles.logoutText}>
+        <Text
+          variant="body"
+          weight="semibold"
+          style={[styles.logoutText, isRTL && styles.logoutTextRtl]}
+        >
           {t('services.settings.logout')}
         </Text>
       </Pressable>
@@ -95,6 +100,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.md,
+  },
+  headerRtl: {
+    flexDirection: 'row-reverse',
   },
   section: {
     gap: spacing.sm,
@@ -113,7 +121,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginTop: spacing.sm,
   },
+  logoutButtonRtl: {
+    flexDirection: 'row-reverse',
+  },
   logoutText: {
     textAlign: 'left',
+  },
+  logoutTextRtl: {
+    textAlign: 'right',
   },
 });

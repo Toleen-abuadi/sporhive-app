@@ -14,7 +14,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
-import { Screen } from '../../components/ui/Screen';
+import { AppScreen } from '../../components/ui/AppScreen';
 import { Text } from '../../components/ui/Text';
 import { Input } from '../../components/ui/Input';
 import { Chip } from '../../components/ui/Chip';
@@ -22,14 +22,11 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
-import { endpoints } from '../../services/api/endpoints';
-import {
-  getBookingDraft,
-  getPlaygroundsClientState,
-  getPublicUser,
-  setBookingDraft,
-} from '../../services/playgrounds/storage';
+import { getPublicUser } from '../../services/playgrounds/storage';
+import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { borderRadius, shadows, spacing } from '../../theme/tokens';
+import { useAuth } from '../../services/auth/auth.store';
+import { getPlaygroundsAuthHeaders } from '../../services/auth/authHeaders';
 
 const QUICK_PLAYER_SUGGESTIONS = [2, 4, 6, 8];
 const CURRENCY = 'JOD';
@@ -206,12 +203,12 @@ export function BookingStepperScreen() {
   const router = useRouter();
   const { venueId } = useLocalSearchParams();
   const toast = useToast();
+  const { session } = useAuth();
 
   const [venue, setVenue] = useState(null);
   const [publicUser, setPublicUser] = useState(null);
 
   const [durations, setDurations] = useState([]);
-  const [durationsLoading, setDurationsLoading] = useState(false);
   const [selectedDurationId, setSelectedDurationId] = useState('');
   const [bookingDate, setBookingDate] = useState('');
   const [slots, setSlots] = useState([]);
@@ -302,24 +299,34 @@ export function BookingStepperScreen() {
     ]
   );
 
+  const { bookingDraft, durationsLoading } = usePlaygroundsStore((state) => ({
+    bookingDraft: state.bookingDraft,
+    durationsLoading: state.durationsLoading,
+  }));
+  const {
+    hydrate,
+    getVenueDetails,
+    getVenueDurations,
+    listAvailableSlots,
+    listBookings,
+    createBooking,
+    setBookingDraft: persistBookingDraft,
+  } = usePlaygroundsActions();
+  const bookingsAuthHeaders = useMemo(() => getPlaygroundsAuthHeaders(session), [session]);
+
   const loadVenue = useCallback(async () => {
     setLoading(true);
     setErrorText('');
     try {
-      const [client, draft, user] = await Promise.all([
-        getPlaygroundsClientState(),
-        getBookingDraft(),
-        getPublicUser(),
-      ]);
+      const [draft, user] = await Promise.all([Promise.resolve(bookingDraft), getPublicUser()]);
       if (user) setPublicUser(user);
 
-      const cached = Array.isArray(client?.cachedResults)
-        ? client.cachedResults
-        : [];
-      const resolvedVenue = cached.find(
-        (item) => String(item.id) === String(venueId)
-      );
-      if (resolvedVenue) setVenue(resolvedVenue);
+      const res = await getVenueDetails(venueId);
+      if (res?.success && res.data) {
+        setVenue(res.data);
+      } else {
+        setErrorText(res?.error?.message || t('service.playgrounds.venue.errors.notFound'));
+      }
 
       if (draft?.venueId && String(draft.venueId) === String(venueId)) {
         const draftState = draft.draft || {};
@@ -347,20 +354,24 @@ export function BookingStepperScreen() {
     } finally {
       setLoading(false);
     }
-  }, [t, venueId]);
+  }, [bookingDraft, getVenueDetails, t, venueId]);
 
   const loadDurations = useCallback(async () => {
     if (!venue?.id) return;
-    setDurationsLoading(true);
     setErrorText('');
     try {
-      const durationRes = await endpoints.playgrounds.venueDurations({
-        venue_id: venue.id,
+      const durationRes = await getVenueDurations(venue.id, {
+        activityId: venue.activity_id,
+        academyProfileId: venue.academy_profile_id,
       });
-      const list = Array.isArray(durationRes?.data?.durations)
+      const list = Array.isArray(durationRes?.data)
+        ? durationRes.data
+        : Array.isArray(durationRes?.data?.durations)
         ? durationRes.data.durations
         : Array.isArray(durationRes?.durations)
         ? durationRes.durations
+        : Array.isArray(durationRes?.data)
+        ? durationRes.data
         : [];
 
       const normalized = list.map((duration) => ({
@@ -382,10 +393,8 @@ export function BookingStepperScreen() {
       }
     } catch (err) {
       setErrorText(err?.message || t('service.playgrounds.booking.errors.loadDurations'));
-    } finally {
-      setDurationsLoading(false);
     }
-  }, [selectedDurationId, t, venue?.id]);
+  }, [getVenueDurations, selectedDurationId, t, venue?.academy_profile_id, venue?.activity_id, venue?.id]);
 
   const loadSlots = useCallback(
     async (dateValue, durationValue) => {
@@ -398,19 +407,16 @@ export function BookingStepperScreen() {
       setErrorText('');
 
       try {
-        const slotRes = await endpoints.playgrounds.slots({
-          venue_id: venue.id,
+        const slotRes = await listAvailableSlots({
+          venueId: venue.id,
           date: dateValue,
-          duration_minutes: durationValue,
+          durationId: durationValue,
+          number_of_players: players,
+          activity_id: venue.activity_id,
+          academy_profile_id: venue.academy_profile_id,
         });
-
-        const list = Array.isArray(slotRes?.slots)
-          ? slotRes.slots
-          : Array.isArray(slotRes?.data?.slots)
-          ? slotRes.data.slots
-          : [];
-
-        setSlots(list);
+        const list = Array.isArray(slotRes?.data) ? slotRes.data : slotRes?.slots || [];
+        setSlots(list || []);
       } catch (err) {
         setSlots([]);
         setSelectedSlot(null);
@@ -419,12 +425,13 @@ export function BookingStepperScreen() {
         setSlotsLoading(false);
       }
     },
-    [t, venue?.id]
+    [listAvailableSlots, players, t, venue?.academy_profile_id, venue?.activity_id, venue?.id]
   );
 
   useEffect(() => {
+    hydrate();
     loadVenue();
-  }, [loadVenue]);
+  }, [hydrate, loadVenue]);
 
   useEffect(() => {
     if (!venue?.id) return;
@@ -437,8 +444,7 @@ export function BookingStepperScreen() {
       (duration) => String(duration.id) === String(selectedDurationId)
     );
     if (!durationObj) return;
-    const minutes = durationObj.minutes || durationObj.duration_minutes || 60;
-    loadSlots(bookingDate, minutes);
+    loadSlots(bookingDate, selectedDurationId);
   }, [bookingDate, durations, loadSlots, selectedDurationId]);
 
   useEffect(() => {
@@ -453,8 +459,8 @@ export function BookingStepperScreen() {
 
   useEffect(() => {
     if (!draftPayload) return;
-    setBookingDraft(draftPayload);
-  }, [draftPayload]);
+    persistBookingDraft(draftPayload);
+  }, [draftPayload, persistBookingDraft]);
 
   useEffect(() => {
     if (!allowCliq && paymentType === 'cliq') {
@@ -562,9 +568,16 @@ export function BookingStepperScreen() {
         });
       }
 
-      const res = await endpoints.playgrounds.createBooking(formData);
+      const res = await createBooking(formData);
 
-      await setBookingDraft(null);
+      await persistBookingDraft(null);
+
+      if (publicUser?.id) {
+        await listBookings(
+          { user_id: publicUser.id },
+          bookingsAuthHeaders ? { headers: bookingsAuthHeaders } : undefined
+        );
+      }
 
       toast.success(t('service.playgrounds.booking.success.toastMessage'), {
         title: t('service.playgrounds.booking.success.toastTitle'),
@@ -584,8 +597,12 @@ export function BookingStepperScreen() {
     bookingDate,
     cashOnDate,
     cliqImage,
+    createBooking,
     draftPayload,
+    listBookings,
+    bookingsAuthHeaders,
     paymentType,
+    persistBookingDraft,
     players,
     publicUser?.id,
     router,
@@ -632,37 +649,37 @@ export function BookingStepperScreen() {
 
   if (loading) {
     return (
-      <Screen safe>
+      <AppScreen safe>
         <SporHiveLoader message={t('service.playgrounds.booking.loading')} />
-      </Screen>
+      </AppScreen>
     );
   }
 
   if (errorText && !venue) {
     return (
-      <Screen safe>
+      <AppScreen safe>
         <ErrorState
           title={t('service.playgrounds.booking.errors.title')}
           message={errorText}
           onAction={loadVenue}
         />
-      </Screen>
+      </AppScreen>
     );
   }
 
   if (!venue) {
     return (
-      <Screen safe>
+      <AppScreen safe>
         <EmptyState
           title={t('service.playgrounds.booking.empty.title')}
           message={t('service.playgrounds.booking.empty.message')}
         />
-      </Screen>
+      </AppScreen>
     );
   }
 
   return (
-    <Screen safe>
+    <AppScreen safe>
       <StepperHeader
         currentStep={currentStep}
         onBack={handleBackStep}
@@ -1215,7 +1232,7 @@ export function BookingStepperScreen() {
         stepLabels={stepLabels}
         t={t}
       />
-    </Screen>
+    </AppScreen>
   );
 }
 

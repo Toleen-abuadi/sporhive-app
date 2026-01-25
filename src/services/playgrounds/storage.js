@@ -53,11 +53,25 @@ export async function setBookingDraft(draft) {
   await storage.setItem(STORAGE_KEYS.BOOKING_DRAFT, draft);
 }
 
+export async function getPlaygroundsFilters() {
+  const filters = await storage.getItem(STORAGE_KEYS.PLAYGROUNDS_FILTERS);
+  return filters && typeof filters === 'object' ? filters : null;
+}
+
+export async function setPlaygroundsFilters(filters) {
+  if (!filters) {
+    await storage.removeItem(STORAGE_KEYS.PLAYGROUNDS_FILTERS);
+    return;
+  }
+  await storage.setItem(STORAGE_KEYS.PLAYGROUNDS_FILTERS, filters);
+}
+
 export async function clearPlaygroundsAuth() {
   await Promise.all([
     storage.removeItem(STORAGE_KEYS.PUBLIC_USER),
     storage.removeItem(STORAGE_KEYS.PUBLIC_USER_TOKEN),
     storage.removeItem(STORAGE_KEYS.PLAYGROUNDS_CLIENT),
     storage.removeItem(STORAGE_KEYS.BOOKING_DRAFT),
+    storage.removeItem(STORAGE_KEYS.PLAYGROUNDS_FILTERS),
   ]);
 }
