@@ -641,6 +641,15 @@
     "discovery": {
       "title": "Discover academies",
       "subtitle": "Filter, compare, then join in a few taps.",
+      "view": {
+        "map": "Map",
+        "list": "List"
+      },
+      "results": "{{count}} academies",
+      "loadMore": "Load more",
+      "peek": {
+        "view": "View"
+      },
       "loading": {
         "title": "Finding academies",
         "subtitle": "Curating the best matches for you…"
@@ -652,13 +661,16 @@
           "open": "Filters",
           "title": "Smart filters",
           "subtitle": "Refine results to match what you need.",
+          "searchLabel": "City or location",
           "sport": {
             "label": "Sport",
-            "placeholder": "e.g. Football"
+            "placeholder": "e.g. Football",
+            "quickPick": "Popular sports"
           },
           "city": {
             "label": "City",
-            "placeholder": "e.g. Amman"
+            "placeholder": "e.g. Amman",
+            "quickPick": "Popular cities"
           },
           "ageFrom": {
             "label": "Age from",
@@ -670,6 +682,7 @@
           },
           "registrationEnabled": "Registration enabled",
           "proOnly": "PRO only",
+          "sortLabel": "Sort by",
           "reset": "Reset",
           "apply": "Apply"
         },
@@ -1108,23 +1121,50 @@
       "missing_portal_accessTitle": "Portal session expired",
       "missing_portal_accessDescription": "Your portal access needs to be refreshed. Please sign in again."
     },
+    "access": {
+      "title": "Player portal",
+      "description": "The player portal is available only to player accounts.",
+      "action": "Back to services"
+    },
     "common": {
       "placeholder": "—",
       "player": "Player",
       "edit": "Edit",
       "cancel": "Cancel",
+      "back": "Back",
       "retry": "Retry",
       "loading": "Loading...",
       "close": "Close",
-      "remove": "Remove"
+      "remove": "Remove",
+      "refresh": "Refresh"
+    },
+    "filters": {
+      "open": "Filters",
+      "title": "Filters",
+      "subtitle": "Refine results to what you need.",
+      "apply": "Apply",
+      "clear": "Clear",
+      "statusLabel": "Status",
+      "statusAll": "All",
+      "fromLabel": "From",
+      "toLabel": "To",
+      "datePlaceholder": "YYYY-MM-DD",
+      "results": "{{count}} results"
     },
     "home": {
       "title": "Player Portal",
       "subtitle": "Your personalised training hub",
       "welcomeBack": "Welcome back",
+      "playerId": "Player ID: {{id}}",
       "academy": "Your academy",
       "registrationStatus": "Registration status",
       "activePlayer": "Active player",
+      "nextPayment": "Next payment",
+      "sessionsRemainingShort": "Sessions left",
+      "ofSessions": "of {{total}} sessions",
+      "lastOrder": "Last order",
+      "sections": "Explore your portal",
+      "sectionsSubtitle": "Jump into a section to manage your journey.",
       "registration": "Registration",
       "trainingGroup": "Training group",
       "courseLabel": "Course: {{course}}",
@@ -1151,6 +1191,10 @@
         "uniforms": "Uniforms",
         "performance": "Performance"
       }
+    },
+    "schedule": {
+      "title": "Schedule",
+      "subtitle": "Attendance and upcoming sessions"
     },
     "more": {
       "title": "More",
@@ -1184,6 +1228,29 @@
       "title": "Payments",
       "subtitle": "Invoices, transactions, and receipts",
       "currency": "JOD",
+      "filtersTitle": "Payment filters",
+      "filtersSubtitle": "Filter by status or date range.",
+      "errorTitle": "Unable to load payments",
+      "errorDescription": "We couldn’t load your payments. Try again.",
+      "emptyTitle": "No payments found",
+      "emptyDescription": "Adjust filters or check back later.",
+      "defaultTitle": "Payment",
+      "statusPaid": "Paid",
+      "statusUnpaid": "Unpaid",
+      "statusPending": "Pending",
+      "dueDate": "Due {{date}}",
+      "detailTitle": "Payment details",
+      "detailMissingTitle": "Payment not found",
+      "detailMissingDescription": "We couldn’t find this payment in your history.",
+      "amountLabel": "Amount",
+      "dueLabel": "Due date",
+      "paidOnLabel": "Paid on",
+      "invoiceLabel": "Invoice ID",
+      "invoiceDownload": "Download invoice",
+      "invoiceDownloading": "Preparing invoice…",
+      "invoiceReady": "Invoice ready",
+      "invoiceError": "Unable to download invoice",
+      "statusLabel": "Status: {{status}}",
       "status": {
         "paid": "Paid",
         "pending": "Pending",
@@ -1225,6 +1292,19 @@
       "title": "My Orders",
       "subtitle": "Track your uniform purchases",
       "error": "Could not load order history.",
+      "errorDescription": "We couldn’t load your orders. Try again.",
+      "filtersTitle": "Order filters",
+      "filtersSubtitle": "Filter orders by status.",
+      "defaultTitle": "Order",
+      "detailTitle": "Order details",
+      "detailMissingTitle": "Order not found",
+      "detailMissingDescription": "We couldn’t find this order in your history.",
+      "referenceLabel": "Reference",
+      "createdLabel": "Created at",
+      "totalLabel": "Total",
+      "itemsTitle": "Items",
+      "itemFallback": "Order item",
+      "statusLabel": "Status: {{status}}",
       "summary": {
         "total": "Total",
         "pending": "Pending",
@@ -1244,9 +1324,11 @@
       "oneSize": "One size",
       "fullKit": "Full kit",
       "status": {
+        "pending": "Pending",
         "pendingPayment": "Pending payment",
         "collected": "Collected",
         "processing": "Processing",
+        "delivered": "Delivered",
         "cancelled": "Cancelled",
         "default": "Processing"
       },
@@ -1283,6 +1365,19 @@
     "profile": {
       "title": "Profile",
       "subtitle": "Manage your player identity",
+      "sectionPlayer": "Player information",
+      "sectionRegistration": "Registration details",
+      "nameEn": "Name (English)",
+      "nameAr": "Name (Arabic)",
+      "phone": "Phone",
+      "phone2": "Secondary phone",
+      "email": "Email",
+      "registrationType": "Registration type",
+      "group": "Training group",
+      "course": "Course",
+      "period": "Period",
+      "errorTitle": "Unable to load profile",
+      "errorDescription": "We couldn’t load your profile. Try again.",
       "playerName": "Player name",
       "academy": "Academy",
       "playerId": "ID: {{id}}",
@@ -1397,6 +1492,11 @@
     "renewals": {
       "title": "Renewals",
       "subtitle": "Continue your journey",
+      "detailTitle": "Renewal details",
+      "detailSummaryTitle": "Renewal status",
+      "detailSummarySubtitle": "Your current eligibility snapshot.",
+      "statusLabel": "Status",
+      "viewDetails": "View details",
       "eligible": "Eligible",
       "notEligible": "Not eligible",
       "ends": "Ends",

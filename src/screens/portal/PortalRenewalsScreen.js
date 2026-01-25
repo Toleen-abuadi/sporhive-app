@@ -1,9 +1,7 @@
 // src/screens/portal/PortalRenewalsScreen.js
 // Fixed:
-// - portalApir -> portalApi
 // - invalid colors "undefined80" by safe alpha() helper
 // - correct RefreshControl usage
-// - correct submit API: portalApi.renewalsRequest()
 // - removed web-only "spinning" style
 // - safer gradients & borders
 
@@ -55,9 +53,10 @@ import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
 
-import { portalApi } from '../../services/portal/portal.api';
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
+import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
+import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -465,11 +464,19 @@ export function PortalRenewalsScreen() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  const [overview, setOverview] = useState(null);
-  const [eligibility, setEligibility] = useState(null);
-
   const [fatalError, setFatalError] = useState(null);
+
+  const { overview, overviewLoading, overviewError, renewals, renewalsLoading, renewalsError } = usePlayerPortalStore(
+    (state) => ({
+      overview: state.overview,
+      overviewLoading: state.overviewLoading,
+      overviewError: state.overviewError,
+      renewals: state.renewals,
+      renewalsLoading: state.renewalsLoading,
+      renewalsError: state.renewalsError,
+    })
+  );
+  const actions = usePlayerPortalActions();
 
   // Form state
   const [selectedCourseId, setSelectedCourseId] = useState(null);
@@ -481,7 +488,9 @@ export function PortalRenewalsScreen() {
   const [datePicker, setDatePicker] = useState({ open: false, field: null });
   const [submitting, setSubmitting] = useState(false);
 
-  const registrationInfo = overview?.player_data?.registration_info;
+  const rawOverview = overview?._raw || overview;
+  const eligibility = renewals;
+  const registrationInfo = rawOverview?.player_data?.registration_info;
 
   const availableCoursesRaw = registrationInfo?.available_courses || [];
   const availableGroupsRaw = registrationInfo?.available_groups || [];
@@ -548,17 +557,14 @@ const canSubmit = useMemo(() => {
     setFatalError(null);
     try {
       const [ovRes, elRes] = await Promise.all([
-        portalApi.getOverview(),
-        portalApi.renewalsEligibility(),
+        actions.fetchOverview(),
+        actions.fetchRenewals(),
       ]);
 
       if (!ovRes?.success) throw ovRes?.error || new Error('Overview failed');
       if (!elRes?.success) throw elRes?.error || new Error('Eligibility failed');
 
-      setOverview(ovRes.data);
-      setEligibility(elRes.data?.data || elRes.data);
-
-      const reg = ovRes.data?.player_data?.registration_info;
+      const reg = (ovRes.data?._raw || ovRes.data)?.player_data?.registration_info;
       setSelectedCourseId(reg?.course?.id || null);
       setSelectedGroupId(reg?.group?.id || null);
     } catch (e) {
@@ -568,7 +574,7 @@ const canSubmit = useMemo(() => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [actions]);
 
   useEffect(() => {
     fetchAll();
@@ -679,7 +685,7 @@ const payload = {
 };
 
 
-      const res = await portalApi.renewalsRequest(payload);
+      const res = await actions.submitRenewal(payload);
       if (!res?.success) throw res?.error || new Error('Request failed');
 
       toast?.show?.({
@@ -713,6 +719,7 @@ const payload = {
     sessions,
     note,
     fetchAll,
+    actions,
   ]);
 
   const HeaderRight = useMemo(() => {
@@ -736,8 +743,8 @@ const payload = {
   }, [fetchAll, colors]);
 
   const topSummary = useMemo(() => {
-    const academyName = overview?.academy_name || '';
-    const player = overview?.player_data?.player_info || {};
+    const academyName = rawOverview?.academy_name || overview?.academyName || '';
+    const player = rawOverview?.player_data?.player_info || {};
     const fullName =
       [player?.first_eng_name, player?.middle_eng_name, player?.last_eng_name].filter(Boolean).join(' ') ||
       [player?.first_ar_name, player?.middle_ar_name, player?.last_ar_name].filter(Boolean).join(' ');
@@ -747,9 +754,9 @@ const payload = {
     const daysLeft = eligibility?.days_left;
 
     return { academyName, fullName, end, daysLeft };
-  }, [overview, eligibility, registrationInfo?.end_date]);
+  }, [overview, rawOverview, eligibility, registrationInfo?.end_date]);
 
-  if (loading) {
+  if (loading || overviewLoading || renewalsLoading) {
     return (
       <Screen>
         <PortalHeader
@@ -762,7 +769,7 @@ const payload = {
     );
   }
 
-  if (fatalError) {
+  if (fatalError || overviewError || renewalsError) {
     return (
       <Screen>
         <PortalHeader
@@ -774,7 +781,7 @@ const payload = {
           <PortalEmptyState
             icon={AlertCircle}
             title={t('portal.renewals.errors.loadTitle')}
-            subtitle={fatalError}
+            subtitle={fatalError || overviewError?.message || renewalsError?.message}
             actionLabel={t('portal.renewals.actions.retry')}
             onAction={() => {
               setRefreshing(true);
@@ -789,7 +796,8 @@ const payload = {
   const eligible = !!eligibility?.eligible;
 
   return (
-    <Screen>
+    <PortalAccessGate titleOverride={t('portal.renewals.title')}>
+      <Screen>
       <PortalHeader
         title={t('portal.renewals.title')}
         subtitle={t('portal.renewals.subtitle')}
@@ -854,6 +862,13 @@ const payload = {
                   </Text>
                 </View>
               </View>
+
+              <Button
+                title={t('portal.renewals.viewDetails')}
+                onPress={() => router.push('/portal/renewals/details')}
+                variant="outline"
+                style={{ marginTop: 16 }}
+              />
             </GradientCard>
           </AnimatedCard>
 
@@ -1080,7 +1095,8 @@ const payload = {
           </BlurView>
         </Modal>
       )}
-    </Screen>
+      </Screen>
+    </PortalAccessGate>
   );
 }
 

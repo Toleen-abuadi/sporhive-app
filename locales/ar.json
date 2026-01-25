@@ -400,6 +400,15 @@
     "discovery": {
       "title": "اكتشف الأكاديميات",
       "subtitle": "رشّح وقارن ثم انضم خلال خطوات قليلة.",
+      "view": {
+        "map": "الخريطة",
+        "list": "القائمة"
+      },
+      "results": "{{count}} أكاديمية",
+      "loadMore": "عرض المزيد",
+      "peek": {
+        "view": "عرض"
+      },
       "loading": {
         "title": "جارٍ العثور على الأكاديميات",
         "subtitle": "نجهّز أفضل النتائج المناسبة لك…"
@@ -411,13 +420,16 @@
           "open": "التصفية",
           "title": "فلاتر ذكية",
           "subtitle": "حسّن النتائج لتطابق احتياجاتك.",
+          "searchLabel": "المدينة أو الموقع",
           "sport": {
             "label": "الرياضة",
-            "placeholder": "مثال: كرة القدم"
+            "placeholder": "مثال: كرة القدم",
+            "quickPick": "رياضات شائعة"
           },
           "city": {
             "label": "المدينة",
-            "placeholder": "مثال: عمّان"
+            "placeholder": "مثال: عمّان",
+            "quickPick": "مدن شائعة"
           },
           "ageFrom": {
             "label": "العمر من",
@@ -429,6 +441,7 @@
           },
           "registrationEnabled": "التسجيل متاح",
           "proOnly": "احترافي فقط",
+          "sortLabel": "الترتيب حسب",
           "reset": "إعادة ضبط",
           "apply": "تطبيق"
         },
@@ -929,24 +942,51 @@
       "missing_portal_accessTitle": "انتهت صلاحية بوابة اللاعب",
       "missing_portal_accessDescription": "تحتاج صلاحية البوابة إلى التحديث. يرجى تسجيل الدخول مرة أخرى."
     },
+    "access": {
+      "title": "بوابة اللاعبين",
+      "description": "بوابة اللاعبين متاحة فقط لحسابات اللاعبين.",
+      "action": "العودة إلى الخدمات"
+    },
     "common": {
       "placeholder": "—",
-        "player": "لاعب",
-        "edit": "تعديل",
-        "cancel": "إلغاء",
-        "retry": "إعادة المحاولة",
-        "loading": "جارٍ التحميل...",
-        "close": "إغلاق",
-        "remove": "إزالة"
-      },
-      "home": {
-        "title": "بوابة اللاعب",
-        "subtitle": "مركز تدريبك الشخصي",
-        "welcomeBack": "مرحبًا بعودتك",
-        "academy": "أكاديميتك",
-        "registrationStatus": "حالة التسجيل",
-        "activePlayer": "لاعب نشط",
-        "registration": "التسجيل",
+      "player": "لاعب",
+      "edit": "تعديل",
+      "cancel": "إلغاء",
+      "back": "رجوع",
+      "retry": "إعادة المحاولة",
+      "loading": "جارٍ التحميل...",
+      "close": "إغلاق",
+      "remove": "إزالة",
+      "refresh": "تحديث"
+    },
+    "filters": {
+      "open": "التصفية",
+      "title": "الفلاتر",
+      "subtitle": "اضبط النتائج بما يناسبك.",
+      "apply": "تطبيق",
+      "clear": "مسح",
+      "statusLabel": "الحالة",
+      "statusAll": "الكل",
+      "fromLabel": "من",
+      "toLabel": "إلى",
+      "datePlaceholder": "YYYY-MM-DD",
+      "results": "{{count}} نتيجة"
+    },
+    "home": {
+      "title": "بوابة اللاعب",
+      "subtitle": "مركز تدريبك الشخصي",
+      "welcomeBack": "مرحبًا بعودتك",
+      "playerId": "رقم اللاعب: {{id}}",
+      "academy": "أكاديميتك",
+      "registrationStatus": "حالة التسجيل",
+      "activePlayer": "لاعب نشط",
+      "nextPayment": "الدفعة القادمة",
+      "sessionsRemainingShort": "الجلسات المتبقية",
+      "ofSessions": "من أصل {{total}} جلسة",
+      "lastOrder": "آخر طلب",
+      "sections": "استكشف البوابة",
+      "sectionsSubtitle": "انتقل سريعًا إلى القسم الذي تحتاجه.",
+      "registration": "التسجيل",
         "trainingGroup": "مجموعة التدريب",
         "courseLabel": "الدورة: {{course}}",
         "credits": "الرصيد",
@@ -972,6 +1012,10 @@
           "uniforms": "الزي",
           "performance": "الأداء"
         }
+      },
+      "schedule": {
+        "title": "الجدول",
+        "subtitle": "الحضور والجلسات القادمة"
       },
       "more": {
         "title": "المزيد",
@@ -1005,6 +1049,29 @@
         "title": "المدفوعات",
         "subtitle": "الفواتير والمعاملات والإيصالات",
         "currency": "د.أ",
+        "filtersTitle": "فلاتر المدفوعات",
+        "filtersSubtitle": "صفِّ المدفوعات حسب الحالة أو التاريخ.",
+        "errorTitle": "تعذر تحميل المدفوعات",
+        "errorDescription": "لم نتمكن من تحميل المدفوعات. حاول مرة أخرى.",
+        "emptyTitle": "لا توجد مدفوعات",
+        "emptyDescription": "جرّب تعديل الفلاتر أو تحقق لاحقًا.",
+        "defaultTitle": "دفعة",
+        "statusPaid": "مدفوع",
+        "statusUnpaid": "غير مدفوع",
+        "statusPending": "قيد الانتظار",
+        "dueDate": "مستحق {{date}}",
+        "detailTitle": "تفاصيل الدفعة",
+        "detailMissingTitle": "الدفعة غير موجودة",
+        "detailMissingDescription": "تعذر العثور على هذه الدفعة في السجل.",
+        "amountLabel": "المبلغ",
+        "dueLabel": "تاريخ الاستحقاق",
+        "paidOnLabel": "تاريخ الدفع",
+        "invoiceLabel": "رقم الفاتورة",
+        "invoiceDownload": "تحميل الفاتورة",
+        "invoiceDownloading": "جارٍ تجهيز الفاتورة…",
+        "invoiceReady": "الفاتورة جاهزة",
+        "invoiceError": "تعذر تحميل الفاتورة",
+        "statusLabel": "الحالة: {{status}}",
         "status": {
           "paid": "مدفوع",
           "pending": "قيد الانتظار",
@@ -1046,6 +1113,19 @@
         "title": "طلباتي",
         "subtitle": "تتبّع مشتريات الزي",
         "error": "تعذر تحميل سجل الطلبات.",
+        "errorDescription": "لم نتمكن من تحميل الطلبات. حاول مرة أخرى.",
+        "filtersTitle": "فلاتر الطلبات",
+        "filtersSubtitle": "صفِّ الطلبات حسب الحالة.",
+        "defaultTitle": "طلب",
+        "detailTitle": "تفاصيل الطلب",
+        "detailMissingTitle": "الطلب غير موجود",
+        "detailMissingDescription": "تعذر العثور على هذا الطلب في السجل.",
+        "referenceLabel": "المرجع",
+        "createdLabel": "تاريخ الإنشاء",
+        "totalLabel": "الإجمالي",
+        "itemsTitle": "العناصر",
+        "itemFallback": "عنصر طلب",
+        "statusLabel": "الحالة: {{status}}",
         "summary": {
           "total": "الإجمالي",
           "pending": "قيد الانتظار",
@@ -1065,9 +1145,11 @@
         "oneSize": "مقاس واحد",
         "fullKit": "طقم كامل",
         "status": {
+          "pending": "قيد الانتظار",
           "pendingPayment": "بانتظار الدفع",
           "collected": "تم الاستلام",
           "processing": "قيد المعالجة",
+          "delivered": "تم التسليم",
           "cancelled": "ملغى",
           "default": "قيد المعالجة"
         },
@@ -1104,6 +1186,19 @@
       "profile": {
         "title": "الملف الشخصي",
         "subtitle": "إدارة هوية اللاعب",
+        "sectionPlayer": "معلومات اللاعب",
+        "sectionRegistration": "بيانات التسجيل",
+        "nameEn": "الاسم (إنجليزي)",
+        "nameAr": "الاسم (عربي)",
+        "phone": "الهاتف",
+        "phone2": "هاتف إضافي",
+        "email": "البريد الإلكتروني",
+        "registrationType": "نوع التسجيل",
+        "group": "مجموعة التدريب",
+        "course": "الدورة",
+        "period": "الفترة",
+        "errorTitle": "تعذر تحميل الملف",
+        "errorDescription": "لم نتمكن من تحميل الملف. حاول مرة أخرى.",
         "playerName": "اسم اللاعب",
         "academy": "الأكاديمية",
         "playerId": "المعرّف: {{id}}",
@@ -1218,6 +1313,11 @@
       "renewals": {
         "title": "التجديدات",
         "subtitle": "استمر في رحلتك",
+        "detailTitle": "تفاصيل التجديد",
+        "detailSummaryTitle": "حالة التجديد",
+        "detailSummarySubtitle": "ملخص الأهلية الحالية.",
+        "statusLabel": "الحالة",
+        "viewDetails": "عرض التفاصيل",
         "eligible": "مؤهل",
         "notEligible": "غير مؤهل",
         "ends": "ينتهي",
