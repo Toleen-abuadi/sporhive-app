@@ -23,9 +23,8 @@ import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
 import { useAuth } from '../services/auth/auth.store';
 import { getAvailableServices } from '../services/services/services.catalog';
-import { spacing, borderRadius, shadows, shadows } from '../theme/tokens';
+import { spacing, borderRadius, shadows } from '../theme/tokens';
 import { playgroundsApi } from '../services/playgrounds/playgrounds.api';
-import { endpoints } from '../services/api/endpoints';
 import { API_BASE_URL } from '../services/api/client';
 
 const logoSource = require('../../assets/images/logo.png');
@@ -113,7 +112,7 @@ export function HomeServicesScreen() {
     await logout();
     router.replace('/(auth)/login');
   };
-  
+
   const services = getAvailableServices(session).map((service) => ({
     ...service,
     title: t(service.titleKey),
