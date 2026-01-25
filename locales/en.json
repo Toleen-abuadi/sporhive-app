@@ -1433,5 +1433,108 @@
       "addToCart": "Add to cart",
       "size": "Size"
     }
+  },
+  "auth": {
+    "mode": {
+      "public": "Public",
+      "player": "Player"
+    },
+    "fields": {
+      "phone": "Mobile Number",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "academy": "Academy",
+      "username": "Username",
+      "newPassword": "New Password"
+    },
+    "placeholders": {
+      "phone": "+9627xxxxxxxx",
+      "password": "Enter your password",
+      "confirmPassword": "Re-enter your password",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "username": "Enter your username"
+    },
+    "academy": {
+      "helper": "Select Academy",
+      "searchPlaceholder": "Search academies...",
+      "error": "Unable to load academies right now."
+    },
+    "errors": {
+      "generic": "Something went wrong. Please try again.",
+      "network": "You're offline. Check your connection and try again.",
+      "invalidCredentials": "Invalid credentials. Please try again.",
+      "deactivated": "This account is deactivated. Contact support.",
+      "invalidOtp": "Invalid or expired code."
+    },
+    "validation": {
+      "phoneRequired": "Phone number is required.",
+      "phoneInvalid": "Enter a valid phone number.",
+      "passwordRequired": "Password is required.",
+      "passwordLength": "Password must be at least 8 characters.",
+      "passwordMismatch": "Passwords do not match.",
+      "firstNameRequired": "First name is required.",
+      "lastNameRequired": "Last name is required.",
+      "academyRequired": "Please select an academy.",
+      "usernameRequired": "Username is required.",
+      "otpLength": "Enter the 6-digit code."
+    },
+    "login": {
+      "title": "Welcome Back",
+      "subtitle": "Sign in to continue your SporHive experience.",
+      "cta": "Sign In",
+      "ctaPlayer": "Sign In",
+      "forgotPassword": "Forgot password?",
+      "noAccount": "New to SporHive?",
+      "createAccount": "Create account",
+      "skip": "Continue as guest",
+      "success": "Signed in successfully.",
+      "error": "Unable to sign in. Please try again."
+    },
+    "signup": {
+      "title": "Create Account",
+      "subtitle": "Join SporHive and track your game in minutes.",
+      "cta": "Sign Up",
+      "haveAccount": "Already have an account?",
+      "login": "Log in",
+      "success": "Account created. Please sign in.",
+      "error": "Unable to sign up. Please try again.",
+      "passwordHints": {
+        "length": "Use at least {{count}} characters",
+        "match": "Passwords match"
+      }
+    },
+    "reset": {
+      "title": "Reset Password",
+      "subtitle": "Let’s secure your account in a few quick steps.",
+      "back": "Back",
+      "sendCode": "Send code",
+      "otpHint": "Enter the 6-digit code sent to your phone.",
+      "verify": "Verify",
+      "resend": "Resend code",
+      "resendReady": "Didn’t get a code?",
+      "resendCountdown": "Resend available in {{seconds}}s",
+      "requestSuccess": "If your account exists, we sent a code.",
+      "requestError": "Unable to send code. Try again.",
+      "confirmError": "Invalid or expired code. Try again.",
+      "updatePassword": "Reset Password",
+      "publicSuccess": "Password updated successfully.",
+      "playerSuccess": "Password generated successfully.",
+      "publicFinalTitle": "Password reset successfully",
+      "publicFinalSubtitle": "You can now sign in with your new password.",
+      "playerFinalTitle": "Password ready",
+      "playerFinalSubtitle": "Save this password — you can change it later.",
+      "generatedPassword": "Generated password",
+      "generatedFallback": "••••••",
+      "saveHint": "Keep this password safe for your next login.",
+      "copy": "Copy",
+      "copied": "Password copied to clipboard.",
+      "copyUnsupported": "Copy is not available on this device.",
+      "reveal": "Reveal",
+      "hide": "Hide",
+      "backToLogin": "Proceed to login"
+    }
   }
 }
