@@ -78,8 +78,8 @@ export function WelcomeScreen() {
   }));
 
   const handleExplore = async () => {
-    await storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, false);
-    router.replace('/services');
+    await storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, true);
+    router.replace('/(auth)/login');
   };
 
   const iconColor = colors.textSecondary;

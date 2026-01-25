@@ -1,6 +1,6 @@
 import React from 'react';
-import { PortalLoginScreen } from '../../src/screens/portal/PortalLoginScreen';
+import { Redirect } from 'expo-router';
 
 export default function PortalLoginRoute() {
-  return <PortalLoginScreen />;
+  return <Redirect href="/(auth)/login" />;
 }

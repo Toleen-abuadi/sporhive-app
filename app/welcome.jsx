@@ -1,6 +1,6 @@
 import React from 'react';
-import { WelcomeScreen } from '../src/screens/WelcomeScreen';
+import { Redirect } from 'expo-router';
 
 export default function Welcome() {
-  return <WelcomeScreen />;
+  return <Redirect href="/(auth)/welcome" />;
 }

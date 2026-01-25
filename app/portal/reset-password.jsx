@@ -1,6 +1,6 @@
 import React from 'react';
-import { PortalResetPasswordScreen } from '../../src/screens/portal/PortalResetPasswordScreen';
+import { Redirect } from 'expo-router';
 
 export default function PortalResetPasswordRoute() {
-  return <PortalResetPasswordScreen />;
+  return <Redirect href="/(auth)/reset-password" />;
 }
