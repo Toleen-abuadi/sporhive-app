@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Screen } from '../components/ui/Screen';
+import { AppHeader } from '../components/ui/AppHeader';
+import { AppScreen } from '../components/ui/AppScreen';
 import { Text } from '../components/ui/Text';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -13,9 +14,9 @@ import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
 import { useAuth } from '../services/auth/auth.store';
 import { getAvailableServices } from '../services/services/services.catalog';
-import { spacing, borderRadius } from '../theme/tokens';
-
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+import { spacing, borderRadius, shadows } from '../theme/tokens';
+import { endpoints } from '../services/api/endpoints';
+import { API_BASE_URL } from '../services/api/client';
 
 const logoSource = require('../../assets/images/logo.png');
 
@@ -49,8 +50,10 @@ export function HomeServicesScreen() {
   const { t, isRTL } = useI18n();
   const router = useRouter();
   const { logout, session } = useAuth();
+  // TODO(DesignSystem): Batch-refactor remaining screens to use AppScreen/AppHeader only.
   const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
   const [themeSheetOpen, setThemeSheetOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [trending, setTrending] = useState([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
@@ -86,6 +89,12 @@ export function HomeServicesScreen() {
     router.replace('/(auth)/login');
   };
 
+  const isPlayer =
+    session?.login_as === 'player' || session?.userType === 'player' || session?.user?.type === 'player';
+  const avatarImage =
+    session?.user?.avatar || session?.user?.image || session?.user?.photo || session?.user?.profile_photo || null;
+  const avatarInitials = getInitials(session?.user);
+
   const services = getAvailableServices(session).map((service) => ({
     ...service,
     title: t(service.titleKey),
@@ -94,28 +103,23 @@ export function HomeServicesScreen() {
   }));
 
   return (
-    <Screen safe scroll contentContainerStyle={styles.scrollContent}>
-      <View style={styles.header}>
-        <View style={[styles.brandRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={[styles.brandInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={[styles.logoWrap, { backgroundColor: `${colors.accentOrange}1A` }]}> 
-              <Image source={logoSource} style={styles.logo} resizeMode="contain" />
-            </View>
-            <View style={styles.brandText}>
-              <Text variant="h2" weight="bold">
-                SporHive
-              </Text>
-              <Text variant="bodySmall" color={colors.textSecondary}>
-                {t('services.subtitle')}
-              </Text>
-            </View>
+    <AppScreen scroll contentStyle={styles.scrollContent}>
+      <AppHeader
+        title="SporHive"
+        subtitle={t('services.subtitle')}
+        showBack={false}
+        leftSlot={(
+          <View style={[styles.logoWrap, { backgroundColor: colors.primarySoft }]}>
+            <Image source={logoSource} style={styles.logo} resizeMode="contain" />
           </View>
+        )}
+        right={(
           <Pressable onPress={() => setSettingsOpen(true)} style={styles.avatarWrap}>
-            <View style={[styles.avatarRing, { borderColor: colors.accentOrange }]}> 
+            <View style={[styles.avatarRing, { borderColor: colors.primary }]}>
               {avatarImage ? (
                 <Image source={{ uri: avatarImage }} style={styles.avatar} />
               ) : (
-                <View style={[styles.avatarFallback, { backgroundColor: colors.surface }]}> 
+                <View style={[styles.avatarFallback, { backgroundColor: colors.surface }]}>
                   <Text variant="body" weight="bold">
                     {avatarInitials}
                   </Text>
@@ -129,8 +133,8 @@ export function HomeServicesScreen() {
               />
             </View>
           </Pressable>
-        </View>
-      </View>
+        )}
+      />
 
       <View style={styles.section}>
         <Text variant="h3" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
@@ -256,7 +260,7 @@ export function HomeServicesScreen() {
 
       <Modal transparent visible={logoutOpen} animationType="fade">
         <Pressable style={styles.backdrop} onPress={() => setLogoutOpen(false)} />
-        <View style={[styles.confirmCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+        <View style={[styles.confirmCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text variant="h4" weight="bold">
             {t('services.settings.logoutTitle')}
           </Text>
@@ -273,28 +277,13 @@ export function HomeServicesScreen() {
           </View>
         </View>
       </Modal>
-    </Screen>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.xl,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-  },
-  brandRow: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  brandInfo: {
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  brandText: {
-    gap: 2,
   },
   logoWrap: {
     width: 44,
@@ -341,23 +330,19 @@ const styles = StyleSheet.create({
     right: -2,
   },
   section: {
-    paddingHorizontal: spacing.lg,
     marginTop: spacing.xl,
     marginBottom: spacing.md,
   },
   cardsStack: {
-    paddingHorizontal: spacing.lg,
     gap: spacing.md,
   },
   trendingList: {
-    paddingHorizontal: spacing.lg,
     gap: spacing.md,
     paddingBottom: spacing.lg,
   },
   trendingSkeletonRow: {
     flexDirection: 'row',
     gap: spacing.md,
-    paddingHorizontal: spacing.lg,
   },
   trendingSkeletonCard: {
     width: 160,
@@ -367,14 +352,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   emptyCard: {
-    marginHorizontal: spacing.lg,
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     gap: spacing.xs,
   },
   errorCard: {
-    marginHorizontal: spacing.lg,
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
@@ -388,7 +371,6 @@ const styles = StyleSheet.create({
   },
   bottomNav: {
     marginTop: spacing.xl,
-    marginHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.xl,
