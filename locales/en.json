@@ -1054,7 +1054,11 @@
       "overviewDescription": "We couldn’t load your portal data. Please try again.",
       "sessionExpiredTitle": "Session expired",
       "sessionExpiredDescription": "Please sign in again to access the player portal.",
-      "sessionExpiredAction": "Go to login"
+      "sessionExpiredAction": "Go to login",
+      "forbiddenTitle": "Access denied",
+      "forbiddenDescription": "We couldn’t verify your portal access. Please try again.",
+      "unauthorizedTitle": "Session expired",
+      "unauthorizedDescription": "Your session expired. Please sign in again to continue."
     },
     "common": {
       "placeholder": "—",
@@ -1503,7 +1507,6 @@
       "forgotPassword": "Forgot password?",
       "noAccount": "New to SporHive?",
       "createAccount": "Create account",
-      "skip": "Continue as guest",
       "success": "Signed in successfully.",
       "error": "Unable to sign in. Please try again."
     },

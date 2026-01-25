@@ -820,7 +820,11 @@
       "overviewDescription": "لم نتمكن من تحميل بيانات البوابة. حاول مرة أخرى.",
       "sessionExpiredTitle": "انتهت الجلسة",
       "sessionExpiredDescription": "يرجى تسجيل الدخول مجددًا للوصول إلى بوابة اللاعب.",
-      "sessionExpiredAction": "الانتقال لتسجيل الدخول"
+      "sessionExpiredAction": "الانتقال لتسجيل الدخول",
+      "forbiddenTitle": "تعذر التحقق من الصلاحيات",
+      "forbiddenDescription": "لم نتمكن من التحقق من صلاحيات بوابة اللاعب. حاول مرة أخرى.",
+      "unauthorizedTitle": "انتهت الجلسة",
+      "unauthorizedDescription": "انتهت جلستك. يرجى تسجيل الدخول مرة أخرى."
     },
     "common": {
       "placeholder": "—",
@@ -1270,7 +1274,6 @@
       "forgotPassword": "نسيت كلمة المرور؟",
       "noAccount": "جديد على SporHive؟",
       "createAccount": "إنشاء حساب",
-      "skip": "المتابعة كضيف",
       "success": "تم تسجيل الدخول بنجاح.",
       "error": "تعذر تسجيل الدخول. حاول مرة أخرى."
     },

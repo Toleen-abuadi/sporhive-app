@@ -1,4 +1,5 @@
 import { apiClient } from '../api/client';
+import { playerPortalApi } from '../api/playerPortal.api';
 import { storage, PORTAL_KEYS, APP_STORAGE_KEYS } from '../storage/storage';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL + '/api/v1';
@@ -158,43 +159,20 @@ export const portalApi = {
   },
 
   async getOverview({ academyId, externalPlayerId } = {}) {
-    const { body, headers, academyId: resolvedAcademyId } = await withAcademyPayload({}, { academyId });
-    const playerId = await resolveExternalPlayerId(externalPlayerId);
-    const payload = { ...body };
-
-    if (playerId) {
-      payload.player_id = playerId;
-      payload.external_player_id = playerId;
-    }
-
-    const hasToken = Boolean(headers?.Authorization || headers?.authorization);
     if (__DEV__) {
       console.info('Portal overview request', {
-        hasToken,
-        academyId: resolvedAcademyId || null,
-        payloadKeys: Object.keys(payload),
+        academyId: academyId || null,
+        externalPlayerId: externalPlayerId || null,
       });
     }
 
-    if (!hasToken) {
-      return { success: false, error: new Error('PORTAL_TOKEN_MISSING') };
+    const response = await playerPortalApi.getOverview();
+
+    if (__DEV__) {
+      console.info('Portal overview response', { ok: response?.success });
     }
 
-    try {
-      const data = await apiClient.post('/player-portal-external-proxy/player-profile/overview', payload, { headers });
-      if (__DEV__) {
-        console.info('Portal overview response', { ok: true });
-      }
-      return { success: true, data };
-    } catch (error) {
-      if (__DEV__) {
-        console.warn('Portal overview response', {
-          ok: false,
-          status: error?.statusCode || error?.meta?.status || null,
-        });
-      }
-      return { success: false, error };
-    }
+    return response;
   },
 
   async updateProfile(payload = {}, options = {}) {

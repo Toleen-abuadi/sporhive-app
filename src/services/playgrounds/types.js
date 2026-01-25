@@ -1,5 +1,5 @@
 /**
- * @typedef {{ id?: string|number, name?: string, first_name?: string, last_name?: string, email?: string, phone?: string, mode?: 'guest'|'registered' }} PublicUser
+ * @typedef {{ id?: string|number, name?: string, first_name?: string, last_name?: string, email?: string, phone?: string, mode?: 'registered' }} PublicUser
  * @typedef {{ id?: string|number, name?: string, city?: string, country?: string }} AcademyProfile
  * @typedef {{ id?: string|number, name?: string }} Activity
  * @typedef {{ id?: string|number, url?: string, path?: string, kind?: string, is_cover?: boolean, is_primary?: boolean }} VenueImage

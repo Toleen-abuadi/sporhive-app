@@ -14,6 +14,7 @@ import { Card } from '../components/ui/Card';
 import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
 import { useAuth } from '../services/auth/auth.store';
+import { getAvailableServices } from '../services/services/services.catalog';
 import { spacing, borderRadius } from '../theme/tokens';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -87,7 +88,7 @@ export function HomeServicesScreen() {
   const { colors, themePreference, setThemePreference } = useTheme();
   const { t, language, changeLanguage, isRTL } = useI18n();
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, session } = useAuth();
   const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
   const [themeSheetOpen, setThemeSheetOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
@@ -109,35 +110,12 @@ export function HomeServicesScreen() {
     router.replace('/(auth)/login');
   };
 
-  const services = [
-    {
-      id: 'discover',
-      title: t('home.discoverCard.title'),
-      description: t('home.discoverCard.description'),
-      icon: 'compass',
-      color: colors.accentOrange,
-      screen: 'Discover',
-      href: '/academies',
-    },
-    {
-      id: 'portal',
-      title: t('home.portalCard.title'),
-      description: t('home.portalCard.description'),
-      icon: 'user',
-      color: colors.info,
-      screen: 'Portal',
-      href: '/portal/(tabs)/home',
-    },
-    {
-      id: 'playgrounds-explore',
-      title: t('home.playgrounds.explore.title'),
-      description: t('home.playgrounds.explore.description'),
-      icon: 'map',
-      color: colors.success,
-      screen: 'PlaygroundsExplore',
-      href: '/playgrounds/explore',
-    },
-  ];
+  const services = getAvailableServices(session).map((service) => ({
+    ...service,
+    title: t(service.titleKey),
+    description: t(service.descriptionKey),
+    color: colors[service.colorKey] || colors.accentOrange,
+  }));
 
   return (
     <Screen safe scroll contentContainerStyle={styles.scrollContent}>

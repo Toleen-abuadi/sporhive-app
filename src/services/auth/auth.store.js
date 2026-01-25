@@ -5,6 +5,7 @@ import { storage, APP_STORAGE_KEYS } from '../storage/storage';
 const INITIAL_STATE = {
   isAuthenticated: false,
   isLoading: true,
+  session: null,
   user: null,
   userType: null,
   token: null,
@@ -26,6 +27,53 @@ const extractToken = (data) =>
 const extractUser = (data) =>
   data?.user || data?.profile || data?.player || data?.public_user || null;
 
+const normalizeUserProfile = ({ user, loginAs, academyId, username }) => {
+  const profile = user || {};
+  const firstName = profile.first_name || profile.firstName || profile.given_name || '';
+  const lastName = profile.last_name || profile.lastName || profile.family_name || '';
+  const phone = profile.phone || profile.mobile || profile.phone_number || '';
+  const resolvedAcademyId =
+    loginAs === 'player'
+      ? Number(profile.academy_id || profile.academyId || academyId || 0) || undefined
+      : undefined;
+  const externalPlayerId =
+    profile.external_player_id ||
+    profile.externalPlayerId ||
+    profile.player_external_id ||
+    profile.player_id ||
+    undefined;
+  const playerUsername = loginAs === 'player'
+    ? profile.player_username || profile.username || username || undefined
+    : undefined;
+
+  return {
+    id: profile.id != null ? String(profile.id) : '',
+    type: loginAs,
+    first_name: firstName,
+    last_name: lastName,
+    phone,
+    academy_id: resolvedAcademyId,
+    external_player_id: externalPlayerId,
+    player_username: playerUsername,
+  };
+};
+
+const buildSession = ({ loginAs, user, token, portalTokens, academyId, username }) => {
+  const normalizedUser = normalizeUserProfile({
+    user,
+    loginAs,
+    academyId,
+    username,
+  });
+
+  return {
+    login_as: loginAs,
+    user: normalizedUser,
+    portal_tokens: portalTokens || undefined,
+    token: token || undefined,
+  };
+};
+
 export function AuthProvider({ children }) {
   const [state, setState] = useState(INITIAL_STATE);
 
@@ -44,15 +92,22 @@ export function AuthProvider({ children }) {
         storage.getAuthToken(),
       ]);
       const lastSelectedAcademyId = lastAcademyRaw != null ? Number(lastAcademyRaw) : null;
-      if (session?.userType || token) {
+      const loginAs = session?.login_as || session?.userType || session?.user?.type || null;
+      const portalAccessToken =
+        session?.portal_tokens?.access ||
+        session?.portal_tokens?.access_token ||
+        session?.portalAccessToken ||
+        null;
+      if (loginAs || token) {
         setState({
           ...INITIAL_STATE,
-          isAuthenticated: Boolean(session?.userType || token),
+          isAuthenticated: Boolean(loginAs || token),
           isLoading: false,
+          session: session || null,
           user: session?.user || null,
-          userType: session?.userType || null,
+          userType: loginAs,
           token: token || session?.token || null,
-          portalAccessToken: session?.portalAccessToken || null,
+          portalAccessToken,
           lastSelectedAcademyId,
         });
         return;
@@ -86,17 +141,18 @@ export function AuthProvider({ children }) {
     if (result.success) {
       const token = extractToken(result.data);
       const user = extractUser(result.data);
-      const session = {
+      const session = buildSession({
+        loginAs: 'public',
         user,
-        userType: 'public',
         token,
-        portalAccessToken: null,
-      };
+        portalTokens: null,
+      });
       await persistSession(session, token);
       setState((prev) => ({
         ...prev,
         isAuthenticated: true,
         isLoading: false,
+        session,
         user,
         userType: 'public',
         token,
@@ -121,18 +177,23 @@ export function AuthProvider({ children }) {
       });
 
       if (result.success) {
+        const portalTokens = result.data?.portal_tokens || result.data?.portalTokens || null;
         const portalAccessToken =
+          portalTokens?.access ||
+          portalTokens?.access_token ||
           result.data?.portal_tokens?.access ||
           result.data?.portal_tokens?.access_token ||
           null;
         const token = extractToken(result.data);
         const user = extractUser(result.data);
-        const session = {
+        const session = buildSession({
+          loginAs: 'player',
           user,
-          userType: 'player',
           token,
-          portalAccessToken,
-        };
+          portalTokens: portalTokens || (portalAccessToken ? { access: portalAccessToken } : null),
+          academyId,
+          username,
+        });
         await Promise.all([
           persistSession(session, token),
           setLastSelectedAcademyId(academyId),
@@ -141,6 +202,7 @@ export function AuthProvider({ children }) {
           ...prev,
           isAuthenticated: true,
           isLoading: false,
+          session,
           user,
           userType: 'player',
           token,

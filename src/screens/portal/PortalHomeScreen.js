@@ -5,7 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Text } from '../../components/ui/Text';
 import { Screen } from '../../components/ui/Screen';
-import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalListItem } from '../../components/portal/PortalListItem';
@@ -22,6 +22,13 @@ export function PortalHomeScreen() {
   const { overview, loading, error } = usePortalOverview();
   const { refreshing, onRefresh } = usePortalRefresh();
   const placeholder = t('portal.common.placeholder');
+
+  const errorStatus =
+    error?.status ||
+    error?.response?.status ||
+    error?.statusCode ||
+    error?.meta?.status ||
+    null;
 
   useFocusEffect(
     useCallback(() => {
@@ -40,20 +47,46 @@ export function PortalHomeScreen() {
 
   if (loading && !overview) {
     return (
-      <Screen>
-        <SporHiveLoader />
+      <Screen safe>
+        <View style={styles.skeletonStack}>
+          <Skeleton height={120} radius={16} />
+          <View style={styles.skeletonRow}>
+            <Skeleton height={120} radius={16} style={styles.skeletonHalf} />
+            <Skeleton height={120} radius={16} style={styles.skeletonHalf} />
+          </View>
+          <Skeleton height={160} radius={16} />
+          <Skeleton height={140} radius={16} />
+        </View>
       </Screen>
     );
   }
 
   if (error && !overview) {
-    const isSessionMissing = String(error?.message || '').includes('PORTAL_TOKEN_MISSING');
+    const isSessionMissing =
+      error?.code === 'PLAYER_SESSION_INVALID' ||
+      String(error?.message || '').includes('PORTAL_TOKEN_MISSING');
+    const isForbidden = errorStatus === 403;
+    const isUnauthorized = errorStatus === 401;
+    const titleKey = isSessionMissing
+      ? 'portal.errors.sessionExpiredTitle'
+      : isForbidden
+      ? 'portal.errors.forbiddenTitle'
+      : isUnauthorized
+      ? 'portal.errors.unauthorizedTitle'
+      : 'portal.errors.overviewTitle';
+    const descriptionKey = isSessionMissing
+      ? 'portal.errors.sessionExpiredDescription'
+      : isForbidden
+      ? 'portal.errors.forbiddenDescription'
+      : isUnauthorized
+      ? 'portal.errors.unauthorizedDescription'
+      : 'portal.errors.overviewDescription';
     return (
       <Screen>
         <PortalEmptyState
           icon="alert-triangle"
-          title={isSessionMissing ? t('portal.errors.sessionExpiredTitle') : t('portal.errors.overviewTitle')}
-          description={isSessionMissing ? t('portal.errors.sessionExpiredDescription') : t('portal.errors.overviewDescription')}
+          title={t(titleKey)}
+          description={t(descriptionKey)}
           action={
             <Button
               size="small"
@@ -317,5 +350,16 @@ const styles = StyleSheet.create({
   },
   quickSubtitle: {
     marginTop: spacing.xs,
+  },
+  skeletonStack: {
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  skeletonRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  skeletonHalf: {
+    flex: 1,
   },
 });

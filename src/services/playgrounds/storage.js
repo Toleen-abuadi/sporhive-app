@@ -1,19 +1,6 @@
 import { storage } from '../storage/storage';
 import { STORAGE_KEYS } from '../storage/keys';
 
-export async function getPublicUserMode() {
-  const mode = await storage.getItem(STORAGE_KEYS.PUBLIC_USER_MODE);
-  return mode === 'guest' || mode === 'registered' ? mode : null;
-}
-
-export async function setPublicUserMode(mode) {
-  if (!mode) {
-    await storage.removeItem(STORAGE_KEYS.PUBLIC_USER_MODE);
-    return;
-  }
-  await storage.setItem(STORAGE_KEYS.PUBLIC_USER_MODE, mode);
-}
-
 export async function getPublicUser() {
   const user = await storage.getItem(STORAGE_KEYS.PUBLIC_USER);
   return user && typeof user === 'object' ? user : null;
@@ -68,7 +55,6 @@ export async function setBookingDraft(draft) {
 
 export async function clearPlaygroundsAuth() {
   await Promise.all([
-    storage.removeItem(STORAGE_KEYS.PUBLIC_USER_MODE),
     storage.removeItem(STORAGE_KEYS.PUBLIC_USER),
     storage.removeItem(STORAGE_KEYS.PUBLIC_USER_TOKEN),
     storage.removeItem(STORAGE_KEYS.PLAYGROUNDS_CLIENT),
