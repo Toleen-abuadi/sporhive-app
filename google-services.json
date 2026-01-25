@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1002113102000",
+    "project_id": "push-notification-sporhive",
+    "storage_bucket": "push-notification-sporhive.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1002113102000:android:25b926d51fed78f6fa0b75",
+        "android_client_info": {
+          "package_name": "com.sporhive.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBntOKp1WK21gTY_6R6hsNcyS6WgPLieNI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

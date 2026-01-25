@@ -1,13 +1,17 @@
 {
   "expo": {
-    "name": "bolt-expo-nativewind",
-    "slug": "bolt-expo-nativewind",
+    "name": "SporHive",
+    "slug": "SporHive",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "sporhive",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.sporhive.app",
+      "googleServicesFile": "./google-services.json"
+    },
     "ios": {
       "supportsTablet": true
     },
@@ -20,7 +24,8 @@
       "expo-router",
       "expo-font",
       "expo-web-browser",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-notifications"
     ],
     "extra": {
       "router": {
@@ -28,8 +33,15 @@
         "links": [
           {
             "path": "r/:token"
+          },
+          {
+            "path": "r/:token"
           }
         ]
+      },
+      "API_BASE_URL": "",
+      "eas": {
+        "projectId": "d8e46091-2c57-4cbe-bdb9-a1a56df7e54d"
       }
     },
     "experiments": {
