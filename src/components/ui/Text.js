@@ -1,7 +1,7 @@
-import React from 'react';
-import { Text as RNText, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { I18nManager, Text as RNText, StyleSheet } from 'react-native';
 import { useTheme } from '../../theme/ThemeProvider';
-import { fontSize, fontWeight } from '../../theme/tokens';
+import { fontSize, fontWeight, typography } from '../../theme/tokens';
 
 export function Text({
   children,
@@ -12,17 +12,24 @@ export function Text({
   ...props
 }) {
   const { colors } = useTheme();
+  const isRTL = I18nManager.isRTL;
 
-  const variantStyles = {
-    h1: { fontSize: fontSize.xxxl, fontWeight: fontWeight.bold },
-    h2: { fontSize: fontSize.xxl, fontWeight: fontWeight.bold },
-    h3: { fontSize: fontSize.xl, fontWeight: fontWeight.semibold },
-    h4: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold },
-    body: { fontSize: fontSize.base, fontWeight: fontWeight.normal },
-    bodyLarge: { fontSize: fontSize.lg, fontWeight: fontWeight.normal },
-    bodySmall: { fontSize: fontSize.sm, fontWeight: fontWeight.normal },
-    caption: { fontSize: fontSize.xs, fontWeight: fontWeight.normal },
-  };
+  const variantStyles = useMemo(
+    () => ({
+      display: typography.variants.display,
+      h1: typography.variants.h1,
+      h2: typography.variants.h2,
+      h3: typography.variants.h3,
+      h4: { fontSize: fontSize.lg, lineHeight: typography.lineHeight.lg, fontWeight: fontWeight.semibold },
+      body: typography.variants.body,
+      bodyMedium: typography.variants.bodyMedium,
+      bodyLarge: { fontSize: fontSize.lg, lineHeight: typography.lineHeight.lg, fontWeight: fontWeight.normal },
+      bodySmall: { fontSize: fontSize.sm, lineHeight: typography.lineHeight.sm, fontWeight: fontWeight.normal },
+      caption: typography.variants.caption,
+      overline: typography.variants.overline,
+    }),
+    []
+  );
 
   const weightStyles = {
     normal: { fontWeight: fontWeight.normal },
@@ -39,7 +46,7 @@ export function Text({
         styles.text,
         variantStyles[variant],
         weightStyles[weight],
-        { color: textColor },
+        { color: textColor, textAlign: isRTL ? 'right' : 'left', writingDirection: isRTL ? 'rtl' : 'ltr' },
         style,
       ]}
       {...props}
