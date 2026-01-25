@@ -55,7 +55,7 @@ export function TrendingVenueCard({ title, imageUrl, onPress }) {
 
 const styles = StyleSheet.create({
   card: {
-    width: 176,
+    width: 184,
     gap: spacing.sm,
   },
   mediaWrap: {
@@ -67,12 +67,12 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: 140,
+    height: 160,
     borderRadius: borderRadius.xl,
   },
   placeholder: {
     width: '100%',
-    height: 140,
+    height: 160,
     borderRadius: borderRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',

@@ -29,7 +29,7 @@ export function ServiceCard({ title, subtitle, icon, color, onPress }) {
         style={[
           styles.iconWrap,
           {
-            backgroundColor: `${color}1F`,
+            backgroundColor: `${color}26`,
             marginLeft: isRTL ? spacing.md : 0,
             marginRight: isRTL ? 0 : spacing.md,
           },
@@ -38,7 +38,7 @@ export function ServiceCard({ title, subtitle, icon, color, onPress }) {
         <Feather name={icon} size={24} color={color} />
       </View>
       <View style={[styles.textWrap, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-        <Text variant="h4" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
+        <Text variant="bodyLarge" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
           {title}
         </Text>
         <Text
