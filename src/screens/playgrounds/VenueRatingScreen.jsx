@@ -4,14 +4,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
-import { Screen } from '../../components/ui/Screen';
+import { AppScreen } from '../../components/ui/AppScreen';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { BackButton } from '../../components/ui/BackButton';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
-import { endpoints } from '../../services/api/endpoints';
+import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
 import { spacing } from '../../theme/tokens';
 
 const CRITERIA = [
@@ -72,7 +72,7 @@ export function VenueRatingScreen() {
   const checkCanRate = useCallback(async () => {
     setCheckingEligibility(true);
     try {
-      const res = await endpoints.playgrounds.ratingCanRate({
+      const res = await playgroundsApi.canRateBooking({
         booking_id: bookingId,
         user_id: userId,
       });
@@ -101,7 +101,7 @@ export function VenueRatingScreen() {
     setLoading(true);
     setMessage('');
     try {
-      await endpoints.playgrounds.ratingCreate({
+      await playgroundsApi.rateBooking({
         booking_id: bookingId,
         user_id: userId,
         rating,
@@ -117,7 +117,7 @@ export function VenueRatingScreen() {
   }, [bookingId, comment, criteria, rating, t, userId]);
 
   return (
-    <Screen safe>
+    <AppScreen safe>
       <AppHeader title={t('service.playgrounds.rating.title')} leftSlot={<BackButton />} />
       {checkingEligibility ? (
         <SporHiveLoader message={t('service.playgrounds.rating.loading')} />
@@ -188,7 +188,7 @@ export function VenueRatingScreen() {
           )}
         </View>
       )}
-    </Screen>
+    </AppScreen>
   );
 }
 

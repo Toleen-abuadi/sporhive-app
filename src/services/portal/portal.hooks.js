@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'expo-router';
 import { portalApi } from './portal.api';
 import { portalStore, usePortal as usePortalContext } from './portal.store';
 import { normalizeUniformOrders } from './portal.normalize';
 import { useAuth } from '../auth/auth.store';
+import { validatePortalSession } from '../auth/portalSession';
 
 export function usePortalAuth() {
   return usePortalContext();
@@ -12,9 +12,7 @@ export function usePortalAuth() {
 export function usePortalOverview() {
   const [state, setState] = useState(portalStore.getState());
   const mounted = useRef(true);
-  const forbiddenCount = useRef(0);
-  const router = useRouter();
-  const { logout } = useAuth();
+  const { session, isLoading: authLoading } = useAuth();
 
   useEffect(() => {
     mounted.current = true;
@@ -22,7 +20,8 @@ export function usePortalOverview() {
       if (mounted.current) setState(next);
     });
 
-    if (!portalStore.getState().overview && !portalStore.getState().loading) {
+    const isSessionValid = !authLoading && validatePortalSession(session).ok;
+    if (!portalStore.getState().overview && !portalStore.getState().loading && isSessionValid) {
       portalStore.loadOverview();
     }
 
@@ -30,37 +29,7 @@ export function usePortalOverview() {
       mounted.current = false;
       unsub?.();
     };
-  }, []);
-
-  useEffect(() => {
-    if (!state?.error) {
-      forbiddenCount.current = 0;
-      return;
-    }
-
-    const status =
-      state.error?.status ||
-      state.error?.response?.status ||
-      state.error?.statusCode ||
-      state.error?.meta?.status ||
-      null;
-
-    if (state.error?.code === 'PLAYER_SESSION_INVALID') {
-      logout().finally(() => {
-        router.replace('/(auth)/login?mode=player');
-      });
-      return;
-    }
-
-    if (status === 403) {
-      forbiddenCount.current += 1;
-      if (forbiddenCount.current >= 2) {
-        logout().finally(() => {
-          router.replace('/(auth)/login?mode=player');
-        });
-      }
-    }
-  }, [logout, router, state?.error]);
+  }, [authLoading, session]);
 
   const refresh = useCallback(async () => portalStore.refreshOverview(), []);
 

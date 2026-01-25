@@ -4,13 +4,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
-import { Screen } from '../../components/ui/Screen';
+import { AppScreen } from '../../components/ui/AppScreen';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { BackButton } from '../../components/ui/BackButton';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
-import { endpoints } from '../../services/api/endpoints';
+import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
 import { spacing } from '../../theme/tokens';
 
 export function RatingLinkResolverScreen() {
@@ -28,7 +28,7 @@ export function RatingLinkResolverScreen() {
     setStatus('loading');
     setMessage(t('service.playgrounds.ratingResolver.loading'));
     try {
-      const res = await endpoints.playgrounds.ratingResolveToken(token);
+      const res = await playgroundsApi.resolveRatingToken(token);
       const payload = res?.data || res;
       const resolvedBookingId = payload?.booking_id || payload?.bookingId;
       const resolvedUserId = payload?.user_id || payload?.userId;
@@ -51,7 +51,7 @@ export function RatingLinkResolverScreen() {
   }, [resolveToken]);
 
   return (
-    <Screen safe>
+    <AppScreen safe>
       <AppHeader title={t('service.playgrounds.ratingResolver.title')} leftSlot={<BackButton />} />
       {status === 'loading' ? (
         <SporHiveLoader message={t('service.playgrounds.ratingResolver.loading')} />
@@ -86,7 +86,7 @@ export function RatingLinkResolverScreen() {
           )}
         </View>
       )}
-    </Screen>
+    </AppScreen>
   );
 }
 

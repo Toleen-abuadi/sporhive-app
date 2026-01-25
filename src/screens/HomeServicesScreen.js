@@ -1,6 +1,8 @@
 // src/screens/HomeServicesScreen.js
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
+  Easing,
   FlatList,
   Image,
   Modal,
@@ -8,7 +10,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { AppHeader } from '../components/ui/AppHeader';
@@ -26,7 +27,7 @@ import { useI18n } from '../services/i18n/i18n';
 import { useAuth } from '../services/auth/auth.store';
 import { playgroundsApi } from '../services/playgrounds/playgrounds.api';
 import { API_BASE_URL } from '../services/api/client';
-import { spacing, borderRadius, shadows } from '../theme/tokens';
+import { spacing, borderRadius } from '../theme/tokens';
 
 const logoSource = require('../../assets/images/logo.png');
 
@@ -81,6 +82,7 @@ export function HomeServicesScreen() {
   const { logout, session } = useAuth();
 
   const mountedRef = useRef(true);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
@@ -132,27 +134,20 @@ export function HomeServicesScreen() {
       title: t('services.cards.playgroundsTitle'),
       description: t('services.cards.playgroundsSubtitle'),
       icon: 'map-pin',
-      color: colors.success,
+      color: colors.accentOrange,
       href: '/playgrounds/explore',
     });
 
     return items;
-  }, [colors.accentOrange, colors.info, colors.success, isPlayer, t]);
+  }, [colors.accentOrange, colors.info, isPlayer, t]);
 
   const loadTrending = useCallback(async () => {
     setTrendingLoading(true);
     setTrendingError('');
 
     try {
-      const res = await playgroundsApi.publicVenuesList({});
-
-      const list = Array.isArray(res?.data?.venues)
-        ? res.data.venues
-        : Array.isArray(res?.venues)
-          ? res.venues
-          : Array.isArray(res?.data)
-            ? res.data
-            : [];
+      const res = await playgroundsApi.listVenues({});
+      const list = Array.isArray(res?.venues) ? res.venues : [];
 
       if (!mountedRef.current) return;
 
@@ -175,6 +170,15 @@ export function HomeServicesScreen() {
       mountedRef.current = false;
     };
   }, [loadTrending]);
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 420,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -205,6 +209,7 @@ export function HomeServicesScreen() {
         title="SporHive"
         subtitle={t('services.subtitle')}
         showBack={false}
+        variant="transparent"
         leftSlot={(
           <View style={[styles.logoWrap, { backgroundColor: `${colors.accentOrange}1A` }]}>
             <Image source={logoSource} style={styles.logo} resizeMode="contain" />
@@ -233,110 +238,92 @@ export function HomeServicesScreen() {
         )}
       />
 
-      {/* Explore Services */}
-      <View style={styles.section}>
-        <Text variant="h3" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
-          {t('services.exploreTitle')}
-        </Text>
-      </View>
+      <Animated.View
+        style={{
+          opacity: fadeAnim,
+          transform: [
+            {
+              translateY: fadeAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [12, 0],
+              }),
+            },
+          ],
+        }}
+      >
+        {/* Explore Services */}
+        <View style={styles.section}>
+          <Text variant="h2" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
+            {t('services.exploreTitle')}
+          </Text>
+        </View>
 
-      <View style={styles.cardsStack}>
-        {services.map((service) => (
-          <ServiceCard
-            key={service.id}
-            title={service.title}
-            subtitle={service.description}
-            icon={service.icon}
-            color={service.color}
-            onPress={() => service.href && router.push(service.href)}
-          />
-        ))}
-      </View>
-
-      {/* Trending */}
-      <View style={styles.section}>
-        <Text variant="h4" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
-          {t('services.trendingTitle')}
-        </Text>
-      </View>
-
-      {trendingLoading ? (
-        <View style={styles.trendingSkeletonRow}>
-          {Array.from({ length: 3 }).map((_, index) => (
-            <View key={`trend-skeleton-${index}`} style={styles.trendingSkeletonCard}>
-              <Skeleton height={120} radius={borderRadius.lg} mode={isDark ? 'dark' : 'light'} />
-              <Skeleton
-                height={14}
-                radius={borderRadius.md}
-                mode={isDark ? 'dark' : 'light'}
-                style={styles.trendingSkeletonText}
-              />
-            </View>
+        <View style={styles.cardsStack}>
+          {services.map((service) => (
+            <ServiceCard
+              key={service.id}
+              title={service.title}
+              subtitle={service.description}
+              icon={service.icon}
+              color={service.color}
+              onPress={() => service.href && router.push(service.href)}
+            />
           ))}
         </View>
-      ) : trendingError ? (
-        <View style={[styles.errorCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text variant="body" weight="semibold">
-            {t('services.trending.errorTitle')}
-          </Text>
-          <Text variant="bodySmall" color={colors.textSecondary} style={styles.errorText}>
-            {trendingError}
-          </Text>
-          <Button size="small" onPress={loadTrending} style={styles.retryButton}>
-            {t('services.trending.retry')}
-          </Button>
-        </View>
-      ) : trending.length ? (
-        <FlatList
-          data={trending}
-          keyExtractor={(item, index) => String(item?.id ?? index)}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.trendingList}
-          renderItem={renderTrendingItem}
-        />
-      ) : (
-        <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text variant="body" weight="semibold">
-            {t('services.trending.emptyTitle')}
-          </Text>
-          <Text variant="bodySmall" color={colors.textSecondary}>
-            {t('services.trending.emptyMessage')}
-          </Text>
-        </View>
-      )}
 
-      {/* Bottom nav (visual, wired to real routes) */}
-      <View style={[styles.bottomNav, { backgroundColor: colors.surface }]}>
-        {[
-          { id: 'services', icon: 'grid', label: t('tabs.home'), href: '/services' },
-          { id: 'discover', icon: 'compass', label: t('tabs.discover'), href: '/academies' },
-          { id: 'book', icon: 'calendar', label: t('tabs.book'), href: '/playgrounds/explore' },
-          ...(isPlayer ? [{ id: 'portal', icon: 'user', label: t('tabs.portal'), href: '/portal/(tabs)/home' }] : []),
-        ].map((tab) => {
-          const active = tab.id === 'services';
-          return (
-            <Pressable
-              key={tab.id}
-              onPress={() => router.replace(tab.href)}
-              style={({ pressed }) => [styles.tabItem, { opacity: pressed ? 0.85 : 1 }]}
-            >
-              <Feather
-                name={tab.icon}
-                size={20}
-                color={active ? colors.accentOrange : colors.textMuted}
-              />
-              <Text
-                variant="caption"
-                weight={active ? 'bold' : 'medium'}
-                style={{ color: active ? colors.accentOrange : colors.textMuted }}
-              >
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+        {/* Trending */}
+        <View style={styles.section}>
+          <Text variant="h3" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
+            {t('services.trendingTitle')}
+          </Text>
+        </View>
+
+        {trendingLoading ? (
+          <View style={styles.trendingSkeletonRow}>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <View key={`trend-skeleton-${index}`} style={styles.trendingSkeletonCard}>
+                <Skeleton height={150} radius={borderRadius.xl} mode={isDark ? 'dark' : 'light'} />
+                <Skeleton
+                  height={14}
+                  radius={borderRadius.md}
+                  mode={isDark ? 'dark' : 'light'}
+                  style={styles.trendingSkeletonText}
+                />
+              </View>
+            ))}
+          </View>
+        ) : trendingError ? (
+          <View style={[styles.errorCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text variant="body" weight="semibold">
+              {t('services.trending.errorTitle')}
+            </Text>
+            <Text variant="bodySmall" color={colors.textSecondary} style={styles.errorText}>
+              {trendingError}
+            </Text>
+            <Button size="small" onPress={loadTrending} style={styles.retryButton}>
+              {t('services.trending.retry')}
+            </Button>
+          </View>
+        ) : trending.length ? (
+          <FlatList
+            data={trending}
+            keyExtractor={(item, index) => String(item?.id ?? item?.slug ?? index)}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.trendingList}
+            renderItem={renderTrendingItem}
+          />
+        ) : (
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text variant="body" weight="semibold">
+              {t('services.trending.emptyTitle')}
+            </Text>
+            <Text variant="bodySmall" color={colors.textSecondary}>
+              {t('services.trending.emptyMessage')}
+            </Text>
+          </View>
+        )}
+      </Animated.View>
 
       {/* Quick Settings */}
       <QuickSettingsSheet
@@ -378,38 +365,38 @@ const styles = StyleSheet.create({
   },
 
   logoWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
   },
   logo: {
-    width: 28,
-    height: 28,
+    width: 26,
+    height: 26,
   },
 
   avatarWrap: {
     padding: 4,
   },
   avatarRing: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    borderWidth: 2,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2.5,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   avatarFallback: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -445,7 +432,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   trendingSkeletonCard: {
-    width: 160,
+    width: 180,
     gap: spacing.sm,
   },
   trendingSkeletonText: {
@@ -471,22 +458,6 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     alignSelf: 'flex-start',
-  },
-
-  bottomNav: {
-    marginTop: spacing.xl,
-    marginHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.xl,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    ...shadows.md,
-  },
-  tabItem: {
-    alignItems: 'center',
-    gap: spacing.xs,
-    flex: 1,
   },
 
   backdrop: {

@@ -12,6 +12,8 @@ import { PortalListItem } from '../../components/portal/PortalListItem';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
 import { Button } from '../../components/ui/Button';
 import { usePortalOverview, usePortalRefresh } from '../../services/portal/portal.hooks';
+import { useAuth } from '../../services/auth/auth.store';
+import { validatePortalSession } from '../../services/auth/portalSession';
 import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
 
@@ -19,9 +21,11 @@ export function PortalHomeScreen() {
   const { colors } = useTheme();
   const { t, isRTL } = useTranslation();
   const router = useRouter();
+  const { session, logout, isLoading: authLoading } = useAuth();
   const { overview, loading, error } = usePortalOverview();
   const { refreshing, onRefresh } = usePortalRefresh();
   const placeholder = t('portal.common.placeholder');
+  const sessionValidation = authLoading ? { ok: true } : validatePortalSession(session);
 
   const errorStatus =
     error?.status ||
@@ -32,8 +36,10 @@ export function PortalHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      onRefresh();
-    }, [onRefresh])
+      if (!authLoading && sessionValidation.ok) {
+        onRefresh();
+      }
+    }, [authLoading, onRefresh, sessionValidation.ok])
   );
 
   const paymentsPreview = useMemo(() => {
@@ -45,7 +51,7 @@ export function PortalHomeScreen() {
     ? overview.registration.remainingSessions / overview.registration.totalSessions
     : 0.4;
 
-  if (loading && !overview) {
+  if ((loading || authLoading) && !overview) {
     return (
       <Screen safe>
         <View style={styles.skeletonStack}>
@@ -61,26 +67,28 @@ export function PortalHomeScreen() {
     );
   }
 
-  if (error && !overview) {
-    const isSessionMissing =
-      error?.code === 'PLAYER_SESSION_INVALID' ||
-      String(error?.message || '').includes('PORTAL_TOKEN_MISSING');
-    const isForbidden = errorStatus === 403;
+  const invalidSessionReason = !authLoading && !sessionValidation.ok ? sessionValidation.reason : null;
+
+  if ((error || invalidSessionReason) && !overview) {
+    const isSessionInvalid = Boolean(invalidSessionReason || error?.kind === 'PORTAL_SESSION_INVALID');
+    const isForbidden = error?.kind === 'PORTAL_FORBIDDEN' || errorStatus === 403;
     const isUnauthorized = errorStatus === 401;
-    const titleKey = isSessionMissing
-      ? 'portal.errors.sessionExpiredTitle'
+
+    const titleKey = isSessionInvalid
+      ? `portal.errors.${invalidSessionReason || 'sessionExpired'}Title`
       : isForbidden
       ? 'portal.errors.forbiddenTitle'
       : isUnauthorized
       ? 'portal.errors.unauthorizedTitle'
       : 'portal.errors.overviewTitle';
-    const descriptionKey = isSessionMissing
-      ? 'portal.errors.sessionExpiredDescription'
+    const descriptionKey = isSessionInvalid
+      ? `portal.errors.${invalidSessionReason || 'sessionExpired'}Description`
       : isForbidden
       ? 'portal.errors.forbiddenDescription'
       : isUnauthorized
       ? 'portal.errors.unauthorizedDescription'
       : 'portal.errors.overviewDescription';
+
     return (
       <Screen>
         <PortalEmptyState
@@ -91,14 +99,18 @@ export function PortalHomeScreen() {
             <Button
               size="small"
               onPress={() => {
-                if (isSessionMissing) {
-                  router.replace('/(auth)/login?mode=player');
+                if (isSessionInvalid || isForbidden || isUnauthorized) {
+                  logout().finally(() => {
+                    router.replace('/(auth)/login?mode=player');
+                  });
                   return;
                 }
                 onRefresh();
               }}
             >
-              {isSessionMissing ? t('portal.errors.sessionExpiredAction') : t('portal.common.retry')}
+              {isSessionInvalid || isForbidden || isUnauthorized
+                ? t('portal.errors.reAuthAction')
+                : t('portal.common.retry')}
             </Button>
           }
         />

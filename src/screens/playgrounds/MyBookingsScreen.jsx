@@ -4,19 +4,20 @@ import { useRouter } from 'expo-router';
 
 import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
-import { Screen } from '../../components/ui/Screen';
+import { AppScreen } from '../../components/ui/AppScreen';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Chip } from '../../components/ui/Chip';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
 import { BackButton } from '../../components/ui/BackButton';
-import { endpoints } from '../../services/api/endpoints';
 import { getPublicUser } from '../../services/playgrounds/storage';
 import { BookingCard } from '../../components/playgrounds/BookingCard';
+import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { spacing } from '../../theme/tokens';
 
 const STATUS_TABS = ['all', 'pending', 'approved', 'rejected', 'cancelled'];
@@ -27,37 +28,29 @@ export function MyBookingsScreen() {
   const router = useRouter();
 
   const [user, setUser] = useState(null);
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { bookings, bookingsLoading, bookingsError } = usePlaygroundsStore((state) => ({
+    bookings: state.bookings,
+    bookingsLoading: state.bookingsLoading,
+    bookingsError: state.bookingsError,
+  }));
+  const { listBookings } = usePlaygroundsActions();
   const [activeStatus, setActiveStatus] = useState('all');
   const [cancelTarget, setCancelTarget] = useState(null);
 
   const loadBookings = useCallback(async () => {
-    setLoading(true);
-    setError('');
     try {
       const publicUser = await getPublicUser();
       setUser(publicUser);
       if (!publicUser?.id) {
-        setLoading(false);
         return;
       }
-      const res = await endpoints.playgrounds.listBookings({ user_id: publicUser.id });
-      const list = Array.isArray(res?.bookings)
-        ? res.bookings
-        : Array.isArray(res?.data?.bookings)
-        ? res.data.bookings
-        : Array.isArray(res?.data)
-        ? res.data
-        : [];
-      setItems(list);
+      await listBookings({ user_id: publicUser.id });
     } catch (err) {
-      setError(err?.message || t('service.playgrounds.bookings.errors.load'));
-    } finally {
-      setLoading(false);
+      if (__DEV__) {
+        console.warn('Failed to load bookings', err);
+      }
     }
-  }, [t]);
+  }, [listBookings]);
 
   useEffect(() => {
     loadBookings();
@@ -65,7 +58,7 @@ export function MyBookingsScreen() {
 
   const counts = useMemo(() => {
     const base = STATUS_TABS.reduce((acc, status) => ({ ...acc, [status]: 0 }), {});
-    items.forEach((item) => {
+    bookings.forEach((item) => {
       const status = (item.status || 'pending').toLowerCase();
       base.all += 1;
       if (base[status] !== undefined) {
@@ -73,12 +66,12 @@ export function MyBookingsScreen() {
       }
     });
     return base;
-  }, [items]);
+  }, [bookings]);
 
   const filteredItems = useMemo(() => {
-    if (activeStatus === 'all') return items;
-    return items.filter((item) => (item.status || '').toLowerCase() === activeStatus);
-  }, [activeStatus, items]);
+    if (activeStatus === 'all') return bookings;
+    return bookings.filter((item) => (item.status || '').toLowerCase() === activeStatus);
+  }, [activeStatus, bookings]);
 
   const statusLabelMap = useMemo(
     () => ({
@@ -92,21 +85,35 @@ export function MyBookingsScreen() {
   );
 
   return (
-    <Screen safe>
+    <AppScreen safe>
       <AppHeader title={t('service.playgrounds.bookings.title')} leftSlot={<BackButton />} />
-      {!user?.id && !loading ? (
+      <View style={styles.segmentedWrap}>
+        <SegmentedControl
+          value="bookings"
+          onChange={(value) => {
+            if (value === 'explore') {
+              router.push('/playgrounds/explore');
+            }
+          }}
+          options={[
+            { value: 'explore', label: t('playgrounds.explore.header') },
+            { value: 'bookings', label: t('playgrounds.bookings.title') },
+          ]}
+        />
+      </View>
+      {!user?.id && !bookingsLoading ? (
         <EmptyState
           title={t('service.playgrounds.bookings.empty.authTitle')}
           message={t('service.playgrounds.bookings.empty.authMessage')}
           actionLabel={t('service.playgrounds.bookings.empty.authAction')}
           onAction={() => router.push('/playgrounds/auth')}
         />
-      ) : loading ? (
+      ) : bookingsLoading ? (
         <SporHiveLoader message={t('service.playgrounds.bookings.loading')} />
-      ) : error ? (
+      ) : bookingsError ? (
         <ErrorState
           title={t('service.playgrounds.bookings.errors.title')}
-          message={error}
+          message={bookingsError}
           onAction={loadBookings}
         />
       ) : (
@@ -169,11 +176,15 @@ export function MyBookingsScreen() {
           </View>
         </View>
       </BottomSheetModal>
-    </Screen>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  segmentedWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
   filterRow: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,

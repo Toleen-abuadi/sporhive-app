@@ -1,5 +1,6 @@
 import { apiClient } from '../api/client';
-import { playerPortalApi } from '../api/playerPortal.api';
+import { playerPortalApi } from '../api/playerPortalApi';
+import { getPortalAccessToken, getPortalAcademyId } from '../auth/portalSession';
 import { storage, PORTAL_KEYS, APP_STORAGE_KEYS } from '../storage/storage';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL + '/api/v1';
@@ -34,7 +35,7 @@ const readAuthSession = async () => {
 const resolveToken = async (override) => {
   if (override) return override;
   const session = await readAuthSession();
-  const portalToken = session?.portal_tokens?.access || session?.portal_tokens?.access_token || null;
+  const portalToken = getPortalAccessToken(session);
   if (portalToken) return portalToken;
   const tokens = await readPortalTokens();
   return tokens?.access || tokens?.token || tokens?.access_token || null;
@@ -43,7 +44,7 @@ const resolveToken = async (override) => {
 const resolveAcademyId = async (override) => {
   if (override != null) return Number(override);
   const session = await readAuthSession();
-  const sessionAcademy = session?.user?.academy_id || session?.user?.academyId || null;
+  const sessionAcademy = getPortalAcademyId(session);
   if (sessionAcademy != null) return Number(sessionAcademy);
   if (storage.getPortalAcademyId) return storage.getPortalAcademyId();
   const stored = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);

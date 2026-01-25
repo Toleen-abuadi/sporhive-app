@@ -7,7 +7,6 @@ import { Text } from '../ui/Text';
 import { Input } from '../ui/Input';
 import { Chip } from '../ui/Chip';
 import { Button } from '../ui/Button';
-import { endpoints } from '../../services/api/endpoints';
 import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
 import { borderRadius, shadows, spacing } from '../../theme/tokens';
@@ -21,12 +20,17 @@ const DEFAULT_FILTERS = {
   sortBy: 'rating_desc',
 };
 
-export function VenuesFilterSheet({ open, initialFilters, onApply, onClose }) {
+export function VenuesFilterSheet({
+  open,
+  initialFilters,
+  onApply,
+  onClose,
+  activities = [],
+  loadingActivities = false,
+}) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
-  const [activities, setActivities] = useState([]);
-  const [loadingActivities, setLoadingActivities] = useState(false);
   const activityIcons = [Star, Flame, Tag, Users];
 
   const activeFilters = useMemo(() => {
@@ -49,37 +53,12 @@ export function VenuesFilterSheet({ open, initialFilters, onApply, onClose }) {
     return items;
   }, [activities, filters, t]);
 
-  const loadActivities = useCallback(async () => {
-    setLoadingActivities(true);
-    try {
-      const res = await endpoints.playgrounds.activitiesList({ include_inactive: false });
-      const list = Array.isArray(res?.activities)
-        ? res.activities
-        : Array.isArray(res?.data?.activities)
-        ? res.data.activities
-        : Array.isArray(res?.data)
-        ? res.data
-        : [];
-      setActivities(list);
-    } catch {
-      setActivities([]);
-    } finally {
-      setLoadingActivities(false);
-    }
-  }, []);
-
   useEffect(() => {
     setFilters({
       ...DEFAULT_FILTERS,
       ...initialFilters,
     });
   }, [initialFilters]);
-
-  useEffect(() => {
-    if (open) {
-      loadActivities();
-    }
-  }, [loadActivities, open]);
 
   const handleReset = useCallback(() => {
     setFilters(DEFAULT_FILTERS);
