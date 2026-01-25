@@ -26,7 +26,6 @@ import {
   getPublicUser,
   setPlaygroundsClientState,
   setPublicUser,
-  setPublicUserMode,
   setPublicUserToken,
 } from '../../services/playgrounds/storage';
 import { spacing } from '../../theme/tokens';
@@ -255,7 +254,6 @@ export function PlaygroundsAuthScreen() {
       }
 
       await setPublicUser(user);
-      await setPublicUserMode('registered');
       if (authToken) await setPublicUserToken(authToken);
       if (clientState) await setPlaygroundsClientState(clientState);
 
@@ -329,7 +327,6 @@ export function PlaygroundsAuthScreen() {
       }
 
       await setPublicUser(user);
-      await setPublicUserMode('registered');
       if (authToken) await setPublicUserToken(authToken);
       if (clientState) await setPlaygroundsClientState(clientState);
 
