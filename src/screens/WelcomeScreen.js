@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Image, SafeAreaView, StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
+import { AppScreen } from '../components/ui/AppScreen';
 import { Button } from '../components/ui/Button';
 import { Text } from '../components/ui/Text';
 import { useI18n } from '../services/i18n/i18n';
@@ -120,7 +121,7 @@ export function WelcomeScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+    <AppScreen paddingHorizontal={0} paddingTop={0} paddingBottom={0}>
       <View style={styles.container}>
         <LinearGradient
           colors={
@@ -226,14 +227,11 @@ export function WelcomeScreen() {
           </Text>
         </Animated.View>
       </View>
-    </SafeAreaView>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
   container: {
     flex: 1,
     paddingHorizontal: spacing.xl,

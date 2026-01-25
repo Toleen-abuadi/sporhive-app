@@ -8,13 +8,14 @@ import { Text } from '../ui/Text';
 import { borderRadius, spacing } from '../../theme/tokens';
 
 export function ServiceCard({ title, subtitle, icon, color, onPress }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { isRTL } = useI18n();
 
   return (
     <Card
       onPress={onPress}
       padding="large"
+      elevated={!isDark}
       style={[
         styles.card,
         {
@@ -68,9 +69,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
   },
   iconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
   },

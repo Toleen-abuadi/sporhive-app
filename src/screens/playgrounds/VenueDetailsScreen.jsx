@@ -5,12 +5,12 @@ import { MapPin, Share2, Star } from 'lucide-react-native';
 
 import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
-import { Screen } from '../../components/ui/Screen';
+import { AppHeader } from '../../components/ui/AppHeader';
+import { AppScreen } from '../../components/ui/AppScreen';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Chip } from '../../components/ui/Chip';
 import { IconButton } from '../../components/ui/IconButton';
-import { BackButton } from '../../components/ui/BackButton';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { endpoints } from '../../services/api/endpoints';
 import { API_BASE_URL } from '../../services/api/client';
@@ -142,7 +142,20 @@ export function VenueDetailsScreen() {
   const academyLocation = venue?.academy_profile?.city || venue?.academy_profile?.country || venue?.location_text;
 
   return (
-    <Screen safe>
+    <AppScreen paddingHorizontal={0} paddingTop={0} paddingBottom={0}>
+      <AppHeader
+        title={venue?.name || venue?.title || t('service.playgrounds.common.playground')}
+        subtitle={location || undefined}
+        variant="transparent"
+        right={(
+          <IconButton
+            icon={() => <Share2 size={18} color={colors.textPrimary} />}
+            onPress={() => {}}
+            accessibilityLabel={t('service.playgrounds.venue.actions.share')}
+            style={[styles.headerIcon, { backgroundColor: colors.surface }]}
+          />
+        )}
+      />
       {loading ? (
         <SporHiveLoader message={t('service.playgrounds.venue.loading')} />
       ) : error ? (
@@ -186,18 +199,6 @@ export function VenueDetailsScreen() {
                 )}
               </ScrollView>
               <View style={styles.heroOverlay}>
-                <View style={styles.heroActions}>
-                  <BackButton
-                    color={colors.textPrimary}
-                    style={[styles.heroIcon, { backgroundColor: colors.surface }]}
-                  />
-                  <IconButton
-                    icon={() => <Share2 size={18} color={colors.textPrimary} />}
-                    onPress={() => {}}
-                    accessibilityLabel={t('service.playgrounds.venue.actions.share')}
-                    style={[styles.heroIcon, { backgroundColor: colors.surface }]}
-                  />
-                </View>
                 {rating !== null ? (
                   <View style={[styles.ratingBadge, { backgroundColor: colors.surface }]}>
                     <Star size={12} color={colors.accentOrange} />
@@ -322,7 +323,7 @@ export function VenueDetailsScreen() {
           </View>
         </>
       ) : null}
-    </Screen>
+    </AppScreen>
   );
 }
 
@@ -359,11 +360,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: spacing.md,
   },
-  heroActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  heroIcon: {
+  headerIcon: {
     borderRadius: borderRadius.full,
     padding: spacing.xs,
   },

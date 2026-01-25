@@ -12,24 +12,40 @@ export function TrendingVenueCard({ title, imageUrl, onPress }) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.card, { opacity: pressed ? 0.9 : 1 }]}
+      style={({ pressed }) => [
+        styles.card,
+        {
+          opacity: pressed ? 0.9 : 1,
+        },
+      ]}
     >
-      {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={styles.image} />
-      ) : (
-        <LinearGradient
-          colors={
-            isDark
-              ? [colors.surface, colors.surfaceElevated || colors.surface]
-              : [colors.surface, `${colors.accentOrange}1A`]
-          }
-          style={styles.placeholder}
-        >
-          <View style={[styles.placeholderIcon, { backgroundColor: `${colors.accentOrange}22` }]}>
-            <Feather name="image" size={20} color={colors.accentOrange} />
-          </View>
-        </LinearGradient>
-      )}
+      <View
+        style={[
+          styles.mediaWrap,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            shadowOpacity: isDark ? 0 : 0.12,
+          },
+        ]}
+      >
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={styles.image} />
+        ) : (
+          <LinearGradient
+            colors={
+              isDark
+                ? [colors.surface, colors.surfaceElevated || colors.surface]
+                : [colors.accentOrange, colors.primarySoft]
+            }
+            style={styles.placeholder}
+          >
+            <View style={[styles.placeholderIcon, { backgroundColor: `${colors.accentOrange}33` }]}>
+              <Feather name="activity" size={20} color={colors.accentOrange} />
+            </View>
+          </LinearGradient>
+        )}
+      </View>
       <Text variant="bodySmall" weight="semibold" style={styles.title} numberOfLines={2}>
         {title}
       </Text>
@@ -39,25 +55,32 @@ export function TrendingVenueCard({ title, imageUrl, onPress }) {
 
 const styles = StyleSheet.create({
   card: {
-    width: 160,
+    width: 176,
     gap: spacing.sm,
+  },
+  mediaWrap: {
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 12,
   },
   image: {
     width: '100%',
-    height: 120,
-    borderRadius: borderRadius.lg,
+    height: 140,
+    borderRadius: borderRadius.xl,
   },
   placeholder: {
     width: '100%',
-    height: 120,
-    borderRadius: borderRadius.lg,
+    height: 140,
+    borderRadius: borderRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
   placeholderIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
