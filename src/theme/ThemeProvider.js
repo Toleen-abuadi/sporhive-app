@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import { useColorScheme } from 'react-native';
 import { darkPalette, lightPalette } from './palette';
 import { storage, APP_STORAGE_KEYS } from '../services/storage/storage';
-import { spacing, borderRadius, typography, shadow } from './tokens';
+import { spacing, borderRadius, typography, shadow, motion, iconSizes } from './tokens';
 
 const ThemeContext = createContext();
 
@@ -79,6 +79,8 @@ export function ThemeProvider({ children }) {
         borderRadius,
         typography,
         shadow,
+        motion,
+        iconSizes,
         isDark: resolvedTheme === 'dark',
         isLoading,
         toggleTheme,
