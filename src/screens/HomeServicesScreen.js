@@ -13,9 +13,9 @@ import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
 import { useAuth } from '../services/auth/auth.store';
 import { getAvailableServices } from '../services/services/services.catalog';
-import { endpoints } from '../services/api/endpoints';
-import { API_BASE_URL } from '../services/api/client';
-import { borderRadius, shadows, spacing } from '../theme/tokens';
+import { spacing, borderRadius } from '../theme/tokens';
+
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 const logoSource = require('../../assets/images/logo.png');
 
@@ -49,7 +49,8 @@ export function HomeServicesScreen() {
   const { t, isRTL } = useI18n();
   const router = useRouter();
   const { logout, session } = useAuth();
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
+  const [themeSheetOpen, setThemeSheetOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [trending, setTrending] = useState([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
@@ -91,11 +92,6 @@ export function HomeServicesScreen() {
     description: t(service.descriptionKey),
     color: colors[service.colorKey] || colors.accentOrange,
   }));
-
-  const avatarInitials = useMemo(() => getInitials(session?.user), [session?.user]);
-  const avatarImage = session?.user?.avatar || session?.user?.image || session?.user?.photo || null;
-
-  const isPlayer = session?.login_as === 'player' || session?.user?.type === 'player';
 
   return (
     <Screen safe scroll contentContainerStyle={styles.scrollContent}>
