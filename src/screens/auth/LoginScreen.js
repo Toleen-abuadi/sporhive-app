@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useTranslation } from '../../services/i18n/i18n';
 import { Screen } from '../../components/ui/Screen';
@@ -44,7 +45,8 @@ export function LoginScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const toast = useToast();
-  const { login, isLoading, error, lastSelectedAcademyId, setLastSelectedAcademyId } = useAuth();
+  const { loginPublic, loginPlayer, isLoading, error, lastSelectedAcademyId, setLastSelectedAcademyId } =
+    useAuth();
 
   const glow = useRef(new Animated.Value(0)).current;
 
@@ -134,10 +136,9 @@ export function LoginScreen() {
         setFormErrors(nextErrors);
         return;
       }
-      const res = await login({
+      const res = await loginPublic({
         phone: normalizePhone(phone),
         password,
-        login_as: 'public',
       });
       if (res.success) {
         toast.success(t('auth.login.success'));
@@ -157,9 +158,8 @@ export function LoginScreen() {
       return;
     }
 
-    const res = await login({
-      login_as: 'player',
-      academy_id: academy.id,
+    const res = await loginPlayer({
+      academyId: academy.id,
       username: username.trim(),
       password,
     });
@@ -346,6 +346,14 @@ export function LoginScreen() {
             )}
           </AuthCard>
 
+          <View style={styles.footer}>
+            <Pressable onPress={() => router.replace('/services')} style={styles.footerLink}>
+              <Feather name={isRTL ? 'arrow-left' : 'arrow-right'} size={16} color={colors.textSecondary} />
+              <Text variant="bodySmall" color={colors.textSecondary}>
+                {t('auth.login.skip')}
+              </Text>
+            </Pressable>
+          </View>
         </KeyboardAvoidingView>
       </LinearGradient>
     </Screen>
@@ -409,5 +417,14 @@ const styles = StyleSheet.create({
   errorBanner: {
     borderRadius: borderRadius.md,
     padding: spacing.sm,
+  },
+  footer: {
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  footerLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
 });

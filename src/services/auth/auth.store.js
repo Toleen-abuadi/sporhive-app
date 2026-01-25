@@ -4,10 +4,11 @@ import { storage, APP_STORAGE_KEYS } from '../storage/storage';
 
 const INITIAL_STATE = {
   isAuthenticated: false,
-  isHydrating: true,
-  isLoading: false,
-  session: null,
+  isLoading: true,
+  user: null,
+  userType: null,
   token: null,
+  portalAccessToken: null,
   lastSelectedAcademyId: null,
   error: null,
 };
@@ -43,14 +44,15 @@ export function AuthProvider({ children }) {
         storage.getAuthToken(),
       ]);
       const lastSelectedAcademyId = lastAcademyRaw != null ? Number(lastAcademyRaw) : null;
-      if (session?.login_as || token) {
+      if (session?.userType || token) {
         setState({
           ...INITIAL_STATE,
-          isAuthenticated: Boolean(session?.login_as || token),
-          isHydrating: false,
+          isAuthenticated: Boolean(session?.userType || token),
           isLoading: false,
-          session: session || null,
+          user: session?.user || null,
+          userType: session?.userType || null,
           token: token || session?.token || null,
+          portalAccessToken: session?.portalAccessToken || null,
           lastSelectedAcademyId,
         });
         return;
@@ -60,7 +62,7 @@ export function AuthProvider({ children }) {
         console.warn('Failed to restore auth session', error);
       }
     }
-    setState((prev) => ({ ...prev, isHydrating: false, isLoading: false }));
+    setState((prev) => ({ ...prev, isLoading: false }));
   }, []);
 
   useEffect(() => {
@@ -73,53 +75,76 @@ export function AuthProvider({ children }) {
     setState((prev) => ({ ...prev, lastSelectedAcademyId: id }));
   }, []);
 
-  const login = useCallback(
-    async (payload) => {
-      setState((prev) => ({ ...prev, isHydrating: false, isLoading: true, error: null }));
-      const result = await authApi.login(payload);
+  const loginPublic = useCallback(async ({ phone, password }) => {
+    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    const result = await authApi.login({
+      login_as: 'public',
+      phone,
+      password,
+    });
+
+    if (result.success) {
+      const token = extractToken(result.data);
+      const user = extractUser(result.data);
+      const session = {
+        user,
+        userType: 'public',
+        token,
+        portalAccessToken: null,
+      };
+      await persistSession(session, token);
+      setState((prev) => ({
+        ...prev,
+        isAuthenticated: true,
+        isLoading: false,
+        user,
+        userType: 'public',
+        token,
+        portalAccessToken: null,
+      }));
+      return { success: true, data: result.data };
+    }
+
+    const error = result?.error || new Error('Login failed');
+    setState((prev) => ({ ...prev, isLoading: false, error }));
+    return { success: false, error };
+  }, [persistSession]);
+
+  const loginPlayer = useCallback(
+    async ({ academyId, username, password }) => {
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+      const result = await authApi.login({
+        login_as: 'player',
+        academy_id: Number(academyId),
+        username,
+        password,
+      });
 
       if (result.success) {
+        const portalAccessToken =
+          result.data?.portal_tokens?.access ||
+          result.data?.portal_tokens?.access_token ||
+          null;
         const token = extractToken(result.data);
-        const rawUser = extractUser(result.data) || {};
-        const roles = Array.isArray(result.data?.roles) ? result.data.roles : [];
-        const portalTokens = result.data?.portal_tokens || null;
-        const loginAs = payload?.login_as || 'public';
-        const academyId =
-          rawUser?.academy_id ??
-          rawUser?.academyId ??
-          result.data?.academy_id ??
-          payload?.academy_id ??
-          null;
-        const externalPlayerId =
-          rawUser?.external_player_id ??
-          rawUser?.externalPlayerId ??
-          result.data?.external_player_id ??
-          result.data?.player_id ??
-          rawUser?.player_id ??
-          null;
+        const user = extractUser(result.data);
         const session = {
-          user: {
-            type: loginAs === 'player' ? 'player' : 'public',
-            first_name: rawUser?.first_name ?? rawUser?.firstName ?? '',
-            last_name: rawUser?.last_name ?? rawUser?.lastName ?? '',
-            phone: rawUser?.phone ?? rawUser?.phone_number ?? '',
-            academy_id: loginAs === 'player' ? Number(academyId || 0) || null : null,
-            external_player_id: loginAs === 'player' ? externalPlayerId || null : null,
-          },
-          roles,
-          portal_tokens: portalTokens,
-          login_as: loginAs,
+          user,
+          userType: 'player',
+          token,
+          portalAccessToken,
         };
-        await persistSession(session, token);
-        if (payload?.academy_id) {
-          await setLastSelectedAcademyId(payload.academy_id);
-        }
+        await Promise.all([
+          persistSession(session, token),
+          setLastSelectedAcademyId(academyId),
+        ]);
         setState((prev) => ({
           ...prev,
           isAuthenticated: true,
           isLoading: false,
-          session,
+          user,
+          userType: 'player',
           token,
+          portalAccessToken,
         }));
         return { success: true, data: result.data };
       }
@@ -137,18 +162,19 @@ export function AuthProvider({ children }) {
       storage.removeItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID),
       storage.removeAuthToken(),
     ]);
-    setState({ ...INITIAL_STATE, isHydrating: false });
+    setState({ ...INITIAL_STATE, isLoading: false });
   }, []);
 
   const value = useMemo(
     () => ({
       ...state,
-      login,
+      loginPublic,
+      loginPlayer,
       logout,
       restoreSession,
       setLastSelectedAcademyId,
     }),
-    [state, login, logout, restoreSession, setLastSelectedAcademyId]
+    [state, loginPublic, loginPlayer, logout, restoreSession, setLastSelectedAcademyId]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

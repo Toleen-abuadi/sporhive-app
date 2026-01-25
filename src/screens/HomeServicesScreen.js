@@ -18,44 +18,6 @@ import { spacing, borderRadius } from '../theme/tokens';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
-const resolveUserType = (session) => session?.user?.type || session?.login_as || null;
-
-const availableServices = ({ session, t, colors }) => {
-  const type = resolveUserType(session);
-  const items = [
-    {
-      id: 'discover',
-      title: t('home.discoverCard.title'),
-      description: t('home.discoverCard.description'),
-      icon: 'compass',
-      color: colors.accentOrange,
-      screen: 'Discover',
-      href: '/academies',
-    },
-    {
-      id: 'portal',
-      title: t('home.portalCard.title'),
-      description: t('home.portalCard.description'),
-      icon: 'user',
-      color: colors.info,
-      screen: 'Portal',
-      href: '/portal/(tabs)/home',
-      requiresPlayer: true,
-    },
-    {
-      id: 'playgrounds-explore',
-      title: t('home.playgrounds.explore.title'),
-      description: t('home.playgrounds.explore.description'),
-      icon: 'map',
-      color: colors.success,
-      screen: 'PlaygroundsExplore',
-      href: '/playgrounds/explore',
-    },
-  ];
-
-  return items.filter((item) => !item.requiresPlayer || type === 'player');
-};
-
 function ServiceCard({ title, description, icon, color, onPress }) {
   const { colors } = useTheme();
   const { isRTL } = useI18n();
@@ -125,7 +87,7 @@ export function HomeServicesScreen() {
   const { colors, themePreference, setThemePreference } = useTheme();
   const { t, language, changeLanguage, isRTL } = useI18n();
   const router = useRouter();
-  const { logout, session } = useAuth();
+  const { logout } = useAuth();
   const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
   const [themeSheetOpen, setThemeSheetOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
@@ -147,7 +109,35 @@ export function HomeServicesScreen() {
     router.replace('/(auth)/login');
   };
 
-  const services = availableServices({ session, t, colors });
+  const services = [
+    {
+      id: 'discover',
+      title: t('home.discoverCard.title'),
+      description: t('home.discoverCard.description'),
+      icon: 'compass',
+      color: colors.accentOrange,
+      screen: 'Discover',
+      href: '/academies',
+    },
+    {
+      id: 'portal',
+      title: t('home.portalCard.title'),
+      description: t('home.portalCard.description'),
+      icon: 'user',
+      color: colors.info,
+      screen: 'Portal',
+      href: '/portal/(tabs)/home',
+    },
+    {
+      id: 'playgrounds-explore',
+      title: t('home.playgrounds.explore.title'),
+      description: t('home.playgrounds.explore.description'),
+      icon: 'map',
+      color: colors.success,
+      screen: 'PlaygroundsExplore',
+      href: '/playgrounds/explore',
+    },
+  ];
 
   return (
     <Screen safe scroll contentContainerStyle={styles.scrollContent}>
