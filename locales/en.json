@@ -641,6 +641,15 @@
     "discovery": {
       "title": "Discover academies",
       "subtitle": "Filter, compare, then join in a few taps.",
+      "view": {
+        "map": "Map",
+        "list": "List"
+      },
+      "results": "{{count}} academies",
+      "loadMore": "Load more",
+      "peek": {
+        "view": "View"
+      },
       "loading": {
         "title": "Finding academies",
         "subtitle": "Curating the best matches for you…"
@@ -652,13 +661,16 @@
           "open": "Filters",
           "title": "Smart filters",
           "subtitle": "Refine results to match what you need.",
+          "searchLabel": "City or location",
           "sport": {
             "label": "Sport",
-            "placeholder": "e.g. Football"
+            "placeholder": "e.g. Football",
+            "quickPick": "Popular sports"
           },
           "city": {
             "label": "City",
-            "placeholder": "e.g. Amman"
+            "placeholder": "e.g. Amman",
+            "quickPick": "Popular cities"
           },
           "ageFrom": {
             "label": "Age from",
@@ -670,6 +682,7 @@
           },
           "registrationEnabled": "Registration enabled",
           "proOnly": "PRO only",
+          "sortLabel": "Sort by",
           "reset": "Reset",
           "apply": "Apply"
         },
