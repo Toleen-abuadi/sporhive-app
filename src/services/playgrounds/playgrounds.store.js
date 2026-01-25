@@ -36,7 +36,6 @@ const INITIAL_STATE = {
   bookings: [],
   bookingsLoading: false,
   bookingsError: null,
-  bookingsErrorStatus: null,
   bookingDraft: null,
 };
 

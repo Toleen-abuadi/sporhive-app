@@ -15,6 +15,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
 import { BackButton } from '../../components/ui/BackButton';
+import { getPublicUser } from '../../services/playgrounds/storage';
 import { BookingCard } from '../../components/playgrounds/BookingCard';
 import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { spacing } from '../../theme/tokens';
@@ -28,12 +29,11 @@ export function MyBookingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const { session, isLoading: authLoading, restoreSession, logout } = useAuth();
-  const { bookings, bookingsLoading, bookingsError, bookingsErrorStatus } = usePlaygroundsStore((state) => ({
+  const [user, setUser] = useState(null);
+  const { bookings, bookingsLoading, bookingsError } = usePlaygroundsStore((state) => ({
     bookings: state.bookings,
     bookingsLoading: state.bookingsLoading,
     bookingsError: state.bookingsError,
-    bookingsErrorStatus: state.bookingsErrorStatus,
   }));
   const { listBookings } = usePlaygroundsActions();
   const [activeStatus, setActiveStatus] = useState('all');
@@ -45,20 +45,18 @@ export function MyBookingsScreen() {
 
   const loadBookings = useCallback(async () => {
     try {
-      if (!session) return;
-      const headers = getPlaygroundsAuthHeaders(session);
-      if (!headers) return;
-      const payload = {};
-      if (session?.login_as === 'public' && session?.user?.id) {
-        payload.user_id = session.user.id;
+      const publicUser = await getPublicUser();
+      setUser(publicUser);
+      if (!publicUser?.id) {
+        return;
       }
-      await listBookings(payload, { headers });
+      await listBookings({ user_id: publicUser.id });
     } catch (err) {
       if (__DEV__) {
         console.warn('Failed to load bookings', err);
       }
     }
-  }, [listBookings, session]);
+  }, [listBookings]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -121,48 +119,20 @@ export function MyBookingsScreen() {
           ]}
         />
       </View>
-      {!authLoading && !session ? (
+      {!user?.id && !bookingsLoading ? (
         <EmptyState
           title={t('service.playgrounds.bookings.empty.authTitle')}
           message={t('service.playgrounds.bookings.empty.authMessage')}
           actionLabel={t('service.playgrounds.bookings.empty.authAction')}
           onAction={() => router.push('/(auth)/login')}
         />
-      ) : !authLoading && session && !authHeaders ? (
-        <EmptyState
-          title={t('service.playgrounds.bookings.empty.sessionTitle')}
-          message={t('service.playgrounds.bookings.empty.sessionMessage')}
-          actionLabel={
-            sessionRefreshAttempted
-              ? t('service.playgrounds.bookings.empty.sessionActionSignIn')
-              : t('service.playgrounds.bookings.empty.sessionActionRetry')
-          }
-          onAction={sessionRefreshAttempted ? handleSignInAgain : handleRetrySession}
-        />
-      ) : bookingsLoading || authLoading ? (
+      ) : bookingsLoading ? (
         <SporHiveLoader message={t('service.playgrounds.bookings.loading')} />
       ) : bookingsError ? (
         <ErrorState
-          title={
-            bookingsErrorStatus === 401 || bookingsErrorStatus === 403
-              ? t('service.playgrounds.bookings.errors.unauthorizedTitle')
-              : t('service.playgrounds.bookings.errors.title')
-          }
-          message={
-            bookingsErrorStatus === 401 || bookingsErrorStatus === 403
-              ? t('service.playgrounds.bookings.errors.unauthorizedMessage')
-              : bookingsError
-          }
-          actionLabel={
-            bookingsErrorStatus === 401 || bookingsErrorStatus === 403
-              ? t('service.playgrounds.bookings.errors.signInAction')
-              : t('service.playgrounds.bookings.errors.retryAction')
-          }
-          onAction={
-            bookingsErrorStatus === 401 || bookingsErrorStatus === 403
-              ? handleSignInAgain
-              : loadBookings
-          }
+          title={t('service.playgrounds.bookings.errors.title')}
+          message={bookingsError}
+          onAction={loadBookings}
         />
       ) : (
         <>

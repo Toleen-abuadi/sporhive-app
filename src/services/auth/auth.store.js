@@ -96,14 +96,6 @@ export function AuthProvider({ children }) {
       const lastSelectedAcademyId = lastAcademyRaw != null ? Number(lastAcademyRaw) : null;
       const loginAs = session?.login_as || session?.userType || session?.user?.type || null;
       const portalAccessToken = getPortalAccessToken(session);
-      const resolvedToken =
-        token ||
-        session?.tokens?.access ||
-        session?.tokens?.token ||
-        session?.token ||
-        session?.access_token ||
-        session?.access ||
-        null;
       if (loginAs || token) {
         setState({
           ...INITIAL_STATE,

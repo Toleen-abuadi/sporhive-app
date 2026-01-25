@@ -312,7 +312,6 @@ export function BookingStepperScreen() {
     createBooking,
     setBookingDraft: persistBookingDraft,
   } = usePlaygroundsActions();
-  const bookingsAuthHeaders = useMemo(() => getPlaygroundsAuthHeaders(session), [session]);
 
   const loadVenue = useCallback(async () => {
     setLoading(true);
@@ -573,10 +572,8 @@ export function BookingStepperScreen() {
       await persistBookingDraft(null);
 
       if (publicUser?.id) {
-        await listBookings(
-          { user_id: publicUser.id },
-          bookingsAuthHeaders ? { headers: bookingsAuthHeaders } : undefined
-        );
+
+       await listBookings({ user_id: publicUser.id });
       }
 
       toast.success(t('service.playgrounds.booking.success.toastMessage'), {
@@ -600,7 +597,6 @@ export function BookingStepperScreen() {
     createBooking,
     draftPayload,
     listBookings,
-    bookingsAuthHeaders,
     paymentType,
     persistBookingDraft,
     players,
