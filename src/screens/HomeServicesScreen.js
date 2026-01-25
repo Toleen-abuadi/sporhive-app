@@ -1,16 +1,14 @@
-import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { FlatList, Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Screen } from '../components/ui/Screen';
 import { Text } from '../components/ui/Text';
-import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Skeleton } from '../components/ui/Skeleton';
+import { QuickSettingsSheet } from '../components/services/QuickSettingsSheet';
+import { ServiceCard } from '../components/services/ServiceCard';
+import { TrendingVenueCard } from '../components/services/TrendingVenueCard';
 import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
 import { useAuth } from '../services/auth/auth.store';
@@ -19,91 +17,69 @@ import { spacing, borderRadius } from '../theme/tokens';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
-function ServiceCard({ title, description, icon, color, onPress }) {
-  const { colors } = useTheme();
-  const { isRTL } = useI18n();
-  const scale = useSharedValue(1);
+const logoSource = require('../../assets/images/logo.png');
 
-  const handlePressIn = () => {
-    scale.value = withSpring(0.97, { damping: 15 });
-  };
+const normalizeImageUrl = (uri) => {
+  if (!uri) return null;
+  if (uri.startsWith('http')) return uri;
+  const normalized = uri.startsWith('/') ? uri : `/${uri}`;
+  return `${API_BASE_URL}${normalized}`;
+};
 
-  const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15 });
-  };
+const resolveVenueImage = (venue) => {
+  const images = Array.isArray(venue?.images) ? venue.images : venue?.venue_images || [];
+  const url = images
+    .map((img) => img?.url || img?.path || img?.filename || '')
+    .find(Boolean);
+  if (url) return normalizeImageUrl(url);
+  if (venue?.image) return normalizeImageUrl(venue.image);
+  if (venue?.academy_profile?.hero_image) return normalizeImageUrl(venue.academy_profile.hero_image);
+  return null;
+};
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <AnimatedTouchable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      activeOpacity={0.9}
-      style={animatedStyle}
-    >
-      <Card
-        padding="large"
-        style={[
-          styles.serviceCard,
-          {
-            flexDirection: isRTL ? 'row-reverse' : 'row',
-          },
-        ]}
-      >
-        <View
-          style={[
-            styles.iconCircle,
-            { backgroundColor: color + '20' },
-            isRTL ? { marginLeft: spacing.lg } : { marginRight: spacing.lg },
-          ]}
-        >
-          <Feather name={icon} size={32} color={color} />
-        </View>
-
-        <View style={[styles.cardContent, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-          <Text variant="h4" weight="bold" style={[styles.cardTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
-            {title}
-          </Text>
-          <Text
-            variant="body"
-            color={colors.textSecondary}
-            style={[styles.cardDescription, { textAlign: isRTL ? 'right' : 'left' }]}
-          >
-            {description}
-          </Text>
-        </View>
-
-        <View style={[styles.arrowContainer, { marginLeft: isRTL ? 0 : spacing.md, marginRight: isRTL ? spacing.md : 0 }]}>
-          <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={24} color={colors.textMuted} />
-        </View>
-      </Card>
-    </AnimatedTouchable>
-  );
-}
+const getInitials = (user) => {
+  const first = user?.first_name || user?.firstName || '';
+  const last = user?.last_name || user?.lastName || '';
+  const initials = `${first?.[0] || ''}${last?.[0] || ''}`.trim();
+  return initials || user?.username?.[0] || user?.phone?.[0] || 'S';
+};
 
 export function HomeServicesScreen() {
-  const { colors, themePreference, setThemePreference } = useTheme();
-  const { t, language, changeLanguage, isRTL } = useI18n();
+  const { colors, isDark } = useTheme();
+  const { t, isRTL } = useI18n();
   const router = useRouter();
   const { logout, session } = useAuth();
   const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
   const [themeSheetOpen, setThemeSheetOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const [trending, setTrending] = useState([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+  const [trendingError, setTrendingError] = useState('');
 
-  const handleLanguageSelect = async (nextLanguage) => {
-    await changeLanguage(nextLanguage);
-    Haptics.selectionAsync();
-    setLanguageSheetOpen(false);
-  };
+  const loadTrending = useCallback(async () => {
+    setTrendingLoading(true);
+    setTrendingError('');
+    try {
+      const res = await endpoints.playgrounds.venuesList({});
+      const list = Array.isArray(res?.data?.venues)
+        ? res.data.venues
+        : Array.isArray(res?.venues)
+        ? res.venues
+        : Array.isArray(res?.data)
+        ? res.data
+        : [];
+      setTrending(list.slice(0, 8));
+    } catch (error) {
+      setTrendingError(error?.message || t('services.trending.error'));
+      setTrending([]);
+    } finally {
+      setTrendingLoading(false);
+    }
+  }, [t]);
 
-  const handleThemeSelect = async (nextTheme) => {
-    await setThemePreference(nextTheme);
-    Haptics.selectionAsync();
-    setThemeSheetOpen(false);
-  };
+  useEffect(() => {
+    loadTrending();
+  }, [loadTrending]);
 
   const handleLogout = async () => {
     await logout();
@@ -120,204 +96,180 @@ export function HomeServicesScreen() {
   return (
     <Screen safe scroll contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
-        <View style={[styles.headerTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={[styles.logoContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View
-              style={[
-                styles.sparkle,
-                { backgroundColor: colors.accentOrange },
-                isRTL ? styles.sparkleRtl : styles.sparkleLtr,
-              ]}
-            >
-              <Text variant="h3">⚡</Text>
+        <View style={[styles.brandRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View style={[styles.brandInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View style={[styles.logoWrap, { backgroundColor: `${colors.accentOrange}1A` }]}> 
+              <Image source={logoSource} style={styles.logo} resizeMode="contain" />
             </View>
-            <Text variant="h2" weight="bold">
-              {t('home.title')}
-            </Text>
-          </View>
-
-          <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Pressable
-              onPress={() => setLanguageSheetOpen(true)}
-              style={({ pressed }) => [
-                styles.iconButton,
-                { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
-              ]}
-            >
-              <Feather name="globe" size={16} color={colors.textPrimary} />
-              <Text variant="caption" weight="semibold" style={{ color: colors.textPrimary }}>
-                {language === 'en' ? t('language.shortEn') : t('language.shortAr')}
+            <View style={styles.brandText}>
+              <Text variant="h2" weight="bold">
+                SporHive
               </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setThemeSheetOpen(true)}
-              style={({ pressed }) => [
-                styles.iconButton,
-                { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
-              ]}
-            >
-              <Feather
-                name={themePreference === 'dark' ? 'moon' : themePreference === 'light' ? 'sun' : 'smartphone'}
-                size={16}
-                color={colors.textPrimary}
-              />
-            </Pressable>
-            <Pressable
-              onPress={() => setLogoutOpen(true)}
-              style={({ pressed }) => [
-                styles.iconButton,
-                { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
-              ]}
-            >
-              <Feather name="log-out" size={16} color={colors.textPrimary} />
-            </Pressable>
+              <Text variant="bodySmall" color={colors.textSecondary}>
+                {t('services.subtitle')}
+              </Text>
+            </View>
           </View>
+          <Pressable onPress={() => setSettingsOpen(true)} style={styles.avatarWrap}>
+            <View style={[styles.avatarRing, { borderColor: colors.accentOrange }]}> 
+              {avatarImage ? (
+                <Image source={{ uri: avatarImage }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatarFallback, { backgroundColor: colors.surface }]}> 
+                  <Text variant="body" weight="bold">
+                    {avatarInitials}
+                  </Text>
+                </View>
+              )}
+              <View
+                style={[
+                  styles.onlineDot,
+                  { backgroundColor: colors.success, borderColor: colors.background },
+                ]}
+              />
+            </View>
+          </Pressable>
         </View>
+      </View>
 
-        <Text
-          variant="body"
-          color={colors.textSecondary}
-          style={[styles.subtitle, { textAlign: isRTL ? 'right' : 'left' }]}
-        >
-          {t('home.subtitle')}
+      <View style={styles.section}>
+        <Text variant="h3" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
+          {t('services.exploreTitle')}
         </Text>
       </View>
 
-      <View style={styles.servicesContainer}>
+      <View style={styles.cardsStack}>
         {services.map((service) => (
           <ServiceCard
             key={service.id}
             title={service.title}
-            description={service.description}
+            subtitle={service.description}
             icon={service.icon}
             color={service.color}
-            onPress={async () => {
-              if (!service.href) return;
-              router.push(service.href);
-            }}
-
+            onPress={() => service.href && router.push(service.href)}
           />
         ))}
       </View>
 
-      <Modal
-        transparent
-        animationType="slide"
-        visible={languageSheetOpen}
-        onRequestClose={() => setLanguageSheetOpen(false)}
-      >
-        <View style={styles.sheetBackdrop}>
-          <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text variant="h4" weight="bold">
-              {t('home.actions.languageTitle')}
-            </Text>
-            <Pressable
-              onPress={() => handleLanguageSelect('en')}
-              style={[
-                styles.sheetItem,
-                { borderColor: language === 'en' ? colors.accentOrange : colors.border },
-              ]}
-            >
-              <Text variant="body" weight="semibold">
-                {t('language.en')}
-              </Text>
-              {language === 'en' ? <Feather name="check" size={16} color={colors.accentOrange} /> : null}
-            </Pressable>
-            <Pressable
-              onPress={() => handleLanguageSelect('ar')}
-              style={[
-                styles.sheetItem,
-                { borderColor: language === 'ar' ? colors.accentOrange : colors.border },
-              ]}
-            >
-              <Text variant="body" weight="semibold">
-                {t('language.ar')}
-              </Text>
-              {language === 'ar' ? <Feather name="check" size={16} color={colors.accentOrange} /> : null}
-            </Pressable>
-            <Pressable onPress={() => setLanguageSheetOpen(false)} style={styles.sheetCancel}>
-              <Text variant="bodySmall" color={colors.textSecondary}>
-                {t('common.cancel')}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      <View style={styles.section}>
+        <Text variant="h4" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
+          {t('services.trendingTitle')}
+        </Text>
+      </View>
 
-      <Modal
-        transparent
-        animationType="slide"
-        visible={themeSheetOpen}
-        onRequestClose={() => setThemeSheetOpen(false)}
-      >
-        <View style={styles.sheetBackdrop}>
-          <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text variant="h4" weight="bold">
-              {t('home.actions.themeTitle')}
-            </Text>
-            {[
-              { value: 'light', label: t('theme.light'), icon: 'sun' },
-              { value: 'dark', label: t('theme.dark'), icon: 'moon' },
-              { value: 'system', label: t('theme.system'), icon: 'smartphone' },
-            ].map((opt) => (
-              <Pressable
-                key={opt.value}
-                onPress={() => handleThemeSelect(opt.value)}
-                style={[
-                  styles.sheetItem,
-                  { borderColor: themePreference === opt.value ? colors.accentOrange : colors.border },
-                ]}
-              >
-                <View style={styles.sheetItemRow}>
-                  <Feather name={opt.icon} size={16} color={colors.textSecondary} />
-                  <Text variant="body" weight="semibold">
-                    {opt.label}
-                  </Text>
-                </View>
-                {themePreference === opt.value ? (
-                  <Feather name="check" size={16} color={colors.accentOrange} />
-                ) : null}
-              </Pressable>
-            ))}
-            <Pressable onPress={() => setThemeSheetOpen(false)} style={styles.sheetCancel}>
-              <Text variant="bodySmall" color={colors.textSecondary}>
-                {t('common.cancel')}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        transparent
-        animationType="fade"
-        visible={logoutOpen}
-        onRequestClose={() => setLogoutOpen(false)}
-      >
-        <View style={styles.logoutBackdrop}>
-          <View style={[styles.logoutCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text variant="h4" weight="bold">
-              {t('home.actions.logoutTitle')}
-            </Text>
-            <Text variant="bodySmall" color={colors.textSecondary} style={styles.logoutSubtitle}>
-              {t('home.actions.logoutSubtitle')}
-            </Text>
-            <View style={styles.logoutActions}>
-              <Pressable
-                onPress={() => setLogoutOpen(false)}
-                style={[styles.logoutButton, { borderColor: colors.border }]}
-              >
-                <Text variant="bodySmall">{t('common.cancel')}</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleLogout}
-                style={[styles.logoutButton, { backgroundColor: colors.accentOrange }]}
-              >
-                <Text variant="bodySmall" weight="bold" style={{ color: colors.white }}>
-                  {t('home.actions.logoutConfirm')}
-                </Text>
-              </Pressable>
+      {trendingLoading ? (
+        <View style={styles.trendingSkeletonRow}>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <View key={`trend-skeleton-${index}`} style={styles.trendingSkeletonCard}>
+              <Skeleton height={120} radius={borderRadius.lg} mode={isDark ? 'dark' : 'light'} />
+              <Skeleton
+                height={14}
+                radius={borderRadius.md}
+                mode={isDark ? 'dark' : 'light'}
+                style={styles.trendingSkeletonText}
+              />
             </View>
+          ))}
+        </View>
+      ) : trendingError ? (
+        <View style={[styles.errorCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+          <Text variant="body" weight="semibold">
+            {t('services.trending.errorTitle')}
+          </Text>
+          <Text variant="bodySmall" color={colors.textSecondary} style={styles.errorText}>
+            {trendingError}
+          </Text>
+          <Button size="small" onPress={loadTrending} style={styles.retryButton}>
+            {t('services.trending.retry')}
+          </Button>
+        </View>
+      ) : trending.length ? (
+        <FlatList
+          data={trending}
+          keyExtractor={(item, index) => String(item?.id ?? index)}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.trendingList}
+          renderItem={({ item }) => (
+            <TrendingVenueCard
+              title={item?.name || item?.title || t('services.trending.fallback')}
+              imageUrl={resolveVenueImage(item)}
+              onPress={() => {
+                if (!item?.id) return;
+                router.push(`/playgrounds/venue/${item.id}`);
+              }}
+            />
+          )}
+        />
+      ) : (
+        <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+          <Text variant="body" weight="semibold">
+            {t('services.trending.emptyTitle')}
+          </Text>
+          <Text variant="bodySmall" color={colors.textSecondary}>
+            {t('services.trending.emptyMessage')}
+          </Text>
+        </View>
+      )}
+
+      <View style={[styles.bottomNav, { backgroundColor: colors.surface }]}> 
+        {[
+          { id: 'services', icon: 'grid', label: t('tabs.home'), href: '/services' },
+          { id: 'discover', icon: 'compass', label: t('tabs.discover'), href: '/academies' },
+          { id: 'book', icon: 'calendar', label: t('tabs.book'), href: '/playgrounds/explore' },
+          ...(isPlayer
+            ? [{ id: 'portal', icon: 'user', label: t('tabs.portal'), href: '/portal/(tabs)/home' }]
+            : []),
+        ].map((tab) => {
+          const active = tab.id === 'services';
+          return (
+            <Pressable
+              key={tab.id}
+              onPress={() => router.replace(tab.href)}
+              style={({ pressed }) => [styles.tabItem, { opacity: pressed ? 0.85 : 1 }]}
+            >
+              <Feather
+                name={tab.icon}
+                size={20}
+                color={active ? colors.accentOrange : colors.textMuted}
+              />
+              <Text
+                variant="caption"
+                weight={active ? 'bold' : 'medium'}
+                style={{ color: active ? colors.accentOrange : colors.textMuted }}
+              >
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <QuickSettingsSheet
+        visible={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onLogoutPress={() => {
+          setSettingsOpen(false);
+          setLogoutOpen(true);
+        }}
+      />
+
+      <Modal transparent visible={logoutOpen} animationType="fade">
+        <Pressable style={styles.backdrop} onPress={() => setLogoutOpen(false)} />
+        <View style={[styles.confirmCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+          <Text variant="h4" weight="bold">
+            {t('services.settings.logoutTitle')}
+          </Text>
+          <Text variant="bodySmall" color={colors.textSecondary} style={styles.confirmText}>
+            {t('services.settings.logoutMessage')}
+          </Text>
+          <View style={styles.confirmActions}>
+            <Button variant="secondary" size="small" onPress={() => setLogoutOpen(false)}>
+              {t('services.settings.logoutCancel')}
+            </Button>
+            <Button size="small" onPress={handleLogout}>
+              {t('services.settings.logoutConfirm')}
+            </Button>
           </View>
         </View>
       </Modal>
@@ -327,131 +279,148 @@ export function HomeServicesScreen() {
 
 const styles = StyleSheet.create({
   scrollContent: {
-    padding: spacing.lg,
+    paddingBottom: spacing.xl,
   },
   header: {
-    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
   },
-  headerTop: {
-    flexDirection: 'row',
+  brandRow: {
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  brandInfo: {
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  brandText: {
+    gap: 2,
+  },
+  logoWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: {
+    width: 28,
+    height: 28,
+  },
+  avatarWrap: {
+    padding: 4,
+  },
+  avatarRing: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  avatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+  },
+  avatarFallback: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  onlineDot: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    bottom: -2,
+    right: -2,
+  },
+  section: {
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.xl,
     marginBottom: spacing.md,
   },
-  logoContainer: {
+  cardsStack: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+  },
+  trendingList: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  trendingSkeletonRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
-  sparkle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sparkleLtr: {
-    marginRight: spacing.md,
-  },
-  sparkleRtl: {
-    marginLeft: spacing.md,
-  },
-  headerActions: {
-    alignItems: 'center',
+  trendingSkeletonCard: {
+    width: 160,
     gap: spacing.sm,
   },
-  iconButton: {
-    borderRadius: borderRadius.pill,
+  trendingSkeletonText: {
+    marginTop: spacing.xs,
+  },
+  emptyCard: {
+    marginHorizontal: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.xs,
   },
-  subtitle: {
-    marginTop: spacing.sm,
-  },
-  servicesContainer: {
-    gap: spacing.lg,
-  },
-  serviceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardContent: {
-    flex: 1,
-  },
-  cardTitle: {
-    marginBottom: spacing.xs,
-  },
-  cardDescription: {
-    lineHeight: 20,
-  },
-  arrowContainer: {
-    marginLeft: spacing.md,
-  },
-  sheetBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  sheet: {
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    borderWidth: 1,
+  errorCard: {
+    marginHorizontal: spacing.lg,
     padding: spacing.lg,
-    gap: spacing.md,
-  },
-  sheetItem: {
-    borderWidth: 1,
     borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    borderWidth: 1,
+    gap: spacing.sm,
+  },
+  errorText: {
+    marginBottom: spacing.sm,
+  },
+  retryButton: {
+    alignSelf: 'flex-start',
+  },
+  bottomNav: {
+    marginTop: spacing.xl,
+    marginHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.xl,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    ...shadows.md,
   },
-  sheetItemRow: {
-    flexDirection: 'row',
+  tabItem: {
     alignItems: 'center',
-    gap: spacing.sm,
-  },
-  sheetCancel: {
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-  },
-  logoutBackdrop: {
+    gap: spacing.xs,
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: spacing.lg,
   },
-  logoutCard: {
-    width: '100%',
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  confirmCard: {
+    position: 'absolute',
+    bottom: 120,
+    left: spacing.lg,
+    right: spacing.lg,
+    padding: spacing.lg,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  logoutSubtitle: {
-    marginTop: -spacing.sm,
-  },
-  logoutActions: {
-    flexDirection: 'row',
     gap: spacing.sm,
   },
-  logoutButton: {
-    flex: 1,
-    borderRadius: borderRadius.pill,
-    borderWidth: 1,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
+  confirmText: {
+    marginBottom: spacing.sm,
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
 });

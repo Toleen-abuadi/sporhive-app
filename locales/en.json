@@ -58,6 +58,37 @@
     "portal": "Portal",
     "profile": "Profile"
   },
+  "services": {
+    "subtitle": "Your Sports Hub",
+    "exploreTitle": "Explore Services",
+    "trendingTitle": "Trending Near You",
+    "cards": {
+      "discoverTitle": "Discover Academies",
+      "discoverSubtitle": "Find professional training near you.",
+      "portalTitle": "Player Portal",
+      "portalSubtitle": "Manage your stats and profile.",
+      "playgroundsTitle": "Playgrounds",
+      "playgroundsSubtitle": "Book courts and fields instantly."
+    },
+    "trending": {
+      "fallback": "Trending venue",
+      "emptyTitle": "No venues yet",
+      "emptyMessage": "We couldn’t find trending venues nearby.",
+      "errorTitle": "Unable to load trending venues",
+      "error": "Please try again in a moment.",
+      "retry": "Retry"
+    },
+    "settings": {
+      "title": "Quick Settings",
+      "language": "Language",
+      "theme": "Theme",
+      "logout": "Log out",
+      "logoutTitle": "Log out?",
+      "logoutMessage": "Are you sure you want to log out?",
+      "logoutCancel": "Cancel",
+      "logoutConfirm": "Log out"
+    }
+  },
   "placeholder": {
     "title": "Coming Soon",
     "message": "This feature is under development and will be available soon."

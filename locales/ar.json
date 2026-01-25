@@ -58,6 +58,37 @@
     "portal": "البوابة",
     "profile": "الملف الشخصي"
   },
+  "services": {
+    "subtitle": "مركزك الرياضي",
+    "exploreTitle": "استكشف الخدمات",
+    "trendingTitle": "الأكثر رواجًا بالقرب منك",
+    "cards": {
+      "discoverTitle": "اكتشف الأكاديميات",
+      "discoverSubtitle": "اعثر على تدريبات احترافية بالقرب منك.",
+      "portalTitle": "بوابة اللاعب",
+      "portalSubtitle": "أدر إحصاءاتك وملفك الشخصي.",
+      "playgroundsTitle": "الملاعب",
+      "playgroundsSubtitle": "احجز الملاعب بسرعة وسهولة."
+    },
+    "trending": {
+      "fallback": "مكان رائج",
+      "emptyTitle": "لا توجد ملاعب بعد",
+      "emptyMessage": "لم نتمكن من العثور على أماكن رائجة بالقرب منك.",
+      "errorTitle": "تعذر تحميل الأماكن الرائجة",
+      "error": "يرجى المحاولة مرة أخرى بعد قليل.",
+      "retry": "إعادة المحاولة"
+    },
+    "settings": {
+      "title": "الإعدادات السريعة",
+      "language": "اللغة",
+      "theme": "المظهر",
+      "logout": "تسجيل الخروج",
+      "logoutTitle": "تسجيل الخروج؟",
+      "logoutMessage": "هل أنت متأكد من تسجيل الخروج؟",
+      "logoutCancel": "إلغاء",
+      "logoutConfirm": "تسجيل الخروج"
+    }
+  },
   "placeholder": {
     "title": "قريباً",
     "message": "هذه الميزة قيد التطوير وستكون متاحة قريباً."
