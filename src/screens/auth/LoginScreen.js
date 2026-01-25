@@ -45,7 +45,8 @@ export function LoginScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const toast = useToast();
-  const { login, isLoading, error, lastSelectedAcademyId, setLastSelectedAcademyId } = useAuth();
+  const { loginPublic, loginPlayer, isLoading, error, lastSelectedAcademyId, setLastSelectedAcademyId } =
+    useAuth();
 
   const glow = useRef(new Animated.Value(0)).current;
 
@@ -135,10 +136,9 @@ export function LoginScreen() {
         setFormErrors(nextErrors);
         return;
       }
-      const res = await login({
+      const res = await loginPublic({
         phone: normalizePhone(phone),
         password,
-        login_as: 'public',
       });
       if (res.success) {
         toast.success(t('auth.login.success'));
@@ -158,9 +158,8 @@ export function LoginScreen() {
       return;
     }
 
-    const res = await login({
-      login_as: 'player',
-      academy_id: academy.id,
+    const res = await loginPlayer({
+      academyId: academy.id,
       username: username.trim(),
       password,
     });

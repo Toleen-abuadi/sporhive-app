@@ -11,16 +11,16 @@ import {
 import { useRouter } from 'expo-router';
 import { CalendarDays, Filter, Flame, Star, Tag, Users } from 'lucide-react-native';
 
-import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { Input } from '../../components/ui/Input';
+import { Text } from '../../components/ui/Text';
 import { Chip } from '../../components/ui/Chip';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
-import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { VenueCard } from '../../components/playgrounds/VenueCard';
 import { endpoints } from '../../services/api/endpoints';
 import { API_BASE_URL } from '../../services/api/client';
@@ -84,32 +84,29 @@ function formatMoney(amount, currency) {
   return `${normalizedCurrency} ${Number(amount).toFixed(0)}`;
 }
 
-function resolvePriceLabel(venue, t) {
+function resolvePriceLabel(venue) {
   const currency = venue.currency || 'AED';
   if (venue.price !== null && venue.price !== undefined) {
     const priceLabel = formatMoney(venue.price, currency);
-    return priceLabel ? `${priceLabel}` : t('service.playgrounds.common.placeholder');
+    return priceLabel ? `${priceLabel}` : '—';
   }
   const durations = Array.isArray(venue.durations)
     ? venue.durations
     : Array.isArray(venue.venue_durations)
     ? venue.venue_durations
     : [];
-  if (!durations.length) return t('service.playgrounds.common.placeholder');
+  if (!durations.length) return '—';
   const prices = durations
     .map((item) => Number(item?.base_price))
     .filter((value) => Number.isFinite(value));
-  if (!prices.length) return t('service.playgrounds.common.placeholder');
+  if (!prices.length) return '—';
   const minPrice = Math.min(...prices);
   const label = formatMoney(minPrice, currency);
-  return label
-    ? t('service.playgrounds.common.fromPrice', { price: label })
-    : t('service.playgrounds.common.placeholder');
+  return label ? `From ${label}` : '—';
 }
 
 export function PlaygroundsExploreScreen() {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const { width } = useWindowDimensions();
 
@@ -147,10 +144,10 @@ export function PlaygroundsExploreScreen() {
     const icons = [Star, Flame, Tag, Users];
     return activities.slice(0, 8).map((activity, index) => ({
       id: String(activity.id),
-      label: activity.name || t('service.playgrounds.explore.activityFallback'),
+      label: activity.name || 'Activity',
       Icon: icons[index % icons.length],
     }));
-  }, [activities, t]);
+  }, [activities]);
 
   const applyFilters = useCallback(() => {
     setAppliedFilters(filters);
@@ -249,13 +246,13 @@ export function PlaygroundsExploreScreen() {
           cachedResults: list,
         });
       } catch (err) {
-        setError(err?.message || t('service.playgrounds.explore.errors.load'));
+        setError(err?.message || 'Unable to load playgrounds right now.');
       } finally {
         setVenuesLoading(false);
         setRefreshing(false);
       }
     },
-    [buildPayload, debouncedSearch, t]
+    [buildPayload, debouncedSearch]
   );
 
   useEffect(() => {
@@ -303,41 +300,54 @@ export function PlaygroundsExploreScreen() {
     ],
   };
 
+  const renderSkeletons = useMemo(() => {
+    const count = columns === 2 ? 4 : 3;
+    return (
+      <View style={styles.skeletonWrap}>
+        {Array.from({ length: count }).map((_, index) => (
+          <Skeleton
+            key={`skeleton-${index}`}
+            height={210}
+            radius={borderRadius.lg}
+            mode={isDark ? 'dark' : 'light'}
+            style={{ marginBottom: spacing.lg }}
+          />
+        ))}
+      </View>
+    );
+  }, [columns, isDark]);
+
   return (
     <Screen safe>
       <AppHeader
-        title={t('service.playgrounds.explore.title')}
+        title="Playgrounds"
         rightIcon={publicUser?.id ? 'log-out' : null}
         onRightPress={publicUser?.id ? handleLogout : undefined}
       />
       <View style={styles.stickyHeader}>
         <Input
-          label={t('service.playgrounds.explore.search.label')}
+          label="Search"
           value={searchQuery}
           onChangeText={(value) => {
             setSearchQuery(value);
             setFilters((prev) => ({ ...prev, baseLocation: value }));
           }}
-          placeholder={t('service.playgrounds.explore.search.placeholder')}
+          placeholder="Search by venue or location"
           leftIcon="search"
-          accessibilityLabel={t('service.playgrounds.explore.search.accessibilityLabel')}
+          accessibilityLabel="Search venues"
         />
         <View style={styles.headerRow}>
           <Button
             variant="secondary"
             size="small"
             onPress={applyFilters}
-            accessibilityLabel={t('service.playgrounds.explore.filters.applyAccessibility')}
+            accessibilityLabel="Apply filters"
           >
-            {t('service.playgrounds.explore.filters.button')}
+            Filters
           </Button>
           <View style={styles.quickChips}>
             <Chip
-              label={
-                filters.date
-                  ? t('service.playgrounds.explore.filters.dateSelected', { date: filters.date })
-                  : t('service.playgrounds.explore.filters.pickDate')
-              }
+              label={filters.date ? `Date: ${filters.date}` : 'Pick date'}
               selected={!!filters.date}
               onPress={() =>
                 setFilters((prev) => ({
@@ -348,13 +358,13 @@ export function PlaygroundsExploreScreen() {
               icon={<CalendarDays size={12} color={colors.textMuted} />}
             />
             <Chip
-              label={t('service.playgrounds.explore.filters.players', { count: filters.players || 2 })}
+              label={`${filters.players || 2} players`}
               selected
               onPress={() => setFilters((prev) => ({ ...prev, players: (prev.players || 2) + 1 }))}
               icon={<Users size={12} color={colors.textMuted} />}
             />
             <Chip
-              label={t('service.playgrounds.explore.filters.offers')}
+              label="Offers"
               selected={filters.hasSpecialOffer}
               onPress={() => setFilters((prev) => ({ ...prev, hasSpecialOffer: !prev.hasSpecialOffer }))}
               icon={<Tag size={12} color={colors.textMuted} />}
@@ -373,7 +383,7 @@ export function PlaygroundsExploreScreen() {
           ))}
         </View>
         <View
-          style={[styles.tabsRow, { borderBottomColor: colors.border }]}
+          style={styles.tabsRow}
           onLayout={(event) => {
             tabWidth.current = event.nativeEvent.layout.width / 2;
           }}
@@ -382,17 +392,17 @@ export function PlaygroundsExploreScreen() {
             variant="ghost"
             size="small"
             onPress={() => setActiveTab('all')}
-            accessibilityLabel={t('service.playgrounds.explore.tabs.allAccessibility')}
+            accessibilityLabel="All venues"
           >
-            {t('service.playgrounds.explore.tabs.all')}
+            All
           </Button>
           <Button
             variant="ghost"
             size="small"
             onPress={() => setActiveTab('offers')}
-            accessibilityLabel={t('service.playgrounds.explore.tabs.offersAccessibility')}
+            accessibilityLabel="Offers"
           >
-            {t('service.playgrounds.explore.tabs.offers')}
+            Offers
           </Button>
           <Animated.View
             style={[
@@ -405,13 +415,9 @@ export function PlaygroundsExploreScreen() {
       </View>
 
       {venuesLoading ? (
-        <SporHiveLoader message={t('service.playgrounds.explore.loading')} />
+        renderSkeletons
       ) : error ? (
-        <ErrorState
-          title={t('service.playgrounds.explore.errors.title')}
-          message={error}
-          onAction={() => fetchVenues(appliedFilters)}
-        />
+        <ErrorState title="Unable to load" message={error} onAction={() => fetchVenues(appliedFilters)} />
       ) : venues.length ? (
         <FlatList
           data={venues}
@@ -426,19 +432,17 @@ export function PlaygroundsExploreScreen() {
             const ratingRaw = item.avg_rating ?? 0;
             const rating = Number.isFinite(Number(ratingRaw)) ? Number(ratingRaw) : 0;
             const ratingCount = Number.isFinite(Number(item.ratings_count)) ? Number(item.ratings_count) : 0;
-            const activityLabel = item.activity_id
-              ? activityMap.get(String(item.activity_id))
-              : t('service.playgrounds.common.multiSport');
+            const activityLabel = item.activity_id ? activityMap.get(String(item.activity_id)) : 'Multi-sport';
             const discountLabel =
               item.special_offer_note || item.academy_profile?.special_offers_note || null;
-            const priceLabel = resolvePriceLabel(item, t);
+            const priceLabel = resolvePriceLabel(item);
             const locationText =
               item.base_location || item.academy_profile?.location_text || '';
 
             return (
               <View style={[styles.cardWrap, columns > 1 && styles.cardWrapGrid]}>
                 <VenueCard
-                  title={item.name || item.title || t('service.playgrounds.common.playground')}
+                  title={item.name || item.title || 'Playground'}
                   location={locationText}
                   imageUrl={imageUrl}
                   rating={ratingCount ? rating : 0}
@@ -458,46 +462,26 @@ export function PlaygroundsExploreScreen() {
         />
       ) : (
         <EmptyState
-          title={t('service.playgrounds.explore.empty.title')}
-          message={t('service.playgrounds.explore.empty.message')}
-          actionLabel={t('service.playgrounds.explore.empty.action')}
+          title="No venues found"
+          message="Try adjusting filters or resetting your search."
+          actionLabel="Reset filters"
           onAction={resetFilters}
         />
       )}
 
       {Platform.OS !== 'web' ? (
         <View style={[styles.bottomTabs, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Button
-            variant="ghost"
-            size="small"
-            accessibilityLabel={t('service.playgrounds.nav.explore')}
-            onPress={() => router.push('/playgrounds/explore')}
-          >
-            {t('service.playgrounds.nav.explore')}
+          <Button variant="ghost" size="small" accessibilityLabel="Explore" onPress={() => router.push('/playgrounds/explore')}>
+            Explore
           </Button>
-          <Button
-            variant="ghost"
-            size="small"
-            accessibilityLabel={t('service.playgrounds.nav.bookings')}
-            onPress={() => router.push('/playgrounds/bookings')}
-          >
-            {t('service.playgrounds.nav.bookings')}
+          <Button variant="ghost" size="small" accessibilityLabel="Bookings" onPress={() => router.push('/playgrounds/bookings')}>
+            Bookings
           </Button>
-          <Button
-            variant="ghost"
-            size="small"
-            accessibilityLabel={t('service.playgrounds.nav.offers')}
-            onPress={() => setActiveTab('offers')}
-          >
-            {t('service.playgrounds.nav.offers')}
+          <Button variant="ghost" size="small" accessibilityLabel="Offers" onPress={() => setActiveTab('offers')}>
+            Offers
           </Button>
-          <Button
-            variant="ghost"
-            size="small"
-            accessibilityLabel={t('service.playgrounds.nav.profile')}
-            onPress={() => router.push('/playgrounds/auth')}
-          >
-            {t('service.playgrounds.nav.profile')}
+          <Button variant="ghost" size="small" accessibilityLabel="Profile" onPress={() => router.push('/playgrounds/auth')}>
+            Profile
           </Button>
         </View>
       ) : null}
@@ -532,6 +516,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     position: 'relative',
     borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
     paddingBottom: spacing.sm,
   },
   tabsUnderline: {
@@ -567,5 +552,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderWidth: 1,
     ...shadows.md,
+  },
+  skeletonWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
 });
