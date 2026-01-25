@@ -1,20 +1,20 @@
 import { apiClient } from './client';
 import { storage, APP_STORAGE_KEYS } from '../storage/storage';
 import {
-  resolvePlayerAcademyId,
-  resolvePlayerId,
-  resolvePlayerPortalToken,
-  validatePlayerSession,
-} from '../auth/session.utils';
+  getPortalAccessToken,
+  getPortalAcademyId,
+  getPortalPlayerId,
+  validatePortalSession,
+} from '../auth/portalSession';
 
 const readAuthSession = async () => {
   const session = await storage.getItem(APP_STORAGE_KEYS.AUTH_SESSION);
   return session && typeof session === 'object' ? session : null;
 };
 
-const buildOverviewHeaders = (session) => {
-  const token = resolvePlayerPortalToken(session);
-  const academyId = resolvePlayerAcademyId(session);
+const buildPortalHeaders = (session) => {
+  const token = getPortalAccessToken(session);
+  const academyId = getPortalAcademyId(session);
   const headers = {
     'Content-Type': 'application/json',
   };
@@ -32,8 +32,8 @@ const buildOverviewHeaders = (session) => {
 };
 
 const buildOverviewPayload = (session) => {
-  const academyId = resolvePlayerAcademyId(session);
-  const playerId = resolvePlayerId(session);
+  const academyId = getPortalAcademyId(session);
+  const playerId = getPortalPlayerId(session);
   const payload = {};
 
   if (academyId) {
@@ -49,32 +49,34 @@ const buildOverviewPayload = (session) => {
   return payload;
 };
 
-const attachStatus = (error) => {
+const normalizePortalError = (error, fallbackKind = 'PORTAL_ERROR') => {
   const status =
     error?.response?.status ||
     error?.status ||
     error?.statusCode ||
     error?.meta?.status ||
     null;
-  if (status && !error.status) {
-    error.status = status;
-  }
-  return error;
+  const kind = status === 401 || status === 403 ? 'PORTAL_FORBIDDEN' : fallbackKind;
+  const normalized = error instanceof Error ? error : new Error(error?.message || 'Portal request failed');
+  normalized.status = status;
+  normalized.kind = kind;
+  return normalized;
 };
 
 export const playerPortalApi = {
   async getOverview(sessionOverride) {
     const session = sessionOverride || (await readAuthSession());
-    const validation = validatePlayerSession(session);
+    const validation = validatePortalSession(session);
 
     if (!validation.ok) {
-      const error = new Error('PLAYER_SESSION_INVALID');
-      error.code = 'PLAYER_SESSION_INVALID';
+      const error = new Error('PORTAL_SESSION_INVALID');
+      error.code = 'PORTAL_SESSION_INVALID';
+      error.kind = 'PORTAL_SESSION_INVALID';
       error.reason = validation.reason;
       return { success: false, error };
     }
 
-    const headers = buildOverviewHeaders(session);
+    const headers = buildPortalHeaders(session);
     const payload = buildOverviewPayload(session);
 
     try {
@@ -85,7 +87,7 @@ export const playerPortalApi = {
       );
       return { success: true, data };
     } catch (error) {
-      return { success: false, error: attachStatus(error) };
+      return { success: false, error: normalizePortalError(error) };
     }
   },
 };
