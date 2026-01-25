@@ -1,47 +1,55 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+// src/screens/HomeServicesScreen.js
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
   FlatList,
   Image,
   Modal,
   Pressable,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+
 import { AppHeader } from '../components/ui/AppHeader';
 import { AppScreen } from '../components/ui/AppScreen';
 import { Text } from '../components/ui/Text';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
+
 import { QuickSettingsSheet } from '../components/services/QuickSettingsSheet';
 import { ServiceCard } from '../components/services/ServiceCard';
 import { TrendingVenueCard } from '../components/services/TrendingVenueCard';
+
 import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
 import { useAuth } from '../services/auth/auth.store';
-import { getAvailableServices } from '../services/services/services.catalog';
-import { spacing, borderRadius, shadows } from '../theme/tokens';
 import { playgroundsApi } from '../services/playgrounds/playgrounds.api';
 import { API_BASE_URL } from '../services/api/client';
+import { spacing, borderRadius, shadows } from '../theme/tokens';
 
 const logoSource = require('../../assets/images/logo.png');
 
 const normalizeImageUrl = (uri) => {
   if (!uri) return null;
+  if (typeof uri !== 'string') return null;
   if (uri.startsWith('http')) return uri;
   const normalized = uri.startsWith('/') ? uri : `/${uri}`;
   return `${API_BASE_URL}${normalized}`;
 };
 
 const resolveVenueImage = (venue) => {
-  const images = Array.isArray(venue?.images) ? venue.images : venue?.venue_images || [];
-  const url = images
-    .map((img) => img?.url || img?.path || img?.filename || '')
+  const images = Array.isArray(venue?.images)
+    ? venue.images
+    : Array.isArray(venue?.venue_images)
+      ? venue.venue_images
+      : [];
+
+  const urlFromArray = images
+    .map((img) => img?.url || img?.path || img?.image || img?.filename || '')
     .find(Boolean);
-  if (url) return normalizeImageUrl(url);
+
+  if (urlFromArray) return normalizeImageUrl(urlFromArray);
   if (venue?.image) return normalizeImageUrl(venue.image);
   if (venue?.academy_profile?.hero_image) return normalizeImageUrl(venue.academy_profile.hero_image);
   return null;
@@ -54,18 +62,37 @@ const getInitials = (user) => {
   return initials || user?.username?.[0] || user?.phone?.[0] || 'S';
 };
 
+const isPlayerSession = (session) => {
+  const user = session?.user || session?.profile || session || null;
+  const loginAs =
+    session?.login_as ||
+    session?.loginAs ||
+    session?.userType ||
+    user?.type ||
+    user?.role ||
+    '';
+  return String(loginAs).toLowerCase() === 'player';
+};
+
 export function HomeServicesScreen() {
   const { colors, isDark } = useTheme();
   const { t, isRTL } = useI18n();
   const router = useRouter();
   const { logout, session } = useAuth();
 
-  // Role-aware UI
-  const user = session?.user || session?.profile || session || null;
-  const loginAs = session?.login_as || session?.loginAs || user?.type || user?.role || '';
-  const isPlayer = String(loginAs).toLowerCase() === 'player';
+  const mountedRef = useRef(true);
 
-  // Avatar
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+
+  const [trending, setTrending] = useState([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+  const [trendingError, setTrendingError] = useState('');
+
+  const isPlayer = useMemo(() => isPlayerSession(session), [session]);
+
+  const user = session?.user || session?.profile || session || null;
+
   const avatarImage =
     user?.avatar ||
     user?.avatar_url ||
@@ -75,70 +102,7 @@ export function HomeServicesScreen() {
     user?.photo_url ||
     null;
 
-  const avatarInitials = getInitials(user);
-  const [logoutOpen, setLogoutOpen] = useState(false);
-  const [trending, setTrending] = useState([]);
-  const [trendingLoading, setTrendingLoading] = useState(true);
-  const [trendingError, setTrendingError] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(false);
-
-
-  const loadTrending = useCallback(async () => {
-    setTrendingLoading(true);
-    setTrendingError('');
-    try {
-      const res = await playgroundsApi.publicVenuesList({});
-      const list = Array.isArray(res?.data?.venues)
-        ? res.data.venues
-        : Array.isArray(res?.venues)
-          ? res.venues
-          : Array.isArray(res?.data)
-            ? res.data
-            : [];
-      setTrending(list.slice(0, 8));
-    } catch (error) {
-      if (!isMounted.current) return;
-      setTrendingError(error?.message || t('services.trending.error'));
-      setTrending([]);
-    } finally {
-      if (!isMounted.current) return;
-      setTrendingLoading(false);
-    }
-  }, [t]);
-
-  useEffect(() => {
-    isMounted.current = true;
-    loadTrending();
-    return () => {
-      isMounted.current = false;
-    };
-  }, [loadTrending]);
-
-  const handleLogout = async () => {
-    await logout();
-    router.replace('/(auth)/login');
-  };
-
-  const isPlayer =
-    session?.login_as === 'player' || session?.userType === 'player' || session?.user?.type === 'player';
-  const avatarImage =
-    session?.user?.avatar || session?.user?.image || session?.user?.photo || session?.user?.profile_photo || null;
-  const avatarInitials = getInitials(session?.user);
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(contentOpacity, {
-        toValue: 1,
-        duration: 360,
-        useNativeDriver: true,
-      }),
-      Animated.timing(contentTranslate, {
-        toValue: 0,
-        duration: 360,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [contentOpacity, contentTranslate]);
+  const avatarInitials = useMemo(() => getInitials(user), [user]);
 
   const services = useMemo(() => {
     const items = [
@@ -175,6 +139,66 @@ export function HomeServicesScreen() {
     return items;
   }, [colors.accentOrange, colors.info, colors.success, isPlayer, t]);
 
+  const loadTrending = useCallback(async () => {
+    setTrendingLoading(true);
+    setTrendingError('');
+
+    try {
+      const res = await playgroundsApi.publicVenuesList({});
+
+      const list = Array.isArray(res?.data?.venues)
+        ? res.data.venues
+        : Array.isArray(res?.venues)
+          ? res.venues
+          : Array.isArray(res?.data)
+            ? res.data
+            : [];
+
+      if (!mountedRef.current) return;
+
+      setTrending(list.slice(0, 8));
+    } catch (error) {
+      if (!mountedRef.current) return;
+
+      setTrendingError(error?.message || t('services.trending.error'));
+      setTrending([]);
+    } finally {
+      if (!mountedRef.current) return;
+      setTrendingLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    loadTrending();
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [loadTrending]);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await logout();
+    } finally {
+      router.replace('/(auth)/login');
+    }
+  }, [logout, router]);
+
+  const renderTrendingItem = useCallback(
+    ({ item }) => (
+      <TrendingVenueCard
+        title={item?.name || item?.title || t('services.trending.fallback')}
+        imageUrl={resolveVenueImage(item)}
+        onPress={() => {
+          if (!item?.id) return;
+          // Use your existing venue-details/booking route
+          router.push(`/playgrounds/venue/${item.id}`);
+        }}
+      />
+    ),
+    [router, t]
+  );
+
   return (
     <AppScreen scroll contentStyle={styles.scrollContent}>
       <AppHeader
@@ -182,15 +206,15 @@ export function HomeServicesScreen() {
         subtitle={t('services.subtitle')}
         showBack={false}
         leftSlot={(
-          <View style={[styles.logoWrap, { backgroundColor: colors.primarySoft }]}>
+          <View style={[styles.logoWrap, { backgroundColor: `${colors.accentOrange}1A` }]}>
             <Image source={logoSource} style={styles.logo} resizeMode="contain" />
           </View>
         )}
         right={(
           <Pressable onPress={() => setSettingsOpen(true)} style={styles.avatarWrap}>
-            <View style={[styles.avatarRing, { borderColor: colors.primary }]}>
+            <View style={[styles.avatarRing, { borderColor: colors.accentOrange }]}>
               {avatarImage ? (
-                <Image source={{ uri: avatarImage }} style={styles.avatar} />
+                <Image source={{ uri: normalizeImageUrl(avatarImage) || avatarImage }} style={styles.avatar} />
               ) : (
                 <View style={[styles.avatarFallback, { backgroundColor: colors.surface }]}>
                   <Text variant="body" weight="bold">
@@ -209,6 +233,7 @@ export function HomeServicesScreen() {
         )}
       />
 
+      {/* Explore Services */}
       <View style={styles.section}>
         <Text variant="h3" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
           {t('services.exploreTitle')}
@@ -228,6 +253,7 @@ export function HomeServicesScreen() {
         ))}
       </View>
 
+      {/* Trending */}
       <View style={styles.section}>
         <Text variant="h4" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
           {t('services.trendingTitle')}
@@ -256,19 +282,18 @@ export function HomeServicesScreen() {
           <Text variant="bodySmall" color={colors.textSecondary} style={styles.errorText}>
             {trendingError}
           </Text>
+          <Button size="small" onPress={loadTrending} style={styles.retryButton}>
+            {t('services.trending.retry')}
+          </Button>
         </View>
-
-        <View style={styles.cardsStack}>
-          {services.map((service) => (
-            <ServiceCard
-              key={service.id}
-              title={service.title}
-              subtitle={service.description}
-              icon={service.icon}
-              color={service.color}
-              onPress={() => service.href && router.push(service.href)}
-            />
-          )}
+      ) : trending.length ? (
+        <FlatList
+          data={trending}
+          keyExtractor={(item, index) => String(item?.id ?? index)}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.trendingList}
+          renderItem={renderTrendingItem}
         />
       ) : (
         <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -279,15 +304,15 @@ export function HomeServicesScreen() {
             {t('services.trending.emptyMessage')}
           </Text>
         </View>
+      )}
 
+      {/* Bottom nav (visual, wired to real routes) */}
       <View style={[styles.bottomNav, { backgroundColor: colors.surface }]}>
         {[
           { id: 'services', icon: 'grid', label: t('tabs.home'), href: '/services' },
           { id: 'discover', icon: 'compass', label: t('tabs.discover'), href: '/academies' },
           { id: 'book', icon: 'calendar', label: t('tabs.book'), href: '/playgrounds/explore' },
-          ...(isPlayer
-            ? [{ id: 'portal', icon: 'user', label: t('tabs.portal'), href: '/portal/(tabs)/home' }]
-            : []),
+          ...(isPlayer ? [{ id: 'portal', icon: 'user', label: t('tabs.portal'), href: '/portal/(tabs)/home' }] : []),
         ].map((tab) => {
           const active = tab.id === 'services';
           return (
@@ -301,20 +326,19 @@ export function HomeServicesScreen() {
                 size={20}
                 color={active ? colors.accentOrange : colors.textMuted}
               />
-            )}
-          />
-        ) : (
-          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text variant="body" weight="semibold">
-              {t('services.trending.emptyTitle')}
-            </Text>
-            <Text variant="bodySmall" color={colors.textSecondary}>
-              {t('services.trending.emptyMessage')}
-            </Text>
-          </View>
-        )}
-      </Animated.View>
+              <Text
+                variant="caption"
+                weight={active ? 'bold' : 'medium'}
+                style={{ color: active ? colors.accentOrange : colors.textMuted }}
+              >
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
+      {/* Quick Settings */}
       <QuickSettingsSheet
         visible={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -324,7 +348,8 @@ export function HomeServicesScreen() {
         }}
       />
 
-      <Modal transparent visible={logoutOpen} animationType="fade">
+      {/* Logout confirm */}
+      <Modal transparent visible={logoutOpen} animationType="fade" onRequestClose={() => setLogoutOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setLogoutOpen(false)} />
         <View style={[styles.confirmCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text variant="h4" weight="bold">
@@ -351,6 +376,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.xl,
   },
+
   logoWrap: {
     width: 44,
     height: 44,
@@ -362,6 +388,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
   },
+
   avatarWrap: {
     padding: 4,
   },
@@ -395,35 +422,45 @@ const styles = StyleSheet.create({
     bottom: -2,
     right: -2,
   },
+
   section: {
+    paddingHorizontal: spacing.lg,
     marginTop: spacing.xl,
     marginBottom: spacing.md,
   },
+
   cardsStack: {
+    paddingHorizontal: spacing.lg,
     gap: spacing.md,
   },
+
   trendingList: {
+    paddingHorizontal: spacing.lg,
     gap: spacing.md,
     paddingBottom: spacing.lg,
   },
   trendingSkeletonRow: {
     flexDirection: 'row',
     gap: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   trendingSkeletonCard: {
-    width: 176,
+    width: 160,
     gap: spacing.sm,
   },
   trendingSkeletonText: {
     marginTop: spacing.xs,
   },
+
   emptyCard: {
+    marginHorizontal: spacing.lg,
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     gap: spacing.xs,
   },
   errorCard: {
+    marginHorizontal: spacing.lg,
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
@@ -435,8 +472,10 @@ const styles = StyleSheet.create({
   retryButton: {
     alignSelf: 'flex-start',
   },
+
   bottomNav: {
     marginTop: spacing.xl,
+    marginHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.xl,
@@ -449,6 +488,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     flex: 1,
   },
+
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.4)',

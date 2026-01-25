@@ -534,14 +534,15 @@ export function PortalRenewalsScreen() {
 
   const sessionsPerWeek = useMemo(() => (selectedGroup ? computeSessionsPerWeekFromGroup(selectedGroup) : 1), [selectedGroup]);
 
-  const canSubmit = useMemo(() => {
-    if (!eligibility?.eligible) return false;
-    if (!selectedCourseId && !selectedGroupId) return false;
-    if (!startDate || !endDate) return false;
-    if (!sessions || sessions <= 0) return false;
-    if (endDate.getTime() < startDate.getTime()) return false;
-    return true;
-  }, [eligibility, selectedCourseId, selectedGroupId, startDate, endDate, sessions]);
+const canSubmit = useMemo(() => {
+  if (!eligibility?.eligible) return false;
+  if (!selectedGroupId) return false;          
+  if (!startDate || !endDate) return false;
+  if (!sessions || sessions <= 0) return false;
+  if (endDate.getTime() < startDate.getTime()) return false;
+  return true;
+}, [eligibility, selectedGroupId, startDate, endDate, sessions]);
+
 
   const fetchAll = useCallback(async () => {
     setFatalError(null);
@@ -663,15 +664,20 @@ export function PortalRenewalsScreen() {
 
     setSubmitting(true);
     try {
-      const payload = {
-        reg_id: registrationInfo?.id,
-        course: selectedCourseId || null,
-        group: selectedGroupId || null,
-        start_date: toISODate(startDate),
-        end_date: toISODate(endDate),
-        number_of_sessions: Number(sessions),
-        note: note?.trim() || null,
-      };
+const payload = {
+  renew_type: registrationInfo?.registration_type || 'course', // or decide based on UI
+  group: Number(selectedGroupId),
+
+  course: selectedCourseId ? Number(selectedCourseId) : null,
+
+  start_date: toISODate(startDate),
+  end_date: toISODate(endDate),
+  number_of_sessions: Number(sessions),
+
+  player_note: note?.trim() || null,
+
+};
+
 
       const res = await portalApi.renewalsRequest(payload);
       if (!res?.success) throw res?.error || new Error('Request failed');

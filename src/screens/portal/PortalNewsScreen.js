@@ -73,7 +73,6 @@ const resolveNewsImageUrl = useCallback((imageUrl) => {
   const [, newsId, imageId] = match;
 
   // Proxy endpoint (GET):
-  // /api/v1/player-portal-external-proxy/news/<newsId>/images/<imageId>?academy_id=1
   const base = (portalApi?.baseUrl || '').replace(/\/$/, '');
   const proxyPath = `/player-portal-external-proxy/news/${newsId}/images/${imageId}`;
   const academyQ = academyId ? `?academy_id=${academyId}` : '';
