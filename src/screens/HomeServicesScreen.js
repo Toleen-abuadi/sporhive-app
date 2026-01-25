@@ -1,5 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, FlatList, Image, Modal, Pressable, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Animated,
+  FlatList,
+  Image,
+  Modal,
+  Pressable,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { AppHeader } from '../components/ui/AppHeader';
 import { AppScreen } from '../components/ui/AppScreen';
@@ -12,8 +22,9 @@ import { TrendingVenueCard } from '../components/services/TrendingVenueCard';
 import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
 import { useAuth } from '../services/auth/auth.store';
-import { spacing, borderRadius } from '../theme/tokens';
-import { endpoints } from '../services/api/endpoints';
+import { getAvailableServices } from '../services/services/services.catalog';
+import { spacing, borderRadius, shadows } from '../theme/tokens';
+import { playgroundsApi } from '../services/playgrounds/playgrounds.api';
 import { API_BASE_URL } from '../services/api/client';
 
 const logoSource = require('../../assets/images/logo.png');
@@ -48,29 +59,42 @@ export function HomeServicesScreen() {
   const { t, isRTL } = useI18n();
   const router = useRouter();
   const { logout, session } = useAuth();
-  // TODO(DesignSystem): Batch-refactor remaining screens to use AppScreen/AppHeader only.
-  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Role-aware UI
+  const user = session?.user || session?.profile || session || null;
+  const loginAs = session?.login_as || session?.loginAs || user?.type || user?.role || '';
+  const isPlayer = String(loginAs).toLowerCase() === 'player';
+
+  // Avatar
+  const avatarImage =
+    user?.avatar ||
+    user?.avatar_url ||
+    user?.image ||
+    user?.profile_image ||
+    user?.photo ||
+    user?.photo_url ||
+    null;
+
+  const avatarInitials = getInitials(user);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [trending, setTrending] = useState([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [trendingError, setTrendingError] = useState('');
-  const contentOpacity = useRef(new Animated.Value(0)).current;
-  const contentTranslate = useRef(new Animated.Value(12)).current;
-  const isMounted = useRef(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
 
   const loadTrending = useCallback(async () => {
     setTrendingLoading(true);
     setTrendingError('');
     try {
-      const res = await endpoints.playgrounds.venuesList({});
+      const res = await playgroundsApi.publicVenuesList({});
       const list = Array.isArray(res?.data?.venues)
         ? res.data.venues
         : Array.isArray(res?.venues)
-        ? res.venues
-        : Array.isArray(res?.data)
-        ? res.data
-        : [];
-      if (!isMounted.current) return;
+          ? res.venues
+          : Array.isArray(res?.data)
+            ? res.data
+            : [];
       setTrending(list.slice(0, 8));
     } catch (error) {
       if (!isMounted.current) return;
@@ -185,18 +209,52 @@ export function HomeServicesScreen() {
         )}
       />
 
-      <Animated.View
-        style={[
-          styles.contentWrap,
-          {
-            opacity: contentOpacity,
-            transform: [{ translateY: contentTranslate }],
-          },
-        ]}
-      >
-        <View style={styles.section}>
-          <Text variant="h2" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
-            {t('services.exploreTitle')}
+      <View style={styles.section}>
+        <Text variant="h3" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
+          {t('services.exploreTitle')}
+        </Text>
+      </View>
+
+      <View style={styles.cardsStack}>
+        {services.map((service) => (
+          <ServiceCard
+            key={service.id}
+            title={service.title}
+            subtitle={service.description}
+            icon={service.icon}
+            color={service.color}
+            onPress={() => service.href && router.push(service.href)}
+          />
+        ))}
+      </View>
+
+      <View style={styles.section}>
+        <Text variant="h4" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
+          {t('services.trendingTitle')}
+        </Text>
+      </View>
+
+      {trendingLoading ? (
+        <View style={styles.trendingSkeletonRow}>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <View key={`trend-skeleton-${index}`} style={styles.trendingSkeletonCard}>
+              <Skeleton height={120} radius={borderRadius.lg} mode={isDark ? 'dark' : 'light'} />
+              <Skeleton
+                height={14}
+                radius={borderRadius.md}
+                mode={isDark ? 'dark' : 'light'}
+                style={styles.trendingSkeletonText}
+              />
+            </View>
+          ))}
+        </View>
+      ) : trendingError ? (
+        <View style={[styles.errorCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text variant="body" weight="semibold">
+            {t('services.trending.errorTitle')}
+          </Text>
+          <Text variant="bodySmall" color={colors.textSecondary} style={styles.errorText}>
+            {trendingError}
           </Text>
         </View>
 
@@ -210,56 +268,38 @@ export function HomeServicesScreen() {
               color={service.color}
               onPress={() => service.href && router.push(service.href)}
             />
-          ))}
-        </View>
-
-        <View style={styles.section}>
-          <Text variant="h3" weight="bold" style={{ textAlign: isRTL ? 'right' : 'left' }}>
-            {t('services.trendingTitle')}
+          )}
+        />
+      ) : (
+        <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text variant="body" weight="semibold">
+            {t('services.trending.emptyTitle')}
+          </Text>
+          <Text variant="bodySmall" color={colors.textSecondary}>
+            {t('services.trending.emptyMessage')}
           </Text>
         </View>
 
-        {trendingLoading ? (
-          <View style={styles.trendingSkeletonRow}>
-            {Array.from({ length: 3 }).map((_, index) => (
-              <View key={`trend-skeleton-${index}`} style={styles.trendingSkeletonCard}>
-                <Skeleton height={140} radius={borderRadius.xl} mode={isDark ? 'dark' : 'light'} />
-                <Skeleton
-                  height={14}
-                  radius={borderRadius.md}
-                  mode={isDark ? 'dark' : 'light'}
-                  style={styles.trendingSkeletonText}
-                />
-              </View>
-            ))}
-          </View>
-        ) : trendingError ? (
-          <View style={[styles.errorCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text variant="body" weight="semibold">
-              {t('services.trending.errorTitle')}
-            </Text>
-            <Text variant="bodySmall" color={colors.textSecondary} style={styles.errorText}>
-              {trendingError}
-            </Text>
-            <Button size="small" onPress={loadTrending} style={styles.retryButton}>
-              {t('services.trending.retry')}
-            </Button>
-          </View>
-        ) : trending.length ? (
-          <FlatList
-            data={trending}
-            keyExtractor={(item, index) => String(item?.id ?? index)}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.trendingList}
-            renderItem={({ item }) => (
-              <TrendingVenueCard
-                title={item?.name || item?.title || t('services.trending.fallback')}
-                imageUrl={resolveVenueImage(item)}
-                onPress={() => {
-                  if (!item?.id) return;
-                  router.push(`/playgrounds/venue/${item.id}`);
-                }}
+      <View style={[styles.bottomNav, { backgroundColor: colors.surface }]}>
+        {[
+          { id: 'services', icon: 'grid', label: t('tabs.home'), href: '/services' },
+          { id: 'discover', icon: 'compass', label: t('tabs.discover'), href: '/academies' },
+          { id: 'book', icon: 'calendar', label: t('tabs.book'), href: '/playgrounds/explore' },
+          ...(isPlayer
+            ? [{ id: 'portal', icon: 'user', label: t('tabs.portal'), href: '/portal/(tabs)/home' }]
+            : []),
+        ].map((tab) => {
+          const active = tab.id === 'services';
+          return (
+            <Pressable
+              key={tab.id}
+              onPress={() => router.replace(tab.href)}
+              style={({ pressed }) => [styles.tabItem, { opacity: pressed ? 0.85 : 1 }]}
+            >
+              <Feather
+                name={tab.icon}
+                size={20}
+                color={active ? colors.accentOrange : colors.textMuted}
               />
             )}
           />
@@ -310,9 +350,6 @@ export function HomeServicesScreen() {
 const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.xl,
-  },
-  contentWrap: {
-    flex: 1,
   },
   logoWrap: {
     width: 44,
@@ -397,6 +434,20 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     alignSelf: 'flex-start',
+  },
+  bottomNav: {
+    marginTop: spacing.xl,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.xl,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    ...shadows.md,
+  },
+  tabItem: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
