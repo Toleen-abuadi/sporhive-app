@@ -15,6 +15,7 @@ import { useI18n } from '../../services/i18n/i18n';
 import { Card } from '../ui/Card';
 import { Text } from '../ui/Text';
 import { Badge } from '../ui/Badge';
+import { Chip } from '../ui/Chip';
 import {
   Crown,
   MapPin,
@@ -25,6 +26,7 @@ import {
   Users,
   CalendarDays,
   ArrowRight,
+  Star,
 } from 'lucide-react-native';
 
 import {
@@ -110,6 +112,8 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
     const agesFrom = academy.ages_from ?? academy.age_from ?? null;
     const agesTo = academy.ages_to ?? academy.age_to ?? null;
     const sports = Array.isArray(academy.sport_types) ? academy.sport_types : [];
+    const rating = academy.rating ?? academy.rating_avg ?? academy.ratingAvg ?? null;
+    const ratingCount = academy.rating_count ?? academy.ratingCount ?? null;
 
     const hasCover = !!academy.cover_meta?.has;
     const hasLogo = !!academy.logo_meta?.has;
@@ -132,6 +136,8 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
       agesFrom,
       agesTo,
       sports,
+      rating,
+      ratingCount,
       coverUri,
       logoUri,
     };
@@ -270,15 +276,34 @@ export function AcademyCard({ item, onPress, onJoin, imageBaseUrl }) {
                   {vm.name}
                 </Text>
 
-                <View style={cs.locRow}>
-                  <MapPin size={14} color={theme.text.muted} />
-                  <Text variant="caption" color={theme.text.secondary} numberOfLines={1}>
-                    {' '}
-                    {locationText || emptyValue}
-                  </Text>
-                </View>
-              </View>
+            <View style={cs.locRow}>
+              <MapPin size={14} color={theme.text.muted} />
+              <Text variant="caption" color={theme.text.secondary} numberOfLines={1}>
+                {' '}
+                {locationText || emptyValue}
+              </Text>
             </View>
+
+            {vm.sports?.length ? (
+              <View style={[cs.locRow, { flexWrap: 'wrap', gap: 6, marginTop: 6 }]}>
+                {vm.sports.slice(0, 3).map((sport) => (
+                  <Chip key={sport} label={sport} />
+                ))}
+              </View>
+            ) : null}
+
+            {vm.rating ? (
+              <View style={[cs.locRow, { marginTop: 6 }]}>
+                <Star size={14} color={theme.accent.orange} />
+                <Text variant="caption" color={theme.text.secondary}>
+                  {' '}
+                  {vm.rating}
+                  {vm.ratingCount ? ` (${vm.ratingCount})` : ''}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
 
             {/* Stats */}
             <View style={cs.stats}>

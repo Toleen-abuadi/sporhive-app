@@ -61,8 +61,8 @@ import {
   Eye,
 } from 'lucide-react-native';
 
-import { endpoints } from '../services/api/endpoints';
 import { API_BASE_URL } from '../services/api/client';
+import { useAcademyDiscoveryActions, useAcademyDiscoveryStore } from '../services/academyDiscovery/academyDiscovery.store';
 
 import { useTheme } from '../theme/ThemeProvider';
 import { spacing, borderRadius } from '../theme/tokens';
@@ -135,19 +135,6 @@ function toAbsoluteUrlMaybe(url, base) {
 function academyImageUrl(base, slug, kind) {
   if (!base || !slug) return null;
   return `${base.replace(/\/$/, '')}/public/academies/image/${encodeURIComponent(slug)}/${kind}`;
-}
-
-function normalizePayload(raw) {
-  const data = raw?.data || raw || null;
-  if (!data) return null;
-
-  return {
-    academy: data?.academy || null,
-    template_sections: data?.template_sections || {},
-    courses: normalizeArray(data?.courses),
-    media_by_type: data?.media_by_type || {},
-    success_story: data?.success_story || null,
-  };
 }
 
 function pickMediaSrc(item) {
@@ -644,9 +631,12 @@ export function AcademyTemplateScreen({ slug }) {
   const { colors, isDark } = useTheme();
   const separator = t('service.academy.common.separator');
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [payload, setPayload] = useState(null);
+  const { detailsBySlug, detailsLoadingBySlug, detailsErrorBySlug } = useAcademyDiscoveryStore((state) => ({
+    detailsBySlug: state.detailsBySlug,
+    detailsLoadingBySlug: state.detailsLoadingBySlug,
+    detailsErrorBySlug: state.detailsErrorBySlug,
+  }));
+  const discoveryActions = useAcademyDiscoveryActions();
   const [activeSection, setActiveSection] = useState('about');
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [lightboxItem, setLightboxItem] = useState(null);
@@ -664,6 +654,11 @@ export function AcademyTemplateScreen({ slug }) {
       useNativeDriver: true,
     }).start();
   }, []);
+
+  const payload = slug ? detailsBySlug?.[slug] : null;
+  const loading = slug ? detailsLoadingBySlug?.[slug] : false;
+  const error = slug ? detailsErrorBySlug?.[slug] : '';
+  const resolvedError = slug ? error : t('service.academy.common.notFound');
 
   const academy = payload?.academy || null;
   const templateSections = payload?.template_sections || {};
@@ -733,28 +728,14 @@ export function AcademyTemplateScreen({ slug }) {
 
   // Load data
   const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const res = await endpoints.publicAcademies.templateGet(slug);
-      const normalized = normalizePayload(res);
-      if (!normalized?.academy) throw new Error(t('service.academy.common.notFound'));
-      setPayload(normalized);
-    } catch (e) {
-      setError(e?.message || t('service.academy.common.errorMessage'));
-    } finally {
-      setLoading(false);
-    }
-  }, [slug, t]);
+    if (!slug) return;
+    await discoveryActions.fetchDetails(slug);
+  }, [discoveryActions, slug]);
 
   useEffect(() => {
-    if (!slug) {
-      setLoading(false);
-      setError(t('service.academy.common.notFound'));
-      return;
-    }
+    if (!slug) return;
     load();
-  }, [slug, load, t]);
+  }, [load, slug]);
 
   // Animation handlers
   const scrollHandler = Animated.event(
@@ -915,13 +896,13 @@ export function AcademyTemplateScreen({ slug }) {
   }
 
   // Error state
-  if (error) {
+  if (resolvedError) {
     return (
       <Screen safe>
         <AppHeader title={t('service.academy.template.error.title')} leftSlot={<BackButton />} />
         <ErrorState
           title={t('service.academy.template.error.title')}
-          subtitle={error}
+          subtitle={resolvedError}
           actionLabel={t('service.academy.template.error.retry')}
           onAction={load}
         />
