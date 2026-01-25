@@ -1049,6 +1049,13 @@
     }
   },
   "portal": {
+    "errors": {
+      "overviewTitle": "Unable to load portal",
+      "overviewDescription": "We couldn’t load your portal data. Please try again.",
+      "sessionExpiredTitle": "Session expired",
+      "sessionExpiredDescription": "Please sign in again to access the player portal.",
+      "sessionExpiredAction": "Go to login"
+    },
     "common": {
       "placeholder": "—",
       "player": "Player",

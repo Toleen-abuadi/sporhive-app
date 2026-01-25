@@ -814,9 +814,16 @@
       "sendResetCode": "إرسال رمز التعيين",
       "updatePassword": "تحديث كلمة المرور"
     },
-    "portal": {
-      "common": {
-        "placeholder": "—",
+  "portal": {
+    "errors": {
+      "overviewTitle": "تعذر تحميل البوابة",
+      "overviewDescription": "لم نتمكن من تحميل بيانات البوابة. حاول مرة أخرى.",
+      "sessionExpiredTitle": "انتهت الجلسة",
+      "sessionExpiredDescription": "يرجى تسجيل الدخول مجددًا للوصول إلى بوابة اللاعب.",
+      "sessionExpiredAction": "الانتقال لتسجيل الدخول"
+    },
+    "common": {
+      "placeholder": "—",
         "player": "لاعب",
         "edit": "تعديل",
         "cancel": "إلغاء",
