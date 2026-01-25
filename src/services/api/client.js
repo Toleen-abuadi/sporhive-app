@@ -1,6 +1,7 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
 import { storage } from '../storage/storage';
+import { getPortalAccessToken, refreshPortalSessionIfNeeded } from '../auth/portalSession';
 import { handleApiError } from './error';
 
 const resolveBaseUrl = () => {
@@ -83,7 +84,42 @@ apiClient.interceptors.request.use(
 
 apiClient.interceptors.response.use(
   (response) => response.data,
-  (error) => Promise.reject(handleApiError(error))
+  async (error) => {
+    const nextError = handleApiError(error);
+    const status =
+      nextError?.response?.status ||
+      nextError?.status ||
+      nextError?.statusCode ||
+      nextError?.meta?.status ||
+      null;
+    const config = nextError?.config || error?.config;
+    const url = config?.url || '';
+    const isPortalRequest = typeof url === 'string' && url.includes('/player-portal-external-proxy/');
+
+    if (isPortalRequest && (status === 401 || status === 403) && config && !config._portalRetry) {
+      config._portalRetry = true;
+      const refreshResult = await refreshPortalSessionIfNeeded();
+      if (refreshResult?.success) {
+        const portalAccessToken = getPortalAccessToken(refreshResult.session);
+        if (portalAccessToken) {
+          config.headers = config.headers || {};
+          if (typeof config.headers.set === 'function') {
+            config.headers.set('Authorization', `Bearer ${portalAccessToken}`);
+          } else {
+            config.headers.Authorization = `Bearer ${portalAccessToken}`;
+          }
+          return apiClient(config);
+        }
+      }
+
+      const forbiddenError = nextError instanceof Error ? nextError : new Error('Portal access denied');
+      forbiddenError.kind = 'PORTAL_FORBIDDEN';
+      forbiddenError.status = status;
+      return Promise.reject(forbiddenError);
+    }
+
+    return Promise.reject(nextError);
+  }
 );
 
 export { apiClient, API_BASE_URL };

@@ -1086,10 +1086,19 @@
       "sessionExpiredTitle": "Session expired",
       "sessionExpiredDescription": "Please sign in again to access the player portal.",
       "sessionExpiredAction": "Go to login",
+      "reAuthAction": "Re-authenticate",
       "forbiddenTitle": "Access denied",
       "forbiddenDescription": "We couldn’t verify your portal access. Please try again.",
       "unauthorizedTitle": "Session expired",
-      "unauthorizedDescription": "Your session expired. Please sign in again to continue."
+      "unauthorizedDescription": "Your session expired. Please sign in again to continue.",
+      "missing_sessionTitle": "Portal session needed",
+      "missing_sessionDescription": "Please sign in again to open the player portal.",
+      "not_playerTitle": "Player access required",
+      "not_playerDescription": "Switch to a player account to access the portal.",
+      "missing_academy_idTitle": "Academy not selected",
+      "missing_academy_idDescription": "Choose your academy and sign in again to access the portal.",
+      "missing_portal_accessTitle": "Portal session expired",
+      "missing_portal_accessDescription": "Your portal access needs to be refreshed. Please sign in again."
     },
     "common": {
       "placeholder": "—",
