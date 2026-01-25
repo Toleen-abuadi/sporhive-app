@@ -25,14 +25,25 @@ const readPortalTokens = async () => {
   }
 };
 
+const readAuthSession = async () => {
+  const session = await storage.getItem(APP_STORAGE_KEYS.AUTH_SESSION);
+  return session && typeof session === 'object' ? session : null;
+};
+
 const resolveToken = async (override) => {
   if (override) return override;
+  const session = await readAuthSession();
+  const portalToken = session?.portal_tokens?.access || session?.portal_tokens?.access_token || null;
+  if (portalToken) return portalToken;
   const tokens = await readPortalTokens();
   return tokens?.access || tokens?.token || tokens?.access_token || null;
 };
 
 const resolveAcademyId = async (override) => {
   if (override != null) return Number(override);
+  const session = await readAuthSession();
+  const sessionAcademy = session?.user?.academy_id || session?.user?.academyId || null;
+  if (sessionAcademy != null) return Number(sessionAcademy);
   if (storage.getPortalAcademyId) return storage.getPortalAcademyId();
   const stored = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);
   return stored != null ? Number(stored) : null;
@@ -58,6 +69,16 @@ const resolveTryOutId = async (override) => {
   return id != null ? Number(id) : null;
 };
 
+const resolveExternalPlayerId = async (override) => {
+  if (override != null) return override;
+  const session = await readAuthSession();
+  const externalId =
+    session?.user?.external_player_id ||
+    session?.user?.externalPlayerId ||
+    session?.user?.player_id ||
+    null;
+  return externalId != null ? externalId : null;
+};
 
 const buildHeaders = async ({ academyId, token, language, tryOutId } = {}) => {
   const resolvedToken = await resolveToken(token);
@@ -74,6 +95,7 @@ const buildHeaders = async ({ academyId, token, language, tryOutId } = {}) => {
 
   if (resolvedAcademyId) {
     headers['X-Academy-Id'] = String(resolvedAcademyId);
+    headers['X-Customer-Id'] = String(resolvedAcademyId);
   }
 
   return { headers, academyId: resolvedAcademyId, tryOutId: resolvedTryOutId };
@@ -135,11 +157,44 @@ export const portalApi = {
     return portalApi.authMe({ academyId });
   },
 
-  async getOverview({ academyId } = {}) {
-    return wrapApi(async () => {
-      const { body, headers } = await withAcademyPayload({}, { academyId });
-      return apiClient.post('/player-portal-external-proxy/player-profile/overview', body, { headers });
-    }, 'Failed to fetch overview');
+  async getOverview({ academyId, externalPlayerId } = {}) {
+    const { body, headers, academyId: resolvedAcademyId } = await withAcademyPayload({}, { academyId });
+    const playerId = await resolveExternalPlayerId(externalPlayerId);
+    const payload = { ...body };
+
+    if (playerId) {
+      payload.player_id = playerId;
+      payload.external_player_id = playerId;
+    }
+
+    const hasToken = Boolean(headers?.Authorization || headers?.authorization);
+    if (__DEV__) {
+      console.info('Portal overview request', {
+        hasToken,
+        academyId: resolvedAcademyId || null,
+        payloadKeys: Object.keys(payload),
+      });
+    }
+
+    if (!hasToken) {
+      return { success: false, error: new Error('PORTAL_TOKEN_MISSING') };
+    }
+
+    try {
+      const data = await apiClient.post('/player-portal-external-proxy/player-profile/overview', payload, { headers });
+      if (__DEV__) {
+        console.info('Portal overview response', { ok: true });
+      }
+      return { success: true, data };
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('Portal overview response', {
+          ok: false,
+          status: error?.statusCode || error?.meta?.status || null,
+        });
+      }
+      return { success: false, error };
+    }
   },
 
   async updateProfile(payload = {}, options = {}) {

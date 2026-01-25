@@ -1,25 +1,60 @@
-import React, { useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { Feather } from '@expo/vector-icons';
 import { Screen } from '../components/ui/Screen';
 import { Text } from '../components/ui/Text';
 import { Card } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
-import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
-import { getPublicUser, getPublicUserMode } from '../services/playgrounds/storage';
+import { useAuth } from '../services/auth/auth.store';
 import { spacing, borderRadius } from '../theme/tokens';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
-console.log("API_BASE_URL:", process.env.EXPO_PUBLIC_API_BASE_URL);
+const resolveUserType = (session) => session?.user?.type || session?.login_as || null;
+
+const availableServices = ({ session, t, colors }) => {
+  const type = resolveUserType(session);
+  const items = [
+    {
+      id: 'discover',
+      title: t('home.discoverCard.title'),
+      description: t('home.discoverCard.description'),
+      icon: 'compass',
+      color: colors.accentOrange,
+      screen: 'Discover',
+      href: '/academies',
+    },
+    {
+      id: 'portal',
+      title: t('home.portalCard.title'),
+      description: t('home.portalCard.description'),
+      icon: 'user',
+      color: colors.info,
+      screen: 'Portal',
+      href: '/portal/(tabs)/home',
+      requiresPlayer: true,
+    },
+    {
+      id: 'playgrounds-explore',
+      title: t('home.playgrounds.explore.title'),
+      description: t('home.playgrounds.explore.description'),
+      icon: 'map',
+      color: colors.success,
+      screen: 'PlaygroundsExplore',
+      href: '/playgrounds/explore',
+    },
+  ];
+
+  return items.filter((item) => !item.requiresPlayer || type === 'player');
+};
 
 function ServiceCard({ title, description, icon, color, onPress }) {
   const { colors } = useTheme();
@@ -86,102 +121,33 @@ function ServiceCard({ title, description, icon, color, onPress }) {
   );
 }
 
-function ToggleChip({ label, icon, onPress, active }) {
-  const { colors } = useTheme();
-  const scale = useSharedValue(1);
-
-  const handlePressIn = () => {
-    scale.value = withSpring(0.95, { damping: 15 });
-  };
-
-  const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15 });
-  };
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <AnimatedTouchable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={animatedStyle}
-    >
-      <View
-        style={[
-          styles.chip,
-          {
-            backgroundColor: active ? colors.accentOrange : colors.surface,
-            borderColor: colors.border,
-          },
-        ]}
-      >
-        <Feather
-          name={icon}
-          size={16}
-          color={active ? colors.white : colors.textPrimary}
-        />
-        <Text
-          variant="bodySmall"
-          weight="medium"
-          color={active ? colors.white : colors.textPrimary}
-          style={styles.chipText}
-        >
-          {label}
-        </Text>
-      </View>
-    </AnimatedTouchable>
-  );
-}
-
 export function HomeServicesScreen() {
   const { colors, themePreference, setThemePreference } = useTheme();
   const { t, language, changeLanguage, isRTL } = useI18n();
   const router = useRouter();
+  const { logout, session } = useAuth();
+  const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
+  const [themeSheetOpen, setThemeSheetOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
-  const handleLanguageToggle = () => {
-    changeLanguage(language === 'en' ? 'ar' : 'en');
+  const handleLanguageSelect = async (nextLanguage) => {
+    await changeLanguage(nextLanguage);
+    Haptics.selectionAsync();
+    setLanguageSheetOpen(false);
   };
 
-  const resolvePlaygroundsRoute = useCallback(async () => {
-    const [mode, user] = await Promise.all([getPublicUserMode(), getPublicUser()]);
-    if (mode === 'registered' && user?.id) {
-      return '/playgrounds';
-    }
-    return '/playgrounds/auth';
-  }, []);
+  const handleThemeSelect = async (nextTheme) => {
+    await setThemePreference(nextTheme);
+    Haptics.selectionAsync();
+    setThemeSheetOpen(false);
+  };
 
-  const services = [
-    {
-      id: 'discover',
-      title: t('home.discoverCard.title'),
-      description: t('home.discoverCard.description'),
-      icon: 'compass',
-      color: colors.accentOrange,
-      screen: 'Discover',
-      href: '/academies',
-    },
-    {
-      id: 'portal',
-      title: t('home.portalCard.title'),
-      description: t('home.portalCard.description'),
-      icon: 'user',
-      color: colors.info,
-      screen: 'Portal',
-      href: '/portal/login',
-    },
-    {
-      id: 'playgrounds-explore',
-      title: t('home.playgrounds.explore.title'),
-      description: t('home.playgrounds.explore.description'),
-      icon: 'map',
-      color: colors.success,
-      screen: 'PlaygroundsExplore',
-      href: '/playgrounds/explore',
-    },
-  ];
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/(auth)/login');
+  };
+
+  const services = availableServices({ session, t, colors });
 
   return (
     <Screen safe scroll contentContainerStyle={styles.scrollContent}>
@@ -202,13 +168,41 @@ export function HomeServicesScreen() {
             </Text>
           </View>
 
-          <View style={styles.toggles}>
-            <ToggleChip
-              label={language === 'en' ? t('language.shortAr') : t('language.shortEn')}
-              icon="globe"
-              onPress={handleLanguageToggle}
-              active={false}
-            />
+          <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Pressable
+              onPress={() => setLanguageSheetOpen(true)}
+              style={({ pressed }) => [
+                styles.iconButton,
+                { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <Feather name="globe" size={16} color={colors.textPrimary} />
+              <Text variant="caption" weight="semibold" style={{ color: colors.textPrimary }}>
+                {language === 'en' ? t('language.shortEn') : t('language.shortAr')}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setThemeSheetOpen(true)}
+              style={({ pressed }) => [
+                styles.iconButton,
+                { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <Feather
+                name={themePreference === 'dark' ? 'moon' : themePreference === 'light' ? 'sun' : 'smartphone'}
+                size={16}
+                color={colors.textPrimary}
+              />
+            </Pressable>
+            <Pressable
+              onPress={() => setLogoutOpen(true)}
+              style={({ pressed }) => [
+                styles.iconButton,
+                { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <Feather name="log-out" size={16} color={colors.textPrimary} />
+            </Pressable>
           </View>
         </View>
 
@@ -221,40 +215,6 @@ export function HomeServicesScreen() {
         </Text>
       </View>
 
-      <View style={styles.themeSection}>
-        <Text variant="caption" weight="semibold" style={{ color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }}>
-          {t('theme.label')}
-        </Text>
-        <SegmentedControl
-          value={themePreference}
-          onChange={setThemePreference}
-          options={[
-            {
-              value: 'light',
-              label: t('theme.light'),
-              icon: (active, palette) => (
-                <Feather name="sun" size={14} color={active ? palette.accentOrange : palette.textSecondary} />
-              ),
-            },
-            {
-              value: 'dark',
-              label: t('theme.dark'),
-              icon: (active, palette) => (
-                <Feather name="moon" size={14} color={active ? palette.accentOrange : palette.textSecondary} />
-              ),
-            },
-            {
-              value: 'system',
-              label: t('theme.system'),
-              icon: (active, palette) => (
-                <Feather name="smartphone" size={14} color={active ? palette.accentOrange : palette.textSecondary} />
-              ),
-            },
-          ]}
-          style={styles.themeControl}
-        />
-      </View>
-
       <View style={styles.servicesContainer}>
         {services.map((service) => (
           <ServiceCard
@@ -265,17 +225,134 @@ export function HomeServicesScreen() {
             color={service.color}
             onPress={async () => {
               if (!service.href) return;
-              if (service.id === 'playgrounds-explore') {
-                const target = await resolvePlaygroundsRoute();
-                router.replace(target);
-                return;
-              }
               router.push(service.href);
             }}
 
           />
         ))}
       </View>
+
+      <Modal
+        transparent
+        animationType="slide"
+        visible={languageSheetOpen}
+        onRequestClose={() => setLanguageSheetOpen(false)}
+      >
+        <View style={styles.sheetBackdrop}>
+          <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text variant="h4" weight="bold">
+              {t('home.actions.languageTitle')}
+            </Text>
+            <Pressable
+              onPress={() => handleLanguageSelect('en')}
+              style={[
+                styles.sheetItem,
+                { borderColor: language === 'en' ? colors.accentOrange : colors.border },
+              ]}
+            >
+              <Text variant="body" weight="semibold">
+                {t('language.en')}
+              </Text>
+              {language === 'en' ? <Feather name="check" size={16} color={colors.accentOrange} /> : null}
+            </Pressable>
+            <Pressable
+              onPress={() => handleLanguageSelect('ar')}
+              style={[
+                styles.sheetItem,
+                { borderColor: language === 'ar' ? colors.accentOrange : colors.border },
+              ]}
+            >
+              <Text variant="body" weight="semibold">
+                {t('language.ar')}
+              </Text>
+              {language === 'ar' ? <Feather name="check" size={16} color={colors.accentOrange} /> : null}
+            </Pressable>
+            <Pressable onPress={() => setLanguageSheetOpen(false)} style={styles.sheetCancel}>
+              <Text variant="bodySmall" color={colors.textSecondary}>
+                {t('common.cancel')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        transparent
+        animationType="slide"
+        visible={themeSheetOpen}
+        onRequestClose={() => setThemeSheetOpen(false)}
+      >
+        <View style={styles.sheetBackdrop}>
+          <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text variant="h4" weight="bold">
+              {t('home.actions.themeTitle')}
+            </Text>
+            {[
+              { value: 'light', label: t('theme.light'), icon: 'sun' },
+              { value: 'dark', label: t('theme.dark'), icon: 'moon' },
+              { value: 'system', label: t('theme.system'), icon: 'smartphone' },
+            ].map((opt) => (
+              <Pressable
+                key={opt.value}
+                onPress={() => handleThemeSelect(opt.value)}
+                style={[
+                  styles.sheetItem,
+                  { borderColor: themePreference === opt.value ? colors.accentOrange : colors.border },
+                ]}
+              >
+                <View style={styles.sheetItemRow}>
+                  <Feather name={opt.icon} size={16} color={colors.textSecondary} />
+                  <Text variant="body" weight="semibold">
+                    {opt.label}
+                  </Text>
+                </View>
+                {themePreference === opt.value ? (
+                  <Feather name="check" size={16} color={colors.accentOrange} />
+                ) : null}
+              </Pressable>
+            ))}
+            <Pressable onPress={() => setThemeSheetOpen(false)} style={styles.sheetCancel}>
+              <Text variant="bodySmall" color={colors.textSecondary}>
+                {t('common.cancel')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={logoutOpen}
+        onRequestClose={() => setLogoutOpen(false)}
+      >
+        <View style={styles.logoutBackdrop}>
+          <View style={[styles.logoutCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text variant="h4" weight="bold">
+              {t('home.actions.logoutTitle')}
+            </Text>
+            <Text variant="bodySmall" color={colors.textSecondary} style={styles.logoutSubtitle}>
+              {t('home.actions.logoutSubtitle')}
+            </Text>
+            <View style={styles.logoutActions}>
+              <Pressable
+                onPress={() => setLogoutOpen(false)}
+                style={[styles.logoutButton, { borderColor: colors.border }]}
+              >
+                <Text variant="bodySmall">{t('common.cancel')}</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleLogout}
+                style={[styles.logoutButton, { backgroundColor: colors.accentOrange }]}
+              >
+                <Text variant="bodySmall" weight="bold" style={{ color: colors.white }}>
+                  {t('home.actions.logoutConfirm')}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -310,33 +387,24 @@ const styles = StyleSheet.create({
   sparkleRtl: {
     marginLeft: spacing.md,
   },
-  toggles: {
-    flexDirection: 'row',
+  headerActions: {
+    alignItems: 'center',
     gap: spacing.sm,
   },
-  chip: {
+  iconButton: {
+    borderRadius: borderRadius.pill,
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-  },
-  chipText: {
-    marginLeft: spacing.xs,
+    gap: spacing.xs,
   },
   subtitle: {
     marginTop: spacing.sm,
   },
   servicesContainer: {
     gap: spacing.lg,
-  },
-  themeSection: {
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  themeControl: {
-    alignSelf: 'flex-start',
   },
   serviceCard: {
     flexDirection: 'row',
@@ -360,5 +428,62 @@ const styles = StyleSheet.create({
   },
   arrowContainer: {
     marginLeft: spacing.md,
+  },
+  sheetBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  sheet: {
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    borderWidth: 1,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  sheetItem: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sheetItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  sheetCancel: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  logoutBackdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: spacing.lg,
+  },
+  logoutCard: {
+    width: '100%',
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  logoutSubtitle: {
+    marginTop: -spacing.sm,
+  },
+  logoutActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  logoutButton: {
+    flex: 1,
+    borderRadius: borderRadius.pill,
+    borderWidth: 1,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
   },
 });

@@ -9,6 +9,8 @@ import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalListItem } from '../../components/portal/PortalListItem';
+import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
+import { Button } from '../../components/ui/Button';
 import { usePortalOverview, usePortalRefresh } from '../../services/portal/portal.hooks';
 import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
@@ -17,7 +19,7 @@ export function PortalHomeScreen() {
   const { colors } = useTheme();
   const { t, isRTL } = useTranslation();
   const router = useRouter();
-  const { overview, loading } = usePortalOverview();
+  const { overview, loading, error } = usePortalOverview();
   const { refreshing, onRefresh } = usePortalRefresh();
   const placeholder = t('portal.common.placeholder');
 
@@ -40,6 +42,33 @@ export function PortalHomeScreen() {
     return (
       <Screen>
         <SporHiveLoader />
+      </Screen>
+    );
+  }
+
+  if (error && !overview) {
+    const isSessionMissing = String(error?.message || '').includes('PORTAL_TOKEN_MISSING');
+    return (
+      <Screen>
+        <PortalEmptyState
+          icon="alert-triangle"
+          title={isSessionMissing ? t('portal.errors.sessionExpiredTitle') : t('portal.errors.overviewTitle')}
+          description={isSessionMissing ? t('portal.errors.sessionExpiredDescription') : t('portal.errors.overviewDescription')}
+          action={
+            <Button
+              size="small"
+              onPress={() => {
+                if (isSessionMissing) {
+                  router.replace('/(auth)/login?mode=player');
+                  return;
+                }
+                onRefresh();
+              }}
+            >
+              {isSessionMissing ? t('portal.errors.sessionExpiredAction') : t('portal.common.retry')}
+            </Button>
+          }
+        />
       </Screen>
     );
   }

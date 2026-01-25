@@ -21,6 +21,13 @@
   "home": {
     "title": "سبور هايف",
     "subtitle": "مركز رياضاتك",
+    "actions": {
+      "languageTitle": "اللغة",
+      "themeTitle": "المظهر",
+      "logoutTitle": "تسجيل الخروج",
+      "logoutSubtitle": "هل أنت متأكد أنك تريد تسجيل الخروج؟",
+      "logoutConfirm": "تسجيل الخروج"
+    },
     "discoverCard": {
       "title": "اكتشف الأكاديميات",
       "description": "ابحث عن الأكاديمية الرياضية المثالية لأهدافك"
@@ -807,9 +814,16 @@
       "sendResetCode": "إرسال رمز التعيين",
       "updatePassword": "تحديث كلمة المرور"
     },
-    "portal": {
-      "common": {
-        "placeholder": "—",
+  "portal": {
+    "errors": {
+      "overviewTitle": "تعذر تحميل البوابة",
+      "overviewDescription": "لم نتمكن من تحميل بيانات البوابة. حاول مرة أخرى.",
+      "sessionExpiredTitle": "انتهت الجلسة",
+      "sessionExpiredDescription": "يرجى تسجيل الدخول مجددًا للوصول إلى بوابة اللاعب.",
+      "sessionExpiredAction": "الانتقال لتسجيل الدخول"
+    },
+    "common": {
+      "placeholder": "—",
         "player": "لاعب",
         "edit": "تعديل",
         "cancel": "إلغاء",
@@ -1199,6 +1213,109 @@
         "addToCart": "أضف إلى السلة",
         "size": "المقاس"
       }
+    }
+  },
+  "auth": {
+    "mode": {
+      "public": "عام",
+      "player": "لاعب"
+    },
+    "fields": {
+      "phone": "رقم الهاتف",
+      "password": "كلمة المرور",
+      "confirmPassword": "تأكيد كلمة المرور",
+      "firstName": "الاسم الأول",
+      "lastName": "اسم العائلة",
+      "academy": "الأكاديمية",
+      "username": "اسم المستخدم",
+      "newPassword": "كلمة مرور جديدة"
+    },
+    "placeholders": {
+      "phone": "+9627xxxxxxxx",
+      "password": "أدخل كلمة المرور",
+      "confirmPassword": "أعد إدخال كلمة المرور",
+      "firstName": "الاسم الأول",
+      "lastName": "اسم العائلة",
+      "username": "أدخل اسم المستخدم"
+    },
+    "academy": {
+      "helper": "اختر الأكاديمية",
+      "searchPlaceholder": "ابحث عن الأكاديميات...",
+      "error": "يتعذر تحميل الأكاديميات حالياً."
+    },
+    "errors": {
+      "generic": "حدث خطأ ما. حاول مرة أخرى.",
+      "network": "لا يوجد اتصال بالإنترنت. تحقق من الاتصال ثم حاول.",
+      "invalidCredentials": "بيانات الدخول غير صحيحة.",
+      "deactivated": "هذا الحساب متوقف. تواصل مع الدعم.",
+      "invalidOtp": "الرمز غير صالح أو منتهي."
+    },
+    "validation": {
+      "phoneRequired": "رقم الهاتف مطلوب.",
+      "phoneInvalid": "يرجى إدخال رقم هاتف صحيح.",
+      "passwordRequired": "كلمة المرور مطلوبة.",
+      "passwordLength": "يجب ألا تقل كلمة المرور عن 8 أحرف.",
+      "passwordMismatch": "كلمتا المرور غير متطابقتين.",
+      "firstNameRequired": "الاسم الأول مطلوب.",
+      "lastNameRequired": "اسم العائلة مطلوب.",
+      "academyRequired": "يرجى اختيار الأكاديمية.",
+      "usernameRequired": "اسم المستخدم مطلوب.",
+      "otpLength": "أدخل الرمز المكوّن من 6 أرقام."
+    },
+    "login": {
+      "title": "مرحباً بعودتك",
+      "subtitle": "سجّل الدخول لمتابعة تجربتك مع SporHive.",
+      "cta": "تسجيل الدخول",
+      "ctaPlayer": "تسجيل الدخول",
+      "forgotPassword": "نسيت كلمة المرور؟",
+      "noAccount": "جديد على SporHive؟",
+      "createAccount": "إنشاء حساب",
+      "skip": "المتابعة كضيف",
+      "success": "تم تسجيل الدخول بنجاح.",
+      "error": "تعذر تسجيل الدخول. حاول مرة أخرى."
+    },
+    "signup": {
+      "title": "إنشاء حساب",
+      "subtitle": "انضم إلى SporHive وابدأ خلال دقائق.",
+      "cta": "إنشاء حساب",
+      "haveAccount": "لديك حساب بالفعل؟",
+      "login": "تسجيل الدخول",
+      "success": "تم إنشاء الحساب. يرجى تسجيل الدخول.",
+      "error": "تعذر إنشاء الحساب. حاول مرة أخرى.",
+      "passwordHints": {
+        "length": "استخدم {{count}} أحرف على الأقل",
+        "match": "كلمتا المرور متطابقتان"
+      }
+    },
+    "reset": {
+      "title": "إعادة تعيين كلمة المرور",
+      "subtitle": "لنؤمّن حسابك بخطوات سريعة.",
+      "back": "رجوع",
+      "sendCode": "إرسال الرمز",
+      "otpHint": "أدخل الرمز المكوّن من 6 أرقام المرسل إلى هاتفك.",
+      "verify": "تحقق",
+      "resend": "إعادة إرسال الرمز",
+      "resendReady": "لم يصلك الرمز؟",
+      "resendCountdown": "إعادة الإرسال خلال {{seconds}}ث",
+      "requestSuccess": "إذا كان الحساب موجوداً، تم إرسال الرمز.",
+      "requestError": "تعذر إرسال الرمز. حاول مرة أخرى.",
+      "confirmError": "الرمز غير صالح أو منتهي.",
+      "updatePassword": "تعيين كلمة المرور",
+      "publicSuccess": "تم تحديث كلمة المرور بنجاح.",
+      "playerSuccess": "تم إنشاء كلمة المرور بنجاح.",
+      "publicFinalTitle": "تمت إعادة التعيين بنجاح",
+      "publicFinalSubtitle": "يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.",
+      "playerFinalTitle": "كلمة المرور جاهزة",
+      "playerFinalSubtitle": "احفظ كلمة المرور ويمكنك تغييرها لاحقاً.",
+      "generatedPassword": "كلمة المرور المولدة",
+      "generatedFallback": "••••••",
+      "saveHint": "احتفظ بكلمة المرور للدخول لاحقاً.",
+      "copy": "نسخ",
+      "copied": "تم نسخ كلمة المرور.",
+      "copyUnsupported": "النسخ غير متاح على هذا الجهاز.",
+      "reveal": "إظهار",
+      "hide": "إخفاء",
+      "backToLogin": "الانتقال لتسجيل الدخول"
     }
   }
 }
