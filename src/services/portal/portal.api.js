@@ -2,6 +2,7 @@ import { apiClient } from '../api/client';
 import { playerPortalApi } from '../api/playerPortalApi';
 import { getPortalAccessToken, getPortalAcademyId } from '../auth/portalSession';
 import { storage, PORTAL_KEYS, APP_STORAGE_KEYS } from '../storage/storage';
+import { assertTryOutId, getTryOutIdFromPortalSession, isValidTryOutId } from './portal.tryout';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL + '/api/v1';
 
@@ -57,36 +58,26 @@ const resolveLanguage = async (override) => {
   return typeof lang === 'string' && lang ? lang : 'en';
 };
 
-const resolveTryOutId = async (override) => {
-  if (override != null) return Number(override);
+const resolveTryOutId = async (override, { require = false } = {}) => {
+  const overrideId = isValidTryOutId(override) ? override : null;
+  if (overrideId != null) return overrideId;
 
-  if (storage.getPortalSession) {
-    const session = await storage.getPortalSession();
-    const id = session?.tryOutId ?? session?.try_out_id ?? null;
-    return id != null ? Number(id) : null;
+  const session = storage.getPortalSession
+    ? await storage.getPortalSession()
+    : await storage.getItem(PORTAL_KEYS.SESSION);
+  const resolved = getTryOutIdFromPortalSession(session);
+
+  if (require) {
+    assertTryOutId(resolved);
   }
 
-  const session = await storage.getItem(PORTAL_KEYS.SESSION);
-  const id = session?.tryOutId ?? session?.try_out_id ?? null;
-  return id != null ? Number(id) : null;
+  return resolved;
 };
 
-const resolveExternalPlayerId = async (override) => {
-  if (override != null) return override;
-  const session = await readAuthSession();
-  const externalId =
-    session?.user?.external_player_id ||
-    session?.user?.externalPlayerId ||
-    session?.user?.player_id ||
-    null;
-  return externalId != null ? externalId : null;
-};
-
-const buildHeaders = async ({ academyId, token, language, tryOutId } = {}) => {
+const buildHeaders = async ({ academyId, token, language } = {}) => {
   const resolvedToken = await resolveToken(token);
   const resolvedAcademyId = await resolveAcademyId(academyId);
   const resolvedLanguage = await resolveLanguage(language);
-  const resolvedTryOutId = await resolveTryOutId(tryOutId);
 
   const headers = { 'Accept-Language': resolvedLanguage };
 
@@ -100,12 +91,12 @@ const buildHeaders = async ({ academyId, token, language, tryOutId } = {}) => {
     headers['X-Customer-Id'] = String(resolvedAcademyId);
   }
 
-  return { headers, academyId: resolvedAcademyId, tryOutId: resolvedTryOutId };
+  return { headers, academyId: resolvedAcademyId };
 };
 
 
 const withAcademyPayload = async (payload = {}, options = {}) => {
-  const { headers, academyId, tryOutId } = await buildHeaders(options);
+  const { headers, academyId } = await buildHeaders(options);
   const body = { ...(payload || {}) };
 
   if (academyId) {
@@ -113,15 +104,27 @@ const withAcademyPayload = async (payload = {}, options = {}) => {
     body.academy_id = academyId;
   }
 
-  if (tryOutId != null && body.try_out == null) {
-    body.try_out = tryOutId;
+  const existingTryOut =
+    body.try_out ??
+    body.try_out_id ??
+    body.tryout_id ??
+    null;
+  const existingTryOutId = isValidTryOutId(existingTryOut) ? existingTryOut : null;
+  const resolvedTryOutId = existingTryOutId ?? await resolveTryOutId(options?.tryOutId, { require: options?.requireTryOut });
+
+  if (isValidTryOutId(resolvedTryOutId) && body.try_out == null) {
+    body.try_out = resolvedTryOutId;
   }
 
-  if (tryOutId != null && body.tryout_id == null && body.try_out_id == null) {
-    body.tryout_id = tryOutId;
+  if (isValidTryOutId(resolvedTryOutId) && body.tryout_id == null && body.try_out_id == null) {
+    body.tryout_id = resolvedTryOutId;
   }
 
-  return { body, headers };
+  if (options?.requireTryOut) {
+    assertTryOutId(body.try_out ?? body.try_out_id ?? body.tryout_id ?? resolvedTryOutId);
+  }
+
+  return { body, headers, tryOutId: resolvedTryOutId };
 };
 
 
@@ -185,7 +188,7 @@ export const portalApi = {
 
   async renewalsEligibility(payload = {}, options = {}) {
     return wrapApi(async () => {
-      const { body, headers } = await withAcademyPayload(payload, options);
+      const { body, headers } = await withAcademyPayload(payload, { ...options, requireTryOut: true });
       return apiClient.post('/player-portal-external-proxy/registration/renewals/eligibility', body, { headers });
     }, 'Failed to check renewal eligibility');
   },
@@ -196,7 +199,7 @@ export const portalApi = {
 
   async renewalsRequest(payload = {}, options = {}) {
     return wrapApi(async () => {
-      const { body, headers } = await withAcademyPayload(payload, options);
+      const { body, headers } = await withAcademyPayload(payload, { ...options, requireTryOut: true });
       return apiClient.post('/player-portal-external-proxy/registration/renewals/request', body, { headers });
     }, 'Renewal request failed');
   },
@@ -207,7 +210,7 @@ export const portalApi = {
 
   async requestFreeze(payload = {}, options = {}) {
     return wrapApi(async () => {
-      const { body, headers } = await withAcademyPayload(payload, options);
+      const { body, headers } = await withAcademyPayload(payload, { ...options, requireTryOut: true });
       return apiClient.post('/player-portal-external-proxy/registration/freezes/request', body, { headers });
     }, 'Freeze request failed');
   },
@@ -218,7 +221,7 @@ export const portalApi = {
 
   async printInvoice(payload = {}, options = {}) {
     return wrapApi(async () => {
-      const { body, headers } = await withAcademyPayload(payload, options);
+      const { body, headers } = await withAcademyPayload(payload, { ...options, requireTryOut: true });
       return apiClient.post('/player-portal-external-proxy/registration/print_invoice', body, {
         headers,
         responseType: 'arraybuffer',
@@ -228,7 +231,7 @@ export const portalApi = {
 
   async getRatingTypes(payload = {}, options = {}) {
     return wrapApi(async () => {
-      const { body, headers } = await withAcademyPayload(payload, options);
+      const { body, headers } = await withAcademyPayload(payload, { ...options, requireTryOut: true });
       return apiClient.post('/player-portal-external-proxy/player-performance/feedback/types', body, { headers });
     }, 'Failed to load rating types');
   },
@@ -239,7 +242,7 @@ export const portalApi = {
 
   async getRatingSummary(payload = {}, options = {}) {
     return wrapApi(async () => {
-      const { body, headers } = await withAcademyPayload(payload, options);
+      const { body, headers } = await withAcademyPayload(payload, { ...options, requireTryOut: true });
       return apiClient.post('/player-portal-external-proxy/player-performance/feedback/player_summary', body, { headers });
     }, 'Failed to load rating summary');
   },
@@ -250,7 +253,7 @@ export const portalApi = {
 
   async getRatingPeriods(payload = {}, options = {}) {
     return wrapApi(async () => {
-      const { body, headers } = await withAcademyPayload(payload, options);
+      const { body, headers } = await withAcademyPayload(payload, { ...options, requireTryOut: true });
       return apiClient.post('/player-portal-external-proxy/player-performance/feedback/periods', body, { headers });
     }, 'Failed to load rating periods');
   },

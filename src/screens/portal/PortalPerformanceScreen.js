@@ -2,16 +2,19 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
+import { Button } from '../../components/ui/Button';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
 import { portalApi } from '../../services/portal/portal.api';
-import { usePortalOverview } from '../../services/portal/portal.hooks';
+import { usePortalAuth, usePortalOverview } from '../../services/portal/portal.hooks';
 import { useTranslation } from '../../services/i18n/i18n';
+import { isMissingTryOutError, isValidTryOutId } from '../../services/portal/portal.tryout';
 import { spacing } from '../../theme/tokens';
 
 const toPercent = (value) => `${Math.min(Math.max(Number(value || 0), 0), 100)}%`;
@@ -20,14 +23,13 @@ const asArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 export function PortalPerformanceScreen() {
   const { colors } = useTheme();
   const { t, isRTL } = useTranslation();
+  const router = useRouter();
+  const { logout } = usePortalAuth();
   const placeholder = t('portal.common.placeholder');
-  const { overview } = usePortalOverview();
+  const { overview, refresh } = usePortalOverview();
 
-  // ✅ FIX: normalized overview puts it here
-  const tryoutId =
-    overview?.player?.tryOutId ||
-    overview?._raw?.player_data?.player_info?.id ||
-    null;
+  const tryoutId = isValidTryOutId(overview?.player?.tryOutId) ? overview?.player?.tryOutId : null;
+  const missingTryOutMessage = 'Missing try_out (tryOutId is null). Please refresh portal session.';
 
   const [ratingTypes, setRatingTypes] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -37,8 +39,8 @@ export function PortalPerformanceScreen() {
 
   useEffect(() => {
     const load = async () => {
-      if (!tryoutId) {
-        setError(t('portal.performance.error'));
+      if (!isValidTryOutId(tryoutId)) {
+        setError(missingTryOutMessage);
         return;
       }
 
@@ -72,7 +74,7 @@ export function PortalPerformanceScreen() {
     };
 
     load();
-  }, [t, tryoutId]);
+  }, [missingTryOutMessage, t, tryoutId]);
 
   const overallScore = summary?.average || summary?.overall_average || summary?.score || 0;
   const recentRatings = asArray(summary?.recent || summary?.ratings);
@@ -113,6 +115,39 @@ export function PortalPerformanceScreen() {
     return (
       <Screen>
         <SporHiveLoader />
+      </Screen>
+    );
+  }
+
+  if (error && isMissingTryOutError({ message: error })) {
+    return (
+      <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
+        <PortalHeader
+          title={t('portal.performance.title')}
+          subtitle={t('portal.performance.subtitle')}
+        />
+        <PortalCard style={styles.card}>
+          <Text variant="body" weight="semibold" color={colors.textPrimary}>
+            {t('portal.errors.sessionExpiredTitle')}
+          </Text>
+          <Text variant="bodySmall" color={colors.textSecondary} style={{ marginTop: spacing.xs }}>
+            {missingTryOutMessage}
+          </Text>
+          <View style={styles.missingActions}>
+            <Button variant="secondary" onPress={refresh}>
+              {t('portal.common.retry')}
+            </Button>
+            <Button
+              onPress={() => {
+                logout().finally(() => {
+                  router.replace('/(auth)/login?mode=player');
+                });
+              }}
+            >
+              {t('portal.errors.reAuthAction')}
+            </Button>
+          </View>
+        </PortalCard>
       </Screen>
     );
   }
@@ -243,5 +278,11 @@ const styles = StyleSheet.create({
   periodRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: spacing.md },
   barGroup: { flexDirection: 'row', gap: spacing.xs, alignItems: 'flex-end' },
   bar: { width: 12, borderRadius: 6 },
+  missingActions: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    justifyContent: 'flex-start',
+  },
   rtl: { direction: 'rtl' },
 });

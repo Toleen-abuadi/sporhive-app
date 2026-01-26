@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { storage, APP_STORAGE_KEYS } from '../storage/storage';
+import { storage, APP_STORAGE_KEYS, PORTAL_KEYS } from '../storage/storage';
 import {
   getPortalAccessToken,
   getPortalAcademyId,
@@ -7,6 +7,7 @@ import {
   validatePortalSession,
 } from '../auth/portalSession';
 import { normalizePortalOverview, normalizeUniformOrders } from '../portal/portal.normalize';
+import { assertTryOutId, getTryOutIdFromPortalSession, isValidTryOutId } from '../portal/portal.tryout';
 
 const readAuthSession = async () => {
   const session = await storage.getItem(APP_STORAGE_KEYS.AUTH_SESSION);
@@ -40,7 +41,24 @@ const buildPortalHeaders = async (session) => {
   return headers;
 };
 
-const buildPortalPayload = (session, payload = {}) => {
+const readPortalSession = async () => {
+  if (storage.getPortalSession) return storage.getPortalSession();
+  return storage.getItem(PORTAL_KEYS.SESSION);
+};
+
+const resolveTryOutId = async (override, { require = false } = {}) => {
+  const overrideId = isValidTryOutId(override) ? override : null;
+  if (overrideId != null) return overrideId;
+
+  const portalSession = await readPortalSession();
+  const resolved = getTryOutIdFromPortalSession(portalSession);
+  if (require) {
+    assertTryOutId(resolved);
+  }
+  return resolved;
+};
+
+const buildPortalPayload = async (session, payload = {}, options = {}) => {
   const academyId = getPortalAcademyId(session);
   const playerId = getPortalPlayerId(session);
   const body = { ...(payload || {}) };
@@ -98,7 +116,7 @@ export const playerPortalApi = {
     try {
       const session = await ensureSession(sessionOverride);
       const headers = await buildPortalHeaders(session);
-      const payload = buildPortalPayload(session);
+      const payload = await buildPortalPayload(session);
       const data = await apiClient.post('/player-portal-external-proxy/player-profile/overview', payload, { headers });
       return { success: true, data: normalizePortalOverview(data) };
     } catch (error) {
@@ -128,7 +146,7 @@ export const playerPortalApi = {
     try {
       const session = await ensureSession(sessionOverride);
       const headers = await buildPortalHeaders(session);
-      const body = buildPortalPayload(session, payload);
+      const body = await buildPortalPayload(session, payload);
       const data = await apiClient.post('/player-portal-external-proxy/uniforms/my_orders', body, { headers });
       return { success: true, data: normalizeUniformOrders(data) };
     } catch (error) {
@@ -139,7 +157,7 @@ export const playerPortalApi = {
     try {
       const session = await ensureSession(sessionOverride);
       const headers = await buildPortalHeaders(session);
-      const body = buildPortalPayload(session, payload);
+      const body = await buildPortalPayload(session, payload, { requireTryOut: true });
       const data = await apiClient.post('/player-portal-external-proxy/registration/renewals/eligibility', body, { headers });
       return { success: true, data };
     } catch (error) {
@@ -150,7 +168,7 @@ export const playerPortalApi = {
     try {
       const session = await ensureSession(sessionOverride);
       const headers = await buildPortalHeaders(session);
-      const body = buildPortalPayload(session, payload);
+      const body = await buildPortalPayload(session, payload, { requireTryOut: true });
       const data = await apiClient.post('/player-portal-external-proxy/registration/renewals/request', body, { headers });
       return { success: true, data };
     } catch (error) {
@@ -161,7 +179,7 @@ export const playerPortalApi = {
     try {
       const session = await ensureSession(sessionOverride);
       const headers = await buildPortalHeaders(session);
-      const body = buildPortalPayload(session, payload);
+      const body = await buildPortalPayload(session, payload, { requireTryOut: true });
       const data = await apiClient.post('/player-portal-external-proxy/registration/print_invoice', body, {
         headers,
         responseType: 'arraybuffer',

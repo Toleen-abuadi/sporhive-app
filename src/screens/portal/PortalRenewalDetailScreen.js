@@ -1,11 +1,15 @@
 import React, { useEffect, useMemo } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../../theme/ThemeProvider';
 import { AppScreen } from '../../components/ui/AppScreen';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { Card } from '../../components/ui/Card';
 import { Text } from '../../components/ui/Text';
+import { Button } from '../../components/ui/Button';
 import { useI18n } from '../../services/i18n/i18n';
+import { usePortalAuth } from '../../services/portal/portal.hooks';
+import { isMissingTryOutError } from '../../services/portal/portal.tryout';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { spacing } from '../../theme/tokens';
@@ -13,9 +17,12 @@ import { spacing } from '../../theme/tokens';
 export function PortalRenewalDetailScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
-  const { overview, renewals } = usePlayerPortalStore((state) => ({
+  const router = useRouter();
+  const { logout } = usePortalAuth();
+  const { overview, renewals, renewalsError } = usePlayerPortalStore((state) => ({
     overview: state.overview,
     renewals: state.renewals,
+    renewalsError: state.renewalsError,
   }));
   const actions = usePlayerPortalActions();
 
@@ -25,12 +32,37 @@ export function PortalRenewalDetailScreen() {
   }, [actions, overview, renewals]);
 
   const eligibility = useMemo(() => renewals || {}, [renewals]);
+  const missingTryOut = isMissingTryOutError(renewalsError);
 
   return (
     <PortalAccessGate titleOverride={t('portal.renewals.detailTitle')}>
       <AppScreen safe scroll>
         <AppHeader title={t('portal.renewals.detailTitle')} />
 
+        {missingTryOut ? (
+          <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text variant="body" weight="bold" color={colors.textPrimary}>
+              {t('portal.errors.sessionExpiredTitle')}
+            </Text>
+            <Text variant="bodySmall" color={colors.textSecondary}>
+              Missing try_out (tryOutId is null). Please refresh portal session.
+            </Text>
+            <View style={styles.missingActions}>
+              <Button variant="secondary" onPress={actions.fetchOverview}>
+                {t('portal.common.retry')}
+              </Button>
+              <Button
+                onPress={() => {
+                  logout().finally(() => {
+                    router.replace('/(auth)/login?mode=player');
+                  });
+                }}
+              >
+                {t('portal.errors.reAuthAction')}
+              </Button>
+            </View>
+          </Card>
+        ) : (
         <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text variant="body" weight="bold" color={colors.textPrimary}>
             {t('portal.renewals.detailSummaryTitle')}
@@ -63,6 +95,7 @@ export function PortalRenewalDetailScreen() {
             </Text>
           </View>
         </Card>
+        )}
       </AppScreen>
     </PortalAccessGate>
   );
@@ -78,5 +111,10 @@ const styles = StyleSheet.create({
   },
   row: {
     gap: 4,
+  },
+  missingActions: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
 });

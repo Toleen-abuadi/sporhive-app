@@ -1,3 +1,5 @@
+import { extractTryOutIdFromOverview } from './portal.tryout';
+
 const pick = (obj, paths, fallback = undefined) => {
   for (const path of paths) {
     const parts = path.split('.');
@@ -38,10 +40,12 @@ export const normalizePortalOverview = (data) => {
   // Extract phone numbers safely
   const phoneNumbers = playerInfo.phone_numbers || {};
 
+  const tryOutId = extractTryOutIdFromOverview(data);
+
   // Create player object
   const player = {
     id: playerInfo.id,
-    tryOutId: playerInfo.id,
+    tryOutId,
     fullName: `${playerInfo.first_eng_name || ''} ${playerInfo.last_eng_name || ''}`.trim() ||
       `${playerInfo.first_ar_name || ''} ${playerInfo.last_ar_name || ''}`.trim(),
     firstEngName: playerInfo.first_eng_name || '',
@@ -63,6 +67,7 @@ export const normalizePortalOverview = (data) => {
   // Create registration object
   const registration = {
     id: registrationInfo.id,
+    tryOutId,
     registrationType: registrationInfo.registration_type || '',
     level: registrationInfo.level || '',
     startDate: registrationInfo.start_date || '',

@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo } 
 import { storage, PORTAL_KEYS } from '../storage/storage';
 import { portalApi } from './portal.api';
 import { normalizePortalOverview } from './portal.normalize';
+import { getTryOutIdFromPortalSession, isValidTryOutId, persistTryOutIdFromOverview } from './portal.tryout';
 
 const INITIAL_STATE = {
   isAuthenticated: false,
@@ -24,28 +25,6 @@ const OVERVIEW_INITIAL = {
   error: null,
   lastUpdated: null,
 };
-
-async function persistTryOutFromOverview(overview, academyId) {
-  const tryOutId = overview?.player?.tryOutId || overview?.player?.id || null;
-  if (!tryOutId) return null;
-
-  try {
-    const existing = (await storage.getItem(PORTAL_KEYS.SESSION)) || {};
-    const next = {
-      ...existing,
-      academyId: academyId ?? existing.academyId ?? null,
-      tryOutId,
-      // keep player cached too if you want (optional)
-      player: overview?.player ? { ...(existing.player || {}), ...overview.player } : existing.player,
-    };
-    await storage.setItem(PORTAL_KEYS.SESSION, next);
-    return tryOutId;
-  } catch (e) {
-    console.warn('persistTryOutFromOverview failed', e);
-    return null;
-  }
-}
-
 
 /**
  * Lightweight in-memory store for caching overview & cross-screen refresh
@@ -88,7 +67,7 @@ export const portalStore = {
     const normalized = normalizePortalOverview(res.data);
     portalStore.setOverview(normalized);
 
-    await persistTryOutFromOverview(normalized, academyId);
+    await persistTryOutIdFromOverview(normalized, academyId);
     return { success: true, data: normalized };
 
   },
@@ -124,7 +103,24 @@ export function PortalProvider({ children }) {
       const academyId = academyIdFromStorage || academyIdFromSession || null;
       const token = tokens?.access || tokens?.token || tokens?.access_token || null;
       const player = session?.player || null;
-      const tryOutId = session?.tryOutId ?? session?.try_out_id ?? null;
+      const storedTryOutId = getTryOutIdFromPortalSession(session);
+      const playerId = player?.id ?? player?.player_id ?? player?.external_player_id ?? null;
+      const isInvalidTryOutId =
+        !isValidTryOutId(storedTryOutId) ||
+        (playerId != null && String(storedTryOutId) === String(playerId));
+      const tryOutId = isInvalidTryOutId ? null : storedTryOutId;
+
+      if (isInvalidTryOutId && session) {
+        const cleanedSession = { ...session };
+        delete cleanedSession.tryOutId;
+        delete cleanedSession.try_out_id;
+        delete cleanedSession.tryout_id;
+        if (storage.setPortalSession) {
+          await storage.setPortalSession(cleanedSession);
+        } else {
+          await storage.setItem(PORTAL_KEYS.SESSION, cleanedSession);
+        }
+      }
 
       setState({
         ...INITIAL_STATE,
@@ -136,6 +132,14 @@ export function PortalProvider({ children }) {
         tryOutId,
         player,
       });
+
+      if (isInvalidTryOutId && token && academyId) {
+        const refreshed = await portalStore.loadOverview({ academyId, silent: true });
+        const refreshedTryOutId = refreshed?.data?.player?.tryOutId ?? null;
+        if (isValidTryOutId(refreshedTryOutId)) {
+          setState((prev) => ({ ...prev, tryOutId: refreshedTryOutId }));
+        }
+      }
 
       return { success: Boolean(token) };
     } catch (error) {
@@ -186,16 +190,21 @@ export function PortalProvider({ children }) {
       const tokens = data.tokens || data;
       const token = tokens?.access || tokens?.token || tokens?.access_token || null;
       const playerInfo = data.player || data.player_info || data.user || {};
-      const tryOutId = data.try_out_id || data.tryOutId || null;
+      const tryOutId = isValidTryOutId(data.try_out_id || data.tryOutId) ? data.try_out_id || data.tryOutId : null;
       if (storage.setPortalTokens) {
         await storage.setPortalTokens(tokens);
       } else {
         await storage.setItem(PORTAL_KEYS.AUTH_TOKENS, tokens);
       }
+      const sessionPayload = {
+        player: playerInfo,
+        academyId: id,
+        ...(isValidTryOutId(tryOutId) ? { tryOutId } : {}),
+      };
       if (storage.setPortalSession) {
-        await storage.setPortalSession({ player: playerInfo, tryOutId, academyId: id });
+        await storage.setPortalSession(sessionPayload);
       } else {
-        await storage.setItem(PORTAL_KEYS.SESSION, { player: playerInfo, tryOutId, academyId: id });
+        await storage.setItem(PORTAL_KEYS.SESSION, sessionPayload);
       }
       if (storage.setPortalAcademyId) {
         await storage.setPortalAcademyId(id);
@@ -209,7 +218,7 @@ export function PortalProvider({ children }) {
         academyId: id,
         authTokens: tokens,
         token,
-        tryOutId,
+        tryOutId: isValidTryOutId(tryOutId) ? tryOutId : null,
         player: playerInfo,
         error: null,
       });
@@ -258,8 +267,8 @@ export function PortalProvider({ children }) {
   const refreshOverview = useCallback(async () => {
     const result = await portalStore.refreshOverview({ academyId: state.academyId });
     if (result.success) {
-      const t = result?.data?.player?.tryOutId || result?.data?.player?.id || null;
-      if (t && t !== state.tryOutId) {
+      const t = result?.data?.player?.tryOutId ?? null;
+      if (isValidTryOutId(t) && t !== state.tryOutId) {
         setState((prev) => ({ ...prev, tryOutId: t }));
       }
       return result;
