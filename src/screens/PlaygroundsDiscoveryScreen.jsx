@@ -22,11 +22,10 @@ import { normalizeApiError } from '../services/api/normalizeApiError';
 import {
   getBookingDraft,
   getPlaygroundsClientState,
-  getPublicUser,
   setBookingDraft,
   setPlaygroundsClientState,
-  setPublicUser,
 } from '../services/playgrounds/storage';
+import { useAuth } from '../services/auth/auth.store';
 import { borderRadius, shadows, spacing } from '../theme/tokens';
 import { safeArray } from '../utils/safeRender';
 
@@ -120,6 +119,7 @@ function normalizeVenue(venue) {
 
 export function PlaygroundsDiscoveryScreen() {
   const { colors } = useTheme();
+  const { session } = useAuth();
 
   const [query, setQuery] = useState('');
   const [activityId, setActivityId] = useState('');
@@ -146,7 +146,7 @@ export function PlaygroundsDiscoveryScreen() {
   const [durations, setDurations] = useState([]);
   const [selectedDuration, setSelectedDuration] = useState(null);
   const [bookingDraft, setBookingDraftState] = useState(null);
-  const [publicUser, setPublicUserState] = useState(null);
+  const publicUser = session?.user || null;
   const [paymentType, setPaymentType] = useState('cash');
   const [sheetOpen, setSheetOpen] = useState(false);
   const slotsList = useMemo(() => safeArray(slots), [slots]);
@@ -244,10 +244,9 @@ export function PlaygroundsDiscoveryScreen() {
   }, [publicUser?.id]);
 
   const restorePersistedState = useCallback(async () => {
-    const [client, draft, user] = await Promise.all([
+    const [client, draft] = await Promise.all([
       getPlaygroundsClientState(),
       getBookingDraft(),
-      getPublicUser(),
     ]);
     if (client?.filters) {
       setQuery(String(client.filters.q || ''));
@@ -272,7 +271,6 @@ export function PlaygroundsDiscoveryScreen() {
     if (draft) {
       setBookingDraftState(draft);
     }
-    if (user) setPublicUserState(user);
   }, []);
 
   useEffect(() => {
@@ -290,12 +288,6 @@ export function PlaygroundsDiscoveryScreen() {
   useEffect(() => {
     setBookingDraft(bookingDraft);
   }, [bookingDraft]);
-
-  useEffect(() => {
-    if (publicUser) {
-      setPublicUser(publicUser);
-    }
-  }, [publicUser]);
 
   const onRefresh = useCallback(() => fetchPlaygrounds(true), [fetchPlaygrounds]);
 

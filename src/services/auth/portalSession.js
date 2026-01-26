@@ -91,14 +91,15 @@ const requestPortalRefresh = async (refreshToken) => {
   }
 };
 
-export const refreshPortalSessionIfNeeded = async (sessionOverride) => {
+export const refreshPortalSessionIfNeeded = async (sessionOverride, options = {}) => {
+  const { force = false } = options;
   const session = sessionOverride || (await readStoredSession());
   const validation = validatePortalSession(session);
-  if (validation.ok) {
+  if (validation.ok && !force) {
     return { success: true, session };
   }
 
-  if (!session || validation.reason !== 'missing_portal_access') {
+  if (!session || (!force && validation.reason !== 'missing_portal_access')) {
     return { success: false, reason: validation.reason, session };
   }
 

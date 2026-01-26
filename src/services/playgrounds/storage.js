@@ -1,32 +1,6 @@
 import { storage } from '../storage/storage';
 import { STORAGE_KEYS } from '../storage/keys';
 
-export async function getPublicUser() {
-  const user = await storage.getItem(STORAGE_KEYS.PUBLIC_USER);
-  return user && typeof user === 'object' ? user : null;
-}
-
-export async function setPublicUser(user) {
-  if (!user) {
-    await storage.removeItem(STORAGE_KEYS.PUBLIC_USER);
-    return;
-  }
-  await storage.setItem(STORAGE_KEYS.PUBLIC_USER, user);
-}
-
-export async function getPublicUserToken() {
-  const token = await storage.getItem(STORAGE_KEYS.PUBLIC_USER_TOKEN);
-  return typeof token === 'string' && token.trim() ? token : null;
-}
-
-export async function setPublicUserToken(token) {
-  if (!token) {
-    await storage.removeItem(STORAGE_KEYS.PUBLIC_USER_TOKEN);
-    return;
-  }
-  await storage.setItem(STORAGE_KEYS.PUBLIC_USER_TOKEN, token);
-}
-
 export async function getPlaygroundsClientState() {
   const state = await storage.getItem(STORAGE_KEYS.PLAYGROUNDS_CLIENT);
   return state && typeof state === 'object' ? state : null;
@@ -68,8 +42,6 @@ export async function setPlaygroundsFilters(filters) {
 
 export async function clearPlaygroundsAuth() {
   await Promise.all([
-    storage.removeItem(STORAGE_KEYS.PUBLIC_USER),
-    storage.removeItem(STORAGE_KEYS.PUBLIC_USER_TOKEN),
     storage.removeItem(STORAGE_KEYS.PLAYGROUNDS_CLIENT),
     storage.removeItem(STORAGE_KEYS.BOOKING_DRAFT),
     storage.removeItem(STORAGE_KEYS.PLAYGROUNDS_FILTERS),

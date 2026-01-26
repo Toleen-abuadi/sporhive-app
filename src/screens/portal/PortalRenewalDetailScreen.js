@@ -8,7 +8,7 @@ import { Card } from '../../components/ui/Card';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { useI18n } from '../../services/i18n/i18n';
-import { usePortalAuth } from '../../services/portal/portal.hooks';
+import { useAuth } from '../../services/auth/auth.store';
 import { isMissingTryOutError } from '../../services/portal/portal.tryout';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
@@ -18,7 +18,7 @@ export function PortalRenewalDetailScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const router = useRouter();
-  const { logout } = usePortalAuth();
+  const { logout } = useAuth();
   const { overview, renewals, renewalsError } = usePlayerPortalStore((state) => ({
     overview: state.overview,
     renewals: state.renewals,
