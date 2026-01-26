@@ -73,16 +73,12 @@ const buildPortalPayload = async (session, payload = {}, options = {}) => {
     body.external_player_id = playerId;
   }
 
-  const resolvedTryOutId = await resolveTryOutId(options?.tryOutId, { require: options?.requireTryOut });
-  if (isValidTryOutId(resolvedTryOutId) && body.try_out == null) {
-    body.try_out = resolvedTryOutId;
-  }
-  if (isValidTryOutId(resolvedTryOutId) && body.tryout_id == null && body.try_out_id == null) {
-    body.tryout_id = resolvedTryOutId;
+  if (playerId != null && body.try_out == null) {
+    body.try_out = playerId;
   }
 
-  if (options?.requireTryOut) {
-    assertTryOutId(body.try_out ?? body.try_out_id ?? body.tryout_id ?? resolvedTryOutId);
+  if (playerId != null && body.tryout_id == null && body.try_out_id == null) {
+    body.tryout_id = playerId;
   }
 
   return body;
