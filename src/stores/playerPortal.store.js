@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { playerPortalApi } from '../services/api/playerPortal.api';
+import { normalizeApiError } from '../services/api/normalizeApiError';
 import { storage } from '../services/storage/storage';
 import { STORAGE_KEYS } from '../services/storage/keys';
 
@@ -122,7 +123,8 @@ export const playerPortalStore = {
       setState({ overview: res.data, overviewLoading: false, overviewError: null });
       return { success: true, data: res.data };
     }
-    setState({ overviewLoading: false, overviewError: res.error });
+    const normalized = normalizeApiError(res.error);
+    setState({ overviewLoading: false, overviewError: normalized });
     return { success: false, error: res.error };
   },
   async fetchProfile() {
@@ -132,7 +134,8 @@ export const playerPortalStore = {
       setState({ profile: res.data, profileLoading: false, profileError: null });
       return { success: true, data: res.data };
     }
-    setState({ profileLoading: false, profileError: res.error });
+    const normalized = normalizeApiError(res.error);
+    setState({ profileLoading: false, profileError: normalized });
     return { success: false, error: res.error };
   },
   async fetchPayments() {
@@ -143,7 +146,8 @@ export const playerPortalStore = {
       await persistFilters();
       return { success: true, data: res.data };
     }
-    setState({ paymentsLoading: false, paymentsError: res.error });
+    const normalized = normalizeApiError(res.error);
+    setState({ paymentsLoading: false, paymentsError: normalized });
     return { success: false, error: res.error };
   },
   async fetchOrders(payload = {}) {
@@ -154,7 +158,8 @@ export const playerPortalStore = {
       await persistFilters();
       return { success: true, data: res.data };
     }
-    setState({ ordersLoading: false, ordersError: res.error });
+    const normalized = normalizeApiError(res.error);
+    setState({ ordersLoading: false, ordersError: normalized });
     return { success: false, error: res.error };
   },
   async fetchRenewals(payload = {}) {
@@ -166,7 +171,8 @@ export const playerPortalStore = {
       await persistFilters();
       return { success: true, data };
     }
-    setState({ renewalsLoading: false, renewalsError: res.error });
+    const normalized = normalizeApiError(res.error);
+    setState({ renewalsLoading: false, renewalsError: normalized });
     return { success: false, error: res.error };
   },
   async submitRenewal(payload = {}) {

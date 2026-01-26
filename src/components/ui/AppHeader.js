@@ -5,6 +5,7 @@ import { Icon } from './Icon';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
 import { Text } from './Text';
+import { safeBack } from '../../navigation/safeBack';
 
 export function AppHeader({
   title,
@@ -45,9 +46,7 @@ export function AppHeader({
       onBackPress();
       return;
     }
-    if (typeof router?.back === 'function') {
-      router.back();
-    }
+    safeBack(router);
   };
 
   const leftIconName = typeof leftIcon === 'string' ? leftIcon : undefined;
@@ -90,7 +89,12 @@ export function AppHeader({
     }
     if (shouldShowBack) {
       return (
-        <Pressable onPress={handleBack} style={styles.iconButton} accessibilityRole="button">
+        <Pressable
+          onPress={handleBack}
+          style={styles.iconButton}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Icon name={iconName} size={24} color={colors.textPrimary} />
         </Pressable>
       );
@@ -240,5 +244,9 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: spacing.xs,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
