@@ -17,11 +17,14 @@ import { useI18n } from '../../services/i18n/i18n';
 import { PortalFilterSheet } from '../../components/portal/PortalFilterSheet';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
+import { useAuth } from '../../services/auth/auth.store';
+import { isPortalReauthError } from '../../services/portal/portal.errors';
 
 export function PortalMyOrdersScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { t } = useI18n();
+  const { logout } = useAuth();
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const { orders, ordersLoading, ordersError, filters } = usePlayerPortalStore((state) => ({
@@ -59,6 +62,8 @@ export function PortalMyOrdersScreen() {
 
   const resultsLabel = t('portal.filters.results', { count: filteredOrders.length });
 
+  const needsReauth = isPortalReauthError(ordersError);
+
   return (
     <PortalAccessGate titleOverride={t('portal.orders.title')}>
       <AppScreen safe scroll={false}>
@@ -93,8 +98,16 @@ export function PortalMyOrdersScreen() {
           <EmptyState
             title={t('portal.orders.errorTitle')}
             message={ordersError?.message || t('portal.orders.errorDescription')}
-            actionLabel={t('portal.common.retry')}
-            onAction={() => actions.fetchOrders?.()}
+            actionLabel={needsReauth ? t('portal.errors.reAuthAction') : t('portal.common.retry')}
+            onAction={() => {
+              if (needsReauth) {
+                logout().finally(() => {
+                  router.replace('/(auth)/login?mode=player');
+                });
+                return;
+              }
+              actions.fetchOrders?.();
+            }}
           />
         ) : filteredOrders.length === 0 ? (
           <EmptyState

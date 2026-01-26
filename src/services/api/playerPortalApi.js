@@ -9,7 +9,10 @@ import {
 
 const readAuthSession = async () => {
   const session = await storage.getItem(APP_STORAGE_KEYS.AUTH_SESSION);
-  return session && typeof session === 'object' ? session : null;
+  if (!session || typeof session !== 'object') return null;
+  const portalTokens = storage.getPortalTokens ? await storage.getPortalTokens() : null;
+  if (!portalTokens) return session;
+  return { ...session, portal_tokens: portalTokens };
 };
 
 const buildPortalHeaders = (session) => {

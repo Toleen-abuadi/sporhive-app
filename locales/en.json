@@ -306,7 +306,8 @@
           "back": "Back",
           "backAccessibility": "Go back",
           "continue": "Continue",
-          "confirm": "Confirm booking"
+          "confirm": "Confirm booking",
+          "submitting": "Submitting..."
         },
         "stepCounter": "Step {{current}} of {{total}}",
         "steps": {
@@ -328,7 +329,8 @@
           "loadDurations": "Unable to load durations.",
           "loadSlots": "Unable to load slots.",
           "completeSteps": "Please complete all booking steps.",
-          "submit": "Unable to complete booking."
+          "submit": "Unable to complete booking.",
+          "slotUnavailable": "That time slot is no longer available. Please pick another slot."
         },
         "empty": {
           "title": "Venue not found",

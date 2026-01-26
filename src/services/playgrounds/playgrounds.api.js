@@ -72,12 +72,29 @@ export const playgroundsApi = {
     });
     return { raw: res, slots: normalizeSlotsList(res) };
   },
+  async verifySlotAvailability({ venueId, date, durationId, startTime, ...rest } = {}) {
+    requireParam(venueId, 'venueId');
+    requireParam(date, 'date');
+    requireParam(durationId, 'durationId');
+    requireParam(startTime, 'startTime');
+    const res = await playgroundsApi.listAvailableSlots({
+      venueId,
+      date,
+      durationId,
+      ...rest,
+    });
+    const slots = res?.slots || [];
+    const match = slots.find(
+      (slot) => String(slot?.start_time || slot?.start || '') === String(startTime)
+    );
+    return { available: Boolean(match), slot: match || null, slots };
+  },
   async getSlots(payload = {}) {
     const res = await playgroundsApi.listAvailableSlots(payload);
     return res;
   },
-  async createBooking(payload) {
-    return endpoints.playgrounds.createBooking(payload);
+  async createBooking(payload, config = {}) {
+    return endpoints.playgrounds.createBooking(payload, config);
   },
   async listBookings(payload = {}, config = {}) {
     const res = await endpoints.playgrounds.listBookings(payload, config);

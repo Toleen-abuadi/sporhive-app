@@ -6,6 +6,7 @@ import { storage, APP_STORAGE_KEYS } from '../storage/storage';
 const INITIAL_STATE = {
   isAuthenticated: false,
   isLoading: true,
+  isHydrating: false,
   session: null,
   user: null,
   userType: null,
@@ -27,6 +28,8 @@ const extractToken = (data) =>
 
 const extractUser = (data) =>
   data?.user || data?.profile || data?.player || data?.public_user || null;
+
+const normalizeAcademyId = (value) => (value != null ? Number(value) : null);
 
 const normalizeUserProfile = ({ user, loginAs, academyId, username }) => {
   const profile = user || {};
@@ -80,33 +83,108 @@ export function AuthProvider({ children }) {
   const [state, setState] = useState(INITIAL_STATE);
 
   const persistSession = useCallback(async (session, token) => {
-    await storage.setItem(APP_STORAGE_KEYS.AUTH_SESSION, session);
+    if (session?.portal_tokens) {
+      await storage.setPortalTokens(session.portal_tokens);
+    }
+    const safeSession = session
+      ? (() => {
+          const { portal_tokens, portalAccessToken, ...rest } = session;
+          return rest;
+        })()
+      : null;
+    await storage.setItem(APP_STORAGE_KEYS.AUTH_SESSION, safeSession);
     if (token) {
       await storage.setAuthToken(token);
     }
   }, []);
 
   const restoreSession = useCallback(async () => {
+    setState((prev) => ({ ...prev, isHydrating: true, isLoading: true }));
+    let hadSessionData = false;
     try {
-      const [session, lastAcademyRaw, token] = await Promise.all([
+      await storage.ensureSecureMigration();
+      const [session, lastAcademyRaw, storedToken, legacyToken, portalTokens] = await Promise.all([
         storage.getItem(APP_STORAGE_KEYS.AUTH_SESSION),
         storage.getItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID),
         storage.getAuthToken(),
+        storage.getLegacyAuthToken(),
+        storage.getPortalTokens(),
       ]);
+      hadSessionData = Boolean(session || storedToken || legacyToken || lastAcademyRaw != null);
+      const mergedSession = session
+        ? {
+            ...session,
+            portal_tokens: portalTokens || session.portal_tokens,
+          }
+        : null;
+      const sessionToken =
+        mergedSession?.tokens?.access ||
+        mergedSession?.tokens?.token ||
+        mergedSession?.token ||
+        mergedSession?.access ||
+        mergedSession?.access_token ||
+        mergedSession?.authToken ||
+        null;
+      const resolvedToken = sessionToken || storedToken || legacyToken || null;
+      const normalizedSession = mergedSession
+        ? {
+            ...mergedSession,
+            tokens: resolvedToken ? { ...(mergedSession.tokens || {}), access: resolvedToken } : mergedSession.tokens,
+            token: resolvedToken || mergedSession.token,
+          }
+        : null;
       const lastSelectedAcademyId = lastAcademyRaw != null ? Number(lastAcademyRaw) : null;
-      const loginAs = session?.login_as || session?.userType || session?.user?.type || null;
-      const portalAccessToken = getPortalAccessToken(session);
-      if (loginAs || token) {
+      const loginAs = normalizedSession?.login_as || normalizedSession?.userType || normalizedSession?.user?.type || null;
+      const sessionAcademyId = normalizeAcademyId(
+        normalizedSession?.user?.academy_id ||
+          normalizedSession?.user?.academyId ||
+          normalizedSession?.academyId ||
+          null
+      );
+      const nextLastSelectedAcademyId =
+        loginAs === 'player'
+          ? sessionAcademyId
+          : loginAs
+            ? lastSelectedAcademyId
+            : null;
+      const academySelectionChanged = nextLastSelectedAcademyId !== lastSelectedAcademyId;
+      const portalAccessToken = getPortalAccessToken(normalizedSession);
+      if (resolvedToken) {
+        await storage.setAuthToken(resolvedToken);
+        if (legacyToken) {
+          await storage.removeLegacyAuthTokens();
+        }
+      } else {
+        await Promise.all([
+          storage.removeAuthToken(),
+          storage.removePortalTokens(),
+          storage.removeLegacyAuthTokens(),
+          storage.removeLegacyPortalCredentials(),
+          storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
+          storage.removeItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID),
+        ]);
+      }
+      if (academySelectionChanged && storage.clearTenantState) {
+        await storage.clearTenantState();
+        if (nextLastSelectedAcademyId != null) {
+          await storage.setItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID, nextLastSelectedAcademyId);
+        }
+      }
+      if (loginAs || resolvedToken) {
+        if (normalizedSession && normalizedSession !== session) {
+          await storage.setItem(APP_STORAGE_KEYS.AUTH_SESSION, normalizedSession);
+        }
         setState({
           ...INITIAL_STATE,
-          isAuthenticated: Boolean(loginAs || token),
+          isAuthenticated: Boolean(loginAs || resolvedToken),
           isLoading: false,
-          session: session || null,
-          user: session?.user || null,
+          isHydrating: false,
+          session: normalizedSession || null,
+          user: normalizedSession?.user || null,
           userType: loginAs,
           token: resolvedToken,
           portalAccessToken,
-          lastSelectedAcademyId,
+          lastSelectedAcademyId: nextLastSelectedAcademyId,
         });
         return;
       }
@@ -114,8 +192,19 @@ export function AuthProvider({ children }) {
       if (__DEV__) {
         console.warn('Failed to restore auth session', error);
       }
+      await Promise.all([
+        storage.removeAuthToken(),
+        storage.removePortalTokens(),
+        storage.removeLegacyAuthTokens(),
+        storage.removeLegacyPortalCredentials(),
+        storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
+        storage.removeItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID),
+      ]);
     }
-    setState((prev) => ({ ...prev, isLoading: false }));
+    if (__DEV__ && hadSessionData) {
+      console.warn('Cleared auth session during restore due to missing or invalid token.');
+    }
+    setState({ ...INITIAL_STATE, isLoading: false, isHydrating: false });
   }, []);
 
   useEffect(() => {
@@ -145,6 +234,9 @@ export function AuthProvider({ children }) {
         token,
         portalTokens: null,
       });
+      if (storage.clearTenantState) {
+        await storage.clearTenantState();
+      }
       await persistSession(session, token);
       setState((prev) => ({
         ...prev,
@@ -155,6 +247,7 @@ export function AuthProvider({ children }) {
         userType: 'public',
         token,
         portalAccessToken: null,
+        lastSelectedAcademyId: null,
       }));
       return { success: true, data: result.data };
     }
@@ -192,6 +285,9 @@ export function AuthProvider({ children }) {
           academyId,
           username,
         });
+        if (storage.clearTenantState) {
+          await storage.clearTenantState();
+        }
         await Promise.all([
           persistSession(session, token),
           setLastSelectedAcademyId(academyId),
@@ -234,6 +330,9 @@ export function AuthProvider({ children }) {
       storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
       storage.removeItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID),
       storage.removeAuthToken(),
+      storage.removePortalTokens(),
+      storage.removeLegacyPortalCredentials(),
+      storage.clearTenantState ? storage.clearTenantState() : Promise.resolve(),
     ]);
     setState({ ...INITIAL_STATE, isLoading: false });
   }, []);

@@ -1,6 +1,7 @@
 // Portal News Screen: academy updates and announcements.
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native'; // ✅ add Image + ScrollView
+import { useRouter } from 'expo-router';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
@@ -12,15 +13,19 @@ import { portalApi } from '../../services/portal/portal.api';
 import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
 import { storage, PORTAL_KEYS } from '../../services/storage/storage';
+import { useAuth } from '../../services/auth/auth.store';
+import { isPortalReauthError } from '../../services/portal/portal.errors';
 
 
 export function PortalNewsScreen() {
+  const router = useRouter();
   const { colors } = useTheme();
   const { t, isRTL } = useTranslation();
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const placeholder = t('portal.common.placeholder');
+  const { logout } = useAuth();
 
   const [academyId, setAcademyId] = useState(null);
 
@@ -83,7 +88,7 @@ const resolveNewsImageUrl = useCallback((imageUrl) => {
 
   const loadNews = useCallback(async () => {
     setLoading(true);
-    setError('');
+    setError(null);
     const res = await portalApi.fetchNews();
 
     if (res?.success) {
@@ -98,7 +103,7 @@ const resolveNewsImageUrl = useCallback((imageUrl) => {
 
       setNews(list);
     } else {
-      setError(res?.error?.message || t('portal.news.error'));
+      setError(res?.error || new Error(t('portal.news.error')));
     }
 
     setLoading(false);
@@ -127,13 +132,28 @@ const resolveNewsImageUrl = useCallback((imageUrl) => {
         <PortalEmptyState
           icon="alert-triangle"
           title={t('portal.news.errorTitle')}
-          description={error}
+          description={error?.message || t('portal.news.error')}
           action={(
-            <TouchableOpacity onPress={loadNews} style={styles.retryButton}>
-              <Text variant="bodySmall" color={colors.textPrimary}>
-                {t('portal.common.retry')}
-              </Text>
-            </TouchableOpacity>
+            isPortalReauthError(error) ? (
+              <TouchableOpacity
+                onPress={() => {
+                  logout().finally(() => {
+                    router.replace('/(auth)/login?mode=player');
+                  });
+                }}
+                style={styles.retryButton}
+              >
+                <Text variant="bodySmall" color={colors.textPrimary}>
+                  {t('portal.errors.reAuthAction')}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={loadNews} style={styles.retryButton}>
+                <Text variant="bodySmall" color={colors.textPrimary}>
+                  {t('portal.common.retry')}
+                </Text>
+              </TouchableOpacity>
+            )
           )}
         />
       ) : news?.length ? (

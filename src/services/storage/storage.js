@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { secureStorage } from './secureStorage';
+import { STORAGE_KEYS } from './keys';
 
 const memoryStore = new Map();
 
@@ -11,13 +13,15 @@ export const APP_STORAGE_KEYS = {
   WELCOME_SEEN: 'sporhive_welcome_seen',
 };
 
+const LEGACY_AUTH_TOKEN_KEYS = ['token', 'access', 'authToken', APP_STORAGE_KEYS.AUTH_TOKEN];
+
 export const PORTAL_KEYS = {
   ACADEMY_ID: 'sporhive_portal_academy_id',
-  USERNAME: 'sporhive_portal_username',
-  PASSWORD: 'sporhive_portal_password',
   AUTH_TOKENS: 'sporhive_portal_auth_tokens',
   SESSION: 'sporhive_portal_session',
 };
+
+const LEGACY_PORTAL_CREDENTIAL_KEYS = ['sporhive_portal_username', 'sporhive_portal_password'];
 
 const hasAsyncStorage =
   AsyncStorage &&
@@ -96,7 +100,71 @@ const serializeValue = (value) => {
   }
 };
 
+let secureMigrationPromise;
+
+const migrateSensitiveStorage = async () => {
+  if (secureMigrationPromise) {
+    return secureMigrationPromise;
+  }
+
+  secureMigrationPromise = (async () => {
+    const adapter = resolveAdapter();
+    if (!adapter?.getItem || !adapter?.removeItem) return;
+
+    const secureAvailable = secureStorage.isAvailable();
+    const [existingAuthToken, existingPortalTokens] = await Promise.all([
+      secureStorage.getItem(APP_STORAGE_KEYS.AUTH_TOKEN),
+      secureStorage.getItem(PORTAL_KEYS.AUTH_TOKENS),
+    ]);
+
+    const legacyTokenValues = await Promise.all(
+      LEGACY_AUTH_TOKEN_KEYS.map((key) => adapter.getItem(key))
+    );
+    const legacyToken = legacyTokenValues
+      .map((value) => parseStoredValue(value))
+      .find((value) => typeof value === 'string' && value.length > 0);
+
+    if (secureAvailable && !existingAuthToken && legacyToken) {
+      await secureStorage.setItem(APP_STORAGE_KEYS.AUTH_TOKEN, legacyToken);
+    }
+
+    const legacyPortalTokensRaw = await adapter.getItem(PORTAL_KEYS.AUTH_TOKENS);
+    const legacyPortalTokens = parseStoredValue(legacyPortalTokensRaw);
+
+    if (secureAvailable && !existingPortalTokens && legacyPortalTokens) {
+      await secureStorage.setItem(PORTAL_KEYS.AUTH_TOKENS, legacyPortalTokens);
+    }
+
+    const legacySessionRaw = await adapter.getItem(APP_STORAGE_KEYS.AUTH_SESSION);
+    const legacySession = parseStoredValue(legacySessionRaw);
+
+    if (legacySession && typeof legacySession === 'object') {
+      const { portal_tokens, portalAccessToken, ...rest } = legacySession;
+      if (portal_tokens && secureAvailable && !existingPortalTokens) {
+        await secureStorage.setItem(PORTAL_KEYS.AUTH_TOKENS, portal_tokens);
+      }
+      if (secureAvailable && (portal_tokens || portalAccessToken)) {
+        const sanitized = { ...rest };
+        await adapter.setItem(APP_STORAGE_KEYS.AUTH_SESSION, serializeValue(sanitized));
+      }
+    }
+
+    if (secureAvailable) {
+      await Promise.all(
+        [PORTAL_KEYS.AUTH_TOKENS, ...LEGACY_AUTH_TOKEN_KEYS].map((key) => adapter.removeItem(key))
+      );
+    }
+
+    await Promise.all(LEGACY_PORTAL_CREDENTIAL_KEYS.map((key) => adapter.removeItem(key)));
+  })();
+
+  return secureMigrationPromise;
+};
+
 export const storage = {
+  async ensureSecureMigration() {
+    await migrateSensitiveStorage();
+  },
   async getItem(key) {
     try {
       const adapter = resolveAdapter();
@@ -150,14 +218,70 @@ export const storage = {
     }
   },
   async getAuthToken() {
-    const token = await storage.getItem(APP_STORAGE_KEYS.AUTH_TOKEN);
+    const token = await secureStorage.getItem(APP_STORAGE_KEYS.AUTH_TOKEN);
     return typeof token === 'string' ? token : null;
   },
   async setAuthToken(token) {
-    await storage.setItem(APP_STORAGE_KEYS.AUTH_TOKEN, token);
+    await secureStorage.setItem(APP_STORAGE_KEYS.AUTH_TOKEN, token);
   },
   async removeAuthToken() {
-    await storage.removeItem(APP_STORAGE_KEYS.AUTH_TOKEN);
+    await secureStorage.removeItem(APP_STORAGE_KEYS.AUTH_TOKEN);
+  },
+  async getPortalTokens() {
+    const tokens = await secureStorage.getItem(PORTAL_KEYS.AUTH_TOKENS);
+    return tokens && typeof tokens === 'object' ? tokens : null;
+  },
+  async setPortalTokens(tokens) {
+    if (!tokens) return;
+    await secureStorage.setItem(PORTAL_KEYS.AUTH_TOKENS, tokens);
+  },
+  async removePortalTokens() {
+    await secureStorage.removeItem(PORTAL_KEYS.AUTH_TOKENS);
+  },
+  async getLegacyAuthToken() {
+    const entries = await storage.multiGet(LEGACY_AUTH_TOKEN_KEYS);
+    for (const [, value] of entries) {
+      if (typeof value === 'string' && value.length > 0) {
+        return value;
+      }
+    }
+    return null;
+  },
+  async removeLegacyAuthTokens() {
+    await Promise.all(LEGACY_AUTH_TOKEN_KEYS.map((key) => storage.removeItem(key)));
+  },
+  async removeLegacyPortalCredentials() {
+    await Promise.all(LEGACY_PORTAL_CREDENTIAL_KEYS.map((key) => storage.removeItem(key)));
+  },
+  async setPortalSession(session) {
+    await storage.setItem(PORTAL_KEYS.SESSION, session);
+  },
+  async getPortalSession() {
+    const session = await storage.getItem(PORTAL_KEYS.SESSION);
+    return session && typeof session === 'object' ? session : null;
+  },
+  async setPortalAcademyId(id) {
+    const value = id == null ? null : String(id);
+    await storage.setItem(PORTAL_KEYS.ACADEMY_ID, value);
+  },
+  async logoutPortal() {
+    await Promise.all([
+      storage.removePortalTokens(),
+      storage.removeItem(PORTAL_KEYS.AUTH_TOKENS),
+      storage.removeItem(PORTAL_KEYS.SESSION),
+      storage.removeItem(PORTAL_KEYS.ACADEMY_ID),
+      storage.removeLegacyPortalCredentials(),
+    ]);
+  },
+  async clearTenantState() {
+    await Promise.all([
+      storage.removeItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID),
+      storage.removeItem(PORTAL_KEYS.ACADEMY_ID),
+      storage.removeItem(STORAGE_KEYS.PLAYGROUNDS_FILTERS),
+      storage.removeItem(STORAGE_KEYS.BOOKING_DRAFT),
+      storage.removeItem(STORAGE_KEYS.PLAYGROUNDS_CLIENT),
+      storage.removeItem(STORAGE_KEYS.ACADEMY_DISCOVERY_STATE),
+    ]);
   },
 };
 

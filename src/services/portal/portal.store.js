@@ -74,19 +74,35 @@ export function PortalProvider({ children }) {
 
   const restoreSession = useCallback(async () => {
     try {
-const [sessionRaw, tokensRaw, academyIdRaw] = await Promise.all([
-  safeGetItem(PORTAL_KEYS.SESSION, 'PORTAL_KEYS.SESSION'),
-  safeGetItem(PORTAL_KEYS.AUTH_TOKENS, 'PORTAL_KEYS.AUTH_TOKENS'),
-  safeGetItem(PORTAL_KEYS.ACADEMY_ID, 'PORTAL_KEYS.ACADEMY_ID'),
-]);
-
+      if (storage.ensureSecureMigration) {
+        await storage.ensureSecureMigration();
+      }
+      const [sessionRaw, academyIdRaw, tokens] = await Promise.all([
+        safeGetItem(PORTAL_KEYS.SESSION, 'PORTAL_KEYS.SESSION'),
+        safeGetItem(PORTAL_KEYS.ACADEMY_ID, 'PORTAL_KEYS.ACADEMY_ID'),
+        storage.getPortalTokens
+          ? storage.getPortalTokens()
+          : safeGetItem(PORTAL_KEYS.AUTH_TOKENS, 'PORTAL_KEYS.AUTH_TOKENS'),
+      ]);
 
       const session = safeJsonParse(sessionRaw);
-      const tokens = safeJsonParse(tokensRaw);
+      const normalizedTokens = safeJsonParse(tokens);
       const academyIdFromStorage = academyIdRaw != null ? Number(academyIdRaw) : null;
       const academyIdFromSession = session?.academyId != null ? Number(session.academyId) : null;
-      const academyId = academyIdFromStorage || academyIdFromSession || null;
-      const token = tokens?.access || tokens?.token || tokens?.access_token || null;
+      const academyId = academyIdFromSession || academyIdFromStorage || null;
+      if (
+        academyIdFromSession &&
+        academyIdFromStorage &&
+        academyIdFromSession !== academyIdFromStorage
+      ) {
+        if (storage.setPortalAcademyId) {
+          await storage.setPortalAcademyId(academyIdFromSession);
+        } else {
+          await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(academyIdFromSession));
+        }
+      }
+      const token =
+        normalizedTokens?.access || normalizedTokens?.token || normalizedTokens?.access_token || null;
       const player = session?.player || null;
       const storedTryOutId = getTryOutIdFromPortalSession(session);
       const playerId = player?.id ?? player?.player_id ?? player?.external_player_id ?? null;
@@ -112,7 +128,7 @@ const [sessionRaw, tokensRaw, academyIdRaw] = await Promise.all([
         isAuthenticated: Boolean(token),
         isLoading: false,
         academyId,
-        authTokens: tokens || null,
+        authTokens: normalizedTokens || null,
         token,
         tryOutId,
         player,
@@ -165,12 +181,6 @@ const [sessionRaw, tokensRaw, academyIdRaw] = await Promise.all([
     const result = await portalApi.login({ academyId: id, username, password });
 
     if (result.success) {
-      if (storage.setPortalCredentials) {
-        await storage.setPortalCredentials({ username, password });
-      } else {
-        await storage.setItem(PORTAL_KEYS.USERNAME, String(username || ''));
-        await storage.setItem(PORTAL_KEYS.PASSWORD, String(password || ''));
-      }
       const data = result.data || {};
       const tokens = data.tokens || data;
       const token = tokens?.access || tokens?.token || tokens?.access_token || null;
@@ -444,5 +454,3 @@ async function safeSetItem(key, value, label) {
   const v = typeof value === 'string' ? value : JSON.stringify(value ?? null);
   return storage.setItem(k, v);
 }
-
-

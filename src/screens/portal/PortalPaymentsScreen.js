@@ -17,11 +17,14 @@ import { useI18n } from '../../services/i18n/i18n';
 import { PortalFilterSheet } from '../../components/portal/PortalFilterSheet';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
+import { useAuth } from '../../services/auth/auth.store';
+import { isPortalReauthError } from '../../services/portal/portal.errors';
 
 export function PortalPaymentsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { t } = useI18n();
+  const { logout } = useAuth();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const {
     payments,
@@ -57,6 +60,8 @@ export function PortalPaymentsScreen() {
 
   const resultsLabel = t('portal.filters.results', { count: filteredPayments.length });
 
+  const needsReauth = isPortalReauthError(paymentsError);
+
   return (
     <PortalAccessGate titleOverride={t('portal.payments.title')}>
       <AppScreen safe scroll={false}>
@@ -91,8 +96,16 @@ export function PortalPaymentsScreen() {
           <EmptyState
             title={t('portal.payments.errorTitle')}
             message={paymentsError?.message || t('portal.payments.errorDescription')}
-            actionLabel={t('portal.common.retry')}
-            onAction={actions.fetchPayments}
+            actionLabel={needsReauth ? t('portal.errors.reAuthAction') : t('portal.common.retry')}
+            onAction={() => {
+              if (needsReauth) {
+                logout().finally(() => {
+                  router.replace('/(auth)/login?mode=player');
+                });
+                return;
+              }
+              actions.fetchPayments();
+            }}
           />
         ) : filteredPayments.length === 0 ? (
           <EmptyState

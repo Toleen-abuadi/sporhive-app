@@ -1,6 +1,7 @@
 // src/screens/portal/PortalProfileScreen.jsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { useTheme } from '../../theme/ThemeProvider';
 import { AppScreen } from '../../components/ui/AppScreen';
@@ -15,6 +16,8 @@ import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 
 import { useI18n } from '../../services/i18n/i18n';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
+import { useAuth } from '../../services/auth/auth.store';
+import { isPortalReauthError } from '../../services/portal/portal.errors';
 import { spacing } from '../../theme/tokens';
 
 function safeStr(v) {
@@ -34,9 +37,11 @@ function toNumOrNull(v) {
 }
 
 export function PortalProfileScreen() {
+  const router = useRouter();
   const { colors } = useTheme();
   const { t } = useI18n();
   const actions = usePlayerPortalActions();
+  const { logout } = useAuth();
 
   const {
     profile,
@@ -214,13 +219,22 @@ export function PortalProfileScreen() {
   }
 
   if (profileError && !profile) {
+    const needsReauth = isPortalReauthError(profileError);
     return (
       <AppScreen safe>
         <EmptyState
           title={t('portal.profile.errorTitle')}
           message={profileError?.message || t('portal.profile.errorDescription')}
-          actionLabel={t('portal.common.retry')}
-          onAction={actions.fetchProfile}
+          actionLabel={needsReauth ? t('portal.errors.reAuthAction') : t('portal.common.retry')}
+          onAction={() => {
+            if (needsReauth) {
+              logout().finally(() => {
+                router.replace('/(auth)/login?mode=player');
+              });
+              return;
+            }
+            actions.fetchProfile();
+          }}
         />
       </AppScreen>
     );
