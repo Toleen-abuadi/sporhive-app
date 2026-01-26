@@ -166,6 +166,8 @@ function StickyFooterCTA({
   const primaryLabel =
     currentStep < stepLabels.length - 1
       ? t('service.playgrounds.booking.actions.continue')
+      : submitting
+      ? t('service.playgrounds.booking.actions.submitting')
       : t('service.playgrounds.booking.actions.confirm');
 
   return (
@@ -223,6 +225,7 @@ export function BookingStepperScreen() {
   const [errorText, setErrorText] = useState('');
   const [inlinePaymentError, setInlinePaymentError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [idempotencyKey, setIdempotencyKey] = useState(null);
 
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingResult, setBookingResult] = useState(null); // {booking_id, booking_code, total_price, ...}
@@ -306,6 +309,7 @@ export function BookingStepperScreen() {
     getVenueDetails,
     getVenueDurations,
     listAvailableSlots,
+    verifySlotAvailability,
     listBookings,
     createBooking,
     setBookingDraft: persistBookingDraft,
@@ -520,6 +524,7 @@ export function BookingStepperScreen() {
   }, []);
 
   const handleSubmitBooking = useCallback(async () => {
+    if (submitting) return;
     if (!allValid || !selectedDuration || !selectedSlot) {
       setErrorText(t('service.playgrounds.booking.errors.completeSteps'));
       return;
@@ -542,6 +547,31 @@ export function BookingStepperScreen() {
     setErrorText('');
 
     try {
+      const nextIdempotencyKey =
+        idempotencyKey ||
+        `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      if (!idempotencyKey) {
+        setIdempotencyKey(nextIdempotencyKey);
+      }
+      const availability = await verifySlotAvailability({
+        venueId: venue.id,
+        date: bookingDate,
+        durationId: selectedDuration.id,
+        startTime: selectedSlot.start_time || selectedSlot.start,
+        number_of_players: players,
+        activity_id: venue.activity_id,
+        academy_profile_id: venue.academy_profile_id,
+      });
+      const latestSlots = availability?.data?.slots || [];
+      if (Array.isArray(latestSlots)) {
+        setSlots(latestSlots);
+      }
+      if (!availability?.success || !availability?.data?.available) {
+        setSelectedSlot(null);
+        setCurrentStep(0);
+        setErrorText(t('service.playgrounds.booking.errors.slotUnavailable'));
+        return;
+      }
       const formData = new FormData();
       formData.append('academy_profile_id', venue.academy_profile_id);
       formData.append('user_id', publicUser.id);
@@ -565,7 +595,12 @@ export function BookingStepperScreen() {
         });
       }
 
-      const res = await createBooking(formData);
+      const res = await createBooking(formData, {
+        headers: { 'Idempotency-Key': nextIdempotencyKey },
+      });
+      if (res?.success === false) {
+        throw res.error || new Error('Booking failed');
+      }
 
       await persistBookingDraft(null);
 
@@ -574,6 +609,7 @@ export function BookingStepperScreen() {
        await listBookings({ user_id: publicUser.id });
       }
 
+      setIdempotencyKey(null);
       toast.success(t('service.playgrounds.booking.success.toastMessage'), {
         title: t('service.playgrounds.booking.success.toastTitle'),
       });
@@ -583,6 +619,29 @@ export function BookingStepperScreen() {
         router.replace('/playgrounds/bookings');
       }, 30000);
     } catch (err) {
+      const status = err?.status || err?.response?.status || err?.meta?.status || null;
+      if (status === 409) {
+        setSelectedSlot(null);
+        setCurrentStep(0);
+        setErrorText(t('service.playgrounds.booking.errors.slotUnavailable'));
+        try {
+          const refresh = await verifySlotAvailability({
+            venueId: venue.id,
+            date: bookingDate,
+            durationId: selectedDuration?.id,
+            startTime: selectedSlot?.start_time || selectedSlot?.start || '',
+            number_of_players: players,
+            activity_id: venue?.activity_id,
+            academy_profile_id: venue?.academy_profile_id,
+          });
+          if (Array.isArray(refresh?.data?.slots)) {
+            setSlots(refresh.data.slots);
+          }
+        } catch {
+          // ignore refresh errors
+        }
+        return;
+      }
       setErrorText(err?.message || t('service.playgrounds.booking.errors.submit'));
     } finally {
       setSubmitting(false);
@@ -593,7 +652,9 @@ export function BookingStepperScreen() {
     cashOnDate,
     cliqImage,
     createBooking,
+    verifySlotAvailability,
     draftPayload,
+    idempotencyKey,
     listBookings,
     paymentType,
     persistBookingDraft,
@@ -602,12 +663,17 @@ export function BookingStepperScreen() {
     router,
     selectedDuration,
     selectedSlot,
+    submitting,
     t,
     toast,
     venue?.academy_profile_id,
     venue?.activity_id,
     venue?.id,
   ]);
+
+  useEffect(() => {
+    setIdempotencyKey(null);
+  }, [bookingDate, selectedDurationId, selectedSlot?.start_time, venue?.id]);
 
   const handlePlayersChange = useCallback((value) => {
     const parsed = Number(value);

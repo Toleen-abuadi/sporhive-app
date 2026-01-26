@@ -1,14 +1,8 @@
-import Constants from 'expo-constants';
 import { storage, APP_STORAGE_KEYS } from '../storage/storage';
+import { API_BASE_URL_V1 } from '../config/env';
 
 const resolveApiBaseUrl = () => {
-  const configBase = Constants?.expoConfig?.extra?.API_BASE_URL;
-  const envBase = process.env.EXPO_PUBLIC_API_BASE_URL;
-  const rawBase = configBase || envBase;
-  if (!rawBase) return null;
-  const trimmed = String(rawBase).replace(/\/+$/, '');
-  if (!trimmed) return null;
-  return trimmed.endsWith('/api/v1') ? trimmed : `${trimmed}/api/v1`;
+  return API_BASE_URL_V1;
 };
 
 export const getPortalAccessToken = (session) =>
@@ -56,13 +50,23 @@ export const validatePortalSession = (session) => {
 };
 
 const readStoredSession = async () => {
+  if (storage.ensureSecureMigration) {
+    await storage.ensureSecureMigration();
+  }
   const session = await storage.getItem(APP_STORAGE_KEYS.AUTH_SESSION);
-  return session && typeof session === 'object' ? session : null;
+  const portalTokens = await storage.getPortalTokens();
+  if (!session || typeof session !== 'object') return null;
+  if (!portalTokens) return session;
+  return { ...session, portal_tokens: portalTokens };
 };
 
 const persistSession = async (session) => {
   if (!session) return;
-  await storage.setItem(APP_STORAGE_KEYS.AUTH_SESSION, session);
+  if (session.portal_tokens) {
+    await storage.setPortalTokens(session.portal_tokens);
+  }
+  const { portal_tokens, portalAccessToken, ...safeSession } = session;
+  await storage.setItem(APP_STORAGE_KEYS.AUTH_SESSION, safeSession);
 };
 
 const requestPortalRefresh = async (refreshToken) => {

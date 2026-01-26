@@ -47,9 +47,10 @@ export const endpoints = {
     activitiesList: (payload = {}) => apiClient.post('/playgrounds/public/activities/list', payload),
     venueDurations: (payload = {}) => apiClient.post('/playgrounds/admin/venues/durations/list', payload),
     slots: (payload = {}) => apiClient.post('/playgrounds/public/slots', payload),
-    createBooking: (formData) =>
+    createBooking: (formData, config = {}) =>
       apiClient.post('/playgrounds/public/bookings/create', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        ...config,
+        headers: { 'Content-Type': 'multipart/form-data', ...(config.headers || {}) },
       }),
     listBookings: (payload = {}, config = {}) =>
       apiClient.post('/playgrounds/public/bookings/list', payload, config),

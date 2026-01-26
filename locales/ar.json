@@ -772,6 +772,14 @@
       }
     },
     "playgrounds": {
+      "booking": {
+        "actions": {
+          "submitting": "جارٍ الإرسال..."
+        },
+        "errors": {
+          "slotUnavailable": "هذا الموعد لم يعد متاحًا. يرجى اختيار وقت آخر."
+        }
+      },
       "bookings": {
         "title": "حجوزاتي",
         "errors": {

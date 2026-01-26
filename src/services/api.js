@@ -1,7 +1,6 @@
-const BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ||
-  process.env.VITE_API_BASE_URL ||
-  '';
+import { API_BASE_URL } from '../config/env';
+
+const BASE_URL = API_BASE_URL;
 
 function normalizeError(error) {
   if (!error) return 'Something went wrong.';

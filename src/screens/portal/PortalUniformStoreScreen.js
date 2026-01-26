@@ -1,5 +1,6 @@
 // Portal Uniform Store Screen (Redesigned): famous-app style catalog + cart bar + size chips + quantity stepper.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   View,
   StyleSheet,
@@ -21,6 +22,8 @@ import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
 import { portalApi } from '../../services/portal/portal.api';
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
+import { useAuth } from '../../services/auth/auth.store';
+import { isPortalReauthError } from '../../services/portal/portal.errors';
 import { spacing } from '../../theme/tokens';
 
 const alphaHex = (hex, alpha = '1A') => {
@@ -52,14 +55,16 @@ const formatMoney = (value, currency = '') => {
 };
 
 export function PortalUniformStoreScreen() {
+  const router = useRouter();
   const { colors } = useTheme();
   const toast = useToast();
   const { t, isRTL } = useTranslation();
   const placeholder = t('portal.common.placeholder');
+  const { logout } = useAuth();
 
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
   // Cart holds normalized lines (product + selected size/variant + qty + print fields)
   const [cart, setCart] = useState([]);
@@ -70,7 +75,7 @@ export function PortalUniformStoreScreen() {
 
   const loadCatalog = useCallback(async () => {
     setLoading(true);
-    setError('');
+    setError(null);
     const res = await portalApi.fetchUniformStore();
 
     if (res?.success) {
@@ -85,7 +90,7 @@ export function PortalUniformStoreScreen() {
 
       setCatalog(safeArray(list));
     } else {
-      setError(res?.error?.message || t('portal.uniforms.error'));
+      setError(res?.error || new Error(t('portal.uniforms.error')));
     }
 
     setLoading(false);
@@ -510,11 +515,24 @@ export function PortalUniformStoreScreen() {
         <PortalEmptyState
           icon="alert-triangle"
           title={t('portal.uniforms.errorTitle')}
-          description={error}
+          description={error?.message || t('portal.uniforms.error')}
           action={
-            <Button variant="secondary" onPress={loadCatalog}>
-              {t('portal.common.retry')}
-            </Button>
+            isPortalReauthError(error) ? (
+              <Button
+                variant="secondary"
+                onPress={() => {
+                  logout().finally(() => {
+                    router.replace('/(auth)/login?mode=player');
+                  });
+                }}
+              >
+                {t('portal.errors.reAuthAction')}
+              </Button>
+            ) : (
+              <Button variant="secondary" onPress={loadCatalog}>
+                {t('portal.common.retry')}
+              </Button>
+            )
           }
         />
       ) : catalog.length === 0 && !loading ? (

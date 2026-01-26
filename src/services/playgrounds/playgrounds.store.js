@@ -238,6 +238,21 @@ export const playgroundsStore = {
       return { success: false, error };
     }
   },
+  async verifySlotAvailability({ venueId, date, durationId, startTime, ...rest } = {}) {
+    try {
+      const res = await playgroundsApi.verifySlotAvailability({
+        venueId,
+        date,
+        durationId,
+        startTime,
+        ...rest,
+      });
+      return { success: true, data: res };
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      return { success: false, error: normalized };
+    }
+  },
   async listBookings(payload = {}, options = {}) {
     setState({ bookingsLoading: true, bookingsError: null, bookingsErrorStatus: null });
     try {
@@ -259,9 +274,9 @@ export const playgroundsStore = {
       return { success: false, error };
     }
   },
-  async createBooking(payload) {
+  async createBooking(payload, config = {}) {
     try {
-      const res = await playgroundsApi.createBooking(payload);
+      const res = await playgroundsApi.createBooking(payload, config);
       return { success: true, data: res };
     } catch (error) {
       return { success: false, error };
@@ -307,6 +322,7 @@ export function usePlaygroundsActions() {
       listActivities: playgroundsStore.listActivities,
       getVenueDurations: playgroundsStore.getVenueDurations,
       listAvailableSlots: playgroundsStore.listAvailableSlots,
+      verifySlotAvailability: playgroundsStore.verifySlotAvailability,
       listBookings: playgroundsStore.listBookings,
       createBooking: playgroundsStore.createBooking,
       setBookingDraft: playgroundsStore.setBookingDraft,

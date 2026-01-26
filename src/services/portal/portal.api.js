@@ -3,9 +3,10 @@ import { apiClient } from '../api/client';
 import { playerPortalApi } from '../api/playerPortalApi';
 import { getPortalAccessToken, getPortalAcademyId } from '../auth/portalSession';
 import { storage, PORTAL_KEYS, APP_STORAGE_KEYS } from '../storage/storage';
+import { API_BASE_URL_V1 } from '../config/env';
 import { assertTryOutId, getTryOutIdFromPortalSession, isValidTryOutId } from './portal.tryout';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL + '/api/v1';
+const API_BASE_URL = API_BASE_URL_V1;
 
 const wrapApi = async (fn, label = 'Portal API failed') => {
   try {
@@ -24,6 +25,10 @@ const readAuthSession = async () => {
 
 const resolveToken = async (override) => {
   if (override) return override;
+  const portalTokens = storage.getPortalTokens ? await storage.getPortalTokens() : null;
+  const portalToken =
+    portalTokens?.access || portalTokens?.token || portalTokens?.access_token || null;
+  if (portalToken) return portalToken;
   const session = await readAuthSession();
   return getPortalAccessToken(session);
 };

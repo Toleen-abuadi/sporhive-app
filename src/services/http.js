@@ -1,8 +1,8 @@
-import { EXPO_PUBLIC_API_BASE_URL } from '../config/env';
+import { API_BASE_URL } from '../config/env';
 
 const buildUrl = (path) => {
   if (path.startsWith('http')) return path;
-  return `${EXPO_PUBLIC_API_BASE_URL}${path}`;
+  return `${API_BASE_URL}${path}`;
 };
 
 const normalizeError = async (response) => {
