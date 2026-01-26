@@ -96,14 +96,6 @@ export function PortalUniformStoreScreen() {
     loadCatalog();
   }, [loadCatalog]);
 
-  if (loading && catalog.length === 0 && !error) {
-    return (
-      <Screen>
-        <SporHiveLoader />
-      </Screen>
-    );
-  }
-
   const getDisplayName = useCallback(
     (item) => {
       if (isRTL && item?.name_ar) return item.name_ar;
@@ -550,6 +542,14 @@ export function PortalUniformStoreScreen() {
   ), [cart, cartCount, cartOpen, cartTotal, checkout, colors, removeCartLine, setLineQty, t, upsertCartLine]);
 
   // ---------- Main ----------
+  if (loading && catalog.length === 0 && !error) {
+    return (
+      <Screen>
+        <SporHiveLoader />
+      </Screen>
+    );
+  }
+
   return (
     <Screen contentContainerStyle={[styles.screen, isRTL && styles.rtl]}>
       <PortalHeader
