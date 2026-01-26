@@ -98,7 +98,7 @@ apiClient.interceptors.response.use(
 
     if (isPortalRequest && (status === 401 || status === 403) && config && !config._portalRetry) {
       config._portalRetry = true;
-      const refreshResult = await refreshPortalSessionIfNeeded();
+      const refreshResult = await refreshPortalSessionIfNeeded(undefined, { force: true });
       if (refreshResult?.success) {
         const portalAccessToken = getPortalAccessToken(refreshResult.session);
         if (portalAccessToken) {
