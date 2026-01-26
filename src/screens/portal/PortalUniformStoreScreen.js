@@ -17,7 +17,6 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { PortalHeader } from '../../components/portal/PortalHeader';
-import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
 import { portalApi } from '../../services/portal/portal.api';
 import { useToast } from '../../components/ui/ToastHost';
@@ -95,14 +94,6 @@ export function PortalUniformStoreScreen() {
   useEffect(() => {
     loadCatalog();
   }, [loadCatalog]);
-
-  if (loading && catalog.length === 0 && !error) {
-    return (
-      <Screen>
-        <SporHiveLoader />
-      </Screen>
-    );
-  }
 
   const getDisplayName = useCallback(
     (item) => {
@@ -226,53 +217,6 @@ export function PortalUniformStoreScreen() {
     toast.success(t('portal.uniforms.added'));
   }, [findCartLine, getDisplayName, getVariants, t, toast, upsertCartLine]);
 
-  // Build headers and payload with academy context
-  const buildAcademyPayload = useCallback(async (payload = {}) => {
-    const readPortalTokens = async () => {
-      // Simplified token retrieval - adjust based on your actual storage implementation
-      return null;
-    };
-
-    const resolveToken = async () => {
-      const tokens = await readPortalTokens();
-      return tokens?.access || tokens?.token || tokens?.access_token || null;
-    };
-
-    const resolveAcademyId = async () => {
-      // Simplified academy ID resolution - adjust based on your actual storage
-      return null;
-    };
-
-    const resolveTryOutId = async () => {
-      // Simplified try_out ID resolution - adjust based on your actual storage
-      return null;
-    };
-
-    const resolvedToken = await resolveToken();
-    const resolvedAcademyId = await resolveAcademyId();
-    const resolvedTryOutId = await resolveTryOutId();
-
-    const headers = { 'Accept-Language': 'en' };
-
-    if (resolvedToken) {
-      headers.Authorization = `Bearer ${resolvedToken}`;
-    }
-
-    // Build the body matching web version structure
-    const body = { ...payload };
-    
-    if (resolvedAcademyId) {
-      body.customer_id = resolvedAcademyId;
-      body.academy_id = resolvedAcademyId;
-    }
-
-    if (resolvedTryOutId != null) {
-      body.try_out = resolvedTryOutId;
-    }
-
-    return { body, headers };
-  }, []);
-
   const checkout = useCallback(async () => {
     if (!cart.length) {
       toast.warning(t('portal.uniforms.validation'));
@@ -294,10 +238,7 @@ export function PortalUniformStoreScreen() {
     };
 
     try {
-      // Add academy context
-      const { body, headers } = await buildAcademyPayload(basePayload);
-      
-      const res = await portalApi.placeUniformOrder(body, { headers });
+      const res = await portalApi.placeUniformOrder(basePayload);
 
       if (res?.success) {
         toast.success(t('portal.uniforms.success'));
@@ -310,7 +251,7 @@ export function PortalUniformStoreScreen() {
     } catch (error) {
       toast.error(error?.message || t('portal.uniforms.error'));
     }
-  }, [cart, t, toast, buildAcademyPayload]);
+  }, [cart, t, toast]);
 
   // ---------- Catalog Card UI (famous-app style) ----------
   const ProductCard = useCallback(({ item }) => {
@@ -550,6 +491,14 @@ export function PortalUniformStoreScreen() {
   ), [cart, cartCount, cartOpen, cartTotal, checkout, colors, removeCartLine, setLineQty, t, upsertCartLine]);
 
   // ---------- Main ----------
+  if (loading && catalog.length === 0 && !error) {
+    return (
+      <Screen>
+        <SporHiveLoader />
+      </Screen>
+    );
+  }
+
   return (
     <Screen contentContainerStyle={[styles.screen, isRTL && styles.rtl]}>
       <PortalHeader

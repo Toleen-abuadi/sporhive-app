@@ -3,6 +3,7 @@ import { playerPortalApi } from '../services/api/playerPortal.api';
 import { normalizeApiError } from '../services/api/normalizeApiError';
 import { storage } from '../services/storage/storage';
 import { STORAGE_KEYS } from '../services/storage/keys';
+import { persistTryOutIdFromOverview } from '../services/portal/portal.tryout';
 
 const DEFAULT_FILTERS = {
   payments: {
@@ -121,6 +122,7 @@ export const playerPortalStore = {
     const res = await playerPortalApi.getOverview();
     if (res.success) {
       setState({ overview: res.data, overviewLoading: false, overviewError: null });
+      await persistTryOutIdFromOverview(res.data);
       return { success: true, data: res.data };
     }
     const normalized = normalizeApiError(res.error);

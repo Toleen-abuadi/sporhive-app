@@ -51,10 +51,13 @@ import { Input } from '../../components/ui/Input';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 
 import { PortalHeader } from '../../components/portal/PortalHeader';
+import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
 
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
+import { usePortalAuth } from '../../services/portal/portal.hooks';
+import { isMissingTryOutError } from '../../services/portal/portal.tryout';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 
@@ -459,6 +462,7 @@ export function PortalRenewalsScreen() {
   const { colors, isDark } = useTheme();
   const toast = useToast();
   const { t, locale, isRTL } = useTranslation();
+  const { logout } = usePortalAuth();
   const placeholder = t('portal.common.placeholder');
   const scheduleSeparator = t('portal.renewals.scheduleSeparator');
 
@@ -756,6 +760,11 @@ const payload = {
     return { academyName, fullName, end, daysLeft };
   }, [overview, rawOverview, eligibility, registrationInfo?.end_date]);
 
+  const missingTryOut =
+    isMissingTryOutError(fatalError) ||
+    isMissingTryOutError(overviewError) ||
+    isMissingTryOutError(renewalsError);
+
   if (loading || overviewLoading || renewalsLoading) {
     return (
       <Screen>
@@ -765,6 +774,40 @@ const payload = {
           right={HeaderRight}
         />
         <SporHiveLoader />
+      </Screen>
+    );
+  }
+
+  if (missingTryOut) {
+    return (
+      <Screen>
+        <PortalHeader
+          title={t('portal.renewals.title')}
+          subtitle={t('portal.renewals.subtitle')}
+          right={HeaderRight}
+        />
+        <PortalCard style={styles.card}>
+          <Text variant="body" weight="semibold" color={colors.textPrimary}>
+            {t('portal.errors.sessionExpiredTitle')}
+          </Text>
+          <Text variant="bodySmall" color={colors.textSecondary} style={{ marginTop: spacing.xs }}>
+            Missing try_out (tryOutId is null). Please refresh portal session.
+          </Text>
+          <View style={styles.missingActions}>
+            <Button variant="secondary" onPress={fetchAll}>
+              {t('portal.common.retry')}
+            </Button>
+            <Button
+              onPress={() => {
+                logout().finally(() => {
+                  router.replace('/(auth)/login?mode=player');
+                });
+              }}
+            >
+              {t('portal.errors.reAuthAction')}
+            </Button>
+          </View>
+        </PortalCard>
       </Screen>
     );
   }
@@ -1104,11 +1147,16 @@ export default PortalRenewalsScreen;
 
 // ----------------------- Styles -----------------------
 const styles = StyleSheet.create({
-
+  card: { margin: 16 },
   errorContainer: { padding: 16 },
 
   scrollContent: { padding: 16, paddingBottom: 48 },
   rtl: { direction: 'rtl' },
+  missingActions: {
+    marginTop: 16,
+    flexDirection: 'row',
+    gap: 12,
+  },
 
   gradientCard: { borderRadius: 20, padding: 20, borderWidth: 1 },
 
