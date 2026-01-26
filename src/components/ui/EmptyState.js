@@ -10,12 +10,15 @@ export function EmptyState({
   icon = 'inbox',
   title = 'No Data',
   message = 'There is nothing to display here.',
+  description,
+  action,
   actionLabel,
   onAction,
 }) {
   const { colors } = useTheme();
   const iconName = typeof icon === 'string' ? icon : undefined;
   const iconComponent = typeof icon === 'string' ? undefined : icon;
+  const bodyText = description || message;
 
   return (
     <View style={styles.container}>
@@ -28,10 +31,12 @@ export function EmptyState({
       </Text>
 
       <Text variant="body" color={colors.textSecondary} style={styles.message}>
-        {message}
+        {bodyText}
       </Text>
 
-      {actionLabel && onAction && (
+      {action ? <View style={styles.action}>{action}</View> : null}
+
+      {actionLabel && onAction && !action && (
         <Button onPress={onAction} variant="primary" style={styles.action}>
           {actionLabel}
         </Button>

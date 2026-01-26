@@ -6,6 +6,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
 import { useTranslation } from '../../services/i18n/i18n';
 import { Icon } from './Icon';
+import { safeBack } from '../../navigation/safeBack';
 
 export function BackButton({ label, color, size = 20, style, onPress }) {
   const router = useRouter();
@@ -20,23 +21,15 @@ export function BackButton({ label, color, size = 20, style, onPress }) {
     return rtl ? 'chevron-right' : 'chevron-left';
   }, [isRTL]);
 
-  const canGoBack = useMemo(() => {
-    const navigationCanGoBack = typeof navigation?.canGoBack === 'function' ? navigation.canGoBack() : false;
-    const routerCanGoBack = typeof router?.canGoBack === 'function' ? router.canGoBack() : false;
-    return navigationCanGoBack || routerCanGoBack;
-  }, [navigation, router]);
-
   const handlePress = useCallback(() => {
-    if (!canGoBack || isNavigatingRef.current) return;
+    if (isNavigatingRef.current) return;
     isNavigatingRef.current = true;
-    if (typeof router?.canGoBack === 'function' && router.canGoBack()) {
-      router.back();
-    } else if (typeof navigation?.canGoBack === 'function' && navigation.canGoBack()) {
+    if (typeof navigation?.canGoBack === 'function' && navigation.canGoBack()) {
       navigation.goBack();
     } else if (typeof navigation?.dismiss === 'function') {
       navigation.dismiss();
-    } else if (typeof router?.dismiss === 'function') {
-      router.dismiss();
+    } else {
+      safeBack(router);
     }
     if (typeof onPress === 'function') {
       onPress();
@@ -44,9 +37,7 @@ export function BackButton({ label, color, size = 20, style, onPress }) {
     setTimeout(() => {
       isNavigatingRef.current = false;
     }, 350);
-  }, [canGoBack, navigation, onPress, router]);
-
-  if (!canGoBack) return null;
+  }, [navigation, onPress, router]);
 
   return (
     <Pressable
@@ -70,5 +61,7 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 44,
+    minHeight: 44,
   },
 });

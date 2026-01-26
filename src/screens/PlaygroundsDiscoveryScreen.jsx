@@ -13,10 +13,12 @@ import { Button } from '../components/ui/Button';
 import { BottomSheetModal } from '../components/ui/BottomSheetModal';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ErrorState } from '../components/ui/ErrorState';
+import { InlineError } from '../components/ui/InlineError';
 import { LoadingState } from '../components/ui/LoadingState';
 import { PlaygroundCard } from '../components/playgrounds/PlaygroundCard';
 import { endpoints } from '../services/api/endpoints';
 import { API_BASE_URL } from '../services/api/client';
+import { normalizeApiError } from '../services/api/normalizeApiError';
 import {
   getBookingDraft,
   getPlaygroundsClientState,
@@ -26,6 +28,7 @@ import {
   setPublicUser,
 } from '../services/playgrounds/storage';
 import { borderRadius, shadows, spacing } from '../theme/tokens';
+import { safeArray } from '../utils/safeRender';
 
 function useDebouncedValue(value, delay = 350) {
   const [debounced, setDebounced] = useState(value);
@@ -146,6 +149,8 @@ export function PlaygroundsDiscoveryScreen() {
   const [publicUser, setPublicUserState] = useState(null);
   const [paymentType, setPaymentType] = useState('cash');
   const [sheetOpen, setSheetOpen] = useState(false);
+  const slotsList = useMemo(() => safeArray(slots), [slots]);
+  const durationsList = useMemo(() => safeArray(durations), [durations]);
 
   const filtersPayload = useMemo(() => {
     const numberOfPlayers = Number(players);
@@ -170,12 +175,12 @@ export function PlaygroundsDiscoveryScreen() {
   );
 
   const availableSports = useMemo(() => {
-    const list = activities.map((activity) => activity.name || '').filter(Boolean);
+    const list = safeArray(activities).map((activity) => activity.name || '').filter(Boolean);
     return Array.from(new Set(list)).slice(0, 6);
   }, [activities]);
 
   const activityMap = useMemo(() => {
-    return new Map(activities.map((activity) => [String(activity.id), activity.name || '']));
+    return new Map(safeArray(activities).map((activity) => [String(activity.id), activity.name || '']));
   }, [activities]);
 
   const fetchPlaygrounds = useCallback(
@@ -204,8 +209,8 @@ export function PlaygroundsDiscoveryScreen() {
           cachedResults: list,
         });
       } catch (err) {
-        const message = err?.message || 'Unable to load playgrounds right now.';
-        setError(message);
+        const normalized = normalizeApiError(err);
+        setError(normalized.message);
         if (cachedItems.length) {
           setItems(cachedItems);
         }
@@ -231,7 +236,9 @@ export function PlaygroundsDiscoveryScreen() {
         ? res.data
         : [];
       setActivities(list);
-    } catch {
+    } catch (err) {
+      const normalized = normalizeApiError(err);
+      setError(normalized.message);
       setActivities([]);
     }
   }, [publicUser?.id]);
@@ -348,8 +355,8 @@ export function PlaygroundsDiscoveryScreen() {
           : [];
         setSlots(list);
       } catch (err) {
-        const message = err?.message || 'Unable to load slots.';
-        setSlotError(message);
+        const normalized = normalizeApiError(err);
+        setSlotError(normalized.message);
       } finally {
         setSlotLoading(false);
         setBookingDraftState((prev) => ({
@@ -421,7 +428,8 @@ export function PlaygroundsDiscoveryScreen() {
       }));
       setSheetOpen(false);
     } catch (err) {
-      setSlotError(err?.message || 'Unable to complete booking.');
+      const normalized = normalizeApiError(err);
+      setSlotError(normalized.message);
     }
   }, [
     bookingDraft,
@@ -643,14 +651,15 @@ export function PlaygroundsDiscoveryScreen() {
               {slotLoading ? (
                 <LoadingState message="Loading slots..." size="small" />
               ) : slotError ? (
-                <ErrorState
+                <InlineError
                   title="Slots unavailable"
-                  message={slotError}
-                  onAction={() => openBookingSheet(selectedVenue)}
+                  subtitle={slotError}
+                  onRetry={() => openBookingSheet(selectedVenue)}
+                  actionLabel="Retry"
                 />
-              ) : slots.length ? (
+              ) : slotsList.length ? (
                 <View style={styles.slotGrid}>
-                  {slots.map((slot) => (
+                  {slotsList.map((slot) => (
                     <Chip
                       key={String(slot.id ?? formatSlotLabel(slot))}
                       label={formatSlotLabel(slot)}
@@ -679,9 +688,9 @@ export function PlaygroundsDiscoveryScreen() {
                   Duration
                 </Text>
               </View>
-              {durations.length ? (
+              {durationsList.length ? (
                 <View style={styles.slotGrid}>
-                  {durations.map((duration) => (
+                  {durationsList.map((duration) => (
                     <Chip
                       key={String(duration.id ?? duration.label ?? duration.minutes)}
                       label={duration.label || `${duration.minutes || duration.duration_minutes || 60} min`}

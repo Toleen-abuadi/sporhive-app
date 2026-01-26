@@ -27,6 +27,7 @@ import { useI18n } from '../services/i18n/i18n';
 import { useAuth } from '../services/auth/auth.store';
 import { playgroundsApi } from '../services/playgrounds/playgrounds.api';
 import { API_BASE_URL } from '../services/api/client';
+import { normalizeApiError } from '../services/api/normalizeApiError';
 import { spacing, borderRadius } from '../theme/tokens';
 
 const logoSource = require('../../assets/images/logo.png');
@@ -155,7 +156,8 @@ export function HomeServicesScreen() {
     } catch (error) {
       if (!mountedRef.current) return;
 
-      setTrendingError(error?.message || t('services.trending.error'));
+      const normalized = normalizeApiError(error);
+      setTrendingError(normalized.message || t('services.trending.error'));
       setTrending([]);
     } finally {
       if (!mountedRef.current) return;
@@ -216,7 +218,11 @@ export function HomeServicesScreen() {
           </View>
         )}
         right={(
-          <Pressable onPress={() => setSettingsOpen(true)} style={styles.avatarWrap}>
+          <Pressable
+            onPress={() => setSettingsOpen(true)}
+            style={styles.avatarWrap}
+            accessibilityLabel="Open settings"
+          >
             <View style={[styles.avatarRing, { borderColor: colors.accentOrange }]}>
               {avatarImage ? (
                 <Image source={{ uri: normalizeImageUrl(avatarImage) || avatarImage }} style={styles.avatar} />
@@ -349,7 +355,7 @@ export function HomeServicesScreen() {
             <Button variant="secondary" size="small" onPress={() => setLogoutOpen(false)}>
               {t('services.settings.logoutCancel')}
             </Button>
-            <Button size="small" onPress={handleLogout}>
+            <Button size="small" onPress={handleLogout} accessibilityLabel="Confirm logout">
               {t('services.settings.logoutConfirm')}
             </Button>
           </View>

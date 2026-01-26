@@ -21,6 +21,7 @@ import { getPublicUser } from '../../services/playgrounds/storage';
 import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { useAuth } from '../../services/auth/auth.store';
 import { spacing } from '../../theme/tokens';
+import { safeArray } from '../../utils/safeRender';
 
 const STATUS_TABS = ['all', 'pending', 'approved', 'rejected', 'cancelled'];
 
@@ -42,9 +43,12 @@ export function MyBookingsScreen() {
   /** ✅ STORE */
   const { bookings, bookingsLoading, bookingsError } = usePlaygroundsStore((state) => ({
     bookings: state.bookings,
-    bookingsLoading: state.bookings.bookingsLoading,
+    bookingsLoading: state.bookingsLoading,
     bookingsError: state.bookingsError,
   }));
+
+  const bookingsList = useMemo(() => safeArray(bookings), [bookings]);
+  const bookingsErrorMessage = bookingsError?.message || bookingsError;
 
   const { listBookings } = usePlaygroundsActions();
 
@@ -78,21 +82,21 @@ export function MyBookingsScreen() {
   /** COUNTS */
   const counts = useMemo(() => {
     const base = STATUS_TABS.reduce((acc, s) => ({ ...acc, [s]: 0 }), {});
-    bookings.forEach((item) => {
+    bookingsList.forEach((item) => {
       const status = (item.status || 'pending').toLowerCase();
       base.all += 1;
       if (base[status] !== undefined) base[status] += 1;
     });
     return base;
-  }, [bookings]);
+  }, [bookingsList]);
 
   /** FILTERED */
   const filteredItems = useMemo(() => {
-    if (activeStatus === 'all') return bookings;
-    return bookings.filter(
+    if (activeStatus === 'all') return bookingsList;
+    return bookingsList.filter(
       (item) => (item.status || '').toLowerCase() === activeStatus
     );
-  }, [activeStatus, bookings]);
+  }, [activeStatus, bookingsList]);
 
   const statusLabelMap = useMemo(
     () => ({
@@ -135,7 +139,7 @@ export function MyBookingsScreen() {
       ) : bookingsError ? (
         <ErrorState
           title={t('service.playgrounds.bookings.errors.title')}
-          message={bookingsError}
+          message={bookingsErrorMessage}
           onAction={loadBookings}
         />
       ) : (

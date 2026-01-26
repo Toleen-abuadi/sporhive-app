@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { playgroundsApi } from './playgrounds.api';
+import { normalizeApiError } from '../api/normalizeApiError';
 import { getBookingDraft, getPlaygroundsFilters, setBookingDraft, setPlaygroundsFilters } from './storage';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -151,7 +152,8 @@ export const playgroundsStore = {
       emit();
       return { success: true, data };
     } catch (error) {
-      setState({ venuesLoading: false, venuesError: error?.message || 'Unable to load venues.' });
+      const normalized = normalizeApiError(error);
+      setState({ venuesLoading: false, venuesError: normalized });
       return { success: false, error };
     }
   },
@@ -182,7 +184,8 @@ export const playgroundsStore = {
       setState({ activities: res.activities || [], activitiesLoading: false, activitiesError: null });
       return { success: true, data: res.activities || [] };
     } catch (error) {
-      setState({ activitiesLoading: false, activitiesError: error?.message || 'Unable to load activities.' });
+      const normalized = normalizeApiError(error);
+      setState({ activitiesLoading: false, activitiesError: normalized });
       return { success: false, error };
     }
   },
@@ -203,7 +206,8 @@ export const playgroundsStore = {
       });
       return { success: true, data: durations || [] };
     } catch (error) {
-      setState({ durationsLoading: false, durationsError: error?.message || 'Unable to load durations.' });
+      const normalized = normalizeApiError(error);
+      setState({ durationsLoading: false, durationsError: normalized });
       return { success: false, error };
     }
   },
@@ -226,9 +230,10 @@ export const playgroundsStore = {
       });
       return { success: true, data: slots };
     } catch (error) {
+      const normalized = normalizeApiError(error);
       setState({
         slotsLoadingByKey: { ...playgroundsState.slotsLoadingByKey, [key]: false },
-        slotsErrorByKey: { ...playgroundsState.slotsErrorByKey, [key]: error?.message || 'Unable to load slots.' },
+        slotsErrorByKey: { ...playgroundsState.slotsErrorByKey, [key]: normalized },
       });
       return { success: false, error };
     }
@@ -245,16 +250,11 @@ export const playgroundsStore = {
       });
       return { success: true, data: res.bookings || [] };
     } catch (error) {
-      const status =
-        error?.status ||
-        error?.response?.status ||
-        error?.statusCode ||
-        error?.meta?.status ||
-        null;
+      const normalized = normalizeApiError(error);
       setState({
         bookingsLoading: false,
-        bookingsError: error?.message || 'Unable to load bookings.',
-        bookingsErrorStatus: status,
+        bookingsError: normalized,
+        bookingsErrorStatus: normalized.status,
       });
       return { success: false, error };
     }

@@ -20,6 +20,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { API_BASE_URL } from '../../services/api/client';
 import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { borderRadius, spacing } from '../../theme/tokens';
+import { safeArray } from '../../utils/safeRender';
 
 /** ---------- helpers ---------- */
 const normalizeImageUrl = (uri) => {
@@ -133,6 +134,9 @@ export function PlaygroundsExploreScreen() {
   const [searchQuery, setSearchQuery] = useState(filters.baseLocation || '');
 
   const debouncedSearch = useDebouncedValue(searchQuery, 350);
+  const venuesList = useMemo(() => safeArray(venues), [venues]);
+  const activitiesList = useMemo(() => safeArray(activities), [activities]);
+  const venuesErrorMessage = venuesError?.message || venuesError;
 
   /** init */
   useEffect(() => {
@@ -252,17 +256,17 @@ export function PlaygroundsExploreScreen() {
   const resolveActivityLabel = useCallback(
     (venue) => {
       if (!venue?.activity_id) return t('playgrounds.explore.multiSport');
-      const found = activities.find((a) => String(a.id) === String(venue.activity_id));
+      const found = activitiesList.find((a) => String(a.id) === String(venue.activity_id));
       return found?.name || t('playgrounds.explore.multiSport');
     },
-    [activities, t]
+    [activitiesList, t]
   );
 
   /** IMPORTANT: AppScreen must NOT scroll; FlatList owns scrolling */
   return (
     <AppScreen contentStyle={styles.container}>
       <FlatList
-        data={venuesLoading || venuesError ? [] : venues}
+        data={venuesLoading || venuesError ? [] : venuesList}
         keyExtractor={(item, index) => String(item?.id ?? index)}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={ListHeader}
@@ -280,7 +284,7 @@ export function PlaygroundsExploreScreen() {
           ) : venuesError ? (
             <ErrorState
               title={t('playgrounds.explore.errorTitle')}
-              message={venuesError}
+              message={venuesErrorMessage}
               onAction={listVenues}
             />
           ) : (
@@ -334,7 +338,7 @@ export function PlaygroundsExploreScreen() {
         onClose={() => setFilterOpen(false)}
         onApply={handleApplyFilters}
         initialFilters={filters}
-        activities={activities}
+        activities={activitiesList}
         loadingActivities={activitiesLoading}
       />
     </AppScreen>
