@@ -55,6 +55,14 @@ const buildPortalPayload = (session, payload = {}) => {
     body.external_player_id = playerId;
   }
 
+  if (playerId != null && body.try_out == null) {
+    body.try_out = playerId;
+  }
+
+  if (playerId != null && body.tryout_id == null && body.try_out_id == null) {
+    body.tryout_id = playerId;
+  }
+
   return body;
 };
 
