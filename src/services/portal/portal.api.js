@@ -17,18 +17,6 @@ const wrapApi = async (fn, label = 'Portal API failed') => {
   }
 };
 
-const readPortalTokens = async () => {
-  if (storage.getPortalTokens) return storage.getPortalTokens();
-  const raw = await storage.getItem(PORTAL_KEYS.AUTH_TOKENS);
-  if (!raw) return null;
-  if (typeof raw === 'object') return raw;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-};
-
 const readAuthSession = async () => {
   const session = await storage.getItem(APP_STORAGE_KEYS.AUTH_SESSION);
   return session && typeof session === 'object' ? session : null;
@@ -37,20 +25,14 @@ const readAuthSession = async () => {
 const resolveToken = async (override) => {
   if (override) return override;
   const session = await readAuthSession();
-  const portalToken = getPortalAccessToken(session);
-  if (portalToken) return portalToken;
-  const tokens = await readPortalTokens();
-  return tokens?.access || tokens?.token || tokens?.access_token || null;
+  return getPortalAccessToken(session);
 };
 
 const resolveAcademyId = async (override) => {
   if (override != null) return Number(override);
   const session = await readAuthSession();
   const sessionAcademy = getPortalAcademyId(session);
-  if (sessionAcademy != null) return Number(sessionAcademy);
-  if (storage.getPortalAcademyId) return storage.getPortalAcademyId();
-  const stored = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);
-  return stored != null ? Number(stored) : null;
+  return sessionAcademy != null ? Number(sessionAcademy) : null;
 };
 
 const resolveLanguage = async (override) => {

@@ -50,6 +50,10 @@ export function LoginScreen() {
   const glow = useRef(new Animated.Value(0)).current;
 
   const preferredAcademyId = params?.academyId ? Number(params.academyId) : null;
+  const redirectTo =
+    typeof params?.redirectTo === 'string' && params.redirectTo.trim()
+      ? decodeURIComponent(params.redirectTo)
+      : null;
   const [mode, setMode] = useState(params?.mode === 'player' ? MODES.PLAYER : MODES.PUBLIC);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -141,7 +145,7 @@ export function LoginScreen() {
       });
       if (res.success) {
         toast.success(t('auth.login.success'));
-        router.replace('/services');
+        router.replace(redirectTo || '/services');
       } else {
         toast.error(resolveAuthErrorMessage(res.error, t, 'auth.login.error'));
       }
@@ -164,7 +168,7 @@ export function LoginScreen() {
     });
     if (res.success) {
       toast.success(t('auth.login.success'));
-      router.replace('/services');
+      router.replace(redirectTo || '/services');
     } else {
       toast.error(resolveAuthErrorMessage(res.error, t, 'auth.login.error'));
     }

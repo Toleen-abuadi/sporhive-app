@@ -1,11 +1,5 @@
 import { apiClient } from '../api/client';
 
-const FALLBACK_ACADEMIES = [
-  { id: 1, name: 'SporHive Academy', subtitle: 'Amman' },
-  { id: 2, name: 'Elite FC', subtitle: 'Irbid' },
-  { id: 3, name: 'North Star Hoops', subtitle: 'Zarqa' },
-];
-
 const wrapApi = async (fn, label = 'Auth API failed') => {
   try {
     const data = await fn();
@@ -39,22 +33,13 @@ export const authApi = {
   },
   fetchAcademies() {
     return wrapApi(async () => {
-      try {
-        const res = await apiClient.post('/customer/active-list', {});
-        const raw = res?.customers || res?.data?.customers || [];
-        const academies = raw.map((academy) => ({
-          id: Number(academy?.id),
-          name: academy?.academy_name || academy?.label || academy?.name || 'Academy',
-          subtitle: academy?.client_name || academy?.city || academy?.location || '',
-        }));
-        return academies.length ? academies : FALLBACK_ACADEMIES;
-      } catch (error) {
-        if (__DEV__) {
-          console.warn('Failed to fetch academies, using fallback list.', error);
-        }
-        return FALLBACK_ACADEMIES;
-      }
+      const res = await apiClient.post('/customer/active-list', {});
+      const raw = res?.customers || res?.data?.customers || [];
+      return raw.map((academy) => ({
+        id: Number(academy?.id),
+        name: academy?.academy_name || academy?.label || academy?.name || 'Academy',
+        subtitle: academy?.client_name || academy?.city || academy?.location || '',
+      }));
     }, 'Failed to fetch academies');
   },
-  fallbackAcademies: FALLBACK_ACADEMIES,
 };

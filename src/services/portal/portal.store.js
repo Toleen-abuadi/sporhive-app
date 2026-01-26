@@ -1,23 +1,7 @@
 // src/services/portal/portal.store.js
-import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
-import { storage, PORTAL_KEYS } from '../storage/storage';
 import { portalApi } from './portal.api';
 import { normalizePortalOverview } from './portal.normalize';
-import { getTryOutIdFromPortalSession, isValidTryOutId, persistTryOutIdFromOverview } from './portal.tryout';
-
-const INITIAL_STATE = {
-  isAuthenticated: false,
-  isLoading: true,
-  academyId: null,
-  authTokens: null,
-  token: null,
-  tryOutId: null,
-  player: null,
-  error: null,
-  overview: null,
-};
-
-const PortalContext = createContext(null);
+import { persistTryOutIdFromOverview } from './portal.tryout';
 
 const OVERVIEW_INITIAL = {
   overview: null,

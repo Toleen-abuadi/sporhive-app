@@ -12,7 +12,8 @@ import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
 import { portalApi } from '../../services/portal/portal.api';
-import { usePortalAuth, usePortalOverview } from '../../services/portal/portal.hooks';
+import { usePortalOverview } from '../../services/portal/portal.hooks';
+import { useAuth } from '../../services/auth/auth.store';
 import { useTranslation } from '../../services/i18n/i18n';
 import { isMissingTryOutError, isValidTryOutId } from '../../services/portal/portal.tryout';
 import { spacing } from '../../theme/tokens';
@@ -24,7 +25,7 @@ export function PortalPerformanceScreen() {
   const { colors } = useTheme();
   const { t, isRTL } = useTranslation();
   const router = useRouter();
-  const { logout } = usePortalAuth();
+  const { logout } = useAuth();
   const placeholder = t('portal.common.placeholder');
   const { overview, refresh } = usePortalOverview();
 
