@@ -1,3 +1,4 @@
+// src/services/portal/portal.api.js
 import { apiClient } from '../api/client';
 import { playerPortalApi } from '../api/playerPortalApi';
 import { getPortalAccessToken, getPortalAcademyId } from '../auth/portalSession';
@@ -65,6 +66,7 @@ const resolveTryOutId = async (override, { require = false } = {}) => {
   const session = storage.getPortalSession
     ? await storage.getPortalSession()
     : await storage.getItem(PORTAL_KEYS.SESSION);
+
   const resolved = getTryOutIdFromPortalSession(session);
 
   if (require) {
@@ -94,7 +96,14 @@ const buildHeaders = async ({ academyId, token, language } = {}) => {
   return { headers, academyId: resolvedAcademyId };
 };
 
-
+/**
+ * Adds academy_id/customer_id and ALWAYS injects tryout (if available) into body as:
+ * - try_out
+ * - try_out_id
+ * - tryout_id
+ *
+ * If requireTryOut = true and we can't resolve it, we throw a clean JS error (no SQLite crash).
+ */
 const withAcademyPayload = async (payload = {}, options = {}) => {
   const { headers, academyId } = await buildHeaders(options);
   const body = { ...(payload || {}) };
@@ -109,14 +118,17 @@ const withAcademyPayload = async (payload = {}, options = {}) => {
     body.try_out_id ??
     body.tryout_id ??
     null;
+
   const existingTryOutId = isValidTryOutId(existingTryOut) ? existingTryOut : null;
-  const resolvedTryOutId = existingTryOutId ?? await resolveTryOutId(options?.tryOutId, { require: options?.requireTryOut });
 
-  if (isValidTryOutId(resolvedTryOutId) && body.try_out == null) {
+  const resolvedTryOutId =
+    existingTryOutId ??
+    (await resolveTryOutId(options?.tryOutId, { require: options?.requireTryOut }));
+
+  // ✅ ALWAYS include all keys if we have a valid tryout id
+  if (isValidTryOutId(resolvedTryOutId)) {
     body.try_out = resolvedTryOutId;
-  }
-
-  if (isValidTryOutId(resolvedTryOutId) && body.tryout_id == null && body.try_out_id == null) {
+    body.try_out_id = resolvedTryOutId;
     body.tryout_id = resolvedTryOutId;
   }
 
@@ -126,7 +138,6 @@ const withAcademyPayload = async (payload = {}, options = {}) => {
 
   return { body, headers, tryOutId: resolvedTryOutId };
 };
-
 
 export const portalApi = {
   baseUrl: API_BASE_URL,
@@ -162,6 +173,10 @@ export const portalApi = {
     return portalApi.authMe({ academyId });
   },
 
+  /**
+   * Overview is fetched via playerPortalApi (custom client).
+   * Persisting tryOutId is handled in portal.store after normalization.
+   */
   async getOverview({ academyId, externalPlayerId } = {}) {
     if (__DEV__) {
       console.info('Portal overview request', {
@@ -185,6 +200,8 @@ export const portalApi = {
       return apiClient.post('/player-portal-external-proxy/player-profile/profile/update', body, { headers });
     }, 'Profile update failed');
   },
+
+  // ---- Renewals / Freezes / Invoices require try_out ----
 
   async renewalsEligibility(payload = {}, options = {}) {
     return wrapApi(async () => {
@@ -229,6 +246,8 @@ export const portalApi = {
     }, 'Invoice download failed');
   },
 
+  // ---- Performance feedback requires try_out ----
+
   async getRatingTypes(payload = {}, options = {}) {
     return wrapApi(async () => {
       const { body, headers } = await withAcademyPayload(payload, { ...options, requireTryOut: true });
@@ -261,6 +280,8 @@ export const portalApi = {
   async fetchPerformancePeriods(payload = {}, options = {}) {
     return portalApi.getRatingPeriods(payload, options);
   },
+
+  // ---- Uniforms / News (still include tryout id automatically if available, not required) ----
 
   async listUniformStore(payload = {}, options = {}) {
     return wrapApi(async () => {

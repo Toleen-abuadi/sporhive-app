@@ -23,25 +23,27 @@ export function PortalMyOrdersScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const {
-    orders,
-    ordersLoading,
-    ordersError,
-    filters,
-  } = usePlayerPortalStore((state) => ({
+
+  const { orders, ordersLoading, ordersError, filters } = usePlayerPortalStore((state) => ({
     orders: state.orders,
     ordersLoading: state.ordersLoading,
     ordersError: state.ordersError,
     filters: state.filters,
   }));
+
   const actions = usePlayerPortalActions();
 
   useEffect(() => {
-    actions.hydrateFilters();
-    actions.fetchOrders();
+    // ✅ Scope is required (prevents SQLite bind null in filter persistence)
+    actions.hydrateFilters?.('orders');
+    actions.fetchOrders?.();
   }, [actions]);
 
-  const filteredOrders = useMemo(() => actions.selectFilteredOrders(), [actions, orders, filters]);
+  // ✅ Only one filteredOrders (scoped)
+  const filteredOrders = useMemo(
+    () => actions.selectFilteredOrders?.('orders') ?? [],
+    [actions, orders, filters]
+  );
 
   const statusOptions = useMemo(
     () => [
@@ -81,7 +83,7 @@ export function PortalMyOrdersScreen() {
           </Button>
         </View>
 
-        {ordersLoading && !orders.length ? (
+        {ordersLoading && !orders?.length ? (
           <View style={styles.skeletonWrap}>
             {Array.from({ length: 3 }).map((_, idx) => (
               <Skeleton key={`order-skeleton-${idx}`} height={120} radius={16} />
@@ -92,26 +94,24 @@ export function PortalMyOrdersScreen() {
             title={t('portal.orders.errorTitle')}
             message={ordersError?.message || t('portal.orders.errorDescription')}
             actionLabel={t('portal.common.retry')}
-            onAction={actions.fetchOrders}
+            onAction={() => actions.fetchOrders?.()}
           />
         ) : filteredOrders.length === 0 ? (
           <EmptyState
             title={t('portal.orders.emptyTitle')}
             message={t('portal.orders.emptyDescription')}
             actionLabel={t('portal.filters.clear')}
-            onAction={() => actions.clearFilters('orders')}
+            onAction={() => actions.clearFilters?.('orders')}
           />
         ) : (
           <FlatList
             data={filteredOrders}
-            keyExtractor={(item, idx) => String(item?.id || item?.reference || idx)}
+            keyExtractor={(item, idx) => String(item?.id ?? item?.reference ?? idx)}
             renderItem={({ item }) => (
               <Pressable
                 onPress={() => {
-                  const target = item?.id || item?.reference;
-                  if (target) {
-                    router.push(`/portal/orders/${target}`);
-                  }
+                  const target = item?.id ?? item?.reference;
+                  if (target != null) router.push(`/portal/orders/${target}`);
                 }}
               >
                 <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -124,6 +124,7 @@ export function PortalMyOrdersScreen() {
                         {item?.created_at || t('portal.common.placeholder')}
                       </Text>
                     </View>
+
                     <View style={styles.amountWrap}>
                       <Text variant="body" weight="bold" color={colors.textPrimary}>
                         {item?.total || item?.amount || t('portal.common.placeholder')}
@@ -132,6 +133,7 @@ export function PortalMyOrdersScreen() {
                         {item?.status || t('portal.orders.status.pending')}
                       </Text>
                     </View>
+
                     <ChevronRight size={18} color={colors.textMuted} />
                   </View>
                 </Card>
@@ -146,11 +148,11 @@ export function PortalMyOrdersScreen() {
           visible={filtersOpen}
           onClose={() => setFiltersOpen(false)}
           onClear={() => {
-            actions.clearFilters('orders');
+            actions.clearFilters?.('orders');
             setFiltersOpen(false);
           }}
           onApply={(next) => {
-            actions.setFilters('orders', next);
+            actions.setFilters?.('orders', next);
             setFiltersOpen(false);
           }}
           filters={filters?.orders || {}}

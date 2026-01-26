@@ -90,11 +90,12 @@ export function PortalProvider({ children }) {
 
   const restoreSession = useCallback(async () => {
     try {
-      const [sessionRaw, tokensRaw, academyIdRaw] = await Promise.all([
-        storage.getItem(PORTAL_KEYS.SESSION),
-        storage.getItem(PORTAL_KEYS.AUTH_TOKENS),
-        storage.getItem(PORTAL_KEYS.ACADEMY_ID),
-      ]);
+const [sessionRaw, tokensRaw, academyIdRaw] = await Promise.all([
+  safeGetItem(PORTAL_KEYS.SESSION, 'PORTAL_KEYS.SESSION'),
+  safeGetItem(PORTAL_KEYS.AUTH_TOKENS, 'PORTAL_KEYS.AUTH_TOKENS'),
+  safeGetItem(PORTAL_KEYS.ACADEMY_ID, 'PORTAL_KEYS.ACADEMY_ID'),
+]);
+
 
       const session = safeJsonParse(sessionRaw);
       const tokens = safeJsonParse(tokensRaw);
@@ -194,7 +195,7 @@ export function PortalProvider({ children }) {
       if (storage.setPortalTokens) {
         await storage.setPortalTokens(tokens);
       } else {
-        await storage.setItem(PORTAL_KEYS.AUTH_TOKENS, tokens);
+        await safeSetItem(PORTAL_KEYS.AUTH_TOKENS, tokens, 'PORTAL_KEYS.AUTH_TOKENS');
       }
       const sessionPayload = {
         player: playerInfo,
@@ -204,12 +205,12 @@ export function PortalProvider({ children }) {
       if (storage.setPortalSession) {
         await storage.setPortalSession(sessionPayload);
       } else {
-        await storage.setItem(PORTAL_KEYS.SESSION, sessionPayload);
+        await safeSetItem(PORTAL_KEYS.SESSION, sessionPayload, 'PORTAL_KEYS.SESSION');
       }
       if (storage.setPortalAcademyId) {
         await storage.setPortalAcademyId(id);
       } else {
-        await storage.setItem(PORTAL_KEYS.ACADEMY_ID, String(id));
+        await safeSetItem(PORTAL_KEYS.ACADEMY_ID, String(id), 'PORTAL_KEYS.ACADEMY_ID');
       }
 
       setState({
@@ -442,3 +443,22 @@ function safeJsonParse(value) {
     return null;
   }
 }
+
+function assertStorageKey(key, label = 'storage key') {
+  if (key == null) {
+    throw new Error(`[PortalStorage] ${label} is null/undefined`);
+  }
+  return String(key);
+}
+
+async function safeGetItem(key, label) {
+  return storage.getItem(assertStorageKey(key, label));
+}
+
+async function safeSetItem(key, value, label) {
+  const k = assertStorageKey(key, label);
+  const v = typeof value === 'string' ? value : JSON.stringify(value ?? null);
+  return storage.setItem(k, v);
+}
+
+

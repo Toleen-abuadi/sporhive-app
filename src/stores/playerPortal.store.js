@@ -22,18 +22,23 @@ const DEFAULT_FILTERS = {
 const INITIAL_STATE = {
   filters: { ...DEFAULT_FILTERS },
   filtersLoaded: false,
+
   overview: null,
   overviewLoading: false,
   overviewError: null,
+
   profile: null,
   profileLoading: false,
   profileError: null,
+
   payments: [],
   paymentsLoading: false,
   paymentsError: null,
+
   orders: [],
   ordersLoading: false,
   ordersError: null,
+
   renewals: [],
   renewalsLoading: false,
   renewalsError: null,
@@ -51,10 +56,44 @@ const setState = (patch) => {
   emit();
 };
 
-const persistFilters = async () => {
-  await storage.setItem(STORAGE_KEYS.PLAYER_PORTAL_FILTERS, portalState.filters);
+// --------------------
+// SAFE STORAGE HELPERS (prevents SQLite native crash)
+// --------------------
+const getFiltersStorageKey = () => {
+  const key = STORAGE_KEYS?.PLAYER_PORTAL_FILTERS;
+  // If this is missing, it WILL crash SQLite. Make it safe.
+  return typeof key === 'string' && key.trim() ? key : 'PLAYER_PORTAL_FILTERS';
 };
 
+const safeJsonParse = (value) => {
+  if (value == null) return null;
+  if (typeof value === 'object') return value; // already parsed
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
+const safeStringify = (value) => {
+  if (value == null) return 'null';
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return 'null';
+  }
+};
+
+const persistFilters = async () => {
+  const key = getFiltersStorageKey();
+  const value = safeStringify(portalState.filters);
+  await storage.setItem(key, value);
+};
+
+// --------------------
+// FILTER APPLY
+// --------------------
 const applyPaymentFilters = (payments, filters) => {
   const status = String(filters?.status || 'all').toLowerCase();
   const from = filters?.from ? new Date(filters.from) : null;
@@ -87,106 +126,141 @@ const applyOrderFilters = (orders, filters) => {
 
 export const playerPortalStore = {
   getState: () => portalState,
+
   subscribe: (listener) => {
     listeners.add(listener);
     return () => listeners.delete(listener);
   },
+
+  // ---- Filters ----
   async hydrateFilters() {
-    const stored = await storage.getItem(STORAGE_KEYS.PLAYER_PORTAL_FILTERS);
-    if (stored && typeof stored === 'object') {
-      setState({ filters: { ...DEFAULT_FILTERS, ...stored }, filtersLoaded: true });
-    } else {
-      setState({ filtersLoaded: true });
+    try {
+      const key = getFiltersStorageKey();
+      const storedRaw = await storage.getItem(key);
+      const stored = safeJsonParse(storedRaw);
+
+      if (stored && typeof stored === 'object') {
+        setState({ filters: { ...DEFAULT_FILTERS, ...stored }, filtersLoaded: true });
+      } else {
+        setState({ filtersLoaded: true });
+      }
+    } catch (e) {
+      // Never crash the app because filters failed
+      setState({ filters: { ...DEFAULT_FILTERS }, filtersLoaded: true });
+      if (__DEV__) console.warn('[playerPortalStore] hydrateFilters failed:', e);
     }
   },
+
   setFilters(key, partial) {
-    setState({
-      filters: {
-        ...portalState.filters,
-        [key]: { ...(portalState.filters[key] || {}), ...(partial || {}) },
-      },
-    });
-    persistFilters();
+    const next = {
+      ...portalState.filters,
+      [key]: { ...(portalState.filters[key] || {}), ...(partial || {}) },
+    };
+    setState({ filters: next });
+    persistFilters().catch((e) => __DEV__ && console.warn('[playerPortalStore] persistFilters failed:', e));
   },
+
   async clearFilters(key) {
-    setState({
-      filters: {
-        ...portalState.filters,
-        [key]: { ...(DEFAULT_FILTERS[key] || {}) },
-      },
-    });
-    await persistFilters();
+    const next = {
+      ...portalState.filters,
+      [key]: { ...(DEFAULT_FILTERS[key] || {}) },
+    };
+    setState({ filters: next });
+    try {
+      await persistFilters();
+    } catch (e) {
+      if (__DEV__) console.warn('[playerPortalStore] persistFilters failed:', e);
+    }
   },
+
+  // ---- Data ----
   async fetchOverview() {
     setState({ overviewLoading: true, overviewError: null });
     const res = await playerPortalApi.getOverview();
+
     if (res.success) {
       setState({ overview: res.data, overviewLoading: false, overviewError: null });
       await persistTryOutIdFromOverview(res.data);
       return { success: true, data: res.data };
     }
+
     const normalized = normalizeApiError(res.error);
     setState({ overviewLoading: false, overviewError: normalized });
     return { success: false, error: res.error };
   },
+
   async fetchProfile() {
     setState({ profileLoading: true, profileError: null });
     const res = await playerPortalApi.getProfile();
+
     if (res.success) {
       setState({ profile: res.data, profileLoading: false, profileError: null });
       return { success: true, data: res.data };
     }
+
     const normalized = normalizeApiError(res.error);
     setState({ profileLoading: false, profileError: normalized });
     return { success: false, error: res.error };
   },
+
   async fetchPayments() {
     setState({ paymentsLoading: true, paymentsError: null });
     const res = await playerPortalApi.listPayments();
+
     if (res.success) {
       setState({ payments: res.data || [], paymentsLoading: false, paymentsError: null });
-      await persistFilters();
       return { success: true, data: res.data };
     }
+
     const normalized = normalizeApiError(res.error);
     setState({ paymentsLoading: false, paymentsError: normalized });
     return { success: false, error: res.error };
   },
+
   async fetchOrders(payload = {}) {
     setState({ ordersLoading: true, ordersError: null });
     const res = await playerPortalApi.listOrders(null, payload);
+
     if (res.success) {
       setState({ orders: res.data || [], ordersLoading: false, ordersError: null });
-      await persistFilters();
       return { success: true, data: res.data };
     }
+
     const normalized = normalizeApiError(res.error);
     setState({ ordersLoading: false, ordersError: normalized });
     return { success: false, error: res.error };
   },
+
   async fetchRenewals(payload = {}) {
     setState({ renewalsLoading: true, renewalsError: null });
     const res = await playerPortalApi.listRenewals(null, payload);
+
     if (res.success) {
       const data = res.data?.data || res.data || [];
       setState({ renewals: data, renewalsLoading: false, renewalsError: null });
-      await persistFilters();
       return { success: true, data };
     }
+
     const normalized = normalizeApiError(res.error);
     setState({ renewalsLoading: false, renewalsError: normalized });
     return { success: false, error: res.error };
   },
+
   async submitRenewal(payload = {}) {
     return playerPortalApi.submitRenewal(null, payload);
   },
+
   async printInvoice(payload = {}) {
     return playerPortalApi.printInvoice(null, payload);
   },
+
+  // ---- Selectors ----
   selectFilteredPayments() {
     return applyPaymentFilters(portalState.payments, portalState.filters.payments);
   },
-  selectFilteredOrders() {
+
+  // accept optional scope arg so your screens can call selectFilteredOrders('orders') safely
+  selectFilteredOrders(_scope) {
     return applyOrderFilters(portalState.orders, portalState.filters.orders);
   },
 };
