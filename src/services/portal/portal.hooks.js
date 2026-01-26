@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { portalApi } from './portal.api';
-import { portalStore, usePortal as usePortalContext } from './portal.store';
+import { portalStore } from './portal.store';
 import { normalizeUniformOrders } from './portal.normalize';
 import { useAuth } from '../auth/auth.store';
 import { validatePortalSession } from '../auth/portalSession';
-
-export function usePortalAuth() {
-  return usePortalContext();
-}
 
 export function usePortalOverview() {
   const [state, setState] = useState(portalStore.getState());
@@ -52,24 +48,23 @@ export function usePortalRefresh() {
 }
 
 export function usePortalRenewals() {
-  const { submitRenewal, checkRenewalsEligibility } = usePortalAuth();
   const [eligibility, setEligibility] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const checkEligibility = useCallback(async () => {
     setLoading(true);
-    const res = await checkRenewalsEligibility();
+    const res = await portalApi.renewalsEligibility();
     if (res?.success) setEligibility(res.data?.data || res.data);
     setLoading(false);
     return res;
-  }, [checkRenewalsEligibility]);
+  }, []);
 
   const requestRenewal = useCallback(async () => {
     setLoading(true);
-    const res = await submitRenewal();
+    const res = await portalApi.renewalsRequest();
     setLoading(false);
     return res;
-  }, [submitRenewal]);
+  }, []);
 
   return {
     eligibility,
@@ -80,7 +75,6 @@ export function usePortalRenewals() {
 }
 
 export function usePortalFreezes() {
-  const { submitFreeze } = usePortalAuth();
   const [freezes, setFreezes] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -94,10 +88,10 @@ export function usePortalFreezes() {
 
   const handleSubmit = useCallback(async () => {
     setLoading(true);
-    const res = await submitFreeze();
+    const res = await portalApi.requestFreeze();
     setLoading(false);
     return res;
-  }, [submitFreeze]);
+  }, []);
 
   useEffect(() => {
     loadFreezes();
@@ -195,23 +189,6 @@ export function usePortalNews() {
   }, []);
 
   return { news };
-}
-
-export function usePasswordReset() {
-  const { resetPassword, isLoading, error } = usePortalAuth();
-  const [success, setSuccess] = useState(false);
-
-  const requestReset = useCallback(
-    async ({ academyId, username, phoneNumber }) => {
-      setSuccess(false);
-      const result = await resetPassword({ academyId, username, phoneNumber });
-      if (result?.success) setSuccess(true);
-      return result;
-    },
-    [resetPassword]
-  );
-
-  return { requestReset, isLoading, error, success };
 }
 
 export function useAcademies() {

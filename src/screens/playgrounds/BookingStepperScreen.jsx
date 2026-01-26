@@ -22,11 +22,9 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
-import { getPublicUser } from '../../services/playgrounds/storage';
 import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { borderRadius, shadows, spacing } from '../../theme/tokens';
 import { useAuth } from '../../services/auth/auth.store';
-import { getPlaygroundsAuthHeaders } from '../../services/auth/authHeaders';
 
 const QUICK_PLAYER_SUGGESTIONS = [2, 4, 6, 8];
 const CURRENCY = 'JOD';
@@ -206,7 +204,7 @@ export function BookingStepperScreen() {
   const { session } = useAuth();
 
   const [venue, setVenue] = useState(null);
-  const [publicUser, setPublicUser] = useState(null);
+  const publicUser = session?.user || null;
 
   const [durations, setDurations] = useState([]);
   const [selectedDurationId, setSelectedDurationId] = useState('');
@@ -317,8 +315,7 @@ export function BookingStepperScreen() {
     setLoading(true);
     setErrorText('');
     try {
-      const [draft, user] = await Promise.all([Promise.resolve(bookingDraft), getPublicUser()]);
-      if (user) setPublicUser(user);
+      const draft = await Promise.resolve(bookingDraft);
 
       const res = await getVenueDetails(venueId);
       if (res?.success && res.data) {
@@ -530,7 +527,8 @@ export function BookingStepperScreen() {
 
     if (!publicUser?.id) {
       if (draftPayload) await setBookingDraft(draftPayload);
-      router.push('/playgrounds/auth?fromBooking=1');
+      const redirectTo = `/playgrounds/book/${venue?.id || venueId}`;
+      router.push(`/(auth)/login?redirectTo=${encodeURIComponent(redirectTo)}`);
       return;
     }
 

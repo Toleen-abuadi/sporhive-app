@@ -56,7 +56,7 @@ import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
 
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
-import { usePortalAuth } from '../../services/portal/portal.hooks';
+import { useAuth } from '../../services/auth/auth.store';
 import { isMissingTryOutError } from '../../services/portal/portal.tryout';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
@@ -462,7 +462,7 @@ export function PortalRenewalsScreen() {
   const { colors, isDark } = useTheme();
   const toast = useToast();
   const { t, locale, isRTL } = useTranslation();
-  const { logout } = usePortalAuth();
+  const { logout } = useAuth();
   const placeholder = t('portal.common.placeholder');
   const scheduleSeparator = t('portal.renewals.scheduleSeparator');
 

@@ -1,5 +1,5 @@
 // app/index.js
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -7,7 +7,6 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 
-import { storage, APP_STORAGE_KEYS } from '../src/services/storage/storage';
 import { useTheme } from '../src/theme/ThemeProvider';
 
 // 1) Global notification behavior (foreground)
@@ -73,9 +72,6 @@ export default function Index() {
   const router = useRouter();
   const { colors } = useTheme();
 
-  const [isChecking, setIsChecking] = useState(true);
-  const [expoPushToken, setExpoPushToken] = useState('');
-
   // keep refs so we can remove listeners safely
   const notificationListenerRef = useRef(null);
   const responseListenerRef = useRef(null);
@@ -86,7 +82,6 @@ export default function Index() {
       try {
         const token = await registerForPushNotificationsAsync();
         if (token) {
-          setExpoPushToken(token);
           console.log('Expo Push Token:', token);
 
           // OPTIONAL: persist token or send to backend
@@ -130,27 +125,8 @@ export default function Index() {
   }, [router]);
 
   useEffect(() => {
-    // 3) Your existing routing logic stays exactly the same
-    const resolveRoute = async () => {
-      const [welcomeSeenRaw, authToken, session] = await Promise.all([
-        storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN),
-        storage.getAuthToken(),
-        storage.getItem(APP_STORAGE_KEYS.AUTH_SESSION),
-      ]);
-
-      const welcomeSeen = welcomeSeenRaw === true;
-      const loginAs = session?.login_as || session?.user?.type || session?.userType || null;
-      const isLoggedIn = Boolean(authToken || loginAs);
-
-      // Gate everything behind Welcome until Explore is pressed.
-      router.replace(isLoggedIn || welcomeSeen ? '/services' : '/welcome');
-      setIsChecking(false);
-    };
-
-    resolveRoute();
+    router.replace('/services');
   }, [router]);
-
-  if (!isChecking) return null;
 
   return (
     <View

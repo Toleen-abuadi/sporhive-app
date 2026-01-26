@@ -17,7 +17,6 @@ import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
 import { BackButton } from '../../components/ui/BackButton';
 import { BookingCard } from '../../components/playgrounds/BookingCard';
 
-import { getPublicUser } from '../../services/playgrounds/storage';
 import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { useAuth } from '../../services/auth/auth.store';
 import { spacing } from '../../theme/tokens';
@@ -53,23 +52,19 @@ export function MyBookingsScreen() {
   const { listBookings } = usePlaygroundsActions();
 
   /** LOCAL STATE */
-  const [user, setUser] = useState(null);
   const [activeStatus, setActiveStatus] = useState('all');
   const [cancelTarget, setCancelTarget] = useState(null);
 
   /** LOAD BOOKINGS (PUBLIC USER) */
   const loadBookings = useCallback(async () => {
     try {
-      const publicUser = await getPublicUser();
-      setUser(publicUser);
-
+      const publicUser = session?.user || null;
       if (!publicUser?.id) return;
-
       await listBookings({ user_id: publicUser.id });
     } catch (err) {
       if (__DEV__) console.warn('Failed to load bookings', err);
     }
-  }, [listBookings]);
+  }, [listBookings, session?.user]);
 
   /** INITIAL LOAD */
   useEffect(() => {
