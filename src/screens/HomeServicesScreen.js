@@ -208,7 +208,7 @@ export function HomeServicesScreen() {
   return (
     <AppScreen scroll contentStyle={styles.scrollContent}>
       <AppHeader
-        title="SporHive"
+        title={t('home.title')}
         subtitle={t('services.subtitle')}
         showBack={false}
         variant="transparent"
@@ -221,7 +221,7 @@ export function HomeServicesScreen() {
           <Pressable
             onPress={() => setSettingsOpen(true)}
             style={styles.avatarWrap}
-            accessibilityLabel="Open settings"
+            accessibilityLabel={t('services.settings.open')}
           >
             <View style={[styles.avatarRing, { borderColor: colors.accentOrange }]}>
               {avatarImage ? (
@@ -355,7 +355,7 @@ export function HomeServicesScreen() {
             <Button variant="secondary" size="small" onPress={() => setLogoutOpen(false)}>
               {t('services.settings.logoutCancel')}
             </Button>
-            <Button size="small" onPress={handleLogout} accessibilityLabel="Confirm logout">
+            <Button size="small" onPress={handleLogout} accessibilityLabel={t('services.settings.logoutConfirmAccessibility')}>
               {t('services.settings.logoutConfirm')}
             </Button>
           </View>

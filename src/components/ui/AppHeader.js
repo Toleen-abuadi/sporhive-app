@@ -6,6 +6,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
 import { Text } from './Text';
 import { safeBack } from '../../navigation/safeBack';
+import { useTranslation } from '../../services/i18n/i18n';
 
 export function AppHeader({
   title,
@@ -29,6 +30,7 @@ export function AppHeader({
 }) {
   const { colors } = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const isRTL = I18nManager.isRTL;
   const canGoBack = useMemo(() => {
@@ -93,7 +95,7 @@ export function AppHeader({
           onPress={handleBack}
           style={styles.iconButton}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.goBack')}
         >
           <Icon name={iconName} size={24} color={colors.textPrimary} />
         </Pressable>
@@ -113,6 +115,7 @@ export function AppHeader({
     leftSlot,
     onLeftPress,
     shouldShowBack,
+    t,
   ]);
 
   const resolvedRightSlot = useMemo(() => {

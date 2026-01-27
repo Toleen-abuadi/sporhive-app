@@ -7,6 +7,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../../src/theme/ThemeProvider';
+import { useTranslation } from '../../../src/services/i18n/i18n';
 
 const TAB_HEIGHT = 68;
 
@@ -102,15 +103,17 @@ function PortalTabBar({ state, descriptors, navigation }) {
 }
 
 export default function PortalTabsLayout() {
+  const { t } = useTranslation();
+
   return (
     <Tabs
       screenOptions={{ headerShown: false }}
       tabBar={(props) => <PortalTabBar {...props} />}
     >
-      <Tabs.Screen name="home" options={{ title: 'Home' }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
-      <Tabs.Screen name="renewals" options={{ title: 'Renewals' }} />
-      <Tabs.Screen name="more" options={{ title: 'More' }} />
+      <Tabs.Screen name="home" options={{ title: t('portal.tabs.home') }} />
+      <Tabs.Screen name="profile" options={{ title: t('portal.tabs.profile') }} />
+      <Tabs.Screen name="renewals" options={{ title: t('portal.tabs.renewals') }} />
+      <Tabs.Screen name="more" options={{ title: t('portal.tabs.more') }} />
     </Tabs>
   );
 }

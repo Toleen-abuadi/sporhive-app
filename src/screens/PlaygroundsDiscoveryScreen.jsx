@@ -19,6 +19,7 @@ import { PlaygroundCard } from '../components/playgrounds/PlaygroundCard';
 import { endpoints } from '../services/api/endpoints';
 import { API_BASE_URL } from '../services/api/client';
 import { normalizeApiError } from '../services/api/normalizeApiError';
+import { useTranslation } from '../services/i18n/i18n';
 import {
   getBookingDraft,
   getPlaygroundsClientState,
@@ -72,17 +73,17 @@ function formatMoney(amount, currency) {
   return `${normalizedCurrency} ${Number(amount).toFixed(0)}`;
 }
 
-function formatSlotLabel(slot) {
+function formatSlotLabel(slot, t) {
   const start = slot.start || slot.start_time || '';
   const end = slot.end || slot.end_time || '';
-  if (!start && !end) return 'TBD';
+  if (!start && !end) return t('service.playgrounds.common.timeTbd');
   if (!end) return start;
   return `${start} - ${end}`;
 }
 
-function normalizeVenue(venue) {
-  const name = venue.name || venue.title || 'Playground';
-  const sport = venue.sport_type || venue.sport || 'Multi-sport';
+function normalizeVenue(venue, t) {
+  const name = venue.name || venue.title || t('service.playgrounds.common.playground');
+  const sport = venue.sport_type || venue.sport || t('service.playgrounds.common.multiSport');
   const location = venue.base_location || venue.academy_profile?.location_text || '';
   const ratingRaw = venue.avg_rating ?? 0;
   const rating = Number.isFinite(Number(ratingRaw)) ? Number(ratingRaw) : 0;
@@ -120,6 +121,7 @@ function normalizeVenue(venue) {
 export function PlaygroundsDiscoveryScreen() {
   const { colors } = useTheme();
   const { session } = useAuth();
+  const { t } = useTranslation();
 
   const [query, setQuery] = useState('');
   const [activityId, setActivityId] = useState('');
@@ -294,10 +296,10 @@ export function PlaygroundsDiscoveryScreen() {
   const openBookingSheet = useCallback(
     async (venue) => {
       if (!venue?.id) {
-        setSlotError('Venue details are missing.');
+        setSlotError(t('errors.playgrounds.venueMissing'));
         return;
       }
-      const meta = normalizeVenue(venue);
+      const meta = normalizeVenue(venue, t);
       setSelectedVenue(venue);
       setSheetOpen(true);
       setSlots([]);
@@ -348,7 +350,7 @@ export function PlaygroundsDiscoveryScreen() {
         setSlots(list);
       } catch (err) {
         const normalized = normalizeApiError(err);
-        setSlotError(normalized.message);
+        setSlotError(normalized.message || t('service.playgrounds.common.errors.generic'));
       } finally {
         setSlotLoading(false);
         setBookingDraftState((prev) => ({
@@ -360,7 +362,7 @@ export function PlaygroundsDiscoveryScreen() {
         }));
       }
     },
-    [date, selectedDuration]
+    [date, selectedDuration, t]
   );
 
   const handleSlotSelect = useCallback((slot) => {
@@ -388,7 +390,7 @@ export function PlaygroundsDiscoveryScreen() {
     const currentUser = publicUser;
 
     if (!currentUser?.id) {
-      setSlotError('Please sign in to complete booking.');
+      setSlotError(t('errors.playgrounds.signInRequired'));
       return;
     }
 
@@ -421,7 +423,7 @@ export function PlaygroundsDiscoveryScreen() {
       setSheetOpen(false);
     } catch (err) {
       const normalized = normalizeApiError(err);
-      setSlotError(normalized.message);
+      setSlotError(normalized.message || t('service.playgrounds.common.errors.generic'));
     }
   }, [
     bookingDraft,
@@ -430,6 +432,7 @@ export function PlaygroundsDiscoveryScreen() {
     publicUser,
     selectedVenue?.academy_profile_id,
     selectedVenue?.activity_id,
+    t,
   ]);
 
   const draftVenue = useMemo(() => {
@@ -439,24 +442,26 @@ export function PlaygroundsDiscoveryScreen() {
 
   const draftSummary = useMemo(() => {
     if (!bookingDraft?.venueName) return null;
-    const slotLabel = bookingDraft.slot ? formatSlotLabel(bookingDraft.slot) : 'Pick a time';
+    const slotLabel = bookingDraft.slot
+      ? formatSlotLabel(bookingDraft.slot, t)
+      : t('playgrounds.discovery.pickTime');
     const durationLabel = bookingDraft.duration?.label || '';
     const price = formatMoney(bookingDraft.price, bookingDraft.currency);
     return { slotLabel, durationLabel, price };
-  }, [bookingDraft]);
+  }, [bookingDraft, t]);
 
   const sortOptions = useMemo(
     () => [
-      { value: 'recommended', label: 'Recommended' },
-      { value: 'rating_desc', label: 'Top Rated' },
-      { value: 'price_asc', label: 'Lowest Price' },
+      { value: 'recommended', label: t('service.playgrounds.filters.sort.recommended') },
+      { value: 'rating_desc', label: t('service.playgrounds.filters.sort.topRated') },
+      { value: 'price_asc', label: t('service.playgrounds.filters.sort.lowestPrice') },
     ],
-    []
+    [t]
   );
 
   return (
     <Screen safe>
-      <AppHeader title="Playgrounds" />
+      <AppHeader title={t('playgrounds.explore.header')} />
       <FlatList
         data={items}
         keyExtractor={(item, index) => String(item.id ?? index)}
@@ -464,56 +469,56 @@ export function PlaygroundsDiscoveryScreen() {
         ListHeaderComponent={
           <View style={styles.headerContent}>
             <Input
-              label="Search playgrounds"
+              label={t('playgrounds.discovery.searchLabel')}
               value={query}
               onChangeText={setQuery}
-              placeholder="Search by name or sport"
+              placeholder={t('playgrounds.discovery.searchPlaceholder')}
               leftIcon="search"
-              accessibilityLabel="Search playgrounds"
+              accessibilityLabel={t('playgrounds.discovery.searchLabel')}
             />
             <View style={styles.row}>
               <Input
-                label="Location"
+                label={t('service.playgrounds.filters.locationLabel')}
                 value={baseLocation}
                 onChangeText={setBaseLocation}
-                placeholder="City or area"
+                placeholder={t('service.playgrounds.filters.locationPlaceholder')}
                 leftIcon="map-pin"
                 style={styles.rowInput}
-                accessibilityLabel="Filter by location"
+                accessibilityLabel={t('service.playgrounds.filters.locationAccessibility')}
               />
               <Input
-                label="Date"
+                label={t('service.playgrounds.filters.dateLabel')}
                 value={date}
                 onChangeText={setDate}
-                placeholder="YYYY-MM-DD"
+                placeholder={t('service.playgrounds.filters.datePlaceholder')}
                 leftIcon="calendar"
                 style={styles.rowInput}
-                accessibilityLabel="Select booking date"
+                accessibilityLabel={t('service.playgrounds.filters.dateAccessibility')}
               />
             </View>
             <View style={styles.row}>
               <Input
-                label="Players"
+                label={t('service.playgrounds.filters.players')}
                 value={players}
                 onChangeText={setPlayers}
-                placeholder="2"
+                placeholder={t('service.playgrounds.booking.players.placeholder')}
                 leftIcon="users"
                 style={styles.rowInput}
-                accessibilityLabel="Number of players"
+                accessibilityLabel={t('service.playgrounds.booking.players.accessibilityLabel')}
                 keyboardType="number-pad"
               />
               <View style={styles.rowInput}>
                 <Text variant="bodySmall" weight="medium" style={styles.inlineLabel}>
-                  Special offers
+                  {t('playgrounds.discovery.specialOffersLabel')}
                 </Text>
                 <View style={styles.inlineChips}>
                   <Chip
-                    label="Any"
+                    label={t('playgrounds.discovery.offersAny')}
                     selected={!hasSpecialOffer}
                     onPress={() => setHasSpecialOffer(false)}
                   />
                   <Chip
-                    label="Only offers"
+                    label={t('playgrounds.discovery.offersOnly')}
                     selected={hasSpecialOffer}
                     onPress={() => setHasSpecialOffer(true)}
                   />
@@ -525,7 +530,7 @@ export function PlaygroundsDiscoveryScreen() {
               <View style={styles.filtersTitle}>
                 <Filter size={16} color={colors.textMuted} />
                 <Text variant="bodySmall" weight="semibold">
-                  Activities
+                  {t('playgrounds.discovery.activitiesLabel')}
                 </Text>
               </View>
               <View style={styles.filtersChips}>
@@ -533,7 +538,7 @@ export function PlaygroundsDiscoveryScreen() {
                   [
                     <Chip
                       key="all-activities"
-                      label="All"
+                      label={t('playgrounds.explore.all')}
                       selected={!activityId}
                       onPress={() => setActivityId('')}
                     />,
@@ -550,19 +555,23 @@ export function PlaygroundsDiscoveryScreen() {
                     )),
                   ]
                 ) : (
-                  <Chip label="No filters yet" selected={false} />
+                  <Chip label={t('playgrounds.discovery.noFiltersYet')} selected={false} />
                 )}
               </View>
             </View>
           </View>
         }
         renderItem={({ item }) => {
-          const meta = normalizeVenue(item);
+          const meta = normalizeVenue(item, t);
           const activityName =
             (item.activity_id ? activityMap.get(String(item.activity_id)) : '') || meta.sport;
           const priceLabel = formatMoney(meta.priceFrom, meta.currency);
-          const pricePrefix =
-            item.price === null || item.price === undefined ? 'From ' : '';
+          const priceText =
+            item.price === null || item.price === undefined
+              ? t('playgrounds.explore.fromPrice', {
+                  price: priceLabel || t('service.playgrounds.common.placeholder'),
+                })
+              : priceLabel;
           return (
             <View style={styles.cardWrap}>
               <PlaygroundCard
@@ -571,7 +580,7 @@ export function PlaygroundsDiscoveryScreen() {
                 sport={activityName}
                 imageUrl={meta.imageUrl}
                 rating={meta.rating ?? undefined}
-                priceLabel={priceLabel ? `${pricePrefix}${priceLabel}` : '—'}
+                priceLabel={priceText || t('service.playgrounds.common.placeholder')}
                 onPress={() => openBookingSheet(item)}
               />
             </View>
@@ -580,17 +589,17 @@ export function PlaygroundsDiscoveryScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentOrange} />}
         ListEmptyComponent={
           loading ? (
-            <LoadingState message="Loading available playgrounds..." />
+            <LoadingState message={t('service.playgrounds.explore.loading')} />
           ) : error ? (
             <ErrorState
-              title="Unable to load"
+              title={t('playgrounds.explore.errorTitle')}
               message={error}
               onAction={() => fetchPlaygrounds()}
             />
           ) : (
             <EmptyState
-              title="No playgrounds found"
-              message="Try adjusting filters or selecting a new date."
+              title={t('playgrounds.explore.noVenuesTitle')}
+              message={t('playgrounds.explore.noVenuesMessage')}
             />
           )
         }
@@ -610,9 +619,9 @@ export function PlaygroundsDiscoveryScreen() {
           <Button
             size="small"
             onPress={() => draftVenue && openBookingSheet(draftVenue)}
-            accessibilityLabel="Review booking"
+            accessibilityLabel={t('playgrounds.discovery.reviewBookingAccessibility')}
           >
-            {draftSummary.price || 'Review'}
+            {draftSummary.price || t('playgrounds.discovery.review')}
           </Button>
         </View>
       ) : null}
@@ -622,44 +631,44 @@ export function PlaygroundsDiscoveryScreen() {
           <View style={styles.sheetContent}>
             <View style={styles.sheetHeader}>
               <Text variant="h4" weight="semibold">
-                {normalizeVenue(selectedVenue).name}
+                {normalizeVenue(selectedVenue, t).name}
               </Text>
               <Button
                 variant="ghost"
                 size="small"
                 onPress={() => setSheetOpen(false)}
-                accessibilityLabel="Close booking sheet"
+                accessibilityLabel={t('playgrounds.discovery.closeBookingSheetAccessibility')}
               >
-                Close
+                {t('common.close')}
               </Button>
             </View>
             <View style={styles.sheetSection}>
               <View style={styles.sectionTitle}>
                 <CalendarDays size={16} color={colors.textMuted} />
                 <Text variant="bodySmall" weight="semibold">
-                  Select a slot
+                  {t('playgrounds.discovery.selectSlot')}
                 </Text>
               </View>
               {slotLoading ? (
-                <LoadingState message="Loading slots..." size="small" />
+                <LoadingState message={t('service.playgrounds.booking.schedule.loadingSlots')} size="small" />
               ) : slotError ? (
                 <InlineError
-                  title="Slots unavailable"
+                  title={t('playgrounds.discovery.slotsUnavailableTitle')}
                   subtitle={slotError}
                   onRetry={() => openBookingSheet(selectedVenue)}
-                  actionLabel="Retry"
+                  actionLabel={t('common.retry')}
                 />
               ) : slotsList.length ? (
                 <View style={styles.slotGrid}>
                   {slotsList.map((slot) => (
                     <Chip
-                      key={String(slot.id ?? formatSlotLabel(slot))}
-                      label={formatSlotLabel(slot)}
+                      key={String(slot.id ?? formatSlotLabel(slot, t))}
+                      label={formatSlotLabel(slot, t)}
                       selected={
                         bookingDraft?.slot?.id
                           ? bookingDraft?.slot?.id === slot.id
-                          : formatSlotLabel(bookingDraft?.slot || {}) ===
-                            formatSlotLabel(slot)
+                          : formatSlotLabel(bookingDraft?.slot || {}, t) ===
+                            formatSlotLabel(slot, t)
                       }
                       onPress={() => handleSlotSelect(slot)}
                     />
@@ -667,8 +676,8 @@ export function PlaygroundsDiscoveryScreen() {
                 </View>
               ) : (
                 <EmptyState
-                  title="No slots found"
-                  message="Try another date or check back later."
+                  title={t('playgrounds.discovery.noSlotsTitle')}
+                  message={t('playgrounds.discovery.noSlotsMessage')}
                 />
               )}
             </View>
@@ -677,7 +686,7 @@ export function PlaygroundsDiscoveryScreen() {
               <View style={styles.sectionTitle}>
                 <RefreshCcw size={16} color={colors.textMuted} />
                 <Text variant="bodySmall" weight="semibold">
-                  Duration
+                  {t('service.playgrounds.booking.schedule.duration')}
                 </Text>
               </View>
               {durationsList.length ? (
@@ -685,7 +694,12 @@ export function PlaygroundsDiscoveryScreen() {
                   {durationsList.map((duration) => (
                     <Chip
                       key={String(duration.id ?? duration.label ?? duration.minutes)}
-                      label={duration.label || `${duration.minutes || duration.duration_minutes || 60} min`}
+                      label={
+                        duration.label ||
+                        t('service.playgrounds.booking.schedule.minutesLabel', {
+                          minutes: duration.minutes || duration.duration_minutes || 60,
+                        })
+                      }
                       selected={selectedDuration?.id === duration.id}
                       onPress={() => handleDurationSelect(duration)}
                     />
@@ -693,36 +707,36 @@ export function PlaygroundsDiscoveryScreen() {
                 </View>
               ) : (
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  No durations listed. Booking will use the default duration.
+                  {t('playgrounds.discovery.noDurationsMessage')}
                 </Text>
               )}
             </View>
 
             {!publicUser ? (
               <Text variant="bodySmall" color={colors.textSecondary}>
-                Sign in to your SporHive account to complete the booking.
+                {t('playgrounds.discovery.signInPrompt')}
               </Text>
             ) : null}
 
             <View style={styles.sheetSection}>
               <Text variant="bodySmall" weight="semibold">
-                Payment type
+                {t('playgrounds.discovery.paymentType')}
               </Text>
               <View style={styles.slotGrid}>
                 <Chip
-                  label="Cash"
+                  label={t('service.playgrounds.booking.payment.cash')}
                   selected={paymentType === 'cash'}
                   onPress={() => setPaymentType('cash')}
                 />
                 <Chip
-                  label="CliQ"
+                  label={t('service.playgrounds.booking.payment.cliq')}
                   selected={paymentType === 'cliq'}
                   onPress={() => setPaymentType('cliq')}
                 />
               </View>
               {paymentType === 'cliq' ? (
                 <Text variant="caption" color={colors.textSecondary}>
-                  Uploading CliQ proof is required at checkout.
+                  {t('service.playgrounds.booking.payment.uploadRequired')}
                 </Text>
               ) : null}
             </View>
@@ -730,18 +744,19 @@ export function PlaygroundsDiscoveryScreen() {
             <View style={[styles.sheetFooter, { borderTopColor: colors.border }]}>
               <View>
                 <Text variant="bodySmall" color={colors.textSecondary}>
-                  Total
+                  {t('service.playgrounds.booking.summary.total')}
                 </Text>
                 <Text variant="h4" weight="bold">
-                  {formatMoney(bookingDraft?.price, bookingDraft?.currency) || '--'}
+                  {formatMoney(bookingDraft?.price, bookingDraft?.currency) ||
+                    t('service.playgrounds.common.placeholder')}
                 </Text>
               </View>
               <Button
                 onPress={handleBookNow}
                 disabled={!bookingDraft?.slot || !publicUser}
-                accessibilityLabel="Book playground"
+                accessibilityLabel={t('service.playgrounds.venue.cta.bookAccessibility')}
               >
-                Book now
+                {t('service.playgrounds.venue.cta.book')}
               </Button>
             </View>
           </View>

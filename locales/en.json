@@ -6,6 +6,7 @@
     "delete": "Delete",
     "edit": "Edit",
     "back": "Back",
+    "goBack": "Go back",
     "next": "Next",
     "done": "Done",
     "loading": "Loading...",
@@ -16,7 +17,22 @@
     "backToHome": "Back to Home",
     "retry": "Retry",
     "share": "Share",
+    "close": "Close",
     "notFound": "Not found"
+  },
+  "errors": {
+    "notFoundTitle": "Oops!",
+    "notFoundMessage": "This screen doesn't exist.",
+    "notFoundAction": "Go to home screen!",
+    "notifications": {
+      "deviceRequired": "Must use physical device for push notifications.",
+      "permissionDenied": "Permission not granted to get push token for push notifications.",
+      "projectIdMissing": "Project ID not found."
+    },
+    "playgrounds": {
+      "venueMissing": "Venue details are missing.",
+      "signInRequired": "Please sign in to complete booking."
+    }
   },
   "home": {
     "title": "SporHive",
@@ -80,13 +96,15 @@
     },
     "settings": {
       "title": "Quick Settings",
+      "open": "Open settings",
       "language": "Language",
       "theme": "Theme",
       "logout": "Log out",
       "logoutTitle": "Log out?",
       "logoutMessage": "Are you sure you want to log out?",
       "logoutCancel": "Cancel",
-      "logoutConfirm": "Log out"
+      "logoutConfirm": "Log out",
+      "logoutConfirmAccessibility": "Confirm logout"
     }
   },
   "placeholder": {
@@ -511,6 +529,9 @@
           "bookings": "Go to bookings",
           "bookingsAccessibility": "Go to bookings"
         },
+        "accessibility": {
+          "setRating": "Set {{label}} rating to {{star}}"
+        },
         "errors": {
           "alreadyRated": "You have already rated this booking.",
           "verify": "Unable to verify rating eligibility.",
@@ -595,6 +616,7 @@
         "offersSpecialAccessibility": "Show special offers",
         "sort": {
           "title": "Sort by",
+          "recommended": "Recommended",
           "topRated": "Top rated",
           "topRatedAccessibility": "Sort by top rated",
           "lowestPrice": "Lowest price",
@@ -1032,6 +1054,26 @@
       "multiSport": "Multi-sport",
       "fromPrice": "From {{price}}"
     },
+    "discovery": {
+      "searchLabel": "Search playgrounds",
+      "searchPlaceholder": "Search by name or sport",
+      "specialOffersLabel": "Special offers",
+      "offersAny": "Any",
+      "offersOnly": "Only offers",
+      "activitiesLabel": "Activities",
+      "noFiltersYet": "No filters yet",
+      "pickTime": "Pick a time",
+      "review": "Review",
+      "reviewBookingAccessibility": "Review booking",
+      "closeBookingSheetAccessibility": "Close booking sheet",
+      "selectSlot": "Select a slot",
+      "slotsUnavailableTitle": "Slots unavailable",
+      "noSlotsTitle": "No slots found",
+      "noSlotsMessage": "Try another date or check back later.",
+      "noDurationsMessage": "No durations listed. Booking will use the default duration.",
+      "signInPrompt": "Sign in to your SporHive account to complete the booking.",
+      "paymentType": "Payment type"
+    },
     "booking": {
       "steps": {
         "schedule": "Schedule",
@@ -1132,6 +1174,8 @@
       "placeholder": "—",
       "player": "Player",
       "edit": "Edit",
+      "save": "Save",
+      "saving": "Saving...",
       "cancel": "Cancel",
       "back": "Back",
       "retry": "Retry",
@@ -1139,6 +1183,12 @@
       "close": "Close",
       "remove": "Remove",
       "refresh": "Refresh"
+    },
+    "tabs": {
+      "home": "Home",
+      "profile": "Profile",
+      "renewals": "Renewals",
+      "more": "More"
     },
     "filters": {
       "open": "Filters",
@@ -1357,6 +1407,7 @@
       "subtitle": "Latest academy updates",
       "errorTitle": "Unable to load news",
       "error": "Could not load news updates.",
+      "imagesUnavailable": "News images are unavailable.",
       "defaultTitle": "Academy update",
       "defaultDescription": "Stay tuned for upcoming matches and announcements.",
       "loadingTitle": "Loading news",
@@ -1374,6 +1425,7 @@
       "phone": "Phone",
       "phone2": "Secondary phone",
       "email": "Email",
+      "address": "Address",
       "registrationType": "Registration type",
       "group": "Training group",
       "course": "Course",
@@ -1401,9 +1453,13 @@
       "firstNameAr": "First name (AR)",
       "middleNameAr": "Middle name (AR)",
       "lastNameAr": "Last name (AR)",
-      "maps": "Maps location",
+      "maps": "Google Maps",
+      "mapsLink": "Google Maps link",
       "height": "Height (cm)",
+      "heightPlaceholder": "170",
       "weight": "Weight (kg)",
+      "weightPlaceholder": "65",
+      "dobPlaceholder": "YYYY-MM-DD",
       "save": "Save changes"
     },
     "login": {

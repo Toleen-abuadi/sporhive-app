@@ -24,6 +24,7 @@ const CRITERIA = [
 ];
 
 function StarsRow({ value, onChange, label }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.starsRow}>
       <Text variant="bodySmall" weight="semibold">
@@ -35,7 +36,10 @@ function StarsRow({ value, onChange, label }) {
             key={`${label}-${star}`}
             onPress={() => onChange(star)}
             accessibilityRole="button"
-            accessibilityLabel={`Set ${label} rating to ${star}`}
+            accessibilityLabel={t('service.playgrounds.rating.accessibility.setRating', {
+              label,
+              star,
+            })}
           >
             <Text variant="h4" weight={value >= star ? 'bold' : 'normal'}>
               {value >= star ? '★' : '☆'}

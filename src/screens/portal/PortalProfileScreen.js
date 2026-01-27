@@ -286,7 +286,7 @@ export function PortalProfileScreen() {
       ) : (
         <TouchableOpacity onPress={startEdit} activeOpacity={0.8} style={styles.editPill}>
           <Text variant="bodySmall" weight="bold" color="#fff">
-            {t('portal.profile.edit', 'Edit')}
+            {t('portal.common.edit')}
           </Text>
         </TouchableOpacity>
       )}
@@ -360,61 +360,61 @@ export function PortalProfileScreen() {
             // EDIT
             <View style={styles.formGrid}>
               <Input
-                label={t('portal.profile.firstNameEn', 'First (EN)')}
+                label={t('portal.profile.firstNameEn')}
                 value={form.first_eng_name}
                 onChangeText={setField('first_eng_name')}
               />
               <Input
-                label={t('portal.profile.middleNameEn', 'Middle (EN)')}
+                label={t('portal.profile.middleNameEn')}
                 value={form.middle_eng_name}
                 onChangeText={setField('middle_eng_name')}
               />
               <Input
-                label={t('portal.profile.lastNameEn', 'Last (EN)')}
+                label={t('portal.profile.lastNameEn')}
                 value={form.last_eng_name}
                 onChangeText={setField('last_eng_name')}
               />
 
               <Input
-                label={t('portal.profile.firstNameAr', 'First (AR)')}
+                label={t('portal.profile.firstNameAr')}
                 value={form.first_ar_name}
                 onChangeText={setField('first_ar_name')}
               />
               <Input
-                label={t('portal.profile.middleNameAr', 'Middle (AR)')}
+                label={t('portal.profile.middleNameAr')}
                 value={form.middle_ar_name}
                 onChangeText={setField('middle_ar_name')}
               />
               <Input
-                label={t('portal.profile.lastNameAr', 'Last (AR)')}
+                label={t('portal.profile.lastNameAr')}
                 value={form.last_ar_name}
                 onChangeText={setField('last_ar_name')}
               />
 
               <Input
-                label={t('portal.profile.phone', 'Phone 1')}
+                label={t('portal.profile.phone1')}
                 value={form.phone1}
                 onChangeText={setField('phone1')}
                 keyboardType="phone-pad"
               />
               <Input
-                label={t('portal.profile.phone2', 'Phone 2')}
+                label={t('portal.profile.phone2')}
                 value={form.phone2}
                 onChangeText={setField('phone2')}
                 keyboardType="phone-pad"
               />
               <Input
-                label={t('portal.profile.email', 'Email')}
+                label={t('portal.profile.email')}
                 value={form.email}
                 onChangeText={setField('email')}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
               <Input
-                label={t('portal.profile.dateOfBirth', 'Date of birth')}
+                label={t('portal.profile.dob')}
                 value={form.date_of_birth}
                 onChangeText={setField('date_of_birth')}
-                placeholder="YYYY-MM-DD"
+                placeholder={t('portal.profile.dobPlaceholder')}
               />
             </View>
           )}
@@ -466,7 +466,7 @@ export function PortalProfileScreen() {
 
               <View style={styles.row}>
                 <Text variant="caption" color={colors.textMuted}>
-                  {t('portal.profile.address', 'Address')}
+                  {t('portal.profile.address')}
                 </Text>
                 <Text variant="bodySmall" color={colors.textPrimary}>
                   {registration.address || placeholder}
@@ -475,7 +475,7 @@ export function PortalProfileScreen() {
 
               <View style={styles.row}>
                 <Text variant="caption" color={colors.textMuted}>
-                  {t('portal.profile.maps', 'Google Maps')}
+                  {t('portal.profile.maps')}
                 </Text>
                 <Text variant="bodySmall" color={colors.textPrimary}>
                   {registration.googleMapsLocation || registration.google_maps_location || placeholder}
@@ -485,7 +485,7 @@ export function PortalProfileScreen() {
               <View style={styles.rowInline}>
                 <View style={styles.inlineBox}>
                   <Text variant="caption" color={colors.textMuted}>
-                    {t('portal.profile.height', 'Height')}
+                    {t('portal.profile.height')}
                   </Text>
                   <Text variant="bodySmall" color={colors.textPrimary}>
                     {health?.height != null ? `${health.height}` : placeholder}
@@ -493,7 +493,7 @@ export function PortalProfileScreen() {
                 </View>
                 <View style={styles.inlineBox}>
                   <Text variant="caption" color={colors.textMuted}>
-                    {t('portal.profile.weight', 'Weight')}
+                    {t('portal.profile.weight')}
                   </Text>
                   <Text variant="bodySmall" color={colors.textPrimary}>
                     {health?.weight != null ? `${health.weight}` : placeholder}
@@ -504,13 +504,13 @@ export function PortalProfileScreen() {
           ) : (
             <View style={styles.formGrid}>
               <Input
-                label={t('portal.profile.address', 'Address')}
+                label={t('portal.profile.address')}
                 value={form.address}
                 onChangeText={setField('address')}
                 multiline
               />
               <Input
-                label={t('portal.profile.maps', 'Google Maps link')}
+                label={t('portal.profile.mapsLink')}
                 value={form.google_maps_location}
                 onChangeText={setField('google_maps_location')}
                 autoCapitalize="none"
@@ -518,20 +518,20 @@ export function PortalProfileScreen() {
               <View style={styles.rowInline}>
                 <View style={styles.inlineField}>
                   <Input
-                    label={t('portal.profile.height', 'Height')}
+                    label={t('portal.profile.height')}
                     value={form.height}
                     onChangeText={setField('height')}
                     keyboardType="numeric"
-                    placeholder="170"
+                    placeholder={t('portal.profile.heightPlaceholder')}
                   />
                 </View>
                 <View style={styles.inlineField}>
                   <Input
-                    label={t('portal.profile.weight', 'Weight')}
+                    label={t('portal.profile.weight')}
                     value={form.weight}
                     onChangeText={setField('weight')}
                     keyboardType="numeric"
-                    placeholder="65"
+                    placeholder={t('portal.profile.weightPlaceholder')}
                   />
                 </View>
               </View>

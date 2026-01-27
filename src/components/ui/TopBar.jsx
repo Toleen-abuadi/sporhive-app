@@ -3,9 +3,11 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { getColors } from '../../theme/colors';
 import { spacing, typography } from '../../theme/tokens';
+import { useTranslation } from '../../services/i18n/i18n';
 
 export function TopBar({ title, mode = 'light', onBack, actions }) {
   const colors = getColors(mode);
+  const { t } = useTranslation();
   return (
     <View style={[styles.container, { borderBottomColor: colors.border }]}
     >
@@ -13,7 +15,7 @@ export function TopBar({ title, mode = 'light', onBack, actions }) {
         {onBack ? (
           <TouchableOpacity
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('common.goBack')}
             onPress={onBack}
             hitSlop={12}
             style={[styles.iconButton, { borderColor: colors.border }]}
