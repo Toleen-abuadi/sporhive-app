@@ -1,6 +1,10 @@
 import axios from 'axios';
 import { storage, APP_STORAGE_KEYS } from '../storage/storage';
-import { getPortalAccessToken, getPortalAcademyId, refreshPortalSessionIfNeeded } from '../auth/portalSession';
+import {
+  getPortalAccessToken,
+  getPortalAcademyId,
+  refreshPortalSessionIfNeeded,
+} from '../auth/portalSession';
 import { handleApiError } from './error';
 import { API_BASE_URL_V1 } from '../../config/env';
 
@@ -89,6 +93,20 @@ const stripAuthHeaders = (headers) => {
   }
 };
 
+const getExistingAuthHeader = (headers) => {
+  if (!headers) return null;
+  if (typeof headers.get === 'function') {
+    return headers.get('Authorization') || headers.get('authorization') || null;
+  }
+  return (
+    headers.Authorization ||
+    headers.authorization ||
+    headers['Authorization'] ||
+    headers['authorization'] ||
+    null
+  );
+};
+
 const setAuthHeader = (headers, token) => {
   if (!headers || !token) return;
   if (typeof headers.set === 'function') {
@@ -120,40 +138,57 @@ apiClient.interceptors.request.use(
         }
       } else if (scope === 'portal') {
         const session = await readAuthSession();
-        const portalToken = await getPortalAccessTokenForRequest(session);
         const academyId = getPortalAcademyId(session);
-        if (!portalToken) {
-          const error = new Error('Portal token required');
-          error.kind = 'PORTAL_AUTH_REQUIRED';
-          throw error;
+
+        const existingAuth = getExistingAuthHeader(headers);
+        if (!existingAuth) {
+          const portalToken = await getPortalAccessTokenForRequest(session);
+          if (!portalToken) {
+            const error = new Error('Portal token required');
+            error.kind = 'PORTAL_AUTH_REQUIRED';
+            throw error;
+          }
+          setAuthHeader(headers, portalToken);
         }
+
         if (!academyId) {
           const error = new Error('Portal academy id required');
           error.kind = 'PORTAL_ACADEMY_REQUIRED';
           throw error;
         }
-        setAuthHeader(headers, portalToken);
+
         headers['X-Academy-Id'] = String(academyId);
         headers['X-Customer-Id'] = String(academyId);
+
         if (__DEV__) {
           console.info('API auth scope', { method, path, scope, token: 'portal', academyId });
         }
       } else {
         const session = await readAuthSession();
-        const token = await getAppAccessToken(session);
-        if (!token) {
-          const error = new Error('App access token required');
-          error.kind = 'AUTH_REQUIRED';
-          throw error;
+
+        const existingAuth = getExistingAuthHeader(headers);
+        if (!existingAuth) {
+          const token = await getAppAccessToken(session);
+          if (!token) {
+            const error = new Error('App access token required');
+            error.kind = 'AUTH_REQUIRED';
+            throw error;
+          }
+          setAuthHeader(headers, token);
         }
-        setAuthHeader(headers, token);
+
         if (__DEV__) {
           console.info('API auth scope', { method, path, scope, token: 'app' });
         }
       }
     } catch (error) {
       if (__DEV__) {
-        console.warn('API auth attachment failed', { method, path, scope, error: error?.kind || error?.message });
+        console.warn('API auth attachment failed', {
+          method,
+          path,
+          scope,
+          error: error?.kind || error?.message,
+        });
       }
       return Promise.reject(error);
     }

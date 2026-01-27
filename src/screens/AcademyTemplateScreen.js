@@ -974,23 +974,31 @@ export function AcademyTemplateScreen({ slug }) {
               />
             )}
 
-            {/* Multi-layer overlays */}
+            {/* Smart readability overlays (top light / bottom strong) */}
             <LinearGradient
               colors={[
-                alphaHex(colors.black, 'D9'),
-                alphaHex(colors.black, '66'),
-                alphaHex(colors.black, 'E6'),
+                alphaHex(colors.black, '55'), // top: light shade so header icons pop
+                alphaHex(colors.black, '15'),
+                alphaHex(colors.black, 'A8'), // bottom: strong shade for title/chips
               ]}
+              locations={[0, 0.45, 1]}
               style={StyleSheet.absoluteFill}
             />
+
+            {/* subtle brand tint, not competing with text */}
             <LinearGradient
               colors={[
-                alphaHex(colors.accentOrange, '40'),
+                alphaHex(colors.accentOrange, '22'),
                 alphaHex(colors.accentOrange, '00'),
-                alphaHex(colors.accentOrange, '33'),
+                alphaHex(colors.accentOrange, '14'),
               ]}
+              locations={[0, 0.6, 1]}
               style={StyleSheet.absoluteFill}
             />
+
+            {/* optional: add a soft vignette for better edges */}
+            <View pointerEvents="none" style={styles.heroVignette} />
+
           </Animated.View>
 
           <Animated.View
@@ -1105,11 +1113,10 @@ export function AcademyTemplateScreen({ slug }) {
                 <FeaturePill
                   icon={<Trophy size={18} color={colors.white} />}
                   label={t('service.academy.template.feature.sports')}
-                  value={`${sportTypes.length} ${
-                    sportTypes.length === 1
-                      ? t('service.academy.template.feature.sportSingle')
-                      : t('service.academy.template.feature.sportPlural')
-                  }`}
+                  value={`${sportTypes.length} ${sportTypes.length === 1
+                    ? t('service.academy.template.feature.sportSingle')
+                    : t('service.academy.template.feature.sportPlural')
+                    }`}
                   color="amber"
                 />
               ) : null}
@@ -2145,6 +2152,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
+  },
+  heroVignette: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.10)',
   },
 
   // Floating CTA

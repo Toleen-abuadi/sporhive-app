@@ -1,5 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  Animated,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Filter } from 'lucide-react-native';
 
@@ -18,7 +30,10 @@ import { VenuesFilterSheet } from '../../components/playgrounds/VenuesFilterShee
 import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
 import { API_BASE_URL } from '../../services/api/client';
-import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
+import {
+  usePlaygroundsActions,
+  usePlaygroundsStore,
+} from '../../services/playgrounds/playgrounds.store';
 import { borderRadius, spacing } from '../../theme/tokens';
 import { safeArray } from '../../utils/safeRender';
 
@@ -32,7 +47,9 @@ const normalizeImageUrl = (uri) => {
 };
 
 const getVenueImages = (venue) => {
-  const images = Array.isArray(venue?.images) ? venue.images : venue?.venue_images || [];
+  const images = Array.isArray(venue?.images)
+    ? venue.images
+    : venue?.venue_images || [];
   return images
     .map((img) => img?.url || img?.path || img?.filename || '')
     .filter(Boolean)
@@ -44,12 +61,12 @@ const resolveVenueImage = (venue) => {
   if (venue?.image) return normalizeImageUrl(venue.image);
   const images = getVenueImages(venue);
   if (images.length) return images[0];
-  if (venue?.academy_profile?.hero_image) return normalizeImageUrl(venue.academy_profile.hero_image);
   return null;
 };
 
 const formatMoney = (amount, currency) => {
-  if (amount === null || amount === undefined || Number.isNaN(Number(amount))) return null;
+  if (amount === null || amount === undefined || Number.isNaN(Number(amount)))
+    return null;
   const normalizedCurrency = currency || 'AED';
   return `${normalizedCurrency} ${Number(amount).toFixed(0)}`;
 };
@@ -59,7 +76,9 @@ const resolvePriceLabel = (venue, t) => {
 
   if (venue?.price !== null && venue?.price !== undefined) {
     const priceLabel = formatMoney(venue.price, currency);
-    return priceLabel ? `${priceLabel}` : t('playgrounds.explore.fromPrice', { price: '—' });
+    return priceLabel
+      ? `${priceLabel}`
+      : t('playgrounds.explore.fromPrice', { price: '—' });
   }
 
   const durations = Array.isArray(venue?.durations)
@@ -153,7 +172,8 @@ export function PlaygroundsExploreScreen() {
   /** keep local input synced if store changes */
   useEffect(() => {
     if (!filtersLoaded) return;
-    if (filters.baseLocation !== searchQuery) setSearchQuery(filters.baseLocation || '');
+    if (filters.baseLocation !== searchQuery)
+      setSearchQuery(filters.baseLocation || '');
   }, [filters.baseLocation, filtersLoaded, searchQuery]);
 
   /** fade in */
@@ -245,7 +265,8 @@ export function PlaygroundsExploreScreen() {
             style={styles.filterButton}
             accessibilityLabel={t('playgrounds.explore.filters')}
           >
-            <Filter size={16} color={colors.textPrimary} /> {t('playgrounds.explore.filters')}
+            <Filter size={16} color={colors.textPrimary} />{' '}
+            {t('playgrounds.explore.filters')}
           </Button>
         </View>
       </Animated.View>
@@ -256,7 +277,9 @@ export function PlaygroundsExploreScreen() {
   const resolveActivityLabel = useCallback(
     (venue) => {
       if (!venue?.activity_id) return t('playgrounds.explore.multiSport');
-      const found = activitiesList.find((a) => String(a.id) === String(venue.activity_id));
+      const found = activitiesList.find(
+        (a) => String(a.id) === String(venue.activity_id)
+      );
       return found?.name || t('playgrounds.explore.multiSport');
     },
     [activitiesList, t]
@@ -300,22 +323,32 @@ export function PlaygroundsExploreScreen() {
           const imageUrl = resolveVenueImage(item);
 
           const ratingRaw = item?.avg_rating ?? item?.rating ?? 0;
-          const rating = Number.isFinite(Number(ratingRaw)) ? Number(ratingRaw) : 0;
+          const rating = Number.isFinite(Number(ratingRaw))
+            ? Number(ratingRaw)
+            : 0;
           const ratingCount = Number.isFinite(Number(item?.ratings_count))
             ? Number(item.ratings_count)
             : 0;
 
           const activityLabel = resolveActivityLabel(item);
-          const discountLabel = item?.special_offer_note || item?.academy_profile?.special_offers_note || null;
+          const discountLabel =
+            item?.special_offer_note ||
+            item?.academy_profile?.special_offers_note ||
+            null;
           const priceLabel = resolvePriceLabel(item, t);
-          const locationText = item?.base_location || item?.academy_profile?.location_text || '';
+          const locationText =
+            item?.base_location || item?.academy_profile?.location_text || '';
 
           return (
             <View style={styles.cardWrap}>
               <VenueCard
-                title={item?.name || item?.title || t('service.playgrounds.common.playground')}
+                title={
+                  item?.name ||
+                  item?.title ||
+                  t('service.playgrounds.common.playground')
+                }
                 location={locationText}
-                imageUrl={imageUrl}
+                {...(imageUrl ? { imageUrl } : {})}
                 rating={ratingCount ? rating : 0}
                 hasOffer={!!item?.has_special_offer}
                 discountLabel={discountLabel}

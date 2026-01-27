@@ -78,10 +78,16 @@ export function WelcomeScreen() {
     transform: [{ translateY: buttonOffset.value }],
   }));
 
-  const handleExplore = async () => {
-    await storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, true);
-    router.replace('/(auth)/login');
-  };
+const handleExplore = async () => {
+  await storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, true);
+
+  // 👇 FORCE navigation without AuthGate bouncing you back
+  router.replace({
+    pathname: "/(auth)/login",
+    params: { fromWelcome: "1" },
+  });
+};
+
 
   const iconColor = colors.textSecondary;
   const iconData = useMemo(
