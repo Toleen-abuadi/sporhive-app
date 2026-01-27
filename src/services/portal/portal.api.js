@@ -3,7 +3,7 @@ import { apiClient } from '../api/client';
 import { playerPortalApi } from '../api/playerPortalApi';
 import { getPortalAccessToken, getPortalAcademyId } from '../auth/portalSession';
 import { storage, PORTAL_KEYS, APP_STORAGE_KEYS } from '../storage/storage';
-import { API_BASE_URL_V1 } from '../config/env';
+import { API_BASE_URL_V1 } from '../../config/env';
 import { assertTryOutId, getTryOutIdFromPortalSession, isValidTryOutId } from './portal.tryout';
 
 const API_BASE_URL = API_BASE_URL_V1;

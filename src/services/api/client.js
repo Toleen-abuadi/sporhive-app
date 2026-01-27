@@ -2,7 +2,7 @@ import axios from 'axios';
 import { storage, APP_STORAGE_KEYS } from '../storage/storage';
 import { getPortalAccessToken, getPortalAcademyId, refreshPortalSessionIfNeeded } from '../auth/portalSession';
 import { handleApiError } from './error';
-import { API_BASE_URL_V1 } from '../config/env';
+import { API_BASE_URL_V1 } from '../../config/env';
 
 const API_BASE_URL = API_BASE_URL_V1;
 
@@ -27,7 +27,7 @@ const PUBLIC_PATH_PREFIXES = [
   '/customer/active-list',
 ];
 
-const AUTH_PATH_PREFIXES = ['/auth/'];
+const AUTH_PATH_PREFIXES = ['/app-auth/'];
 
 const PORTAL_PATH_PREFIX = '/player-portal-external-proxy/';
 

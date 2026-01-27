@@ -1,5 +1,5 @@
 import { storage, APP_STORAGE_KEYS } from '../storage/storage';
-import { API_BASE_URL_V1 } from '../config/env';
+import { API_BASE_URL_V1 } from '../../config/env';
 
 const resolveApiBaseUrl = () => {
   return API_BASE_URL_V1;

@@ -44,4 +44,4 @@ export const ENV_NAME = readRequired('ENV_NAME', (value) => {
 });
 
 export const API_BASE_URL = readRequired('API_BASE_URL', normalizeBaseUrl);
-export const API_BASE_URL_V1 = `${API_BASE_URL}/api/v1`;
+export const API_BASE_URL_V1 = `${API_BASE_URL}`;

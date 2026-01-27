@@ -287,7 +287,7 @@ export default function BookingStepperDialog({
 
     const load = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/api/v1/playgrounds/admin/activities/list`, {
+        const res = await fetch(`${BASE_URL}/playgrounds/admin/activities/list`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -318,7 +318,7 @@ export default function BookingStepperDialog({
     const loadDurations = async () => {
       setDurationsLoading(true);
       try {
-        const res = await fetch(`${BASE_URL}/api/v1/playgrounds/admin/venues/durations/list`, {
+        const res = await fetch(`${BASE_URL}/playgrounds/admin/venues/durations/list`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ venue_id: venue.id }),
@@ -364,7 +364,7 @@ export default function BookingStepperDialog({
       setSlots([]);
       setSelectedSlot(null);
       try {
-        const res = await fetch(`${BASE_URL}/api/v1/playgrounds/public/slots`, {
+        const res = await fetch(`${BASE_URL}/playgrounds/public/slots`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -491,7 +491,7 @@ export default function BookingStepperDialog({
         formData.append('cliq_image', cliqImage);
       }
 
-      const res = await fetch(`${BASE_URL}/api/v1/playgrounds/public/bookings/create`, {
+      const res = await fetch(`${BASE_URL}/playgrounds/public/bookings/create`, {
         method: 'POST',
         body: formData,
       });
@@ -549,7 +549,7 @@ export default function BookingStepperDialog({
 
     setGuestSubmitting(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/v1/public-users/quick-register`, {
+      const res = await fetch(`${BASE_URL}//public-users/quick-register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
