@@ -6,6 +6,7 @@
     "delete": "حذف",
     "edit": "تعديل",
     "back": "رجوع",
+    "goBack": "العودة للخلف",
     "next": "التالي",
     "done": "تم",
     "loading": "جاري التحميل...",
@@ -16,7 +17,22 @@
     "backToHome": "العودة للرئيسية",
     "retry": "إعادة المحاولة",
     "share": "مشاركة",
+    "close": "إغلاق",
     "notFound": "غير موجود"
+  },
+  "errors": {
+    "notFoundTitle": "عذرًا!",
+    "notFoundMessage": "هذه الشاشة غير موجودة.",
+    "notFoundAction": "اذهب إلى الشاشة الرئيسية!",
+    "notifications": {
+      "deviceRequired": "يجب استخدام جهاز فعلي لتفعيل إشعارات الدفع.",
+      "permissionDenied": "لم يتم منح الإذن للحصول على رمز الإشعارات.",
+      "projectIdMissing": "معرّف المشروع غير موجود."
+    },
+    "playgrounds": {
+      "venueMissing": "بيانات الملعب غير متوفرة.",
+      "signInRequired": "يرجى تسجيل الدخول لإكمال الحجز."
+    }
   },
   "home": {
     "title": "سبور هايف",
@@ -80,13 +96,15 @@
     },
     "settings": {
       "title": "الإعدادات السريعة",
+      "open": "فتح الإعدادات",
       "language": "اللغة",
       "theme": "المظهر",
       "logout": "تسجيل الخروج",
       "logoutTitle": "تسجيل الخروج؟",
       "logoutMessage": "هل أنت متأكد من تسجيل الخروج؟",
       "logoutCancel": "إلغاء",
-      "logoutConfirm": "تسجيل الخروج"
+      "logoutConfirm": "تسجيل الخروج",
+      "logoutConfirmAccessibility": "تأكيد تسجيل الخروج"
     }
   },
   "placeholder": {
@@ -144,6 +162,31 @@
     }
   },
   "portal": {
+    "access": {
+      "title": "بوابة اللاعب",
+      "description": "بوابة اللاعب متاحة فقط لحسابات اللاعبين.",
+      "action": "العودة إلى الخدمات"
+    },
+    "common": {
+      "placeholder": "—",
+      "player": "لاعب",
+      "edit": "تعديل",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ...",
+      "cancel": "إلغاء",
+      "back": "رجوع",
+      "retry": "إعادة المحاولة",
+      "loading": "جاري التحميل...",
+      "close": "إغلاق",
+      "remove": "إزالة",
+      "refresh": "تحديث"
+    },
+    "tabs": {
+      "home": "الرئيسية",
+      "profile": "الملف الشخصي",
+      "renewals": "التجديدات",
+      "more": "المزيد"
+    },
     "freezes": {
       "title": "التجميد",
       "subtitle": "أوقف برنامجك دون فقدان التقدم",
@@ -234,7 +277,8 @@
       "defaultTitle": "تحديث الأكاديمية",
       "defaultDescription": "ترقبوا المباريات والإعلانات القادمة.",
       "errorTitle": "تعذر تحميل الأخبار",
-      "error": "تعذر تحميل تحديثات الأخبار."
+      "error": "تعذر تحميل تحديثات الأخبار.",
+      "imagesUnavailable": "صور الأخبار غير متاحة."
     },
     "profile": {
       "title": "الملف الشخصي",
@@ -259,9 +303,13 @@
       "firstNameAr": "الاسم الأول (AR)",
       "middleNameAr": "اسم الأب (AR)",
       "lastNameAr": "اسم العائلة (AR)",
-      "maps": "موقع الخرائط",
+      "maps": "خرائط جوجل",
+      "mapsLink": "رابط خرائط جوجل",
       "height": "الطول (سم)",
-      "weight": "الوزن (كجم)",
+      "heightPlaceholder": "170",
+      "weight": "الوزن (كغ)",
+      "weightPlaceholder": "65",
+      "dobPlaceholder": "YYYY-MM-DD",
       "save": "حفظ التغييرات",
       "logout": "تسجيل الخروج"
     },
@@ -772,9 +820,43 @@
       }
     },
     "playgrounds": {
+      "common": {
+        "placeholder": "—",
+        "fromPrice": "ابتداءً من {{price}}",
+        "multiSport": "متعدد الرياضات",
+        "playground": "ملعب",
+        "venue": "الملعب",
+        "academy": "الأكاديمية",
+        "locationPending": "الموقع غير متوفر بعد",
+        "retry": "إعادة المحاولة",
+        "timeTbd": "غير محدد",
+        "errors": {
+          "generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى."
+        }
+      },
+      "explore": {
+        "loading": "جارٍ تحميل الملاعب..."
+      },
       "booking": {
         "actions": {
           "submitting": "جارٍ الإرسال..."
+        },
+        "players": {
+          "placeholder": "2",
+          "accessibilityLabel": "عدد اللاعبين"
+        },
+        "schedule": {
+          "duration": "المدة",
+          "minutesLabel": "{{minutes}} دقيقة",
+          "loadingSlots": "جارٍ تحميل الأوقات..."
+        },
+        "payment": {
+          "cash": "نقدًا",
+          "cliq": "كليك",
+          "uploadRequired": "يرجى رفع صورة تحويل كليك للمتابعة."
+        },
+        "summary": {
+          "total": "الإجمالي"
         },
         "errors": {
           "slotUnavailable": "هذا الموعد لم يعد متاحًا. يرجى اختيار وقت آخر."
@@ -840,6 +922,93 @@
           "confirm": "حسنًا"
         },
         "loading": "جارٍ تحميل الحجوزات..."
+      },
+      "rating": {
+        "title": "قيّم ملعبك",
+        "subtitle": "أخبرنا عن تجربتك.",
+        "overall": "التقييم العام",
+        "criteria": {
+          "cleanliness": "النظافة",
+          "staffService": "خدمة الطاقم",
+          "fieldQuality": "جودة الملعب",
+          "bookingExperience": "تجربة الحجز",
+          "valueForMoney": "القيمة مقابل المال",
+          "safetySecurity": "السلامة والأمان"
+        },
+        "comment": {
+          "label": "تعليق (اختياري)",
+          "placeholder": "شاركنا ملاحظة قصيرة",
+          "accessibility": "تعليق التقييم"
+        },
+        "actions": {
+          "submit": "إرسال التقييم",
+          "submitAccessibility": "إرسال التقييم",
+          "bookings": "الانتقال إلى الحجوزات",
+          "bookingsAccessibility": "الانتقال إلى الحجوزات"
+        },
+        "accessibility": {
+          "setRating": "اضبط تقييم {{label}} إلى {{star}}"
+        },
+        "errors": {
+          "alreadyRated": "لقد قيّمت هذا الحجز مسبقًا.",
+          "verify": "تعذر التحقق من أهلية التقييم.",
+          "overallRequired": "يرجى اختيار التقييم العام.",
+          "submit": "تعذر إرسال التقييم."
+        },
+        "success": {
+          "title": "شكرًا لك!",
+          "message": "يساعدنا رأيك على تحسين التجربة للجميع."
+        },
+        "loading": "جارٍ التحقق من أهلية التقييم..."
+      },
+      "venue": {
+        "cta": {
+          "book": "احجز الآن",
+          "bookAccessibility": "احجز هذا الملعب"
+        }
+      },
+      "filters": {
+        "title": "الفلاتر",
+        "active": "نشط: {{filters}}",
+        "none": "لا توجد فلاتر نشطة",
+        "activity": "النشاط",
+        "activityFallback": "النشاط",
+        "loadingActivities": "جارٍ تحميل الأنشطة...",
+        "noActivities": "لا توجد أنشطة متاحة.",
+        "activityAccessibility": "تصفية حسب {{activity}}",
+        "bookingDate": "تاريخ الحجز",
+        "dateLabel": "التاريخ",
+        "datePlaceholder": "YYYY-MM-DD",
+        "dateAccessibility": "اختر تاريخ الحجز",
+        "today": "اليوم",
+        "clearDate": "مسح التاريخ",
+        "players": "اللاعبون",
+        "playersCount": "{{count}} لاعب",
+        "decreasePlayers": "تقليل عدد اللاعبين",
+        "increasePlayers": "زيادة عدد اللاعبين",
+        "location": "الموقع",
+        "locationLabel": "الموقع",
+        "locationPlaceholder": "المدينة أو المنطقة",
+        "locationAccessibility": "تصفية حسب الموقع",
+        "useCurrentArea": "استخدم الموقع الحالي",
+        "useCurrentAreaAccessibility": "استخدم الموقع الحالي",
+        "offers": "عروض",
+        "offersAll": "الكل",
+        "offersAllAccessibility": "عرض جميع الملاعب",
+        "offersSpecial": "عروض خاصة",
+        "offersSpecialAccessibility": "عرض العروض الخاصة",
+        "sort": {
+          "title": "ترتيب حسب",
+          "recommended": "موصى به",
+          "topRated": "الأعلى تقييمًا",
+          "topRatedAccessibility": "ترتيب حسب الأعلى تقييمًا",
+          "lowestPrice": "الأقل سعرًا",
+          "lowestPriceAccessibility": "ترتيب حسب الأقل سعرًا"
+        },
+        "reset": "إعادة ضبط",
+        "resetAccessibility": "إعادة ضبط الفلاتر",
+        "apply": "تطبيق الفلاتر",
+        "applyAccessibility": "تطبيق الفلاتر"
       }
     }
   },
@@ -859,6 +1028,26 @@
       "errorTitle": "تعذر التحميل",
       "multiSport": "متعدد الرياضات",
       "fromPrice": "ابتداءً من {{price}}"
+    },
+    "discovery": {
+      "searchLabel": "ابحث عن الملاعب",
+      "searchPlaceholder": "ابحث بالاسم أو الرياضة",
+      "specialOffersLabel": "عروض خاصة",
+      "offersAny": "أي",
+      "offersOnly": "عروض فقط",
+      "activitiesLabel": "الأنشطة",
+      "noFiltersYet": "لا توجد فلاتر بعد",
+      "pickTime": "اختر وقتًا",
+      "review": "مراجعة",
+      "reviewBookingAccessibility": "مراجعة الحجز",
+      "closeBookingSheetAccessibility": "إغلاق نافذة الحجز",
+      "selectSlot": "اختر وقتًا",
+      "slotsUnavailableTitle": "الوقت غير متاح",
+      "noSlotsTitle": "لا توجد أوقات متاحة",
+      "noSlotsMessage": "جرّب تاريخًا آخر أو عُد لاحقًا.",
+      "noDurationsMessage": "لا توجد مدد محددة. سيُستخدم الزمن الافتراضي للحجز.",
+      "signInPrompt": "سجّل الدخول إلى حساب سبور هايف لإكمال الحجز.",
+      "paymentType": "طريقة الدفع"
     },
     "booking": {
       "steps": {
@@ -1226,13 +1415,17 @@
         "middleNameEn": "اسم الأب (EN)",
         "lastNameEn": "اسم العائلة (EN)",
         "firstNameAr": "الاسم الأول (AR)",
-        "middleNameAr": "اسم الأب (AR)",
-        "lastNameAr": "اسم العائلة (AR)",
-        "maps": "موقع الخرائط",
-        "height": "الطول (سم)",
-        "weight": "الوزن (كغ)",
-        "save": "حفظ التغييرات"
-      },
+      "middleNameAr": "اسم الأب (AR)",
+      "lastNameAr": "اسم العائلة (AR)",
+      "maps": "خرائط جوجل",
+      "mapsLink": "رابط خرائط جوجل",
+      "height": "الطول (سم)",
+      "heightPlaceholder": "170",
+      "weight": "الوزن (كغ)",
+      "weightPlaceholder": "65",
+      "dobPlaceholder": "YYYY-MM-DD",
+      "save": "حفظ التغييرات"
+    },
       "login": {
         "title": "بوابة اللاعب",
         "subtitle": "اختر أكاديميتك للوصول إلى بوابتك.",

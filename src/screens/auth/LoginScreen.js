@@ -267,7 +267,7 @@ export function LoginScreen() {
                   loading={isLoading}
                   disabled={!phone || !password}
                   style={styles.cta}
-                  accessibilityLabel="Log in"
+                  accessibilityLabel={t('auth.login.cta')}
                 >
                   {t('auth.login.cta')}
                 </Button>
@@ -343,7 +343,7 @@ export function LoginScreen() {
                   loading={isLoading}
                   disabled={!academy?.id || !username || !password}
                   style={styles.cta}
-                  accessibilityLabel="Log in as player"
+                  accessibilityLabel={t('auth.login.ctaPlayer')}
                 >
                   {t('auth.login.ctaPlayer')}
                 </Button>
