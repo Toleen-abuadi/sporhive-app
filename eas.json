@@ -9,7 +9,7 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_ENV_NAME": "development",
-        "EXPO_PUBLIC_API_BASE_URL": "REPLACE_WITH_DEV_API_BASE_URL"
+        "EXPO_PUBLIC_API_BASE_URL": "http://0.0.0.0:7000/api/v1"
       }
     },
     "preview": {
@@ -19,7 +19,7 @@
       },
       "env": {
         "EXPO_PUBLIC_ENV_NAME": "preview",
-        "EXPO_PUBLIC_API_BASE_URL": "REPLACE_WITH_PREVIEW_API_BASE_URL"
+        "EXPO_PUBLIC_API_BASE_URL": "https://backend.sporhive.com/api/v1"
       }
     },
     "production": {
@@ -29,7 +29,7 @@
       },
       "env": {
         "EXPO_PUBLIC_ENV_NAME": "production",
-        "EXPO_PUBLIC_API_BASE_URL": "REPLACE_WITH_PROD_API_BASE_URL"
+        "EXPO_PUBLIC_API_BASE_URL": "https://backend.sporhive.com/api/v1"
       }
     }
   },

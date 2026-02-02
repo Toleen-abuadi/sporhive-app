@@ -1,6 +1,6 @@
-const appJson = require('./app.json');
+import appJson from './app.json';
 
-module.exports = ({ config }) => {
+export default ({ config }) => {
   const baseConfig = config || appJson.expo || {};
   const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || baseConfig.extra?.API_BASE_URL;
   const envName = process.env.EXPO_PUBLIC_ENV_NAME || baseConfig.extra?.ENV_NAME;

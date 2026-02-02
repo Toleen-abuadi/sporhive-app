@@ -62,6 +62,7 @@ export function LoginScreen() {
   const [academies, setAcademies] = useState([]);
   const [academyLoading, setAcademyLoading] = useState(false);
   const [academyError, setAcademyError] = useState('');
+  const [debbug, setDebbug] = useState('');
   const [formErrors, setFormErrors] = useState({});
 
   const toggleOptions = useMemo(
@@ -116,6 +117,7 @@ export function LoginScreen() {
         resolveAcademy(res.data);
       } else {
         setAcademyError(t('auth.academy.error'));
+        setDebbug(JSON.stringify(res.error) + '-' + res);
       }
       setAcademyLoading(false);
     };
@@ -147,6 +149,7 @@ export function LoginScreen() {
         toast.success(t('auth.login.success'));
         router.replace(redirectTo || '/services');
       } else {
+        console.log("API_BASE_URL =", process.env.EXPO_PUBLIC_API_BASE_URL);
         toast.error(resolveAuthErrorMessage(res.error, t, 'auth.login.error'));
       }
       return;
@@ -293,6 +296,7 @@ export function LoginScreen() {
                   onSelect={onSelectAcademy}
                   loading={academyLoading}
                   error={academyError}
+                  debbug={debbug}
                   title={t('auth.fields.academy')}
                   helper={t('auth.academy.helper')}
                   searchPlaceholder={t('auth.academy.searchPlaceholder')}

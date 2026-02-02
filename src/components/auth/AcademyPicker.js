@@ -14,6 +14,7 @@ export function AcademyPicker({
   onSelect,
   loading,
   error,
+  debbug,
   searchPlaceholder,
   title,
   helper,
@@ -110,6 +111,9 @@ export function AcademyPicker({
               <View style={styles.centered}>
                 <Text variant="bodySmall" color={colors.error}>
                   {error}
+                </Text>
+                <Text variant="bodySmall" color={colors.error}>
+                  {debbug}
                 </Text>
               </View>
             ) : (

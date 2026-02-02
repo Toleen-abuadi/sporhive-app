@@ -1,7 +1,6 @@
 // app/index.js
 import React, { useCallback, useEffect, useRef } from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
-import { useRouter } from 'expo-router';
 
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
@@ -21,18 +20,16 @@ Notifications.setNotificationHandler({
 });
 
 export default function Index() {
-  const router = useRouter();
   const { colors } = useTheme();
   const { t } = useTranslation();
 
-  // keep refs so we can remove listeners safely
   const notificationListenerRef = useRef(null);
   const responseListenerRef = useRef(null);
 
   const handleRegistrationError = useCallback(
     (messageKey) => {
       const message = t(messageKey);
-      // You can swap this to your toast system
+      // swap later to toast
       alert(message);
       throw new Error(message);
     },
@@ -40,7 +37,6 @@ export default function Index() {
   );
 
   const registerForPushNotificationsAsync = useCallback(async () => {
-    // Android channel (required for high-importance notifications)
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'default',
@@ -68,9 +64,7 @@ export default function Index() {
       return null;
     }
 
-    // EAS Project ID (needed for getExpoPushTokenAsync in modern Expo)
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-
     if (!projectId) {
       handleRegistrationError('errors.notifications.projectIdMissing');
       return null;
@@ -81,57 +75,37 @@ export default function Index() {
   }, [handleRegistrationError]);
 
   useEffect(() => {
-    // 2) Register push token + set up listeners
     const setupNotifications = async () => {
       try {
         const token = await registerForPushNotificationsAsync();
-        if (token) {
-          console.log('Expo Push Token:', token);
-
-          // OPTIONAL: persist token or send to backend
-          // await storage.setItem(APP_STORAGE_KEYS.EXPO_PUSH_TOKEN, token);
-          // await myApi.savePushToken({ token });
-        }
+        if (token) console.log('Expo Push Token:', token);
       } catch (e) {
         console.log('Push registration error:', e);
       }
 
-      // Foreground receive
       notificationListenerRef.current =
         Notifications.addNotificationReceivedListener((notification) => {
-          // You can show an in-app banner/toast here
           console.log('Notification received (foreground):', notification);
         });
 
-      // User taps notification
       responseListenerRef.current =
         Notifications.addNotificationResponseReceivedListener((response) => {
           console.log('Notification response (tap):', response);
-
-          // OPTIONAL: deep link routing example
-          // const data = response?.notification?.request?.content?.data;
-          // if (data?.route) router.push(data.route);
+          // deep link handling can live here later
         });
     };
 
     setupNotifications();
 
     return () => {
-      if (notificationListenerRef.current) {
-        notificationListenerRef.current.remove();
-        notificationListenerRef.current = null;
-      }
-      if (responseListenerRef.current) {
-        responseListenerRef.current.remove();
-        responseListenerRef.current = null;
-      }
+      notificationListenerRef.current?.remove?.();
+      responseListenerRef.current?.remove?.();
+      notificationListenerRef.current = null;
+      responseListenerRef.current = null;
     };
-  }, [registerForPushNotificationsAsync, router]);
+  }, [registerForPushNotificationsAsync]);
 
-  useEffect(() => {
-    router.replace('/services');
-  }, [router]);
-
+  // ✅ IMPORTANT: no router.replace here. AuthGate owns routing.
   return (
     <View
       style={{
