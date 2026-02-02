@@ -1,9 +1,22 @@
 import { apiClient } from '../api/client';
 
+const normalizeAuthPayload = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  if (data.token) return data;
+  const token =
+    data.access_token ||
+    data.access ||
+    data.tokens?.access ||
+    data.tokens?.token ||
+    null;
+  if (!token) return data;
+  return { ...data, token };
+};
+
 const wrapApi = async (fn, label = 'Auth API failed') => {
   try {
     const data = await fn();
-    return { success: true, data };
+    return { success: true, data: normalizeAuthPayload(data) };
   } catch (error) {
     if (__DEV__) {
       console.warn(label, error);
