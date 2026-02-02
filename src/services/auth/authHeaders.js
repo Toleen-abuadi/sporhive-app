@@ -1,10 +1,4 @@
-const resolveAccessToken = (session) =>
-  session?.tokens?.access ||
-  session?.tokens?.token ||
-  session?.token ||
-  session?.access_token ||
-  session?.access ||
-  null;
+const resolveAccessToken = (session) => session?.token || null;
 
 export const getPlaygroundsAuthHeaders = (session) => {
   if (!session) return null;

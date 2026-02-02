@@ -13,7 +13,7 @@ export const APP_STORAGE_KEYS = {
   WELCOME_SEEN: 'sporhive_welcome_seen',
 };
 
-const LEGACY_AUTH_TOKEN_KEYS = ['token', 'access', 'authToken', APP_STORAGE_KEYS.AUTH_TOKEN];
+const LEGACY_AUTH_TOKEN_KEYS = ['token', 'access', 'authToken', 'access_token', 'tokens'];
 
 export const PORTAL_KEYS = {
   ACADEMY_ID: 'sporhive_portal_academy_id',

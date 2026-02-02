@@ -63,14 +63,7 @@ const readAuthSession = async () => {
 };
 
 const getAppAccessToken = async (session) => {
-  const sessionToken =
-    session?.tokens?.access ||
-    session?.tokens?.token ||
-    session?.token ||
-    session?.access ||
-    session?.access_token ||
-    session?.authToken ||
-    null;
+  const sessionToken = session?.token || null;
   const storedToken = await storage.getAuthToken();
   return sessionToken || storedToken || null;
 };

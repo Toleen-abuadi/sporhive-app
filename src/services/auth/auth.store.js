@@ -18,13 +18,7 @@ const INITIAL_STATE = {
 
 const AuthContext = createContext(null);
 
-const extractToken = (data) =>
-  data?.token ||
-  data?.access_token ||
-  data?.access ||
-  data?.tokens?.access ||
-  data?.tokens?.token ||
-  null;
+const extractToken = (data) => data?.token || null;
 
 const extractUser = (data) =>
   data?.user || data?.profile || data?.player || data?.public_user || null;
@@ -70,13 +64,23 @@ const buildSession = ({ loginAs, user, token, portalTokens, academyId, username 
     username,
   });
 
-  return {
+  const session = {
     login_as: loginAs,
     user: normalizedUser,
-    portal_tokens: portalTokens || undefined,
-    tokens: token ? { access: token } : undefined,
     token: token || undefined,
+    portal_tokens: portalTokens || undefined,
   };
+
+  if (loginAs === 'player') {
+    if (academyId != null) {
+      session.academyId = Number(academyId);
+    }
+    if (username) {
+      session.username = username;
+    }
+  }
+
+  return session;
 };
 
 export function AuthProvider({ children }) {
@@ -117,24 +121,40 @@ export function AuthProvider({ children }) {
             portal_tokens: portalTokens || session.portal_tokens,
           }
         : null;
-      const sessionToken =
+      const legacySessionToken =
         mergedSession?.tokens?.access ||
         mergedSession?.tokens?.token ||
-        mergedSession?.token ||
         mergedSession?.access ||
         mergedSession?.access_token ||
         mergedSession?.authToken ||
         null;
-      const resolvedToken = sessionToken || storedToken || legacyToken || null;
+      const resolvedToken =
+        mergedSession?.token ||
+        legacySessionToken ||
+        storedToken ||
+        legacyToken ||
+        null;
       const normalizedSession = mergedSession
-        ? {
-            ...mergedSession,
-            tokens: resolvedToken ? { ...(mergedSession.tokens || {}), access: resolvedToken } : mergedSession.tokens,
-            token: resolvedToken || mergedSession.token,
-          }
+        ? (() => {
+            const cleaned = {
+              ...mergedSession,
+              token: resolvedToken || mergedSession.token,
+            };
+            delete cleaned.tokens;
+            delete cleaned.access;
+            delete cleaned.access_token;
+            delete cleaned.authToken;
+            delete cleaned.userType;
+            return cleaned;
+          })()
         : null;
       const lastSelectedAcademyId = lastAcademyRaw != null ? Number(lastAcademyRaw) : null;
-      const loginAs = normalizedSession?.login_as || normalizedSession?.userType || normalizedSession?.user?.type || null;
+      const loginAs =
+        mergedSession?.login_as ||
+        mergedSession?.userType ||
+        normalizedSession?.login_as ||
+        normalizedSession?.user?.type ||
+        null;
       const sessionAcademyId = normalizeAcademyId(
         normalizedSession?.user?.academy_id ||
           normalizedSession?.user?.academyId ||
@@ -217,90 +237,63 @@ export function AuthProvider({ children }) {
     setState((prev) => ({ ...prev, lastSelectedAcademyId: id }));
   }, []);
 
-  const loginPublic = useCallback(async ({ phone, password }) => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
-    const result = await authApi.login({
-      login_as: 'public',
-      phone,
-      password,
-    });
-
-    if (result.success) {
-      const token = extractToken(result.data);
-      const user = extractUser(result.data);
-      const session = buildSession({
-        loginAs: 'public',
-        user,
-        token,
-        portalTokens: null,
-      });
-      if (storage.clearTenantState) {
-        await storage.clearTenantState();
-      }
-      await persistSession(session, token);
-      setState((prev) => ({
-        ...prev,
-        isAuthenticated: true,
-        isLoading: false,
-        session,
-        user,
-        userType: 'public',
-        token,
-        portalAccessToken: null,
-        lastSelectedAcademyId: null,
-      }));
-      return { success: true, data: result.data };
-    }
-
-    const error = result?.error || new Error('Login failed');
-    setState((prev) => ({ ...prev, isLoading: false, error }));
-    return { success: false, error };
-  }, [persistSession]);
-
-  const loginPlayer = useCallback(
-    async ({ academyId, username, password }) => {
+  const login = useCallback(
+    async ({ loginAs, phone, password, academyId, username }) => {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
-      const result = await authApi.login({
-        login_as: 'player',
-        academy_id: Number(academyId),
-        username,
+      const payload = {
+        login_as: loginAs,
         password,
-      });
+      };
+      if (loginAs === 'public') {
+        payload.phone = phone;
+      }
+      if (loginAs === 'player') {
+        payload.academy_id = Number(academyId);
+        payload.username = username;
+      }
+
+      const result = await authApi.login(payload);
 
       if (result.success) {
-        const portalTokens = result.data?.portal_tokens || result.data?.portalTokens || null;
+        const portalTokensRaw = result.data?.portal_tokens || result.data?.portalTokens || null;
         const portalAccessToken =
-          portalTokens?.access ||
-          portalTokens?.access_token ||
+          portalTokensRaw?.access ||
+          portalTokensRaw?.access_token ||
           result.data?.portal_tokens?.access ||
           result.data?.portal_tokens?.access_token ||
+          result.data?.portalAccessToken ||
+          result.data?.portal_access_token ||
           null;
+        const portalTokens =
+          portalTokensRaw || (portalAccessToken ? { access: portalAccessToken } : null);
         const token = extractToken(result.data);
         const user = extractUser(result.data);
         const session = buildSession({
-          loginAs: 'player',
+          loginAs,
           user,
           token,
-          portalTokens: portalTokens || (portalAccessToken ? { access: portalAccessToken } : null),
+          portalTokens,
           academyId,
           username,
         });
+
         if (storage.clearTenantState) {
           await storage.clearTenantState();
         }
-        await Promise.all([
-          persistSession(session, token),
-          setLastSelectedAcademyId(academyId),
-        ]);
+        await persistSession(session, token);
+        if (loginAs === 'player') {
+          await setLastSelectedAcademyId(academyId);
+        }
         setState((prev) => ({
           ...prev,
           isAuthenticated: true,
           isLoading: false,
           session,
-          user,
-          userType: 'player',
+          user: session.user,
+          userType: loginAs,
           token,
           portalAccessToken,
+          lastSelectedAcademyId: loginAs === 'player' ? Number(academyId) : null,
         }));
         return { success: true, data: result.data };
       }
@@ -340,14 +333,13 @@ export function AuthProvider({ children }) {
   const value = useMemo(
     () => ({
       ...state,
-      loginPublic,
-      loginPlayer,
+      login,
       logout,
       restoreSession,
       setLastSelectedAcademyId,
       refreshPortalSessionIfNeeded: refreshPortalIfNeeded,
     }),
-    [state, loginPublic, loginPlayer, logout, restoreSession, setLastSelectedAcademyId, refreshPortalIfNeeded]
+    [state, login, logout, restoreSession, setLastSelectedAcademyId, refreshPortalIfNeeded]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
