@@ -44,7 +44,14 @@ export function LoginScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const toast = useToast();
-  const { login, isLoading, error, lastSelectedAcademyId, setLastSelectedAcademyId } = useAuth();
+  const { loginPublic, loginPlayer, isLoading, error, lastSelectedAcademyId, setLastSelectedAcademyId } =
+    useAuth();
+
+  useEffect(() => {
+    console.log('useAuth keys:', Object.keys(useAuth.getState?.() || {}));
+    console.log('loginPlayer is:', useAuth.getState?.()?.loginPlayer);
+  }, []);
+
 
   const glow = useRef(new Animated.Value(0)).current;
 
@@ -140,8 +147,7 @@ export function LoginScreen() {
         setFormErrors(nextErrors);
         return;
       }
-      const res = await login({
-        loginAs: MODES.PUBLIC,
+      const res = await loginPublic({
         phone: normalizePhone(phone),
         password,
       });
@@ -164,8 +170,7 @@ export function LoginScreen() {
       return;
     }
 
-    const res = await login({
-      loginAs: MODES.PLAYER,
+    const res = await loginPlayer({
       academyId: academy.id,
       username: username.trim(),
       password,

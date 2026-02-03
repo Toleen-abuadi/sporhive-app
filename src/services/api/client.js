@@ -72,7 +72,11 @@ const getPortalAccessTokenForRequest = async (session) => {
   const portalTokens = storage.getPortalTokens ? await storage.getPortalTokens() : null;
   const portalToken =
     portalTokens?.access || portalTokens?.token || portalTokens?.access_token || null;
-  return portalToken || getPortalAccessToken(session);
+  const storedAuthToken = await storage.getAuthToken();
+  // ONE TOKEN: the main auth token is authoritative for portal auth.
+  // Portal tokens remain backward-compatible metadata, but must not override session/auth token.
+  const mainToken = session?.token || storedAuthToken || null;
+  return mainToken || getPortalAccessToken(session) || portalToken || null;
 };
 
 const stripAuthHeaders = (headers) => {
@@ -137,7 +141,7 @@ apiClient.interceptors.request.use(
         if (!existingAuth) {
           const portalToken = await getPortalAccessTokenForRequest(session);
           if (!portalToken) {
-            const error = new Error('Portal token required');
+            const error = new Error('Access token required');
             error.kind = 'PORTAL_AUTH_REQUIRED';
             throw error;
           }

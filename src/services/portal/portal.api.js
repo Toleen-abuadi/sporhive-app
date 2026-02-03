@@ -64,16 +64,10 @@ const resolveTryOutId = async (override, { require = false } = {}) => {
 };
 
 const buildHeaders = async ({ academyId, token, language } = {}) => {
-  const resolvedToken = await resolveToken(token);
   const resolvedAcademyId = await resolveAcademyId(academyId);
   const resolvedLanguage = await resolveLanguage(language);
 
   const headers = { 'Accept-Language': resolvedLanguage };
-
-  if (resolvedToken) {
-    headers.Authorization = `Bearer ${resolvedToken}`;
-    headers.authorization = `Bearer ${resolvedToken}`;
-  }
 
   if (resolvedAcademyId) {
     headers['X-Academy-Id'] = String(resolvedAcademyId);

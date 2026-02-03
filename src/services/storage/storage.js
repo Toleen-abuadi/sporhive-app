@@ -233,6 +233,8 @@ export const storage = {
   },
   async setPortalTokens(tokens) {
     if (!tokens) return;
+    // Only store objects (prevents persisting stale string/junk shapes)
+    if (typeof tokens !== 'object') return;
     await secureStorage.setItem(PORTAL_KEYS.AUTH_TOKENS, tokens);
   },
   async removePortalTokens() {

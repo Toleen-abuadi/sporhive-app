@@ -63,26 +63,29 @@ function AuthGate({ children, onReady }) {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const seen = await storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN);
-      setWelcomeSeen(seen === true || seen === 'true');
-      setWelcomeLoaded(true);
+      try {
+        const seen = await Promise.race([
+          storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN),
+          new Promise((resolve) => setTimeout(() => resolve(null), 3000)),
+        ]);
+        if (!mounted) return;
+        setWelcomeSeen(seen === true || seen === 'true');
+      } catch (e) {
+        if (!mounted) return;
+        // Fail-safe: do not block the app behind welcome read failures
+        setWelcomeSeen(false);
+      } finally {
+        if (!mounted) return;
+        setWelcomeLoaded(true);
+      }
     })();
     return () => {
       mounted = false;
     };
   }, []);
-  console.log('WELCOME KEY', APP_STORAGE_KEYS.WELCOME_SEEN);
-
 
   const isInAuthGroup = segments[0] === '(auth)';
   const isReady = welcomeLoaded && !isHydrating;
-  console.log('AuthGate', {
-    session: !!session,
-    segments,
-    welcomeSeen,
-    welcomeLoaded,
-  });
-
   useEffect(() => {
     if (!isReady) return;
 

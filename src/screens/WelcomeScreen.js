@@ -79,13 +79,7 @@ export function WelcomeScreen() {
   }));
 
   const handleExplore = async () => {
-    console.log('CTA pressed');
-
     await storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, true);
-
-    const after = await storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN);
-    console.log('WELCOME_SEEN after save =>', after, typeof after);
-    console.log('WELCOME KEY', APP_STORAGE_KEYS.WELCOME_SEEN);
     router.replace('/(auth)/login');
   };
 

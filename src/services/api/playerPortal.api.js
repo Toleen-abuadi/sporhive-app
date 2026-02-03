@@ -23,7 +23,6 @@ const readLanguage = async () => {
 };
 
 const buildPortalHeaders = async (session) => {
-  const token = getPortalAccessToken(session);
   const academyId = getPortalAcademyId(session);
   const language = await readLanguage();
 
@@ -31,10 +30,6 @@ const buildPortalHeaders = async (session) => {
     'Content-Type': 'application/json',
     'Accept-Language': language,
   };
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
 
   if (academyId) {
     headers['X-Academy-Id'] = String(academyId);

@@ -9,6 +9,7 @@ export const getPortalAccessToken = (session) =>
   session?.portal_tokens?.access ||
   session?.portal_tokens?.access_token ||
   session?.portalAccessToken ||
+  session?.token ||
   null;
 
 export const getPortalRefreshToken = (session) =>
@@ -17,7 +18,10 @@ export const getPortalRefreshToken = (session) =>
   null;
 
 export const getPortalAcademyId = (session) =>
-  session?.user?.academy_id || session?.user?.academyId || null;
+  session?.user?.academy_id ||
+  session?.user?.academyId ||
+  session?.academyId ||
+  null;
 
 export const getPortalPlayerId = (session) =>
   session?.user?.external_player_id ||
@@ -54,10 +58,32 @@ const readStoredSession = async () => {
     await storage.ensureSecureMigration();
   }
   const session = await storage.getItem(APP_STORAGE_KEYS.AUTH_SESSION);
+  const authToken = storage.getAuthToken ? await storage.getAuthToken() : null;
   const portalTokens = await storage.getPortalTokens();
   if (!session || typeof session !== 'object') return null;
-  if (!portalTokens) return session;
-  return { ...session, portal_tokens: portalTokens };
+  const next = { ...session };
+  // ONE TOKEN: if token wasn't persisted inside AUTH_SESSION, hydrate it from secure storage
+  if (!next.token && authToken) {
+   next.token = authToken;
+  }
+  if (portalTokens) {
+    next.portal_tokens = portalTokens;
+  }
+  // ✅ ensure academy id exists for portal flows
+  const existingAcademyId = getPortalAcademyId(next);
+  if (!existingAcademyId) {
+   const lastAcademyRaw = await storage.getItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID);
+    const lastAcademyId = lastAcademyRaw != null ? Number(lastAcademyRaw) : null;
+    if (lastAcademyId) {
+      next.academyId = lastAcademyId;
+      // also mirror into user shape if possible (keeps downstream code stable)
+      next.user = {
+       ...(next.user || {}),
+        academy_id: next.user?.academy_id ?? lastAcademyId,
+      };
+    }
+  }
+  return next;
 };
 
 const persistSession = async (session) => {
