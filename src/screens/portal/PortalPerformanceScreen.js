@@ -11,7 +11,7 @@ import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
-import { portalApi } from '../../services/portal/portal.api';
+import { portalApi } from '../../services/api/playerPortalApi';
 import { usePortalOverview } from '../../services/portal/portal.hooks';
 import { useAuth } from '../../services/auth/auth.store';
 import { useTranslation } from '../../services/i18n/i18n';

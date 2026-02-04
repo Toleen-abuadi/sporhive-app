@@ -12,7 +12,7 @@ import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
 
-import { portalApi } from '../../services/portal/portal.api';
+import { portalApi } from '../../services/api/playerPortalApi';
 import { usePortalOverview } from '../../services/portal/portal.hooks';
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';

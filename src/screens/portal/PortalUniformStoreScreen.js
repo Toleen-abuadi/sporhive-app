@@ -19,7 +19,7 @@ import { Input } from '../../components/ui/Input';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
-import { portalApi } from '../../services/portal/portal.api';
+import { portalApi } from '../../services/api/playerPortalApi';
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
 import { useAuth } from '../../services/auth/auth.store';

@@ -122,14 +122,6 @@ export const endpoints = {
     playerProfileUpdate: (payload = {}) =>
       apiClient.post('/player-portal-external-proxy/player-profile/profile/update', payload),
 
-    printInvoice: async (payload = {}) => {
-      const res = await binaryClient.post(
-        '/player-portal-external-proxy/registration/print_invoice',
-        payload,
-        { responseType: 'arraybuffer' }
-      );
-      return res.data; // ArrayBuffer
-    },
     // -----------------------
     // Performance / Feedback
     // -----------------------
