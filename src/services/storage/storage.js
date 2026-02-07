@@ -139,12 +139,34 @@ const migrateSensitiveStorage = async () => {
     const legacySession = parseStoredValue(legacySessionRaw);
 
     if (legacySession && typeof legacySession === 'object') {
+      const legacySessionToken =
+        legacySession?.token ||
+        legacySession?.tokens?.access ||
+        legacySession?.tokens?.token ||
+        legacySession?.access ||
+        legacySession?.access_token ||
+        legacySession?.authToken ||
+        null;
+
       const { portal_tokens, portalAccessToken, ...rest } = legacySession;
+
+      if (secureAvailable && !existingAuthToken && legacySessionToken) {
+        await secureStorage.setItem(APP_STORAGE_KEYS.AUTH_TOKEN, legacySessionToken);
+      }
+
       if (portal_tokens && secureAvailable && !existingPortalTokens) {
         await secureStorage.setItem(PORTAL_KEYS.AUTH_TOKENS, portal_tokens);
       }
-      if (secureAvailable && (portal_tokens || portalAccessToken)) {
-        const sanitized = { ...rest };
+      if (secureAvailable && (portal_tokens || portalAccessToken || legacySessionToken)) {
+        const sanitized = {
+          ...rest,
+          ...(legacySessionToken ? { token: legacySessionToken } : {}),
+        };
+        delete sanitized.tokens;
+        delete sanitized.access;
+        delete sanitized.access_token;
+        delete sanitized.authToken;
+        delete sanitized.userType;
         await adapter.setItem(APP_STORAGE_KEYS.AUTH_SESSION, serializeValue(sanitized));
       }
     }
@@ -265,6 +287,12 @@ export const storage = {
   async setPortalAcademyId(id) {
     const value = id == null ? null : String(id);
     await storage.setItem(PORTAL_KEYS.ACADEMY_ID, value);
+  },
+  async getPortalAcademyId() {
+    const value = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);
+    if (value == null) return null;
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
   },
   async logoutPortal() {
     await Promise.all([

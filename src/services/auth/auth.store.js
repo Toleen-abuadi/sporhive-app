@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authApi } from './auth.api';
-import { getPortalAccessToken, refreshPortalSessionIfNeeded } from './portalSession';
+import { refreshPortalSessionIfNeeded } from './portalSession';
 import { storage, APP_STORAGE_KEYS } from '../storage/storage';
 
 const INITIAL_STATE = {
@@ -27,8 +27,6 @@ const AuthContext = createContext(null);
  * ✅ SINGLE TOKEN POLICY
  * - We always extract the main token and store it in `token`.
  * - We set `portalAccessToken = token` (so portal requests use the same token).
- * - If older backend responses provide portal tokens, we keep them in session for backward compatibility,
- *   but they are not required for auth.
  */
 const extractToken = (data) => data?.token || null;
 
@@ -72,7 +70,7 @@ const normalizeUserProfile = ({ user, loginAs, academyId, username }) => {
   };
 };
 
-const buildSession = ({ loginAs, user, token, portalTokens, academyId, username }) => {
+const buildSession = ({ loginAs, user, token, academyId, username }) => {
   const normalizedUser = normalizeUserProfile({
     user,
     loginAs,
@@ -86,9 +84,6 @@ const buildSession = ({ loginAs, user, token, portalTokens, academyId, username 
 
     // ✅ store the one token
     token: token || undefined,
-
-    // kept for backward compatibility (no functional dependency)
-    portal_tokens: portalTokens || undefined,
   };
 
   if (loginAs === 'player') {
@@ -122,12 +117,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   const persistSession = useCallback(async (session, token) => {
-    // Keep portal tokens if they exist (backward compat),
-    // but portal auth will use `token` anyway.
-    if (session?.portal_tokens) {
-      await storage.setPortalTokens(session.portal_tokens);
-    }
-
     // Avoid persisting any computed runtime-only fields
     const safeSession = session
       ? (() => {
@@ -151,7 +140,6 @@ export function AuthProvider({ children }) {
 
     safeSetState((prev) => ({ ...prev, isHydrating: true, isLoading: true }));
     let hadSessionData = false;
-    let didSetTerminalState = false;
 
     const withTimeout = (promise, ms, label) =>
       Promise.race([
@@ -164,62 +152,37 @@ export function AuthProvider({ children }) {
     try {
       await withTimeout(storage.ensureSecureMigration(), 8000, 'secure_migration');
 
-      const [session, lastAcademyRaw, storedToken, legacyToken, portalTokens] =
+      const [sessionRaw, lastAcademyRaw, storedToken] =
         await withTimeout(
           Promise.all([
             storage.getItem(APP_STORAGE_KEYS.AUTH_SESSION),
             storage.getItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID),
             storage.getAuthToken(),
-            storage.getLegacyAuthToken(),
-            storage.getPortalTokens(),
           ]),
           8000,
           'storage_reads'
         );
 
-      hadSessionData = Boolean(session || storedToken || legacyToken || lastAcademyRaw != null);
+      const session = sessionRaw && typeof sessionRaw === 'object' ? sessionRaw : null;
+      hadSessionData = Boolean(session || storedToken || lastAcademyRaw != null);
 
-      // merge stored session + stored portal tokens (backward compat)
-      const mergedSession = session
-        ? {
-          ...session,
-          portal_tokens: portalTokens || session.portal_tokens,
-        }
-        : null;
+      const resolvedToken = session?.token || storedToken || null;
 
-      // legacy token candidates
-      const legacySessionToken =
-        mergedSession?.tokens?.access ||
-        mergedSession?.tokens?.token ||
-        mergedSession?.access ||
-        mergedSession?.access_token ||
-        mergedSession?.authToken ||
-        null;
-
-      // ✅ ONE TOKEN: prefer explicit session token, then legacy session token, then stored tokens
-      const resolvedToken = mergedSession?.token || legacySessionToken || storedToken || legacyToken || null;
-
-      const normalizedSession = mergedSession
+      const normalizedSession = session
         ? (() => {
-          const cleaned = {
-            ...mergedSession,
-            token: resolvedToken || mergedSession.token,
+          const { portal_tokens, portalAccessToken, ...rest } = session;
+          return {
+            ...rest,
+            token: resolvedToken || session.token,
           };
-          delete cleaned.tokens;
-          delete cleaned.access;
-          delete cleaned.access_token;
-          delete cleaned.authToken;
-          delete cleaned.userType;
-          return cleaned;
         })()
         : null;
 
       const lastSelectedAcademyId = lastAcademyRaw != null ? Number(lastAcademyRaw) : null;
 
       const loginAs =
-        mergedSession?.login_as ||
-        mergedSession?.userType ||
         normalizedSession?.login_as ||
+        normalizedSession?.userType ||
         normalizedSession?.user?.type ||
         null;
 
@@ -241,31 +204,13 @@ export function AuthProvider({ children }) {
       if (loginAs === 'player' && nextLastSelectedAcademyId != null && lastAcademyRaw == null) {
         await storage.setItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID, nextLastSelectedAcademyId);
       }
-      // ✅ PORTAL TOKEN POLICY:
-      // portalAccessToken should be the same as main token.
-      // Keep legacy fallback only if token missing for some reason.
-      const legacyPortalAccessToken = getPortalAccessToken(normalizedSession);
-      const portalAccessToken = resolvedToken || legacyPortalAccessToken || null;
 
       if (resolvedToken) {
         await storage.setAuthToken(resolvedToken);
-        // ✅ If we have a valid main token, portal auth must not be driven by old portal token.
-        // Keep portal tokens for backward compatibility, but pin access to main token.
-        if (portalTokens && typeof portalTokens === 'object') {
-          await storage.setPortalTokens({ ...portalTokens, access: resolvedToken });
-        } else {
-          // if no portal tokens exist, ensure secure storage doesn't keep an old one
-          await storage.removePortalTokens();
-        }
-        if (legacyToken) {
-          await storage.removeLegacyAuthTokens();
-        }
       } else {
         await Promise.all([
           storage.removeAuthToken(),
           storage.removePortalTokens(),
-          storage.removeLegacyAuthTokens(),
-          storage.removeLegacyPortalCredentials(),
           storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
           storage.removeItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID),
         ]);
@@ -283,7 +228,6 @@ export function AuthProvider({ children }) {
           await storage.setItem(APP_STORAGE_KEYS.AUTH_SESSION, normalizedSession);
         }
 
-        didSetTerminalState = true;
         safeSetState({
           ...INITIAL_STATE,
           isAuthenticated: Boolean(loginAs || resolvedToken),
@@ -293,7 +237,7 @@ export function AuthProvider({ children }) {
           user: normalizedSession?.user || null,
           userType: loginAs,
           token: resolvedToken,
-          portalAccessToken, // ✅ same token
+          portalAccessToken: resolvedToken || null,
           lastSelectedAcademyId: nextLastSelectedAcademyId,
         });
         return;
@@ -305,8 +249,6 @@ export function AuthProvider({ children }) {
       await Promise.all([
         storage.removeAuthToken(),
         storage.removePortalTokens(),
-        storage.removeLegacyAuthTokens(),
-        storage.removeLegacyPortalCredentials(),
         storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
         storage.removeItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID),
       ]);
@@ -315,7 +257,6 @@ export function AuthProvider({ children }) {
     if (__DEV__ && hadSessionData) {
       console.warn('Cleared auth session during restore due to missing or invalid token.');
     }
-    didSetTerminalState = true;
     safeSetState({ ...INITIAL_STATE, isLoading: false, isHydrating: false });
   }, [safeSetState]);
 
@@ -358,9 +299,6 @@ export function AuthProvider({ children }) {
       const result = await authApi.login(payload);
 
       if (result.success) {
-        // keep portal tokens if backend returns them, but portal will use main token.
-        const portalTokensRaw = result.data?.portal_tokens || result.data?.portalTokens || null;
-
         const token = extractToken(result.data);
         const user = extractUser(result.data);
 
@@ -368,7 +306,6 @@ export function AuthProvider({ children }) {
           loginAs,
           user,
           token,
-          portalTokens: portalTokensRaw,
           academyId,
           username,
         });
@@ -379,17 +316,6 @@ export function AuthProvider({ children }) {
 
         // ✅ persist single token
         await persistSession(session, token);
-
-        // ✅ prevent stale portal tokens from overriding one-token policy:
-        // if backend returned portal tokens, keep them, but ensure access mirrors the main token.
-        // if no portal tokens, clear any old ones left in secure storage.
-        if (token) {
-          if (portalTokensRaw && typeof portalTokensRaw === 'object') {
-            await storage.setPortalTokens({ ...portalTokensRaw, access: token });
-          } else {
-            await storage.removePortalTokens();
-          }
-        }
 
         if (loginAs === 'player') {
           await setLastSelectedAcademyId(academyId);
@@ -433,7 +359,7 @@ export function AuthProvider({ children }) {
       setState((prev) => ({
         ...prev,
         session: result.session,
-        portalAccessToken: prev.token || result.session?.token || getPortalAccessToken(result.session) || null,
+        portalAccessToken: prev.token || result.session?.token || null,
       }));
     }
     return result;

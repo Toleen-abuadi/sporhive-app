@@ -13,7 +13,8 @@ import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
-import { portalApi } from '../../services/portal/portal.api';
+import { portalApi } from '../../services/api/playerPortalApi';
+import { getPortalAuthHeaders, resolvePortalAcademyId } from '../../services/api/portalHeaders';
 import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
 import { storage, PORTAL_KEYS } from '../../services/storage/storage';
@@ -40,26 +41,19 @@ export function PortalNewsScreen() {
 
   const [academyId, setAcademyId] = useState(null);
   const [tryOutId, setTryOutId] = useState(null);
-  const [portalAccessToken, setPortalAccessToken] = useState(null);
+  const [portalHeaders, setPortalHeaders] = useState(null);
 
   const [failedImages, setFailedImages] = useState({}); // key => true
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerImages, setViewerImages] = useState([]); // [{ uri }]
   const [viewerIndex, setViewerIndex] = useState(0);
 
-  // 1) Load academy_id, tryout_id, and portal token for image headers
+  // 1) Load academy_id, tryout_id, and portal headers for image requests
   useEffect(() => {
     (async () => {
       try {
-        let id = null;
-
-        if (storage.getPortalAcademyId) {
-          id = await storage.getPortalAcademyId();
-        }
-        if (!id) {
-          const rawId = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);
-          if (rawId) id = rawId;
-        }
+        const resolvedAcademyId = await resolvePortalAcademyId();
+        setAcademyId(resolvedAcademyId ?? null);
 
         const sessRaw = await storage.getItem(PORTAL_KEYS.SESSION);
         const sess = safeJsonParse(sessRaw);
@@ -71,22 +65,17 @@ export function PortalNewsScreen() {
           sess?.overview?.player?.try_out_id ??
           null;
 
-        // portal tokens can be stored differently in different apps:
-        const tokensRaw = await storage.getItem(PORTAL_KEYS.AUTH_TOKENS);
-        const tokens = safeJsonParse(tokensRaw);
-        const access =
-          tokens?.access ??
-          tokens?.token ?? // if you store it as token
-          null;
-
-        const n = Number(id);
-        setAcademyId(Number.isFinite(n) ? n : null);
         setTryOutId(tId ?? null);
-        setPortalAccessToken(access);
+        try {
+          const headers = await getPortalAuthHeaders({ academyId: resolvedAcademyId });
+          setPortalHeaders(headers);
+        } catch {
+          setPortalHeaders(null);
+        }
       } catch {
         setAcademyId(null);
         setTryOutId(null);
-        setPortalAccessToken(null);
+        setPortalHeaders(null);
       }
     })();
   }, []);
@@ -127,9 +116,9 @@ export function PortalNewsScreen() {
 
   const imageHeaders = useMemo(() => {
     // IMPORTANT: this is what fixes most "images not showing" issues
-    if (!portalAccessToken) return undefined;
-    return { Authorization: `Bearer ${portalAccessToken}` };
-  }, [portalAccessToken]);
+    if (!portalHeaders) return undefined;
+    return portalHeaders;
+  }, [portalHeaders]);
 
   const handleImageError = useCallback((key, uri) => {
     console.warn('News image failed to load:', uri);

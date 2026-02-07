@@ -8,12 +8,12 @@ export class ApiError extends Error {
   }
 }
 
-const getAxiosMeta = (error) => {
+const getRequestMeta = (error) => {
   const config = error?.config || {};
   return {
-    status: error?.response?.status ?? null,
-    data: error?.response?.data ?? null,
-    url: config?.url ?? null,
+    status: error?.response?.status ?? error?.status ?? error?.statusCode ?? null,
+    data: error?.response?.data ?? error?.payload ?? null,
+    url: config?.url ?? error?.url ?? null,
     baseURL: config?.baseURL ?? null,
     method: config?.method ?? null,
     code: error?.code ?? null,
@@ -22,20 +22,25 @@ const getAxiosMeta = (error) => {
 };
 
 export const handleApiError = (error) => {
-  const meta = getAxiosMeta(error);
+  if (error instanceof ApiError) {
+    return error;
+  }
+
+  const meta = getRequestMeta(error);
 
   if (__DEV__) {
     console.warn('API error:', meta);
   }
 
-  if (error?.response) {
-    const { status, data } = error.response;
+  if (error?.response || error?.status) {
+    const status = error?.response?.status ?? error?.status ?? error?.statusCode ?? 0;
+    const data = error?.response?.data ?? error?.payload ?? null;
     const message = data?.message || data?.error || error?.message || 'An error occurred';
 
     return new ApiError(message, data?.code || error?.code || 'UNKNOWN_ERROR', status, meta);
   }
 
-  if (error?.request) {
+  if (error?.request || error?.code === 'NETWORK_ERROR') {
     return new ApiError(
       'Network error. Please check your connection.',
       error?.code || 'NETWORK_ERROR',

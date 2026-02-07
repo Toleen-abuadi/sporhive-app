@@ -19,7 +19,7 @@ import { Input } from '../../components/ui/Input';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
-import { portalApi } from '../../services/portal/portal.api';
+import { portalApi } from '../../services/api/playerPortalApi';
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
 import { useAuth } from '../../services/auth/auth.store';
@@ -265,11 +265,14 @@ export function PortalUniformStoreScreen() {
     const variants = getVariants(item);
     const { min, max } = getPriceRange(item);
 
-    const priceLabel = useMemo(() => {
-      if (min == null) return t('portal.uniforms.priceNA');
-      if (max != null && max !== min) return `${formatMoney(min)} - ${formatMoney(max)}`;
-      return formatMoney(min);
-    }, [min, max]);
+    let priceLabel;
+    if (min == null) {
+      priceLabel = t('portal.uniforms.priceNA');
+    } else if (max != null && max !== min) {
+      priceLabel = `${formatMoney(min)} - ${formatMoney(max)}`;
+    } else {
+      priceLabel = formatMoney(min);
+    }
 
     // Check if all variants have "__one_size__" as their size
     const hasOneSizeVariants = variants.length > 0 && variants.every(v => 

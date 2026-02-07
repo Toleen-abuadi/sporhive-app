@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { playerPortalApi } from '../services/api/playerPortal.api';
+import { playerPortalApi } from '../services/api/playerPortalApi';
 import { normalizeApiError } from '../services/api/normalizeApiError';
 import { storage } from '../services/storage/storage';
 import { STORAGE_KEYS } from '../services/storage/keys';

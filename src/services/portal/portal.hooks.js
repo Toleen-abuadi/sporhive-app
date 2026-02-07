@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { portalApi } from './portal.api';
+import { portalApi } from '../api/playerPortalApi';
 import { portalStore } from './portal.store';
 import { normalizeUniformOrders } from './portal.normalize';
 import { useAuth } from '../auth/auth.store';
