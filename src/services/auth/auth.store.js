@@ -28,12 +28,27 @@ const AuthContext = createContext(null);
  * - We always extract the main token and store it in `token`.
  * - We set `portalAccessToken = token` (so portal requests use the same token).
  */
-const extractToken = (data) => data?.token || null;
+const extractToken = (data) =>
+  data?.token ||
+  data?.access ||
+  data?.access_token ||
+  data?.accessToken ||
+  data?.tokens?.access ||
+  data?.tokens?.access_token ||
+  data?.portal_tokens?.access ||       // 👈 common in your backend swagger
+  data?.portal_tokens?.access_token ||
+  null;
 
 const extractUser = (data) =>
   data?.user || data?.profile || data?.player || data?.public_user || null;
 
-const normalizeAcademyId = (value) => (value != null ? Number(value) : null);
+const normalizeAcademyId = (value) => {
+  if (value == null) return null;
+  const s = String(value).trim();
+  if (s === "") return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+};
 
 const normalizeUserProfile = ({ user, loginAs, academyId, username }) => {
   const profile = user || {};
@@ -83,7 +98,7 @@ const buildSession = ({ loginAs, user, token, academyId, username }) => {
     user: normalizedUser,
 
     // ✅ store the one token
-    token: token || undefined,
+    token: token || null,
   };
 
   if (loginAs === 'player') {
@@ -128,7 +143,7 @@ export function AuthProvider({ children }) {
     await storage.setItem(APP_STORAGE_KEYS.AUTH_SESSION, safeSession);
 
     // ✅ persist single auth token
-    if (token) {
+    if (token != null) {
       await storage.setAuthToken(token);
     }
   }, []);
@@ -178,7 +193,13 @@ export function AuthProvider({ children }) {
         })()
         : null;
 
-      const lastSelectedAcademyId = lastAcademyRaw != null ? Number(lastAcademyRaw) : null;
+      const lastSelectedAcademyId =
+        lastAcademyRaw == null || String(lastAcademyRaw).trim() === ""
+          ? null
+          : Number(lastAcademyRaw);
+
+
+      if (__DEV__) console.log("LAST_ACADEMY_ID raw:", lastAcademyRaw, "=>", lastSelectedAcademyId);
 
       const loginAs =
         normalizedSession?.login_as ||
@@ -192,6 +213,12 @@ export function AuthProvider({ children }) {
         normalizedSession?.academyId ||
         null
       );
+
+      if (__DEV__) {
+        console.log('[auth.store] loginAs:', loginAs);
+        console.log('[auth.store] sessionAcademyId:', sessionAcademyId);
+        console.log('[auth.store] nextLastSelectedAcademyId:', nextLastSelectedAcademyId);
+      }
 
       const nextLastSelectedAcademyId =
         loginAs === 'player'
@@ -274,9 +301,16 @@ export function AuthProvider({ children }) {
 
   const setLastSelectedAcademyId = useCallback(async (academyId) => {
     const id = academyId != null ? Number(academyId) : null;
-    await storage.setItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID, id);
+
+    if (id == null) {
+      await storage.removeItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID);
+    } else {
+      await storage.setItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID, String(id));
+    }
+
     setState((prev) => ({ ...prev, lastSelectedAcademyId: id }));
   }, []);
+
 
   const login = useCallback(
     async ({ loginAs, phone, password, academyId, username }) => {
@@ -297,9 +331,29 @@ export function AuthProvider({ children }) {
       }
 
       const result = await authApi.login(payload);
+      if (__DEV__) {
+        console.log("[auth.store] login result.success:", result?.success);
+        console.log("[auth.store] login result.data keys:", Object.keys(result?.data || {}));
+        console.log("[auth.store] login result.data:", result?.data);
+      }
+
+      if (__DEV__) {
+        console.log("[login] raw result:", result);
+        console.log("[login] data:", result?.data);
+      }
+
 
       if (result.success) {
         const token = extractToken(result.data);
+        if (!token) {
+          const err = new Error("LOGIN_TOKEN_MISSING");
+          err.code = "LOGIN_TOKEN_MISSING";
+          err.kind = "AUTH_TOKEN_MISSING";
+          if (__DEV__) console.warn("[auth.store] Login success but token missing. Response:", result.data);
+          setState((prev) => ({ ...prev, isLoading: false, error: err }));
+          return { success: false, error: err };
+        }
+
         const user = extractUser(result.data);
 
         const session = buildSession({

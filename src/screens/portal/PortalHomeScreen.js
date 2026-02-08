@@ -36,6 +36,13 @@ export function PortalHomeScreen() {
   const placeholder = t('portal.common.placeholder');
   const sessionValidation = authLoading ? { ok: true } : validatePortalSession(session);
 
+  if (__DEV__ && !authLoading) {
+    console.log('[PortalHomeScreen] sessionValidation:', sessionValidation);
+    console.log('[PortalHomeScreen] session.user.academy_id:', session?.user?.academy_id);
+    console.log('[PortalHomeScreen] session.academyId:', session?.academyId);
+  }
+
+
   const errorStatus =
     overviewError?.status ||
     overviewError?.response?.status ||
@@ -60,6 +67,12 @@ export function PortalHomeScreen() {
     : 0.4;
 
   if ((overviewLoading || authLoading) && !overview) {
+    if (__DEV__) {
+      console.log('[PortalHomeScreen] invalidSessionReason:', invalidSessionReason);
+      console.log('[PortalHomeScreen] overviewError:', overviewError);
+      console.log('[PortalHomeScreen] errorStatus:', errorStatus);
+    }
+
     return (
       <AppScreen safe>
         <View style={styles.skeletonStack}>
@@ -85,17 +98,17 @@ export function PortalHomeScreen() {
     const titleKey = isSessionInvalid
       ? `portal.errors.${invalidSessionReason || 'sessionExpired'}Title`
       : isForbidden
-      ? 'portal.errors.forbiddenTitle'
-      : isUnauthorized
-      ? 'portal.errors.unauthorizedTitle'
-      : 'portal.errors.overviewTitle';
+        ? 'portal.errors.forbiddenTitle'
+        : isUnauthorized
+          ? 'portal.errors.unauthorizedTitle'
+          : 'portal.errors.overviewTitle';
     const descriptionKey = isSessionInvalid
       ? `portal.errors.${invalidSessionReason || 'sessionExpired'}Description`
       : isForbidden
-      ? 'portal.errors.forbiddenDescription'
-      : isUnauthorized
-      ? 'portal.errors.unauthorizedDescription'
-      : 'portal.errors.overviewDescription';
+        ? 'portal.errors.forbiddenDescription'
+        : isUnauthorized
+          ? 'portal.errors.unauthorizedDescription'
+          : 'portal.errors.overviewDescription';
 
     return (
       <AppScreen>

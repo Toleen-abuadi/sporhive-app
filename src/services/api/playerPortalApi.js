@@ -81,6 +81,16 @@ const portalPost = (path, body, options = {}) => {
   return apiClient.post(path, body != null ? body : {}, { ...rest, portal });
 };
 
+/**
+ * FIX: previously ignored `body` completely.
+ * We need academy_id/customer_id for tenant resolution (auth/me, etc).
+ * We send it as query params for GET.
+ */
+const portalGet = (path, params, options = {}) => {
+  const { portal, ...rest } = options || {};
+  return apiClient.get(path, { ...rest, params: params != null ? params : {}, portal });
+};
+
 // ---------- Payload helpers ----------
 
 /**
@@ -322,7 +332,7 @@ export const portalApi = {
   async authMe({ academyId } = {}) {
     return wrapApi(async () => {
       const { body, portal } = await withAcademyPayload({}, { academyId, requireTryOut: false });
-      return portalPost('/player-portal-external-proxy/auth/me', body, { portal });
+      return portalGet('/player-portal-external-proxy/auth/me', body, { portal });
     }, 'Session verification failed');
   },
 

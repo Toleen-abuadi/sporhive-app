@@ -84,7 +84,7 @@ export const endpoints = {
       apiClient.post('/player-portal-external-proxy/auth/login', payload),
 
     me: (payload = {}) =>
-      apiClient.post('/player-portal-external-proxy/auth/me', payload),
+      apiClient.get('/player-portal-external-proxy/auth/me', payload),
 
     passwordResetRequest: (payload) =>
       apiClient.post('/player-portal-external-proxy/auth/password-reset/request', payload),

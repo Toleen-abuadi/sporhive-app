@@ -34,6 +34,19 @@ const hasLocalStorage =
   window?.localStorage &&
   typeof window.localStorage.getItem === 'function';
 
+
+const DEBUG_STORAGE = __DEV__;
+const DEBUG_KEYS = new Set([
+  APP_STORAGE_KEYS.LAST_ACADEMY_ID,
+  APP_STORAGE_KEYS.AUTH_SESSION,
+  PORTAL_KEYS.ACADEMY_ID,
+]);
+
+const dbg = (...args) => {
+  if (DEBUG_STORAGE) console.log('[storage]', ...args);
+};
+
+
 const memoryAdapter = {
   async getItem(key) {
     return memoryStore.has(key) ? memoryStore.get(key) : null;
@@ -91,14 +104,18 @@ const parseStoredValue = (raw) => {
 };
 
 const serializeValue = (value) => {
-  if (value == null) return '';
+  // ✅ null/undefined means “absent”
+  if (value == null) return null;
+
   if (typeof value === 'string') return value;
+
   try {
     return JSON.stringify(value);
   } catch {
-    return '';
+    return null;
   }
 };
+
 
 let secureMigrationPromise;
 
@@ -191,8 +208,12 @@ export const storage = {
     try {
       const adapter = resolveAdapter();
       const raw = await adapter.getItem(key);
-      return parseStoredValue(raw);
-    } catch {
+      if (__DEV__ && DEBUG_KEYS.has(key)) dbg('GET raw', key, raw);
+      const parsed = parseStoredValue(raw);
+      if (__DEV__ && DEBUG_KEYS.has(key)) dbg('GET parsed', key, parsed);
+      return parsed;
+    } catch (error) {
+      if (__DEV__) dbg('GET error', key, error);
       return null;
     }
   },
@@ -200,11 +221,21 @@ export const storage = {
     try {
       const adapter = resolveAdapter();
       const serialized = serializeValue(value);
+      if (__DEV__ && DEBUG_KEYS.has(key)) dbg('SET', key, value);
+      // ✅ null/undefined => remove key instead of writing ''
+      if (serialized == null) {
+        await adapter.removeItem(key);
+        return;
+      }
+
       await adapter.setItem(key, serialized);
-    } catch {
+      if (__DEV__ && DEBUG_KEYS.has(key)) dbg('SET serialized', key, serialized);
+    } catch (error) {
+      if (__DEV__) console.error("Failed to set item in storage:", key, value, error);
       return;
     }
   },
+
   async removeItem(key) {
     try {
       const adapter = resolveAdapter();
@@ -230,11 +261,21 @@ export const storage = {
     try {
       const adapter = resolveAdapter();
       const serializedPairs = pairs.map(([key, value]) => [key, serializeValue(value)]);
+
+      const toSet = serializedPairs.filter(([, v]) => v != null);
+      const toRemove = serializedPairs.filter(([, v]) => v == null).map(([k]) => k);
+
       if (adapter.multiSet) {
-        await adapter.multiSet(serializedPairs);
+        if (toSet.length) await adapter.multiSet(toSet);
+        if (toRemove.length) await Promise.all(toRemove.map((k) => adapter.removeItem(k)));
         return;
       }
-      await Promise.all(serializedPairs.map(([key, value]) => adapter.setItem(key, value)));
+
+      await Promise.all([
+        ...toSet.map(([k, v]) => adapter.setItem(k, v)),
+        ...toRemove.map((k) => adapter.removeItem(k)),
+      ]);
+
     } catch {
       return;
     }
@@ -291,9 +332,14 @@ export const storage = {
   async getPortalAcademyId() {
     const value = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);
     if (value == null) return null;
-    const numeric = Number(value);
+
+    const s = String(value).trim();
+    if (s === '') return null; // ✅ blocks Number('') => 0
+
+    const numeric = Number(s);
     return Number.isFinite(numeric) ? numeric : null;
   },
+
   async logoutPortal() {
     await Promise.all([
       storage.removePortalTokens(),

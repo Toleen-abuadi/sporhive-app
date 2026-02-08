@@ -9,7 +9,9 @@ const readAuthSession = async () => {
 
 const normalizeAcademyId = (value) => {
   if (value == null) return null;
-  const numeric = Number(value);
+  const s = String(value).trim();
+  if (s === '') return null;
+  const numeric = Number(s);
   return Number.isFinite(numeric) ? numeric : null;
 };
 
@@ -43,17 +45,21 @@ export const resolvePortalAcademyId = async (options = {}) => {
 export const getPortalAuthHeaders = async (options = {}) => {
   const token = await resolveAppToken();
   if (!token) {
-    const err = new Error('Missing portal token');
+    // NOTE: this uses the app token resolver (single-token policy).
+    const err = new Error('Missing app token');
     err.code = 'PORTAL_TOKEN_MISSING';
     err.kind = 'PORTAL_AUTH_REQUIRED';
     throw err;
   }
 
   const academyId = await resolvePortalAcademyId(options);
-  if (!academyId) {
+  if (!Number.isInteger(academyId) || academyId <= 0) {
     const err = new Error('Missing portal academy id');
     err.code = 'PORTAL_ACADEMY_MISSING';
     err.kind = 'PORTAL_ACADEMY_REQUIRED';
+    if (__DEV__) {
+      console.log('[portalHeaders] academyId:', academyId);
+    }
     throw err;
   }
 
