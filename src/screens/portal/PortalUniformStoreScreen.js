@@ -25,6 +25,8 @@ import { useTranslation } from '../../services/i18n/i18n';
 import { useAuth } from '../../services/auth/auth.store';
 import { isPortalReauthError } from '../../services/portal/portal.errors';
 import { spacing } from '../../theme/tokens';
+import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
+import { getGlossaryHelp } from '../../portal/portalGlossary';
 
 const alphaHex = (hex, alpha = '1A') => {
   if (!hex) return hex;
@@ -72,6 +74,18 @@ export function PortalUniformStoreScreen() {
 
   // Quick "selected product" for sheet-like details (famous app feel)
   const [activeProduct, setActiveProduct] = useState(null);
+
+  const catalogSections = useMemo(() => {
+    const items = safeArray(catalog);
+    const required = items.filter((x) => x?.is_required || x?.required || String(x?.type || '').toLowerCase().includes('required'));
+    const recommended = items.filter((x) => !required.includes(x) && (x?.is_recommended || String(x?.type || '').toLowerCase().includes('recommended')));
+    const optional = items.filter((x) => !required.includes(x) && !recommended.includes(x));
+    return [
+      { key: 'required', title: 'Required items', data: required },
+      { key: 'recommended', title: 'Recommended', data: recommended },
+      { key: 'optional', title: 'Optional', data: optional },
+    ].filter((x) => x.data.length);
+  }, [catalog]);
 
   const loadCatalog = useCallback(async () => {
     setLoading(true);
@@ -513,6 +527,7 @@ export function PortalUniformStoreScreen() {
         title={t('portal.uniforms.title')}
         subtitle={t('portal.uniforms.subtitle')}
       />
+      <PortalActionBanner title={t('portal.common.nextStep')} description={getGlossaryHelp('performance')} />
 
       {error ? (
         <PortalEmptyState
@@ -545,15 +560,24 @@ export function PortalUniformStoreScreen() {
           description={t('portal.uniforms.emptyDescription')}
         />
       ) : (
-        <FlatList
-          data={safeArray(catalog)}
-          keyExtractor={(item, index) => String(item?.id ?? index)}
-          numColumns={2}
-          columnWrapperStyle={{ gap: spacing.md }}
-          contentContainerStyle={styles.grid}
-          renderItem={({ item }) => <ProductCard item={item} />}
-          showsVerticalScrollIndicator={false}
-        />
+        <View style={styles.grid}>
+          {catalogSections.map((section) => (
+            <View key={section.key} style={{ marginBottom: spacing.md }}>
+              <View style={styles.sectionRow}>
+                <Text variant="bodySmall" weight="bold" color={colors.textPrimary}>{section.title}</Text>
+                <Text variant="caption" color={colors.textMuted}>{section.data.length}</Text>
+              </View>
+              <FlatList
+                data={section.data}
+                keyExtractor={(item, index) => `${section.key}-${String(item?.id ?? index)}`}
+                numColumns={2}
+                columnWrapperStyle={{ gap: spacing.md }}
+                scrollEnabled={false}
+                renderItem={({ item }) => <ProductCard item={item} />}
+              />
+            </View>
+          ))}
+        </View>
       )}
 
       {/* Sticky Cart Bar (famous app feel) */}
@@ -598,9 +622,11 @@ function ProductDetailsModal({
   onAdd,
 }) {
   const [selectedVariantId, setSelectedVariantId] = useState(variants?.[0]?.id ?? null);
+  const [selectionError, setSelectionError] = useState('');
 
   useEffect(() => {
     setSelectedVariantId(variants?.[0]?.id ?? null);
+    setSelectionError('');
   }, [product?.id]); // reset when product changes
 
   const selectedVariant = useMemo(() => {
@@ -693,7 +719,15 @@ function ProductDetailsModal({
         ) : null}
 
         <View style={{ marginTop: spacing.lg }}>
-          <Button onPress={() => onAdd(selectedVariant)}>
+          {selectionError ? <Text variant="caption" color={colors.error} style={{ marginBottom: spacing.xs }}>{selectionError}</Text> : null}
+          <Button onPress={() => {
+            if (variants?.length && !selectedVariant) {
+              setSelectionError(t('portal.uniforms.selectSize') || 'Please select a size before adding to cart.');
+              return;
+            }
+            setSelectionError('');
+            onAdd(selectedVariant);
+          }}>
             {t('portal.uniforms.addToCart')}
           </Button>
         </View>

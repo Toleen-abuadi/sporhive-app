@@ -1,6 +1,5 @@
-// src/screens/portal/PortalPaymentsScreen.js
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, FlatList, Pressable } from 'react-native';
+import { View, StyleSheet, SectionList, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Filter, ChevronRight } from 'lucide-react-native';
 
@@ -9,8 +8,6 @@ import { AppHeader } from '../../components/ui/AppHeader';
 import { Card } from '../../components/ui/Card';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { Skeleton } from '../../components/ui/Skeleton';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
 import { useI18n } from '../../services/i18n/i18n';
@@ -19,6 +16,27 @@ import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playe
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { useAuth } from '../../services/auth/auth.store';
 import { isPortalReauthError, isPortalForbiddenError } from '../../services/portal/portal.errors';
+import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
+import { PortalErrorState } from '../../components/portal/PortalErrorState';
+import { PortalSkeleton } from '../../components/portal/PortalSkeleton';
+import { PortalStatusBadge } from '../../components/portal/PortalStatusBadge';
+import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
+import { PortalInfoAccordion } from '../../components/portal/PortalInfoAccordion';
+import { getMappedStatus } from '../../portal/statusMaps';
+import { getGlossaryHelp } from '../../portal/portalGlossary';
+
+const isPaid = (item) => String(item?.status || '').toLowerCase().includes('paid') && !String(item?.status || '').toLowerCase().includes('unpaid');
+const isUnpaid = (item) => {
+  const status = String(item?.status || '').toLowerCase();
+  return status.includes('unpaid') || status.includes('pending') || status.includes('overdue');
+};
+const dueSoon = (item) => {
+  if (!item?.dueDate || isPaid(item)) return false;
+  const due = new Date(item.dueDate);
+  if (Number.isNaN(due.getTime())) return false;
+  const days = Math.ceil((due.getTime() - Date.now()) / 86400000);
+  return days >= 0 && days <= 7;
+};
 
 export function PortalPaymentsScreen() {
   const router = useRouter();
@@ -26,12 +44,7 @@ export function PortalPaymentsScreen() {
   const { t } = useI18n();
   const { logout } = useAuth();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const {
-    payments,
-    paymentsLoading,
-    paymentsError,
-    filters,
-  } = usePlayerPortalStore((state) => ({
+  const { payments, paymentsLoading, paymentsError, filters } = usePlayerPortalStore((state) => ({
     payments: state.payments,
     paymentsLoading: state.paymentsLoading,
     paymentsError: state.paymentsError,
@@ -41,14 +54,23 @@ export function PortalPaymentsScreen() {
 
   useEffect(() => {
     actions.hydrateFilters();
-  }, [actions]);
-
-  useEffect(() => {
     actions.fetchPayments();
   }, [actions]);
 
-  const filteredPayments = useMemo(() => actions.selectFilteredPayments(), [actions]);
+  const filteredPayments = useMemo(() => actions.selectFilteredPayments() || [], [actions]);
 
+  const sections = useMemo(() => {
+    const unpaid = filteredPayments.filter(isUnpaid);
+    const due = filteredPayments.filter((x) => !isUnpaid(x) && dueSoon(x));
+    const paid = filteredPayments.filter((x) => !isUnpaid(x) && !dueSoon(x));
+    return [
+      { key: 'unpaid', title: 'Unpaid / Action needed', data: unpaid },
+      { key: 'due', title: 'Due soon', data: due },
+      { key: 'paid', title: 'Paid', data: paid },
+    ].filter((section) => section.data.length > 0);
+  }, [filteredPayments]);
+
+  const actionPayment = sections.find((x) => x.key !== 'paid')?.data?.[0] || null;
   const statusOptions = useMemo(
     () => [
       { value: 'all', label: t('portal.filters.statusAll') },
@@ -57,8 +79,6 @@ export function PortalPaymentsScreen() {
     ],
     [t]
   );
-
-  const resultsLabel = t('portal.filters.results', { count: filteredPayments.length });
 
   const needsReauth = isPortalReauthError(paymentsError);
   const isForbidden = isPortalForbiddenError(paymentsError);
@@ -69,94 +89,91 @@ export function PortalPaymentsScreen() {
         <AppHeader
           title={t('portal.payments.title')}
           subtitle={t('portal.payments.subtitle')}
-          rightAction={{
-            icon: <Filter size={18} color={colors.textPrimary} />,
-            onPress: () => setFiltersOpen(true),
-            accessibilityLabel: t('portal.filters.open'),
-          }}
+          rightAction={{ icon: <Filter size={18} color={colors.textPrimary} />, onPress: () => setFiltersOpen(true), accessibilityLabel: t('portal.filters.open') }}
         />
 
-        <View style={styles.resultsRow}>
-          <Text variant="caption" color={colors.textSecondary}>
-            {resultsLabel}
-          </Text>
-          <Button variant="secondary" onPress={() => setFiltersOpen(true)}>
-            <Text variant="caption" weight="bold" color={colors.textPrimary}>
-              {t('portal.filters.open')}
-            </Text>
-          </Button>
+        <View style={styles.pad}>
+          <PortalInfoAccordion
+            title="What are payment statuses?"
+            summary={getGlossaryHelp('paymentStatus')}
+            bullets={[
+              'Unpaid or overdue invoices require action to avoid disruption.',
+              'Use invoice details to confirm due date and print invoice.',
+              'Paid invoices stay available for your records.',
+            ]}
+          />
         </View>
 
-        {paymentsLoading && !payments.length ? (
-          <View style={styles.skeletonWrap}>
-            {Array.from({ length: 3 }).map((_, idx) => (
-              <Skeleton key={`payment-skeleton-${idx}`} height={120} radius={16} />
-            ))}
+        <View style={styles.resultsRow}>
+          <Text variant="caption" color={colors.textSecondary}>{t('portal.filters.results', { count: filteredPayments.length })}</Text>
+          <Button variant="secondary" onPress={() => setFiltersOpen(true)}>{t('portal.filters.open')}</Button>
+        </View>
+
+        {actionPayment ? (
+          <View style={styles.bannerWrap}>
+            <PortalActionBanner
+              title="Action Required"
+              description={`Payment due ${actionPayment?.dueDate || t('portal.common.placeholder')}`}
+              actionLabel="Pay now"
+              onAction={() => router.push(`/portal/payments/${actionPayment?.invoiceId || actionPayment?.id}`)}
+            />
           </View>
+        ) : null}
+
+        {paymentsLoading && !payments.length ? (
+          <View style={styles.pad}><PortalSkeleton rows={3} height={112} /></View>
         ) : paymentsError ? (
-          <EmptyState
-           title={isForbidden ? t('portal.errors.forbiddenTitle') : t('portal.payments.errorTitle')}
-            message={
-              isForbidden
-               ? t('portal.errors.forbiddenDescription')
-                : (paymentsError?.message || t('portal.payments.errorDescription'))
-            }
-            actionLabel={needsReauth ? t('portal.errors.reAuthAction') : t('portal.common.retry')}
-            onAction={() => {
-              if (needsReauth) {
-                logout().finally(() => {
-                  router.replace('/(auth)/login?mode=player');
-                });
-                return;
-              }
-              actions.fetchPayments();
-            }}
-          />
+          <View style={styles.pad}>
+            <PortalErrorState
+              title={isForbidden ? t('portal.errors.forbiddenTitle') : t('portal.payments.errorTitle')}
+              message={isForbidden ? t('portal.errors.forbiddenDescription') : (paymentsError?.message || t('portal.payments.errorDescription'))}
+              onRetry={!needsReauth ? () => actions.fetchPayments() : undefined}
+              retryLabel={t('portal.common.retry')}
+              onRelogin={needsReauth ? () => logout().finally(() => router.replace('/(auth)/login?mode=player')) : undefined}
+              reloginLabel={t('portal.errors.reAuthAction')}
+            />
+          </View>
         ) : filteredPayments.length === 0 ? (
-          <EmptyState
-            title={t('portal.payments.emptyTitle')}
-            message={t('portal.payments.emptyDescription')}
-            actionLabel={t('portal.filters.clear')}
-            onAction={() => actions.clearFilters('payments')}
-          />
+          <View style={styles.pad}>
+            <PortalEmptyState
+              title={t('portal.payments.emptyTitle')}
+              description="You have no payment records for this filter. Clear filters to see all invoices."
+              action={<Button onPress={() => actions.clearFilters('payments')}>{t('portal.filters.clear')}</Button>}
+            />
+          </View>
         ) : (
-          <FlatList
-            data={filteredPayments}
+          <SectionList
+            sections={sections}
             keyExtractor={(item, idx) => String(item?.invoiceId || item?.id || idx)}
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => {
-                  const target = item?.invoiceId || item?.id;
-                  if (target) {
-                    router.push(`/portal/payments/${target}`);
-                  }
-                }}
-              >
-                <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <View style={styles.cardRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text variant="body" weight="bold" color={colors.textPrimary}>
-                        {item?.type || t('portal.payments.defaultTitle')}
-                      </Text>
-                      <Text variant="caption" color={colors.textSecondary}>
-                        {t('portal.payments.dueDate', { date: item?.dueDate || t('portal.common.placeholder') })}
-                      </Text>
-                    </View>
-                    <View style={styles.amountWrap}>
-                      <Text variant="body" weight="bold" color={colors.textPrimary}>
-                        {item?.amount || 0}
-                      </Text>
-                      <Text variant="caption" color={colors.textMuted}>
-                        {item?.status || t('portal.payments.statusPending')}
-                      </Text>
-                    </View>
-                    <ChevronRight size={18} color={colors.textMuted} />
-                  </View>
-                </Card>
-              </Pressable>
+            renderSectionHeader={({ section }) => (
+              <View style={styles.sectionHeader}>
+                <Text variant="bodySmall" weight="bold" color={colors.textPrimary}>{section.title}</Text>
+                <Text variant="caption" color={colors.textMuted}>{section.data.length}</Text>
+              </View>
             )}
+            renderItem={({ item }) => {
+              const mapped = getMappedStatus('payment', item?.status);
+              return (
+                <Pressable onPress={() => router.push(`/portal/payments/${item?.invoiceId || item?.id}`)}>
+                  <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+                    <View style={styles.cardRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text variant="body" weight="bold" color={colors.textPrimary}>{item?.type || t('portal.payments.defaultTitle')}</Text>
+                        <Text variant="caption" color={colors.textSecondary}>{t('portal.payments.dueDate', { date: item?.dueDate || t('portal.common.placeholder') })}</Text>
+                      </View>
+                      <View style={styles.amountWrap}>
+                        <Text variant="body" weight="bold" color={colors.textPrimary}>{item?.amount || 0}</Text>
+                        <PortalStatusBadge label={mapped.label} severity={mapped.severity} />
+                      </View>
+                      <ChevronRight size={18} color={colors.textMuted} />
+                    </View>
+                  </Card>
+                </Pressable>
+              );
+            }}
             contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
             showsVerticalScrollIndicator={false}
+            stickySectionHeadersEnabled={false}
           />
         )}
 
@@ -183,31 +200,11 @@ export function PortalPaymentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  resultsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  skeletonWrap: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-  },
-  card: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: spacing.md,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  amountWrap: {
-    alignItems: 'flex-end',
-    minWidth: 64,
-  },
+  resultsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: spacing.lg, marginBottom: spacing.md, marginTop: spacing.md },
+  bannerWrap: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
+  pad: { paddingHorizontal: spacing.lg },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: spacing.lg, marginBottom: spacing.xs, marginTop: spacing.md },
+  card: { marginHorizontal: spacing.lg, marginBottom: spacing.md, borderRadius: 16, borderWidth: 1, padding: spacing.md },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  amountWrap: { alignItems: 'flex-end', minWidth: 86, gap: 6 },
 });

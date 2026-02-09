@@ -1,6 +1,6 @@
 // src/screens/portal/PortalProfileScreen.jsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { useTheme } from '../../theme/ThemeProvider';
@@ -19,6 +19,9 @@ import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playe
 import { useAuth } from '../../services/auth/auth.store';
 import { isPortalReauthError, isPortalForbiddenError } from '../../services/portal/portal.errors';
 import { spacing } from '../../theme/tokens';
+import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
+import { getGlossaryHelp } from '../../portal/portalGlossary';
+import { useToast } from '../../components/ui/ToastHost';
 
 function safeStr(v) {
   return typeof v === 'string' ? v : v == null ? '' : String(v);
@@ -41,6 +44,7 @@ export function PortalProfileScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const actions = usePlayerPortalActions();
+  const toast = useToast();
   const { logout } = useAuth();
 
   const {
@@ -197,10 +201,7 @@ export function PortalProfileScreen() {
 
       if (ok) {
         setEditMode(false);
-        Alert.alert(
-          t('portal.common.success'),
-          t('portal.profile.updateSuccess') || 'Profile updated successfully'
-        );
+        toast?.show?.({ type: 'success', message: t('portal.profile.updateSuccess') || 'Profile updated successfully' });
       } else {
         const status = res?.error?.status ?? profileUpdateError?.status ?? null;
         const msg =
@@ -211,11 +212,11 @@ export function PortalProfileScreen() {
               : status === 403
                 ? (t('portal.errors.forbidden') || 'You do not have access to do this.')
                 : (t('portal.common.somethingWentWrong') || 'Something went wrong.');
-        Alert.alert(t('portal.common.error'), msg);
+toast?.show?.({ type: 'error', message: msg });
       }
     } catch (_e) {
       // Defensive catch: store already normalizes, but ensure we never fail silently.
-      Alert.alert(t('portal.common.error'), t('portal.common.somethingWentWrong') || 'Something went wrong.');
+      toast?.show?.({ type: 'error', message: t('portal.common.somethingWentWrong') || 'Something went wrong.' });
     }
   };
 
@@ -320,6 +321,7 @@ export function PortalProfileScreen() {
           subtitle={t('portal.profile.subtitle')}
           rightSlot={<RightAction />}
         />
+        <PortalActionBanner title={t('portal.common.nextStep')} description={getGlossaryHelp('performance')} />
 
         {/* -------- Player Card -------- */}
         <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -378,6 +380,8 @@ export function PortalProfileScreen() {
           ) : (
             // EDIT
             <View style={styles.formGrid}>
+              <Text variant="caption" weight="bold" color={colors.textMuted}>Contact</Text>
+              <Text variant="caption" weight="bold" color={colors.textMuted}>Player info</Text>
               <Input
                 label={t('portal.profile.firstNameEn')}
                 value={form.first_eng_name}

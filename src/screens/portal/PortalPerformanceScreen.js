@@ -17,6 +17,8 @@ import { useAuth } from '../../services/auth/auth.store';
 import { useTranslation } from '../../services/i18n/i18n';
 import { isMissingTryOutError, isValidTryOutId } from '../../services/portal/portal.tryout';
 import { spacing } from '../../theme/tokens';
+import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
+import { getGlossaryHelp } from '../../portal/portalGlossary';
 
 const toPercent = (value) => `${Math.min(Math.max(Number(value || 0), 0), 100)}%`;
 const asArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
@@ -127,6 +129,16 @@ export function PortalPerformanceScreen() {
           title={t('portal.performance.title')}
           subtitle={t('portal.performance.subtitle')}
         />
+      <PortalActionBanner title={t('portal.common.nextStep')} description={getGlossaryHelp('performance')} />
+
+      <PortalCard style={styles.card}>
+        <Text variant="body" weight="semibold" color={colors.textPrimary}>Highlights</Text>
+        <View style={styles.highlightsRow}>
+          <View style={styles.highlightItem}><Text variant="caption" color={colors.textMuted}>Overall</Text><Text variant="body" weight="bold" color={colors.textPrimary}>{overallScore || 0}</Text></View>
+          <View style={styles.highlightItem}><Text variant="caption" color={colors.textMuted}>Recent ratings</Text><Text variant="body" weight="bold" color={colors.textPrimary}>{recentRatings.length}</Text></View>
+          <View style={styles.highlightItem}><Text variant="caption" color={colors.textMuted}>Periods</Text><Text variant="body" weight="bold" color={colors.textPrimary}>{periods.length}</Text></View>
+        </View>
+      </PortalCard>
         <PortalCard style={styles.card}>
           <Text variant="body" weight="semibold" color={colors.textPrimary}>
             {t('portal.errors.sessionExpiredTitle')}

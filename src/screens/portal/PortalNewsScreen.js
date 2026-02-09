@@ -17,6 +17,8 @@ import { portalApi } from '../../services/api/playerPortalApi';
 import { getPortalAuthHeaders, resolvePortalAcademyId } from '../../services/api/portalHeaders';
 import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
+import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
+import { getGlossaryHelp } from '../../portal/portalGlossary';
 import { storage, PORTAL_KEYS } from '../../services/storage/storage';
 import { useAuth } from '../../services/auth/auth.store';
 import { isPortalReauthError } from '../../services/portal/portal.errors';
@@ -183,6 +185,10 @@ export function PortalNewsScreen() {
     loadNews();
   }, [loadNews]);
 
+
+  const importantNews = useMemo(() => news.filter((item) => item?.is_important || item?.pinned || Number(item?.priority || 0) > 0), [news]);
+  const regularNews = useMemo(() => news.filter((item) => !(item?.is_important || item?.pinned || Number(item?.priority || 0) > 0)), [news]);
+
   const openViewer = useCallback((images, index) => {
     setViewerImages(images.map(i => ({ uri: i.resolvedUrl })));
     setViewerIndex(index);
@@ -242,6 +248,7 @@ export function PortalNewsScreen() {
         title={t('portal.news.title')}
         subtitle={t('portal.news.subtitle')}
       />
+      <PortalActionBanner title={t('portal.common.nextStep')} description={getGlossaryHelp('performance')} />
 
       {!!error ? (
         <PortalEmptyState
@@ -274,25 +281,33 @@ export function PortalNewsScreen() {
         />
       ) : news?.length ? (
         <View style={styles.list}>
-          {news.map((item) => {
+          {importantNews.length ? <Text variant="bodySmall" weight="bold" color={colors.textPrimary}>Important</Text> : null}
+          {importantNews.map((item) => {
             const createdAt = item?.created_at ? dayjs(item.created_at).format('MMM D, YYYY • h:mm A') : null;
-
+            const source = item?.source || item?.academy_name || 'SporHive';
             return (
-              <TouchableOpacity key={String(item?.id)} activeOpacity={0.9}>
+              <TouchableOpacity key={`imp-${String(item?.id)}`} activeOpacity={0.9}>
                 <PortalCard style={styles.card}>
-                  <Text variant="body" weight="semibold" color={colors.textPrimary}>
-                    {item?.title || t('portal.news.defaultTitle')}
-                  </Text>
-
-                  <Text variant="caption" color={colors.textMuted} style={styles.meta}>
-                    {createdAt || t('portal.common.placeholder')}
-                  </Text>
-
+                  <Text variant="body" weight="semibold" color={colors.textPrimary}>{item?.title || t('portal.news.defaultTitle')}</Text>
+                  <Text variant="caption" color={colors.textMuted} style={styles.meta}>{`${createdAt || t('portal.common.placeholder')} • ${source}`}</Text>
                   {renderImagesRow({ item })}
+                  <Text variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>{item?.description || t('portal.news.defaultDescription')}</Text>
+                </PortalCard>
+              </TouchableOpacity>
+            );
+          })}
 
-                  <Text variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>
-                    {item?.description || t('portal.news.defaultDescription')}
-                  </Text>
+          {regularNews.length ? <Text variant="bodySmall" weight="bold" color={colors.textPrimary}>All updates</Text> : null}
+          {regularNews.map((item) => {
+            const createdAt = item?.created_at ? dayjs(item.created_at).format('MMM D, YYYY • h:mm A') : null;
+            const source = item?.source || item?.academy_name || 'SporHive';
+            return (
+              <TouchableOpacity key={`all-${String(item?.id)}`} activeOpacity={0.9}>
+                <PortalCard style={styles.card}>
+                  <Text variant="body" weight="semibold" color={colors.textPrimary}>{item?.title || t('portal.news.defaultTitle')}</Text>
+                  <Text variant="caption" color={colors.textMuted} style={styles.meta}>{`${createdAt || t('portal.common.placeholder')} • ${source}`}</Text>
+                  {renderImagesRow({ item })}
+                  <Text variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>{item?.description || t('portal.news.defaultDescription')}</Text>
                 </PortalCard>
               </TouchableOpacity>
             );
@@ -302,7 +317,7 @@ export function PortalNewsScreen() {
         <PortalEmptyState
           icon="volume-2"
           title={t('portal.news.emptyTitle')}
-          description={t('portal.news.emptyDescription')}
+          description={t('portal.news.emptyDescription') || 'No updates yet.'}
         />
       )}
 
