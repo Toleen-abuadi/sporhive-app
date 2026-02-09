@@ -463,7 +463,8 @@ export function PortalRenewalsScreen() {
   const { colors, isDark } = useTheme();
   const toast = useToast();
   const { t, locale, isRTL } = useTranslation();
-  const { logout } = useAuth();
+  const { ensurePortalReauthOnce } = useAuth();
+  const reauthHandledRef = useRef(false);
   const placeholder = t('portal.common.placeholder');
   const scheduleSeparator = t('portal.renewals.scheduleSeparator');
 
@@ -776,6 +777,20 @@ export function PortalRenewalsScreen() {
     isMissingTryOutError(fatalError) ||
     isMissingTryOutError(overviewError) ||
     isMissingTryOutError(renewalsError);
+  const combinedError = fatalError || overviewError || renewalsError;
+
+  const handleReauthRequired = useCallback(async () => {
+    if (reauthHandledRef.current) return;
+    reauthHandledRef.current = true;
+    const res = await ensurePortalReauthOnce?.();
+    if (res?.success) {
+      reauthHandledRef.current = false;
+      setRefreshing(true);
+      fetchAll();
+      return;
+    }
+    router.replace('/(auth)/login?mode=player');
+  }, [ensurePortalReauthOnce, fetchAll, router]);
 
   if (loading || overviewLoading || renewalsLoading) {
     return (
@@ -808,15 +823,6 @@ export function PortalRenewalsScreen() {
           <View style={styles.missingActions}>
             <Button variant="secondary" onPress={fetchAll}>
               {t('portal.common.retry')}
-            </Button>
-            <Button
-              onPress={() => {
-                logout().finally(() => {
-                  router.replace('/(auth)/login?mode=player');
-                });
-              }}
-            >
-              {t('portal.errors.reAuthAction')}
             </Button>
           </View>
         </PortalCard>
@@ -858,7 +864,7 @@ export function PortalRenewalsScreen() {
   ].filter((g) => g.count > 0);
 
   return (
-    <PortalAccessGate titleOverride={t('portal.renewals.title')}>
+    <PortalAccessGate titleOverride={t('portal.renewals.title')} error={combinedError} onRetry={fetchAll} onReauthRequired={handleReauthRequired}>
       <Screen>
         <PortalHeader
           title={t('portal.renewals.title')}
