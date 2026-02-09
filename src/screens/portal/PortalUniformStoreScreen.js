@@ -1,5 +1,5 @@
 // Portal Uniform Store Screen (Redesigned): famous-app style catalog + cart bar + size chips + quantity stepper.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
   View,
@@ -23,7 +23,7 @@ import { portalApi } from '../../services/api/playerPortalApi';
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
 import { useAuth } from '../../services/auth/auth.store';
-import { isPortalReauthError } from '../../services/portal/portal.errors';
+import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { spacing } from '../../theme/tokens';
 import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
 import { getGlossaryHelp } from '../../portal/portalGlossary';
@@ -62,7 +62,8 @@ export function PortalUniformStoreScreen() {
   const toast = useToast();
   const { t, isRTL } = useTranslation();
   const placeholder = t('portal.common.placeholder');
-  const { logout } = useAuth();
+  const { ensurePortalReauthOnce } = useAuth();
+  const reauthHandledRef = useRef(false);
 
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -90,25 +91,41 @@ export function PortalUniformStoreScreen() {
   const loadCatalog = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const res = await portalApi.fetchUniformStore();
+    try {
+      const res = await portalApi.fetchUniformStore();
 
-    if (res?.success) {
-      const raw = res.data;
+      if (res?.success) {
+        const raw = res.data;
 
-      const list =
-        Array.isArray(raw?.data?.products) ? raw.data.products :
-          Array.isArray(raw?.products) ? raw.products :
-            Array.isArray(raw) ? raw :
-              Array.isArray(raw?.data) ? raw.data :
-                [];
+        const list =
+          Array.isArray(raw?.data?.products) ? raw.data.products :
+            Array.isArray(raw?.products) ? raw.products :
+              Array.isArray(raw) ? raw :
+                Array.isArray(raw?.data) ? raw.data :
+                  [];
 
-      setCatalog(safeArray(list));
-    } else {
-      setError(res?.error || new Error(t('portal.uniforms.error')));
+        setCatalog(safeArray(list));
+      } else {
+        setError(res?.error || new Error(t('portal.uniforms.error')));
+      }
+    } catch (e) {
+      setError(e);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }, [t]);
+
+  const handleReauthRequired = useCallback(async () => {
+    if (reauthHandledRef.current) return;
+    reauthHandledRef.current = true;
+    const res = await ensurePortalReauthOnce?.();
+    if (res?.success) {
+      reauthHandledRef.current = false;
+      loadCatalog();
+      return;
+    }
+    router.replace('/(auth)/login?mode=player');
+  }, [ensurePortalReauthOnce, loadCatalog, router]);
 
   useEffect(() => {
     loadCatalog();
@@ -522,6 +539,7 @@ export function PortalUniformStoreScreen() {
   }
 
   return (
+    <PortalAccessGate titleOverride={t('portal.uniforms.title')} error={error} onRetry={loadCatalog} onReauthRequired={handleReauthRequired}>
     <Screen contentContainerStyle={[styles.screen, isRTL && styles.rtl]}>
       <PortalHeader
         title={t('portal.uniforms.title')}
@@ -534,24 +552,7 @@ export function PortalUniformStoreScreen() {
           icon="alert-triangle"
           title={t('portal.uniforms.errorTitle')}
           description={error?.message || t('portal.uniforms.error')}
-          action={
-            isPortalReauthError(error) ? (
-              <Button
-                variant="secondary"
-                onPress={() => {
-                  logout().finally(() => {
-                    router.replace('/(auth)/login?mode=player');
-                  });
-                }}
-              >
-                {t('portal.errors.reAuthAction')}
-              </Button>
-            ) : (
-              <Button variant="secondary" onPress={loadCatalog}>
-                {t('portal.common.retry')}
-              </Button>
-            )
-          }
+          action={<Button variant="secondary" onPress={loadCatalog}>{t('portal.common.retry')}</Button>}
         />
       ) : catalog.length === 0 && !loading ? (
         <PortalEmptyState
@@ -604,6 +605,7 @@ export function PortalUniformStoreScreen() {
       {ProductSheet}
       {CartSheet}
     </Screen>
+    </PortalAccessGate>
   );
 }
 

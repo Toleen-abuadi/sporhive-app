@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Image, RefreshControl, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { UserCircle, CreditCard, ShoppingBag, RefreshCcw, Shirt, ShieldAlert } from 'lucide-react-native';
@@ -29,7 +29,7 @@ export function PortalHomeScreen() {
   const { colors } = useTheme();
   const { t, isRTL } = useI18n();
   const router = useRouter();
-  const { session, logout, isLoading: authLoading } = useAuth();
+  const { session, ensurePortalReauthOnce, isLoading: authLoading } = useAuth();
   const { overview, overviewLoading, overviewError } = usePlayerPortalStore((state) => ({
     overview: state.overview,
     overviewLoading: state.overviewLoading,
@@ -37,6 +37,7 @@ export function PortalHomeScreen() {
   }));
   const actions = usePlayerPortalActions();
   const [refreshing, setRefreshing] = useState(false);
+  const reauthHandledRef = useRef(false);
   const placeholder = t('portal.common.placeholder');
   const sessionValidation = authLoading ? { ok: true } : validatePortalSession(session);
 
@@ -46,12 +47,28 @@ export function PortalHomeScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await actions.fetchOverview();
-    setRefreshing(false);
+    try {
+      await actions.fetchOverview();
+    } finally {
+      setRefreshing(false);
+    }
   }, [actions]);
+
+  const handleReauthRequired = useCallback(async () => {
+    if (reauthHandledRef.current) return;
+    reauthHandledRef.current = true;
+    const res = await ensurePortalReauthOnce?.();
+    if (res?.success) {
+      reauthHandledRef.current = false;
+      onRefresh();
+      return;
+    }
+    router.replace('/(auth)/login?mode=player');
+  }, [ensurePortalReauthOnce, onRefresh, router]);
 
   const errorStatus = overviewError?.status || overviewError?.response?.status || overviewError?.statusCode || null;
   const invalidSessionReason = !authLoading && !sessionValidation.ok ? sessionValidation.reason : null;
+  const isSessionInvalid = Boolean(invalidSessionReason || overviewError?.kind === 'PORTAL_SESSION_INVALID' || errorStatus === 401);
 
   if ((overviewLoading || authLoading) && !overview) {
     return (
@@ -66,21 +83,14 @@ export function PortalHomeScreen() {
     );
   }
 
-  if ((overviewError || invalidSessionReason) && !overview) {
-    const isSessionInvalid = Boolean(invalidSessionReason || overviewError?.kind === 'PORTAL_SESSION_INVALID' || errorStatus === 401);
+  if ((overviewError || invalidSessionReason) && !overview && !isSessionInvalid) {
     return (
       <AppScreen>
         <EmptyState
-          title={isSessionInvalid ? t('portal.errors.sessionExpiredTitle') : t('portal.errors.overviewTitle')}
-          message={isSessionInvalid ? t('portal.errors.sessionExpiredDescription') : (overviewError?.message || t('portal.errors.overviewDescription'))}
-          actionLabel={isSessionInvalid ? t('portal.errors.reAuthAction') : t('portal.common.retry')}
-          onAction={() => {
-            if (isSessionInvalid) {
-              logout().finally(() => router.replace('/(auth)/login?mode=player'));
-              return;
-            }
-            onRefresh();
-          }}
+          title={t('portal.errors.overviewTitle')}
+          message={overviewError?.message || t('portal.errors.overviewDescription')}
+          actionLabel={t('portal.common.retry')}
+          onAction={onRefresh}
         />
       </AppScreen>
     );
@@ -115,7 +125,12 @@ export function PortalHomeScreen() {
   if (overview?.registration?.remainingSessions != null) recentUpdates.push({ key: 's1', title: 'Sessions remaining', subtitle: `${overview.registration.remainingSessions}/${overview.registration.totalSessions || 0}` });
 
   return (
-    <PortalAccessGate titleOverride={t('portal.home.title')}>
+    <PortalAccessGate
+      titleOverride={t('portal.home.title')}
+      error={isSessionInvalid ? (overviewError || new Error(String(invalidSessionReason || 'Portal session invalid'))) : overviewError}
+      onRetry={onRefresh}
+      onReauthRequired={handleReauthRequired}
+    >
       <AppScreen safe scroll={false} style={{ backgroundColor: colors.background }}>
         <ScrollView
           contentContainerStyle={[styles.content, isRTL && styles.rtl]}

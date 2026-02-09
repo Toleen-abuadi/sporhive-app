@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -31,7 +31,8 @@ export function PortalRenewalDetailScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const router = useRouter();
-  const { logout } = useAuth();
+  const { ensurePortalReauthOnce } = useAuth();
+  const reauthHandledRef = useRef(false);
   const { overview, renewals, renewalsError } = usePlayerPortalStore((state) => ({
     overview: state.overview,
     renewals: state.renewals,
@@ -50,13 +51,33 @@ export function PortalRenewalDetailScreen() {
     load();
   }, [actions, overview, renewals]);
 
+  const load = useCallback(async () => {
+    if (!overview) {
+      const ov = await actions.fetchOverview();
+      if (!ov?.success) return;
+    }
+    if (!renewals || Object.keys(renewals || {}).length === 0) await actions.fetchRenewals();
+  }, [actions, overview, renewals]);
+
+  const handleReauthRequired = useCallback(async () => {
+    if (reauthHandledRef.current) return;
+    reauthHandledRef.current = true;
+    const res = await ensurePortalReauthOnce?.();
+    if (res?.success) {
+      reauthHandledRef.current = false;
+      load();
+      return;
+    }
+    router.replace('/(auth)/login?mode=player');
+  }, [ensurePortalReauthOnce, load, router]);
+
   const eligibility = useMemo(() => renewals || {}, [renewals]);
   const missingTryOut = isMissingTryOutError(renewalsError);
   const statusMeta = getMappedStatus('renewal', eligibility?.eligible ? 'eligible' : 'ineligible');
   const needsAction = !eligibility?.eligible || Number(eligibility?.days_left) <= 14;
 
   return (
-    <PortalAccessGate titleOverride={t('portal.renewals.detailTitle')}>
+    <PortalAccessGate titleOverride={t('portal.renewals.detailTitle')} error={renewalsError} onRetry={load} onReauthRequired={handleReauthRequired}>
       <AppScreen safe scroll>
         <AppHeader title={t('portal.renewals.detailTitle')} />
 
@@ -84,8 +105,7 @@ export function PortalRenewalDetailScreen() {
             <Text variant="body" weight="bold" color={colors.textPrimary}>{t('portal.errors.sessionExpiredTitle')}</Text>
             <Text variant="bodySmall" color={colors.textSecondary}>Missing try_out (tryOutId is null). Please refresh portal session.</Text>
             <View style={styles.missingActions}>
-              <Button variant="secondary" onPress={actions.fetchOverview}>{t('portal.common.retry')}</Button>
-              <Button onPress={() => logout().finally(() => router.replace('/(auth)/login?mode=player'))}>{t('portal.errors.reAuthAction')}</Button>
+              <Button variant="secondary" onPress={load}>{t('portal.common.retry')}</Button>
             </View>
           </Card>
         ) : (

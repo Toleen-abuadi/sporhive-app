@@ -1,5 +1,5 @@
 // src/screens/portal/PortalProfileScreen.jsx
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -17,7 +17,7 @@ import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { useI18n } from '../../services/i18n/i18n';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { useAuth } from '../../services/auth/auth.store';
-import { isPortalReauthError, isPortalForbiddenError } from '../../services/portal/portal.errors';
+import { isPortalForbiddenError } from '../../services/portal/portal.errors';
 import { spacing } from '../../theme/tokens';
 import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
 import { getGlossaryHelp } from '../../portal/portalGlossary';
@@ -45,7 +45,8 @@ export function PortalProfileScreen() {
   const { t } = useI18n();
   const actions = usePlayerPortalActions();
   const toast = useToast();
-  const { logout } = useAuth();
+  const { ensurePortalReauthOnce } = useAuth();
+  const reauthHandledRef = useRef(false);
 
   const {
     profile,
@@ -154,6 +155,19 @@ export function PortalProfileScreen() {
     actions.fetchProfile();
   }, [actions]);
 
+  const load = useCallback(() => actions.fetchProfile(), [actions]);
+  const handleReauthRequired = useCallback(async () => {
+    if (reauthHandledRef.current) return;
+    reauthHandledRef.current = true;
+    const res = await ensurePortalReauthOnce?.();
+    if (res?.success) {
+      reauthHandledRef.current = false;
+      load();
+      return;
+    }
+    router.replace('/(auth)/login?mode=player');
+  }, [ensurePortalReauthOnce, load, router]);
+
   useEffect(() => {
     if (profile && !editMode) hydrateFormFromProfile();
   }, [profile, editMode, hydrateFormFromProfile]);
@@ -234,7 +248,6 @@ toast?.show?.({ type: 'error', message: msg });
   }
 
   if (profileError && !profile) {
-    const needsReauth = isPortalReauthError(profileError);
     const isForbidden = isPortalForbiddenError(profileError);
     return (
       <AppScreen safe>
@@ -245,16 +258,8 @@ toast?.show?.({ type: 'error', message: msg });
               ? t('portal.errors.forbiddenDescription')
               : (profileError?.message || t('portal.profile.errorDescription'))
           }
-          actionLabel={needsReauth ? t('portal.errors.reAuthAction') : t('portal.common.retry')}
-          onAction={() => {
-            if (needsReauth) {
-              logout().finally(() => {
-                router.replace('/(auth)/login?mode=player');
-              });
-              return;
-            }
-            actions.fetchProfile();
-          }}
+          actionLabel={t('portal.common.retry')}
+          onAction={load}
         />
       </AppScreen>
     );
@@ -314,7 +319,7 @@ toast?.show?.({ type: 'error', message: msg });
   );
 
   return (
-    <PortalAccessGate titleOverride={t('portal.profile.title')}>
+    <PortalAccessGate titleOverride={t('portal.profile.title')} error={profileError} onRetry={load} onReauthRequired={handleReauthRequired}>
       <AppScreen safe scroll>
         <AppHeader
           title={t('portal.profile.title')}

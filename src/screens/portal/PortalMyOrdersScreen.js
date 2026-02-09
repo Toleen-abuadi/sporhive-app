@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, SectionList, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Filter, ChevronRight } from 'lucide-react-native';
@@ -14,7 +14,6 @@ import { PortalFilterSheet } from '../../components/portal/PortalFilterSheet';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { useAuth } from '../../services/auth/auth.store';
-import { isPortalReauthError } from '../../services/portal/portal.errors';
 import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
 import { PortalStatusBadge } from '../../components/portal/PortalStatusBadge';
 import { PortalSkeleton } from '../../components/portal/PortalSkeleton';
@@ -29,7 +28,8 @@ export function PortalMyOrdersScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { t } = useI18n();
-  const { logout } = useAuth();
+  const { ensurePortalReauthOnce } = useAuth();
+  const reauthHandledRef = useRef(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { orders, ordersLoading, ordersError, filters } = usePlayerPortalStore((state) => ({
     orders: state.orders,
@@ -53,10 +53,21 @@ export function PortalMyOrdersScreen() {
   ].filter((x) => x.data.length);
 
   const activeOrder = inProgress[0] || null;
-  const needsReauth = isPortalReauthError(ordersError);
+  const load = useCallback(() => actions.fetchOrders?.(), [actions]);
+  const handleReauthRequired = useCallback(async () => {
+    if (reauthHandledRef.current) return;
+    reauthHandledRef.current = true;
+    const res = await ensurePortalReauthOnce?.();
+    if (res?.success) {
+      reauthHandledRef.current = false;
+      load();
+      return;
+    }
+    router.replace('/(auth)/login?mode=player');
+  }, [ensurePortalReauthOnce, load, router]);
 
   return (
-    <PortalAccessGate titleOverride={t('portal.orders.title')}>
+    <PortalAccessGate titleOverride={t('portal.orders.title')} error={ordersError} onRetry={load} onReauthRequired={handleReauthRequired}>
       <AppScreen safe scroll={false}>
         <AppHeader title={t('portal.orders.title')} subtitle={t('portal.orders.subtitle')} rightAction={{ icon: <Filter size={18} color={colors.textPrimary} />, onPress: () => setFiltersOpen(true), accessibilityLabel: t('portal.filters.open') }} />
 
@@ -74,7 +85,7 @@ export function PortalMyOrdersScreen() {
         {ordersLoading && !orders?.length ? (
           <View style={styles.pad}><PortalSkeleton rows={3} height={112} /></View>
         ) : ordersError ? (
-          <View style={styles.pad}><PortalErrorState title={t('portal.orders.errorTitle')} message={ordersError?.message || t('portal.orders.errorDescription')} onRetry={!needsReauth ? () => actions.fetchOrders?.() : undefined} onRelogin={needsReauth ? () => logout().finally(() => router.replace('/(auth)/login?mode=player')) : undefined} retryLabel={t('portal.common.retry')} reloginLabel={t('portal.errors.reAuthAction')} /></View>
+          <View style={styles.pad}><PortalErrorState title={t('portal.orders.errorTitle')} message={ordersError?.message || t('portal.orders.errorDescription')} onRetry={load} retryLabel={t('portal.common.retry')} /></View>
         ) : filteredOrders.length === 0 ? (
           <View style={styles.pad}><PortalEmptyState title={t('portal.orders.emptyTitle')} description={t('portal.orders.emptyDescription')} action={<Button onPress={() => actions.clearFilters?.('orders')}>{t('portal.filters.clear')}</Button>} /></View>
         ) : (

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, SectionList, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Filter, ChevronRight } from 'lucide-react-native';
@@ -15,7 +15,7 @@ import { PortalFilterSheet } from '../../components/portal/PortalFilterSheet';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { useAuth } from '../../services/auth/auth.store';
-import { isPortalReauthError, isPortalForbiddenError } from '../../services/portal/portal.errors';
+import { isPortalForbiddenError } from '../../services/portal/portal.errors';
 import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
 import { PortalErrorState } from '../../components/portal/PortalErrorState';
 import { PortalSkeleton } from '../../components/portal/PortalSkeleton';
@@ -42,7 +42,8 @@ export function PortalPaymentsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { t } = useI18n();
-  const { logout } = useAuth();
+  const { ensurePortalReauthOnce } = useAuth();
+  const reauthHandledRef = useRef(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { payments, paymentsLoading, paymentsError, filters } = usePlayerPortalStore((state) => ({
     payments: state.payments,
@@ -80,11 +81,23 @@ export function PortalPaymentsScreen() {
     [t]
   );
 
-  const needsReauth = isPortalReauthError(paymentsError);
   const isForbidden = isPortalForbiddenError(paymentsError);
 
+  const load = useCallback(() => actions.fetchPayments(), [actions]);
+  const handleReauthRequired = useCallback(async () => {
+    if (reauthHandledRef.current) return;
+    reauthHandledRef.current = true;
+    const res = await ensurePortalReauthOnce?.();
+    if (res?.success) {
+      reauthHandledRef.current = false;
+      load();
+      return;
+    }
+    router.replace('/(auth)/login?mode=player');
+  }, [ensurePortalReauthOnce, load, router]);
+
   return (
-    <PortalAccessGate titleOverride={t('portal.payments.title')}>
+    <PortalAccessGate titleOverride={t('portal.payments.title')} error={paymentsError} onRetry={load} onReauthRequired={handleReauthRequired}>
       <AppScreen safe scroll={false}>
         <AppHeader
           title={t('portal.payments.title')}
@@ -127,10 +140,8 @@ export function PortalPaymentsScreen() {
             <PortalErrorState
               title={isForbidden ? t('portal.errors.forbiddenTitle') : t('portal.payments.errorTitle')}
               message={isForbidden ? t('portal.errors.forbiddenDescription') : (paymentsError?.message || t('portal.payments.errorDescription'))}
-              onRetry={!needsReauth ? () => actions.fetchPayments() : undefined}
+              onRetry={load}
               retryLabel={t('portal.common.retry')}
-              onRelogin={needsReauth ? () => logout().finally(() => router.replace('/(auth)/login?mode=player')) : undefined}
-              reloginLabel={t('portal.errors.reAuthAction')}
             />
           </View>
         ) : filteredPayments.length === 0 ? (

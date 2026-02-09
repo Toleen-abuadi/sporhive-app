@@ -21,7 +21,7 @@ import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
 import { getGlossaryHelp } from '../../portal/portalGlossary';
 import { storage, PORTAL_KEYS } from '../../services/storage/storage';
 import { useAuth } from '../../services/auth/auth.store';
-import { isPortalReauthError } from '../../services/portal/portal.errors';
+import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 
 function safeJsonParse(value) {
   try {
@@ -35,7 +35,7 @@ export function PortalNewsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { t, isRTL } = useTranslation();
-  const { logout } = useAuth();
+  const { ensurePortalReauthOnce } = useAuth();
 
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -243,6 +243,19 @@ export function PortalNewsScreen() {
   }
 
   return (
+    <PortalAccessGate
+      titleOverride={t('portal.news.title')}
+      error={error}
+      onRetry={loadNews}
+      onReauthRequired={async () => {
+        const res = await ensurePortalReauthOnce?.();
+        if (res?.success) {
+          loadNews();
+        } else {
+          router.replace('/(auth)/login?mode=player');
+        }
+      }}
+    >
     <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
       <PortalHeader
         title={t('portal.news.title')}
@@ -255,29 +268,7 @@ export function PortalNewsScreen() {
           icon="alert-triangle"
           title={t('portal.news.errorTitle')}
           description={error?.message || t('portal.news.error')}
-          action={
-            isPortalReauthError(error) ? (
-              <TouchableOpacity
-                onPress={() => {
-                  logout().finally(() => router.replace('/(auth)/login?mode=player'));
-                }}
-                style={[styles.retryButton, { backgroundColor: colors.card }]}
-              >
-                <Text variant="bodySmall" color={colors.textPrimary}>
-                  {t('portal.errors.reAuthAction')}
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                onPress={loadNews}
-                style={[styles.retryButton, { backgroundColor: colors.card }]}
-              >
-                <Text variant="bodySmall" color={colors.textPrimary}>
-                  {t('portal.common.retry')}
-                </Text>
-              </TouchableOpacity>
-            )
-          }
+          action={<TouchableOpacity onPress={loadNews} style={[styles.retryButton, { backgroundColor: colors.card }]}><Text variant="bodySmall" color={colors.textPrimary}>{t('portal.common.retry')}</Text></TouchableOpacity>}
         />
       ) : news?.length ? (
         <View style={styles.list}>
@@ -328,6 +319,7 @@ export function PortalNewsScreen() {
         onRequestClose={() => setViewerOpen(false)}
       />
     </Screen>
+    </PortalAccessGate>
   );
 }
 
