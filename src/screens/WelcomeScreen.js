@@ -79,7 +79,11 @@ export function WelcomeScreen() {
   }));
 
   const handleExplore = async () => {
-    await storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, true);
+    try {
+      await storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, true);
+    } catch (e) {
+      if (__DEV__) console.warn('[Welcome] Failed to persist welcome flag', e);
+    }
     router.replace('/(auth)/login');
   };
 

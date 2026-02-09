@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authApi } from './auth.api';
 import { refreshPortalSessionIfNeeded } from './portalSession';
-import { storage, APP_STORAGE_KEYS, PORTAL_KEYS } from '../storage/storage';
+import { storage, APP_STORAGE_KEYS } from '../storage/storage';
 
 const INITIAL_STATE = {
   isAuthenticated: false,
@@ -115,10 +115,9 @@ const buildSession = ({ loginAs, user, token, academyId, username }) => {
 
 export function AuthProvider({ children }) {
   const [state, setState] = useState(INITIAL_STATE);
-
   const mountedRef = useRef(false);
   const hydrateInFlightRef = useRef(false);
-
+const portalReauthInFlightRef = useRef(null);
   const safeSetState = useCallback((updater) => {
     if (!mountedRef.current) return;
     setState(updater);
@@ -214,18 +213,18 @@ export function AuthProvider({ children }) {
         null
       );
 
-      if (__DEV__) {
-        console.log('[auth.store] loginAs:', loginAs);
-        console.log('[auth.store] sessionAcademyId:', sessionAcademyId);
-        console.log('[auth.store] nextLastSelectedAcademyId:', nextLastSelectedAcademyId);
-      }
-
       const nextLastSelectedAcademyId =
         loginAs === 'player'
           ? sessionAcademyId
           : loginAs
             ? lastSelectedAcademyId
             : null;
+
+      if (__DEV__) {
+        console.log('[auth.store] loginAs:', loginAs);
+        console.log('[auth.store] sessionAcademyId:', sessionAcademyId);
+        console.log('[auth.store] nextLastSelectedAcademyId:', nextLastSelectedAcademyId);
+      }
 
       const academySelectionChanged = nextLastSelectedAcademyId !== lastSelectedAcademyId;
       if (loginAs === 'player' && nextLastSelectedAcademyId != null && lastAcademyRaw == null) {
@@ -279,12 +278,17 @@ export function AuthProvider({ children }) {
         storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
         storage.removeItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID),
       ]);
-    }
 
-    if (__DEV__ && hadSessionData) {
-      console.warn('Cleared auth session during restore due to missing or invalid token.');
+    } finally {
+      if (__DEV__ && hadSessionData) {
+        console.warn('Cleared auth session during restore due to missing or invalid token.');
+      }
+      // ✅ Never leave app behind a spinner
+      safeSetState({ ...INITIAL_STATE, isLoading: false, isHydrating: false });
+      hydrateInFlightRef.current = false;
+      if (__DEV__) console.log('[auth.store] restoreSession finished');
+
     }
-    safeSetState({ ...INITIAL_STATE, isLoading: false, isHydrating: false });
   }, [safeSetState]);
 
   // Always resolve hydration flags even if an early return/throw happens above
@@ -419,6 +423,22 @@ export function AuthProvider({ children }) {
     return result;
   }, [state.session]);
 
+  // ✅ Single-flight portal reauth
+  const ensurePortalReauthOnce = useCallback(async () => {
+    if (portalReauthInFlightRef.current) return portalReauthInFlightRef.current;
+
+   portalReauthInFlightRef.current = (async () => {
+      try {
+        const res = await refreshPortalIfNeeded();
+        return res;
+      } finally {
+       portalReauthInFlightRef.current = null;
+      }
+    })();
+
+    return portalReauthInFlightRef.current;
+  }, [refreshPortalIfNeeded]);
+
   const logout = useCallback(async () => {
     await Promise.all([
       storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
@@ -453,6 +473,7 @@ export function AuthProvider({ children }) {
       restoreSession,
       setLastSelectedAcademyId,
       refreshPortalSessionIfNeeded: refreshPortalIfNeeded,
+      ensurePortalReauthOnce,
     }),
     [
       state,
@@ -463,6 +484,7 @@ export function AuthProvider({ children }) {
       restoreSession,
       setLastSelectedAcademyId,
       refreshPortalIfNeeded,
+      ensurePortalReauthOnce,
     ]
   );
 

@@ -64,10 +64,7 @@ function AuthGate({ children, onReady }) {
     let mounted = true;
     (async () => {
       try {
-        const seen = await Promise.race([
-          storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN),
-          new Promise((resolve) => setTimeout(() => resolve(null), 3000)),
-        ]);
+        const seen = await storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN);
         if (!mounted) return;
         setWelcomeSeen(seen === true || seen === 'true');
       } catch (e) {

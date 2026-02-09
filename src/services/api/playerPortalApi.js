@@ -52,7 +52,14 @@ const normalizePortalError = (error, fallbackKind = 'PORTAL_ERROR') => {
     error?.meta?.status ||
     null;
 
-  const kind = status === 401 || status === 403 ? 'PORTAL_FORBIDDEN' : fallbackKind;
+  let kind;
+  if (status === 401) {
+    kind = 'PORTAL_REAUTH_REQUIRED';
+  } else if (status === 403) {
+    kind = 'PORTAL_FORBIDDEN';
+  } else {
+    kind = fallbackKind;
+  }
   const normalized = error instanceof Error ? error : new Error(error?.message || 'Portal request failed');
   normalized.status = status;
   normalized.kind = kind;

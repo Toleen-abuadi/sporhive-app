@@ -69,6 +69,7 @@ export const getPortalAuthHeaders = async (options = {}) => {
 
   const academyId = await resolvePortalAcademyId(options);
   if (!Number.isInteger(academyId) || academyId <= 0) {
+    if (__DEV__) console.warn('[portalHeaders] Missing academyId; options:', options);
     const err = createPortalError('Missing portal academy id', {
       code: 'PORTAL_ACADEMY_MISSING',
       kind: 'PORTAL_ACADEMY_REQUIRED',
