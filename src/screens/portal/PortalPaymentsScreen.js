@@ -18,7 +18,7 @@ import { PortalFilterSheet } from '../../components/portal/PortalFilterSheet';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { useAuth } from '../../services/auth/auth.store';
-import { isPortalReauthError } from '../../services/portal/portal.errors';
+import { isPortalReauthError, isPortalForbiddenError } from '../../services/portal/portal.errors';
 
 export function PortalPaymentsScreen() {
   const router = useRouter();
@@ -47,7 +47,7 @@ export function PortalPaymentsScreen() {
     actions.fetchPayments();
   }, [actions]);
 
-  const filteredPayments = useMemo(() => actions.selectFilteredPayments(), [actions, payments, filters]);
+  const filteredPayments = useMemo(() => actions.selectFilteredPayments(), [actions]);
 
   const statusOptions = useMemo(
     () => [
@@ -61,6 +61,7 @@ export function PortalPaymentsScreen() {
   const resultsLabel = t('portal.filters.results', { count: filteredPayments.length });
 
   const needsReauth = isPortalReauthError(paymentsError);
+  const isForbidden = isPortalForbiddenError(paymentsError);
 
   return (
     <PortalAccessGate titleOverride={t('portal.payments.title')}>
@@ -94,8 +95,12 @@ export function PortalPaymentsScreen() {
           </View>
         ) : paymentsError ? (
           <EmptyState
-            title={t('portal.payments.errorTitle')}
-            message={paymentsError?.message || t('portal.payments.errorDescription')}
+           title={isForbidden ? t('portal.errors.forbiddenTitle') : t('portal.payments.errorTitle')}
+            message={
+              isForbidden
+               ? t('portal.errors.forbiddenDescription')
+                : (paymentsError?.message || t('portal.payments.errorDescription'))
+            }
             actionLabel={needsReauth ? t('portal.errors.reAuthAction') : t('portal.common.retry')}
             onAction={() => {
               if (needsReauth) {

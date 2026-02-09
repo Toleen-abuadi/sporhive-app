@@ -35,6 +35,21 @@ export const resolvePortalAcademyId = async (options = {}) => {
   return readStoredAcademyId();
 };
 
+// Structured portal error helpers (prevents blank screens when callers surface `err.kind`).
+export const createPortalError = (message, { code, kind }) => {
+  const err = new Error(message);
+  err.code = code;
+  err.kind = kind;
+ // Consistent fields for UI gates / API layers
+  err.isPortalError = true;
+  err.recoverable = true;
+  return err;
+};
+
+export const isPortalError = (err) =>
+  Boolean(err && (err.isPortalError || err.kind?.startsWith('PORTAL_')));
+
+
 /**
  * Central place to build ALL portal auth headers.
  * Portal calls must include:
@@ -46,17 +61,18 @@ export const getPortalAuthHeaders = async (options = {}) => {
   const token = await resolveAppToken();
   if (!token) {
     // NOTE: this uses the app token resolver (single-token policy).
-    const err = new Error('Missing app token');
-    err.code = 'PORTAL_TOKEN_MISSING';
-    err.kind = 'PORTAL_AUTH_REQUIRED';
-    throw err;
+    throw createPortalError('Missing app token', {
+      code: 'PORTAL_TOKEN_MISSING',
+      kind: 'PORTAL_AUTH_REQUIRED',
+    });
   }
 
   const academyId = await resolvePortalAcademyId(options);
   if (!Number.isInteger(academyId) || academyId <= 0) {
-    const err = new Error('Missing portal academy id');
-    err.code = 'PORTAL_ACADEMY_MISSING';
-    err.kind = 'PORTAL_ACADEMY_REQUIRED';
+    const err = createPortalError('Missing portal academy id', {
+      code: 'PORTAL_ACADEMY_MISSING',
+      kind: 'PORTAL_ACADEMY_REQUIRED',
+    });
     if (__DEV__) {
       console.log('[portalHeaders] academyId:', academyId);
     }

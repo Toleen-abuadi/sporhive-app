@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { authApi } from './auth.api';
 import { refreshPortalSessionIfNeeded } from './portalSession';
-import { storage, APP_STORAGE_KEYS } from '../storage/storage';
+import { storage, APP_STORAGE_KEYS, PORTAL_KEYS } from '../storage/storage';
 
 const INITIAL_STATE = {
   isAuthenticated: false,

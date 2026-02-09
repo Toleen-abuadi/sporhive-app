@@ -58,6 +58,8 @@ export const extractTryOutIdFromOverview = (data) => {
     registrationInfo?.tryout_id ??
     playerData?.try_out_id ??
     root?.try_out_id ??
+    playerData?.player_info?.id ??       
+    root?.player_data?.player_info?.id ??
     null;
 
   // Fallback: subscription history old_value.try_out.id

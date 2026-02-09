@@ -29,7 +29,12 @@ export const normalizePortalOverview = (data) => {
 
   const playerData = data.player_data || {};
   const playerInfo = playerData.player_info || {};
-  const registrationInfo = playerData.registration_info || {};
+  const registrationInfo =
+    (playerData.registration_info &&
+      (playerData.registration_info.available_courses?.length ||
+        playerData.registration_info.available_groups?.length))
+      ? playerData.registration_info
+      : (data.registrationInfo || {});
   const healthInfo = playerData.health_info || {};
   const profileImage = playerData.profile_image || {};
   const paymentInfo = playerData.payment_info || [];
@@ -80,8 +85,12 @@ export const normalizePortalOverview = (data) => {
     courseName: registrationInfo.course?.course_name || '',
     group: registrationInfo.group || {},
     course: registrationInfo.course || {},
-    availableCourses: registrationInfo.available_courses || [],
-    availableGroups: registrationInfo.available_groups || [],
+    availableCourses: Array.isArray(registrationInfo.available_courses)
+      ? registrationInfo.available_courses
+      : [],
+    availableGroups: Array.isArray(registrationInfo.available_groups)
+      ? registrationInfo.available_groups
+      : [],
     googleMapsLocation: registrationInfo.google_maps_location || '',
   };
 
@@ -122,8 +131,6 @@ export const normalizePortalOverview = (data) => {
 };
 
 export const normalizeUniformOrders = (raw) => {
-  // raw is whatever portalApi returns in res.data
-  // Try common shapes, return [] if nothing matches.
   if (Array.isArray(raw)) return raw;
 
   const candidates = [

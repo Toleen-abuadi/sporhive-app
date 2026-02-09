@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { playerPortalApi } from '../services/api/playerPortalApi';
+import { playerPortalApi, portalApi } from '../services/api/playerPortalApi';
 import { normalizeApiError } from '../services/api/normalizeApiError';
 import { storage } from '../services/storage/storage';
 import { STORAGE_KEYS } from '../services/storage/keys';
@@ -30,6 +30,8 @@ const INITIAL_STATE = {
   profile: null,
   profileLoading: false,
   profileError: null,
+  updatingProfile: false,
+  profileUpdateError: null,
 
   payments: [],
   paymentsLoading: false,
@@ -54,6 +56,15 @@ const emit = () => {
 const setState = (patch) => {
   portalState = { ...portalState, ...patch };
   emit();
+};
+
+const ensureTryOutReady = async () => {
+  // fast path: already loaded overview in-memory
+  if (portalState.overview) return true;
+
+  // try fetching overview (this persists tryOutId via persistTryOutIdFromOverview)
+  const ov = await playerPortalStore.fetchOverview();
+  return !!ov?.success;
 };
 
 // --------------------
@@ -203,6 +214,38 @@ export const playerPortalStore = {
     return { success: false, error: res.error };
   },
 
+  // ---- Profile Update ----
+  async updateProfile(payload = {}, options = {}) {
+    setState({ updatingProfile: true, profileUpdateError: null });
+    try {
+      // Must call portalApi.updateProfile (contracted endpoint)
+      const res = await portalApi.updateProfile(payload, options);
+
+      if (!res.success) {
+        const normalized = normalizeApiError(res.error);
+        setState({ profileUpdateError: normalized });
+        return { success: false, error: normalized };
+      }
+
+      // Keep store consistent: profile is derived from overview -> refetch
+      const refreshed = await playerPortalStore.fetchProfile();
+      if (!refreshed?.success) {
+        // update succeeded but refresh failed; surface refresh error as update error
+        setState({ profileUpdateError: refreshed?.error || null });
+        return { success: true, refreshed: false, data: res.data };
+      }
+
+      return { success: true, refreshed: true, data: res.data };
+    } catch (e) {
+      const normalized = normalizeApiError(e);
+      setState({ profileUpdateError: normalized });
+      return { success: false, error: normalized };
+    } finally {
+      // Always clear flag: prevents infinite spinner
+      setState({ updatingProfile: false });
+    }
+  },
+
   async fetchPayments() {
     setState({ paymentsLoading: true, paymentsError: null });
     const res = await playerPortalApi.listPayments();
@@ -233,6 +276,14 @@ export const playerPortalStore = {
 
   async fetchRenewals(payload = {}) {
     setState({ renewalsLoading: true, renewalsError: null });
+
+    const ok = await ensureTryOutReady();
+    if (!ok) {
+      const normalized = normalizeApiError(portalState.overviewError);
+      setState({ renewalsLoading: false, renewalsError: normalized });
+      return { success: false, error: normalized };
+    }
+
     const res = await playerPortalApi.listRenewals(null, payload);
 
     if (res.success) {
@@ -245,6 +296,7 @@ export const playerPortalStore = {
     setState({ renewalsLoading: false, renewalsError: normalized });
     return { success: false, error: res.error };
   },
+
 
   async submitRenewal(payload = {}) {
     return playerPortalApi.submitRenewal(null, payload);
@@ -286,6 +338,7 @@ export function usePlayerPortalActions() {
       clearFilters: playerPortalStore.clearFilters,
       fetchOverview: playerPortalStore.fetchOverview,
       fetchProfile: playerPortalStore.fetchProfile,
+      updateProfile: playerPortalStore.updateProfile,
       fetchPayments: playerPortalStore.fetchPayments,
       fetchOrders: playerPortalStore.fetchOrders,
       fetchRenewals: playerPortalStore.fetchRenewals,

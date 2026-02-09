@@ -252,8 +252,17 @@ const apiRequest = async (config = {}) => {
       response.statusText ||
       `Request failed (${response.status})`;
 
-    const isAuthError = response.status === 401 || response.status === 403;
-    const kind = isAuthError ? (scope === 'portal' ? 'PORTAL_REAUTH_REQUIRED' : 'REAUTH_REQUIRED') : undefined;
+    // IMPORTANT: Portal screens must distinguish 401 vs 403.
+    // - 401 => reauth/logout flow
+    // - 403 => forbidden messaging WITHOUT logout
+    let kind;
+    if (scope === 'portal') {
+      if (response.status === 401) kind = 'PORTAL_REAUTH_REQUIRED';
+      if (response.status === 403) kind = 'PORTAL_FORBIDDEN';
+   } else if (response.status === 401 || response.status === 403) {
+      // Preserve existing app behavior (single reauth kind) outside portal.
+      kind = 'REAUTH_REQUIRED';
+    }
 
     throw createApiError(message, response.status, payload, {
       url: nextConfig?.url ?? null,

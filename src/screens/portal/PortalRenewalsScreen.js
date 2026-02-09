@@ -17,7 +17,6 @@ import {
   KeyboardAvoidingView,
   Animated,
   Easing,
-  Dimensions,
   RefreshControl,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -60,8 +59,6 @@ import { useAuth } from '../../services/auth/auth.store';
 import { isMissingTryOutError } from '../../services/portal/portal.tryout';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ----------------------- Safe helpers -----------------------
 function safeStr(v) {
@@ -496,20 +493,30 @@ export function PortalRenewalsScreen() {
   const eligibility = renewals;
   const registrationInfo = rawOverview?.player_data?.registration_info;
 
-  const availableCoursesRaw = registrationInfo?.available_courses || [];
-  const availableGroupsRaw = registrationInfo?.available_groups || [];
+  const availableCoursesRaw = useMemo(() => {
+    const a = registrationInfo?.available_courses;
+    const b = rawOverview?.registrationInfo?.available_courses; // normalized alt
+    return (Array.isArray(a) && a.length ? a : (Array.isArray(b) ? b : []));
+  }, [registrationInfo, rawOverview]);
+
+  const availableGroupsRaw = useMemo(() => {
+    const a = registrationInfo?.available_groups;
+    const b = rawOverview?.registrationInfo?.available_groups;
+    return (Array.isArray(a) && a.length ? a : (Array.isArray(b) ? b : []));
+  }, [registrationInfo, rawOverview]);
+
 
   const courses = useMemo(() => {
     return (availableCoursesRaw || []).map((c) => ({
       id: c.id,
-      label: c.name || t('portal.renewals.courseLabel', { id: c.id }),
+      label: c.course_name || c.name || t('portal.renewals.courseLabel', { id: c.id }),
       subLabel:
         c.start_date && c.end_date
           ? t('portal.renewals.courseRange', {
-              start: c.start_date,
-              end: c.end_date,
-              sessions: c.num_of_sessions || 0,
-            })
+            start: c.start_date,
+            end: c.end_date,
+            sessions: c.num_of_sessions || 0,
+          })
           : t('portal.renewals.courseSessions', { sessions: c.num_of_sessions || 0 }),
       meta: c,
     }));
@@ -521,20 +528,20 @@ export function PortalRenewalsScreen() {
       const scheduleLabel =
         schedule.length > 0
           ? schedule
-              .slice(0, 2)
-              .map((s) => `${weekdayLabel(s?.day)} ${s?.time?.start || ''}-${s?.time?.end || ''}`.trim())
-              .join(scheduleSeparator)
+            .slice(0, 2)
+            .map((s) => `${weekdayLabel(s?.day)} ${s?.time?.start || ''}-${s?.time?.end || ''}`.trim())
+            .join(scheduleSeparator)
           : t('portal.renewals.scheduleEmpty');
       return {
         id: g.id,
-        label: g.name || t('portal.renewals.groupLabel', { id: g.id }),
+        label: g.group_name || g.name || t('portal.renewals.groupLabel', { id: g.id }),
         subLabel: g.capacity
           ? t('portal.renewals.groupCapacity', { schedule: scheduleLabel, count: g.capacity })
           : scheduleLabel,
         meta: g,
       };
     });
-  }, [availableGroupsRaw, t]);
+  }, [availableGroupsRaw, t, scheduleSeparator]);
 
   const selectedCourse = useMemo(
     () => courses.find((c) => String(c.id) === String(selectedCourseId))?.meta || null,
@@ -547,25 +554,25 @@ export function PortalRenewalsScreen() {
 
   const sessionsPerWeek = useMemo(() => (selectedGroup ? computeSessionsPerWeekFromGroup(selectedGroup) : 1), [selectedGroup]);
 
-const canSubmit = useMemo(() => {
-  if (!eligibility?.eligible) return false;
-  if (!selectedGroupId) return false;          
-  if (!startDate || !endDate) return false;
-  if (!sessions || sessions <= 0) return false;
-  if (endDate.getTime() < startDate.getTime()) return false;
-  return true;
-}, [eligibility, selectedGroupId, startDate, endDate, sessions]);
+  const canSubmit = useMemo(() => {
+    if (!eligibility?.eligible) return false;
+    if (!selectedGroupId) return false;
+    if (!startDate || !endDate) return false;
+    if (!sessions || sessions <= 0) return false;
+    if (endDate.getTime() < startDate.getTime()) return false;
+    return true;
+  }, [eligibility, selectedGroupId, startDate, endDate, sessions]);
 
 
   const fetchAll = useCallback(async () => {
     setFatalError(null);
     try {
-      const [ovRes, elRes] = await Promise.all([
-        actions.fetchOverview(),
-        actions.fetchRenewals(),
-      ]);
-
+      // 1️⃣ MUST run first – persists tryOutId into session
+      const ovRes = await actions.fetchOverview();
       if (!ovRes?.success) throw ovRes?.error || new Error('Overview failed');
+
+      // 2️⃣ Safe now – tryOutId exists
+      const elRes = await actions.fetchRenewals();
       if (!elRes?.success) throw elRes?.error || new Error('Eligibility failed');
 
       const reg = (ovRes.data?._raw || ovRes.data)?.player_data?.registration_info;
@@ -573,7 +580,7 @@ const canSubmit = useMemo(() => {
       setSelectedGroupId(reg?.group?.id || null);
     } catch (e) {
       console.error('Renewals load failed:', e);
-      setFatalError(e?.message || 'Failed to load renewals data.');
+      setFatalError(e);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -674,19 +681,19 @@ const canSubmit = useMemo(() => {
 
     setSubmitting(true);
     try {
-const payload = {
-  renew_type: registrationInfo?.registration_type || 'course', // or decide based on UI
-  group: Number(selectedGroupId),
+      const payload = {
+        renew_type: registrationInfo?.registration_type || 'course', // or decide based on UI
+        group: Number(selectedGroupId),
 
-  course: selectedCourseId ? Number(selectedCourseId) : null,
+        course: selectedCourseId ? Number(selectedCourseId) : null,
 
-  start_date: toISODate(startDate),
-  end_date: toISODate(endDate),
-  number_of_sessions: Number(sessions),
+        start_date: toISODate(startDate),
+        end_date: toISODate(endDate),
+        number_of_sessions: Number(sessions),
 
-  player_note: note?.trim() || null,
+        player_note: note?.trim() || null,
 
-};
+      };
 
 
       const res = await actions.submitRenewal(payload);
@@ -715,7 +722,7 @@ const payload = {
     canSubmit,
     toast,
     t,
-    registrationInfo?.id,
+    registrationInfo?.registration_type,
     selectedCourseId,
     selectedGroupId,
     startDate,
@@ -790,7 +797,7 @@ const payload = {
           <Text variant="body" weight="semibold" color={colors.textPrimary}>
             {t('portal.errors.sessionExpiredTitle')}
           </Text>
-          <Text variant="bodySmall" color={colors.textSecondary} style={{ marginTop: spacing.xs }}>
+          <Text variant="bodySmall" color={colors.textSecondary} style={{ marginTop: 8 }}>
             Missing try_out (tryOutId is null). Please refresh portal session.
           </Text>
           <View style={styles.missingActions}>
@@ -824,7 +831,7 @@ const payload = {
           <PortalEmptyState
             icon={AlertCircle}
             title={t('portal.renewals.errors.loadTitle')}
-            subtitle={fatalError || overviewError?.message || renewalsError?.message}
+            subtitle={(fatalError?.message || fatalError) || overviewError?.message || renewalsError?.message}
             actionLabel={t('portal.renewals.actions.retry')}
             onAction={() => {
               setRefreshing(true);
@@ -841,303 +848,303 @@ const payload = {
   return (
     <PortalAccessGate titleOverride={t('portal.renewals.title')}>
       <Screen>
-      <PortalHeader
-        title={t('portal.renewals.title')}
-        subtitle={t('portal.renewals.subtitle')}
-        right={HeaderRight}
-      />
+        <PortalHeader
+          title={t('portal.renewals.title')}
+          subtitle={t('portal.renewals.subtitle')}
+          right={HeaderRight}
+        />
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView
-          contentContainerStyle={[styles.scrollContent, isRTL && styles.rtl]}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                fetchAll();
-              }}
-              tintColor={colors.accentOrange}
-            />
-          }
-        >
-          <AnimatedCard delay={80}>
-            <GradientCard style={styles.summaryCard}>
-              <View style={styles.summaryHeader}>
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Text style={[styles.playerName, { color: colors.textPrimary }]}>{topSummary.fullName || 'Player'}</Text>
-                  {!!topSummary.academyName && (
-                    <Text style={[styles.academyName, { color: colors.textSecondary }]}>
-                      {topSummary.academyName}
-                    </Text>
-                  )}
-                </View>
-                <PremiumBadge
-                  text={eligible ? t('portal.renewals.eligible') : t('portal.renewals.notEligible')}
-                  variant={eligible ? 'success' : 'warning'}
-                  icon={eligible ? ShieldCheck : AlertCircle}
-                />
-              </View>
-
-              <View style={[styles.divider, { backgroundColor: alpha(colors.border, '30') }]} />
-
-              <View style={styles.statsGrid}>
-                <View style={styles.statItem}>
-                  <CalendarDays size={16} color={colors.textSecondary} />
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('portal.renewals.ends')}</Text>
-                  <Text style={[styles.statValue, { color: colors.textPrimary }]}>{formatPrettyDate(topSummary.end, locale, placeholder)}</Text>
-                </View>
-
-                <View style={styles.statItem}>
-                  <Clock size={16} color={colors.textSecondary} />
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('portal.renewals.daysLeft')}</Text>
-                  <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                    {Number.isFinite(Number(topSummary.daysLeft)) ? safeStr(topSummary.daysLeft) : placeholder}
-                  </Text>
-                </View>
-
-                <View style={styles.statItem}>
-                  <Target size={16} color={colors.textSecondary} />
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('portal.renewals.current')}</Text>
-                  <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                    {registrationInfo?.registration_type ? String(registrationInfo.registration_type).toUpperCase() : placeholder}
-                  </Text>
-                </View>
-              </View>
-
-              <Button
-                title={t('portal.renewals.viewDetails')}
-                onPress={() => router.push('/portal/renewals/details')}
-                variant="outline"
-                style={{ marginTop: 16 }}
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <ScrollView
+            contentContainerStyle={[styles.scrollContent, isRTL && styles.rtl]}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => {
+                  setRefreshing(true);
+                  fetchAll();
+                }}
+                tintColor={colors.accentOrange}
               />
-            </GradientCard>
-          </AnimatedCard>
-
-          <AnimatedCard delay={160} style={{ marginTop: 16 }}>
-            {!eligible ? (
-              <GradientCard style={styles.notEligibleCard}>
-                <SectionTitle
-                  icon={AlertCircle}
-                  title={t('portal.renewals.notAvailable.title')}
-                  subtitle={t('portal.renewals.notAvailable.subtitle')}
-                  colors={colors}
-                  tone="warning"
-                />
-
-                <View style={styles.reasonsList}>
-                  {eligibility?.has_pending_request && (
-                    <View style={[styles.reasonItem, { borderColor: colors.border }]}>
-                      <View style={[styles.reasonIcon, { backgroundColor: alpha(colors.warning, '15'), borderColor: alpha(colors.warning, '30') }]}>
-                        <Clock size={16} color={colors.warning} />
-                      </View>
-                      <View style={{ flex: 1, gap: 4 }}>
-                        <Text style={[styles.reasonTitle, { color: colors.textPrimary }]}>{t('portal.renewals.notAvailable.pendingTitle')}</Text>
-                        <Text style={[styles.reasonBody, { color: colors.textSecondary }]}>
-                          {t('portal.renewals.notAvailable.pendingBody')}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-
-                  {Number(topSummary.daysLeft) >= 0 && (
-                    <View style={[styles.reasonItem, { borderColor: colors.border }]}>
-                      <View style={[styles.reasonIcon, { backgroundColor: alpha(colors.warning, '15'), borderColor: alpha(colors.warning, '30') }]}>
-                        <Zap size={16} color={colors.warning} />
-                      </View>
-                      <View style={{ flex: 1, gap: 4 }}>
-                        <Text style={[styles.reasonTitle, { color: colors.textPrimary }]}>{t('portal.renewals.notAvailable.activeTitle')}</Text>
-                        <Text style={[styles.reasonBody, { color: colors.textSecondary }]}>
-                          {t('portal.renewals.notAvailable.activeBody')}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
+            }
+          >
+            <AnimatedCard delay={80}>
+              <GradientCard style={styles.summaryCard}>
+                <View style={styles.summaryHeader}>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={[styles.playerName, { color: colors.textPrimary }]}>{topSummary.fullName || 'Player'}</Text>
+                    {!!topSummary.academyName && (
+                      <Text style={[styles.academyName, { color: colors.textSecondary }]}>
+                        {topSummary.academyName}
+                      </Text>
+                    )}
+                  </View>
+                  <PremiumBadge
+                    text={eligible ? t('portal.renewals.eligible') : t('portal.renewals.notEligible')}
+                    variant={eligible ? 'success' : 'warning'}
+                    icon={eligible ? ShieldCheck : AlertCircle}
+                  />
                 </View>
 
-                <Button title={t('portal.renewals.actions.back')} onPress={() => router.back()} variant="outline" style={{ marginTop: 24 }} />
-              </GradientCard>
-            ) : (
-              <GradientCard>
-                <SectionTitle
-                  icon={Sparkles}
-                  title={t('portal.renewals.request.title')}
-                  subtitle={t('portal.renewals.request.subtitle')}
-                  colors={colors}
-                  tone="primary"
+                <View style={[styles.divider, { backgroundColor: alpha(colors.border, '30') }]} />
+
+                <View style={styles.statsGrid}>
+                  <View style={styles.statItem}>
+                    <CalendarDays size={16} color={colors.textSecondary} />
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('portal.renewals.ends')}</Text>
+                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>{formatPrettyDate(topSummary.end, locale, placeholder)}</Text>
+                  </View>
+
+                  <View style={styles.statItem}>
+                    <Clock size={16} color={colors.textSecondary} />
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('portal.renewals.daysLeft')}</Text>
+                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                      {Number.isFinite(Number(topSummary.daysLeft)) ? safeStr(topSummary.daysLeft) : placeholder}
+                    </Text>
+                  </View>
+
+                  <View style={styles.statItem}>
+                    <Target size={16} color={colors.textSecondary} />
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('portal.renewals.current')}</Text>
+                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                      {registrationInfo?.registration_type ? String(registrationInfo.registration_type).toUpperCase() : placeholder}
+                    </Text>
+                  </View>
+                </View>
+
+                <Button
+                  title={t('portal.renewals.viewDetails')}
+                  onPress={() => router.push('/portal/renewals/details')}
+                  variant="outline"
+                  style={{ marginTop: 16 }}
                 />
+              </GradientCard>
+            </AnimatedCard>
 
-                <View style={styles.formContent}>
-                  <PremiumDDL
-                    label={t('portal.renewals.request.courseLabel')}
-                    placeholder={t('portal.renewals.request.coursePlaceholder')}
-                    items={courses}
-                    selectedId={selectedCourseId}
-                    onSelect={(item) => setSelectedCourseId(item?.id || null)}
+            <AnimatedCard delay={160} style={{ marginTop: 16 }}>
+              {!eligible ? (
+                <GradientCard style={styles.notEligibleCard}>
+                  <SectionTitle
+                    icon={AlertCircle}
+                    title={t('portal.renewals.notAvailable.title')}
+                    subtitle={t('portal.renewals.notAvailable.subtitle')}
                     colors={colors}
-                    icon={CalendarDays}
+                    tone="warning"
                   />
 
-                  <PremiumDDL
-                    label={t('portal.renewals.request.groupLabel')}
-                    placeholder={t('portal.renewals.request.groupPlaceholder')}
-                    items={groups}
-                    selectedId={selectedGroupId}
-                    onSelect={(item) => setSelectedGroupId(item?.id || null)}
-                    colors={colors}
-                    icon={Users}
-                  />
-
-                  {selectedGroup && (
-                    <View style={[styles.schedulePreview, { backgroundColor: alpha(colors.accentOrange, '10'), borderColor: alpha(colors.accentOrange, '30') }]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <CalendarClock size={16} color={colors.accentOrange} />
-                        <Text style={[styles.scheduleTitle, { color: colors.accentOrange }]}>{t('portal.renewals.request.scheduleTitle')}</Text>
+                  <View style={styles.reasonsList}>
+                    {eligibility?.has_pending_request && (
+                      <View style={[styles.reasonItem, { borderColor: colors.border }]}>
+                        <View style={[styles.reasonIcon, { backgroundColor: alpha(colors.warning, '15'), borderColor: alpha(colors.warning, '30') }]}>
+                          <Clock size={16} color={colors.warning} />
+                        </View>
+                        <View style={{ flex: 1, gap: 4 }}>
+                          <Text style={[styles.reasonTitle, { color: colors.textPrimary }]}>{t('portal.renewals.notAvailable.pendingTitle')}</Text>
+                          <Text style={[styles.reasonBody, { color: colors.textSecondary }]}>
+                            {t('portal.renewals.notAvailable.pendingBody')}
+                          </Text>
+                        </View>
                       </View>
-                      <Text style={[styles.scheduleText, { color: colors.textPrimary }]}>
-                        {Array.isArray(selectedGroup?.schedule) && selectedGroup.schedule.length > 0
-                          ? selectedGroup.schedule
+                    )}
+
+                    {Number(topSummary.daysLeft) >= 0 && (
+                      <View style={[styles.reasonItem, { borderColor: colors.border }]}>
+                        <View style={[styles.reasonIcon, { backgroundColor: alpha(colors.warning, '15'), borderColor: alpha(colors.warning, '30') }]}>
+                          <Zap size={16} color={colors.warning} />
+                        </View>
+                        <View style={{ flex: 1, gap: 4 }}>
+                          <Text style={[styles.reasonTitle, { color: colors.textPrimary }]}>{t('portal.renewals.notAvailable.activeTitle')}</Text>
+                          <Text style={[styles.reasonBody, { color: colors.textSecondary }]}>
+                            {t('portal.renewals.notAvailable.activeBody')}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+
+                  <Button title={t('portal.renewals.actions.back')} onPress={() => router.back()} variant="outline" style={{ marginTop: 24 }} />
+                </GradientCard>
+              ) : (
+                <GradientCard>
+                  <SectionTitle
+                    icon={Sparkles}
+                    title={t('portal.renewals.request.title')}
+                    subtitle={t('portal.renewals.request.subtitle')}
+                    colors={colors}
+                    tone="primary"
+                  />
+
+                  <View style={styles.formContent}>
+                    <PremiumDDL
+                      label={t('portal.renewals.request.courseLabel')}
+                      placeholder={t('portal.renewals.request.coursePlaceholder')}
+                      items={courses}
+                      selectedId={selectedCourseId}
+                      onSelect={(item) => setSelectedCourseId(item?.id || null)}
+                      colors={colors}
+                      icon={CalendarDays}
+                    />
+
+                    <PremiumDDL
+                      label={t('portal.renewals.request.groupLabel')}
+                      placeholder={t('portal.renewals.request.groupPlaceholder')}
+                      items={groups}
+                      selectedId={selectedGroupId}
+                      onSelect={(item) => setSelectedGroupId(item?.id || null)}
+                      colors={colors}
+                      icon={Users}
+                    />
+
+                    {selectedGroup && (
+                      <View style={[styles.schedulePreview, { backgroundColor: alpha(colors.accentOrange, '10'), borderColor: alpha(colors.accentOrange, '30') }]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <CalendarClock size={16} color={colors.accentOrange} />
+                          <Text style={[styles.scheduleTitle, { color: colors.accentOrange }]}>{t('portal.renewals.request.scheduleTitle')}</Text>
+                        </View>
+                        <Text style={[styles.scheduleText, { color: colors.textPrimary }]}>
+                          {Array.isArray(selectedGroup?.schedule) && selectedGroup.schedule.length > 0
+                            ? selectedGroup.schedule
                               .map((s) => `${weekdayLabel(s?.day)} ${s?.time?.start || ''}-${s?.time?.end || ''}`.trim())
                               .join(scheduleSeparator)
-                          : t('portal.renewals.request.scheduleEmpty')}
-                      </Text>
-                      <Text style={[styles.scheduleNote, { color: colors.textSecondary }]}>
-                        {t('portal.renewals.request.sessionsPerWeek', { count: sessionsPerWeek })}
-                      </Text>
-                    </View>
-                  )}
-
-                  <View style={styles.dateGrid}>
-                    <DatePickerRow
-                      label={t('portal.renewals.request.startDate')}
-                      date={startDate}
-                      onPick={() => setDatePicker({ open: true, field: 'start' })}
-                      colors={colors}
-                      locale={locale}
-                      icon={Calendar}
-                      emptyLabel={t('portal.renewals.request.selectDate')}
-                    />
-                    <DatePickerRow
-                      label={t('portal.renewals.request.endDate')}
-                      date={endDate}
-                      onPick={() => setDatePicker({ open: true, field: 'end' })}
-                      colors={colors}
-                      locale={locale}
-                      icon={CalendarDays}
-                      emptyLabel={t('portal.renewals.request.selectDate')}
-                    />
-                  </View>
-
-                  <SessionsStepper
-                    value={sessions}
-                    onChange={onChangeSessions}
-                    min={1}
-                    max={Number(selectedCourse?.num_of_sessions) || 999}
-                    colors={colors}
-                    label={t('portal.renewals.request.sessionsLabel')}
-                    unitLabel={t('portal.renewals.request.sessionsUnit')}
-                  />
-
-                  {startDate && endDate && (
-                    <View style={[styles.summaryBox, { backgroundColor: alpha(colors.success, '1A'), borderColor: alpha(colors.success, '40') }]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Check size={16} color={colors.success} />
-                        <Text style={[styles.summaryTitle, { color: colors.success }]}>{t('portal.renewals.summary.title')}</Text>
+                            : t('portal.renewals.request.scheduleEmpty')}
+                        </Text>
+                        <Text style={[styles.scheduleNote, { color: colors.textSecondary }]}>
+                          {t('portal.renewals.request.sessionsPerWeek', { count: sessionsPerWeek })}
+                        </Text>
                       </View>
-                      <Text style={[styles.summaryText, { color: colors.textPrimary }]}>
-                        {t('portal.renewals.summary.range', { start: toISODate(startDate), end: toISODate(endDate) })}
-                      </Text>
-                      <Text style={[styles.summaryDetail, { color: colors.textSecondary }]}>
-                        {t('portal.renewals.summary.sessionsDetail', { count: sessions, perWeek: sessionsPerWeek })}
-                      </Text>
-                    </View>
-                  )}
+                    )}
 
-                  <View style={{ gap: 8 }}>
-                    <Text style={[styles.ddlLabel, { color: colors.textMuted }]}>
-                      {t('portal.renewals.request.notesLabel')}
-                    </Text>
-                    <Input
-                      value={note}
-                      onChangeText={setNote}
-                      placeholder={t('portal.renewals.request.notesPlaceholder')}
-                      multiline
-                      numberOfLines={3}
-                      style={[
-                        styles.noteInput,
-                        { backgroundColor: colors.surfaceElevated || colors.surface, borderColor: colors.border },
-                      ]}
+                    <View style={styles.dateGrid}>
+                      <DatePickerRow
+                        label={t('portal.renewals.request.startDate')}
+                        date={startDate}
+                        onPick={() => setDatePicker({ open: true, field: 'start' })}
+                        colors={colors}
+                        locale={locale}
+                        icon={Calendar}
+                        emptyLabel={t('portal.renewals.request.selectDate')}
+                      />
+                      <DatePickerRow
+                        label={t('portal.renewals.request.endDate')}
+                        date={endDate}
+                        onPick={() => setDatePicker({ open: true, field: 'end' })}
+                        colors={colors}
+                        locale={locale}
+                        icon={CalendarDays}
+                        emptyLabel={t('portal.renewals.request.selectDate')}
+                      />
+                    </View>
+
+                    <SessionsStepper
+                      value={sessions}
+                      onChange={onChangeSessions}
+                      min={1}
+                      max={Number(selectedCourse?.num_of_sessions) || 999}
+                      colors={colors}
+                      label={t('portal.renewals.request.sessionsLabel')}
+                      unitLabel={t('portal.renewals.request.sessionsUnit')}
                     />
+
+                    {startDate && endDate && (
+                      <View style={[styles.summaryBox, { backgroundColor: alpha(colors.success, '1A'), borderColor: alpha(colors.success, '40') }]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Check size={16} color={colors.success} />
+                          <Text style={[styles.summaryTitle, { color: colors.success }]}>{t('portal.renewals.summary.title')}</Text>
+                        </View>
+                        <Text style={[styles.summaryText, { color: colors.textPrimary }]}>
+                          {t('portal.renewals.summary.range', { start: toISODate(startDate), end: toISODate(endDate) })}
+                        </Text>
+                        <Text style={[styles.summaryDetail, { color: colors.textSecondary }]}>
+                          {t('portal.renewals.summary.sessionsDetail', { count: sessions, perWeek: sessionsPerWeek })}
+                        </Text>
+                      </View>
+                    )}
+
+                    <View style={{ gap: 8 }}>
+                      <Text style={[styles.ddlLabel, { color: colors.textMuted }]}>
+                        {t('portal.renewals.request.notesLabel')}
+                      </Text>
+                      <Input
+                        value={note}
+                        onChangeText={setNote}
+                        placeholder={t('portal.renewals.request.notesPlaceholder')}
+                        multiline
+                        numberOfLines={3}
+                        style={[
+                          styles.noteInput,
+                          { backgroundColor: colors.surfaceElevated || colors.surface, borderColor: colors.border },
+                        ]}
+                      />
+                    </View>
+
+                    <Button
+                      title={submitting ? t('portal.renewals.actions.submitting') : t('portal.renewals.actions.submit')}
+                      onPress={submit}
+                      disabled={!canSubmit || submitting}
+                      loading={submitting}
+                      style={styles.submitButton}
+                      gradient
+                    />
+
+                    <Text style={[styles.disclaimer, { color: colors.textSecondary }]}>
+                      {t('portal.renewals.request.disclaimer')}
+                    </Text>
+                  </View>
+                </GradientCard>
+              )}
+            </AnimatedCard>
+          </ScrollView>
+        </KeyboardAvoidingView>
+
+        {datePicker.open && (
+          <Modal transparent animationType="fade" visible={datePicker.open} onRequestClose={() => setDatePicker({ open: false, field: null })}>
+            <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill}>
+              <Pressable
+                style={[styles.datePickerBackdrop, { backgroundColor: alpha(colors.black, '80') }]}
+                onPress={() => setDatePicker({ open: false, field: null })}
+              >
+                <View
+                  style={[
+                    styles.datePickerSheet,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.datePickerHeader}>
+                    <Text style={[styles.datePickerTitle, { color: colors.textPrimary }]}>
+                      {datePicker.field === 'start'
+                        ? t('portal.renewals.datePicker.startTitle')
+                        : t('portal.renewals.datePicker.endTitle')}
+                    </Text>
+                    <Pressable onPress={() => setDatePicker({ open: false, field: null })}>
+                      <X size={24} color={colors.textPrimary} />
+                    </Pressable>
                   </View>
 
-                  <Button
-                    title={submitting ? t('portal.renewals.actions.submitting') : t('portal.renewals.actions.submit')}
-                    onPress={submit}
-                    disabled={!canSubmit || submitting}
-                    loading={submitting}
-                    style={styles.submitButton}
-                    gradient
+                  <DateTimePicker
+                    value={datePicker.field === 'start' ? startDate || new Date() : endDate || new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    onChange={(evt, picked) => {
+                      if (Platform.OS !== 'ios') setDatePicker({ open: false, field: null });
+                      if (!picked) return;
+                      if (datePicker.field === 'start') onChangeStartDate(picked);
+                      else onChangeEndDate(picked);
+                    }}
+                    style={styles.datePicker}
                   />
 
-                  <Text style={[styles.disclaimer, { color: colors.textSecondary }]}>
-                    {t('portal.renewals.request.disclaimer')}
-                  </Text>
+                  {Platform.OS === 'ios' && (
+                    <Button title={t('portal.renewals.datePicker.confirm')} onPress={() => setDatePicker({ open: false, field: null })} style={{ marginTop: 16 }} />
+                  )}
                 </View>
-              </GradientCard>
-            )}
-          </AnimatedCard>
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      {datePicker.open && (
-        <Modal transparent animationType="fade" visible={datePicker.open} onRequestClose={() => setDatePicker({ open: false, field: null })}>
-          <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill}>
-            <Pressable
-              style={[styles.datePickerBackdrop, { backgroundColor: alpha(colors.black, '80') }]}
-              onPress={() => setDatePicker({ open: false, field: null })}
-            >
-              <View
-                style={[
-                  styles.datePickerSheet,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <View style={styles.datePickerHeader}>
-                  <Text style={[styles.datePickerTitle, { color: colors.textPrimary }]}>
-                    {datePicker.field === 'start'
-                      ? t('portal.renewals.datePicker.startTitle')
-                      : t('portal.renewals.datePicker.endTitle')}
-                  </Text>
-                  <Pressable onPress={() => setDatePicker({ open: false, field: null })}>
-                    <X size={24} color={colors.textPrimary} />
-                  </Pressable>
-                </View>
-
-                <DateTimePicker
-                  value={datePicker.field === 'start' ? startDate || new Date() : endDate || new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  onChange={(evt, picked) => {
-                    if (Platform.OS !== 'ios') setDatePicker({ open: false, field: null });
-                    if (!picked) return;
-                    if (datePicker.field === 'start') onChangeStartDate(picked);
-                    else onChangeEndDate(picked);
-                  }}
-                  style={styles.datePicker}
-                />
-
-                {Platform.OS === 'ios' && (
-                  <Button title={t('portal.renewals.datePicker.confirm')} onPress={() => setDatePicker({ open: false, field: null })} style={{ marginTop: 16 }} />
-                )}
-              </View>
-            </Pressable>
-          </BlurView>
-        </Modal>
-      )}
+              </Pressable>
+            </BlurView>
+          </Modal>
+        )}
       </Screen>
     </PortalAccessGate>
   );

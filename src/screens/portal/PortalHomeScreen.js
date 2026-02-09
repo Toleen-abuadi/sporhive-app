@@ -94,6 +94,7 @@ export function PortalHomeScreen() {
     const isSessionInvalid = Boolean(invalidSessionReason || overviewError?.kind === 'PORTAL_SESSION_INVALID');
     const isForbidden = overviewError?.kind === 'PORTAL_FORBIDDEN' || errorStatus === 403;
     const isUnauthorized = errorStatus === 401;
+    const shouldLogout = isSessionInvalid || isUnauthorized;
 
     const titleKey = isSessionInvalid
       ? `portal.errors.${invalidSessionReason || 'sessionExpired'}Title`
@@ -116,12 +117,12 @@ export function PortalHomeScreen() {
           title={t(titleKey)}
           message={t(descriptionKey)}
           actionLabel={
-            isSessionInvalid || isForbidden || isUnauthorized
+            shouldLogout
               ? t('portal.errors.reAuthAction')
               : t('portal.common.retry')
           }
           onAction={() => {
-            if (isSessionInvalid || isForbidden || isUnauthorized) {
+            if (shouldLogout) {
               logout().finally(() => {
                 router.replace('/(auth)/login?mode=player');
               });

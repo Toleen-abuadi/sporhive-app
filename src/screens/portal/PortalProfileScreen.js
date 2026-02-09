@@ -1,6 +1,6 @@
 // src/screens/portal/PortalProfileScreen.jsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { useTheme } from '../../theme/ThemeProvider';
@@ -17,7 +17,7 @@ import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { useI18n } from '../../services/i18n/i18n';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { useAuth } from '../../services/auth/auth.store';
-import { isPortalReauthError } from '../../services/portal/portal.errors';
+import { isPortalReauthError, isPortalForbiddenError } from '../../services/portal/portal.errors';
 import { spacing } from '../../theme/tokens';
 
 function safeStr(v) {
@@ -47,19 +47,21 @@ export function PortalProfileScreen() {
     profile,
     profileLoading,
     profileError,
-    updatingProfile, // optional (if your store has it)
+    updatingProfile,
+    profileUpdateError,
   } = usePlayerPortalStore((state) => ({
     profile: state.profile,
     profileLoading: state.profileLoading,
     profileError: state.profileError,
-    updatingProfile: state.updatingProfile, // ok if undefined
+    updatingProfile: state.updatingProfile,
+    profileUpdateError: state.profileUpdateError,
   }));
 
   const placeholder = t('portal.common.placeholder');
 
-  const player = profile?.player || {};
-  const registration = profile?.registration || {};
-  const health = profile?.health || profile?.healthInfo || profile?.health_info || {};
+  const player = useMemo(() => profile?.player || {}, [profile]);
+  const registration = useMemo(() => profile?.registration || {}, [profile]);
+  const health = useMemo(() => profile?.health || profile?.healthInfo || profile?.health_info || {}, [profile]);
 
   const phoneNumbers = useMemo(() => {
     // support both normalized and raw shapes
@@ -88,8 +90,7 @@ export function PortalProfileScreen() {
 
   // ----------- Edit state -----------
   const [editMode, setEditMode] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const isSaving = Boolean(updatingProfile || saving);
+  const isSaving = Boolean(updatingProfile);
 
   const [form, setForm] = useState({
     first_eng_name: '',
@@ -167,8 +168,6 @@ export function PortalProfileScreen() {
 
   const handleSave = async () => {
     try {
-      setSaving(true);
-
       // Payload matches the web page behavior (snake_case + health + registration fields)
       const payload = {
         first_eng_name: form.first_eng_name.trim(),
@@ -197,11 +196,26 @@ export function PortalProfileScreen() {
       const ok = res?.ok === true || res?.success === true || res?.data != null;
 
       if (ok) {
-        await actions.fetchProfile();
         setEditMode(false);
+        Alert.alert(
+          t('portal.common.success'),
+          t('portal.profile.updateSuccess') || 'Profile updated successfully'
+        );
+      } else {
+        const status = res?.error?.status ?? profileUpdateError?.status ?? null;
+        const msg =
+          status === 400
+            ? (t('portal.profile.updateBadRequest') || 'Please check the entered values.')
+            : status === 401
+              ? (t('portal.errors.reAuthAction') || 'Please sign in again.')
+              : status === 403
+                ? (t('portal.errors.forbidden') || 'You do not have access to do this.')
+                : (t('portal.common.somethingWentWrong') || 'Something went wrong.');
+        Alert.alert(t('portal.common.error'), msg);
       }
-    } finally {
-      setSaving(false);
+    } catch (_e) {
+      // Defensive catch: store already normalizes, but ensure we never fail silently.
+      Alert.alert(t('portal.common.error'), t('portal.common.somethingWentWrong') || 'Something went wrong.');
     }
   };
 
@@ -220,11 +234,16 @@ export function PortalProfileScreen() {
 
   if (profileError && !profile) {
     const needsReauth = isPortalReauthError(profileError);
+    const isForbidden = isPortalForbiddenError(profileError);
     return (
       <AppScreen safe>
         <EmptyState
-          title={t('portal.profile.errorTitle')}
-          message={profileError?.message || t('portal.profile.errorDescription')}
+          title={isForbidden ? t('portal.errors.forbiddenTitle') : t('portal.profile.errorTitle')}
+          message={
+            isForbidden
+              ? t('portal.errors.forbiddenDescription')
+              : (profileError?.message || t('portal.profile.errorDescription'))
+          }
           actionLabel={needsReauth ? t('portal.errors.reAuthAction') : t('portal.common.retry')}
           onAction={() => {
             if (needsReauth) {

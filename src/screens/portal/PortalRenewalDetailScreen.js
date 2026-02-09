@@ -27,9 +27,18 @@ export function PortalRenewalDetailScreen() {
   const actions = usePlayerPortalActions();
 
   useEffect(() => {
-    if (!overview) actions.fetchOverview();
-    if (!renewals || Object.keys(renewals || {}).length === 0) actions.fetchRenewals();
+    const load = async () => {
+      if (!overview) {
+        const ov = await actions.fetchOverview();
+        if (!ov?.success) return;
+      }
+      if (!renewals || Object.keys(renewals || {}).length === 0) {
+        await actions.fetchRenewals();
+      }
+    };
+    load();
   }, [actions, overview, renewals]);
+
 
   const eligibility = useMemo(() => renewals || {}, [renewals]);
   const missingTryOut = isMissingTryOutError(renewalsError);
@@ -63,38 +72,38 @@ export function PortalRenewalDetailScreen() {
             </View>
           </Card>
         ) : (
-        <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text variant="body" weight="bold" color={colors.textPrimary}>
-            {t('portal.renewals.detailSummaryTitle')}
-          </Text>
-          <Text variant="caption" color={colors.textSecondary}>
-            {t('portal.renewals.detailSummarySubtitle')}
-          </Text>
-          <View style={styles.row}>
-            <Text variant="caption" color={colors.textMuted}>
-              {t('portal.renewals.statusLabel')}
+          <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text variant="body" weight="bold" color={colors.textPrimary}>
+              {t('portal.renewals.detailSummaryTitle')}
             </Text>
-            <Text variant="bodySmall" color={colors.textPrimary}>
-              {eligibility?.eligible ? t('portal.renewals.eligible') : t('portal.renewals.notEligible')}
+            <Text variant="caption" color={colors.textSecondary}>
+              {t('portal.renewals.detailSummarySubtitle')}
             </Text>
-          </View>
-          <View style={styles.row}>
-            <Text variant="caption" color={colors.textMuted}>
-              {t('portal.renewals.ends')}
-            </Text>
-            <Text variant="bodySmall" color={colors.textPrimary}>
-              {eligibility?.end_date || overview?.registration?.endDate || t('portal.common.placeholder')}
-            </Text>
-          </View>
-          <View style={styles.row}>
-            <Text variant="caption" color={colors.textMuted}>
-              {t('portal.renewals.daysLeft')}
-            </Text>
-            <Text variant="bodySmall" color={colors.textPrimary}>
-              {eligibility?.days_left ?? t('portal.common.placeholder')}
-            </Text>
-          </View>
-        </Card>
+            <View style={styles.row}>
+              <Text variant="caption" color={colors.textMuted}>
+                {t('portal.renewals.statusLabel')}
+              </Text>
+              <Text variant="bodySmall" color={colors.textPrimary}>
+                {eligibility?.eligible ? t('portal.renewals.eligible') : t('portal.renewals.notEligible')}
+              </Text>
+            </View>
+            <View style={styles.row}>
+              <Text variant="caption" color={colors.textMuted}>
+                {t('portal.renewals.ends')}
+              </Text>
+              <Text variant="bodySmall" color={colors.textPrimary}>
+                {eligibility?.end_date || overview?.registration?.endDate || t('portal.common.placeholder')}
+              </Text>
+            </View>
+            <View style={styles.row}>
+              <Text variant="caption" color={colors.textMuted}>
+                {t('portal.renewals.daysLeft')}
+              </Text>
+              <Text variant="bodySmall" color={colors.textPrimary}>
+                {eligibility?.days_left ?? t('portal.common.placeholder')}
+              </Text>
+            </View>
+          </Card>
         )}
       </AppScreen>
     </PortalAccessGate>

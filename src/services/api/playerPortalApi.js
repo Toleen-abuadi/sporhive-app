@@ -363,10 +363,23 @@ export const portalApi = {
 
   async updateProfile(payload = {}, options = {}) {
     return wrapApi(async () => {
-      const { body, portal } = await withAcademyPayload(payload, options);
+      const session = await ensureSession(options?.sessionOverride);
+      const playerId = getPortalPlayerId(session);
+
+      const withPlayer = {
+        ...(payload || {}),
+        ...(playerId ? { player_id: Number(playerId), external_player_id: Number(playerId) } : {}),
+      };
+
+      const { body, portal } = await withAcademyPayload(withPlayer, {
+        ...options,
+        requireTryOut: true,
+      });
+
       return portalPost('/player-portal-external-proxy/player-profile/profile/update', body, { portal });
     }, 'Profile update failed');
   },
+
 
   // ---- Renewals / Freezes / Invoices require try_out ----
 
