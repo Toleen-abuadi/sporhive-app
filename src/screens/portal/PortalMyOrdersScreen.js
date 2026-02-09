@@ -1,16 +1,12 @@
-// Portal Orders Screen: premium order history.
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, FlatList, Pressable } from 'react-native';
+import { View, StyleSheet, SectionList, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Filter, ChevronRight } from 'lucide-react-native';
-
 import { AppScreen } from '../../components/ui/AppScreen';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { Card } from '../../components/ui/Card';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
-import { Skeleton } from '../../components/ui/Skeleton';
-import { EmptyState } from '../../components/ui/EmptyState';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
 import { useI18n } from '../../services/i18n/i18n';
@@ -19,6 +15,15 @@ import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playe
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { useAuth } from '../../services/auth/auth.store';
 import { isPortalReauthError } from '../../services/portal/portal.errors';
+import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
+import { PortalStatusBadge } from '../../components/portal/PortalStatusBadge';
+import { PortalSkeleton } from '../../components/portal/PortalSkeleton';
+import { PortalErrorState } from '../../components/portal/PortalErrorState';
+import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
+import { PortalInfoAccordion } from '../../components/portal/PortalInfoAccordion';
+import { getMappedStatus } from '../../portal/statusMaps';
+
+const isProgress = (status) => ['pending', 'processing', 'shipped'].some((s) => String(status || '').toLowerCase().includes(s));
 
 export function PortalMyOrdersScreen() {
   const router = useRouter();
@@ -26,150 +31,96 @@ export function PortalMyOrdersScreen() {
   const { t } = useI18n();
   const { logout } = useAuth();
   const [filtersOpen, setFiltersOpen] = useState(false);
-
   const { orders, ordersLoading, ordersError, filters } = usePlayerPortalStore((state) => ({
     orders: state.orders,
     ordersLoading: state.ordersLoading,
     ordersError: state.ordersError,
     filters: state.filters,
   }));
-
   const actions = usePlayerPortalActions();
 
   useEffect(() => {
-    // ✅ Scope is required (prevents SQLite bind null in filter persistence)
     actions.hydrateFilters?.('orders');
     actions.fetchOrders?.();
   }, [actions]);
 
-  // ✅ Only one filteredOrders (scoped)
-  const filteredOrders = useMemo(
-    () => actions.selectFilteredOrders?.('orders') ?? [],
-    [actions, orders, filters]
-  );
+  const filteredOrders = useMemo(() => actions.selectFilteredOrders?.('orders') ?? [], [actions]);
+  const inProgress = filteredOrders.filter((o) => isProgress(o?.status || o?.state));
+  const past = filteredOrders.filter((o) => !isProgress(o?.status || o?.state));
+  const sections = [
+    { key: 'progress', title: 'In progress', data: inProgress },
+    { key: 'past', title: 'Past', data: past },
+  ].filter((x) => x.data.length);
 
-  const statusOptions = useMemo(
-    () => [
-      { value: 'all', label: t('portal.filters.statusAll') },
-      { value: 'pending', label: t('portal.orders.status.pending') },
-      { value: 'processing', label: t('portal.orders.status.processing') },
-      { value: 'collected', label: t('portal.orders.status.collected') },
-      { value: 'delivered', label: t('portal.orders.status.delivered') },
-      { value: 'cancelled', label: t('portal.orders.status.cancelled') },
-    ],
-    [t]
-  );
-
-  const resultsLabel = t('portal.filters.results', { count: filteredOrders.length });
-
+  const activeOrder = inProgress[0] || null;
   const needsReauth = isPortalReauthError(ordersError);
 
   return (
     <PortalAccessGate titleOverride={t('portal.orders.title')}>
       <AppScreen safe scroll={false}>
-        <AppHeader
-          title={t('portal.orders.title')}
-          subtitle={t('portal.orders.subtitle')}
-          rightAction={{
-            icon: <Filter size={18} color={colors.textPrimary} />,
-            onPress: () => setFiltersOpen(true),
-            accessibilityLabel: t('portal.filters.open'),
-          }}
-        />
+        <AppHeader title={t('portal.orders.title')} subtitle={t('portal.orders.subtitle')} rightAction={{ icon: <Filter size={18} color={colors.textPrimary} />, onPress: () => setFiltersOpen(true), accessibilityLabel: t('portal.filters.open') }} />
 
-        <View style={styles.resultsRow}>
-          <Text variant="caption" color={colors.textSecondary}>
-            {resultsLabel}
-          </Text>
-          <Button variant="secondary" onPress={() => setFiltersOpen(true)}>
-            <Text variant="caption" weight="bold" color={colors.textPrimary}>
-              {t('portal.filters.open')}
-            </Text>
-          </Button>
+        <View style={styles.pad}>
+          <PortalInfoAccordion title="Order statuses" summary="Track your order from processing to delivery/collection." bullets={['In progress orders need no extra action unless staff contact you.', 'Past orders are completed, collected, delivered, or cancelled.']} />
         </View>
 
+        <View style={styles.resultsRow}>
+          <Text variant="caption" color={colors.textSecondary}>{t('portal.filters.results', { count: filteredOrders.length })}</Text>
+          <Button variant="secondary" onPress={() => setFiltersOpen(true)}>{t('portal.filters.open')}</Button>
+        </View>
+
+        {activeOrder ? <View style={styles.banner}><PortalActionBanner title="Action Required" description={`Order ${activeOrder?.reference || activeOrder?.id || ''} is in progress.`} actionLabel={t('portal.orders.viewOrder')} onAction={() => router.push(`/portal/orders/${activeOrder?.id ?? activeOrder?.reference}`)} /></View> : null}
+
         {ordersLoading && !orders?.length ? (
-          <View style={styles.skeletonWrap}>
-            {Array.from({ length: 3 }).map((_, idx) => (
-              <Skeleton key={`order-skeleton-${idx}`} height={120} radius={16} />
-            ))}
-          </View>
+          <View style={styles.pad}><PortalSkeleton rows={3} height={112} /></View>
         ) : ordersError ? (
-          <EmptyState
-            title={t('portal.orders.errorTitle')}
-            message={ordersError?.message || t('portal.orders.errorDescription')}
-            actionLabel={needsReauth ? t('portal.errors.reAuthAction') : t('portal.common.retry')}
-            onAction={() => {
-              if (needsReauth) {
-                logout().finally(() => {
-                  router.replace('/(auth)/login?mode=player');
-                });
-                return;
-              }
-              actions.fetchOrders?.();
-            }}
-          />
+          <View style={styles.pad}><PortalErrorState title={t('portal.orders.errorTitle')} message={ordersError?.message || t('portal.orders.errorDescription')} onRetry={!needsReauth ? () => actions.fetchOrders?.() : undefined} onRelogin={needsReauth ? () => logout().finally(() => router.replace('/(auth)/login?mode=player')) : undefined} retryLabel={t('portal.common.retry')} reloginLabel={t('portal.errors.reAuthAction')} /></View>
         ) : filteredOrders.length === 0 ? (
-          <EmptyState
-            title={t('portal.orders.emptyTitle')}
-            message={t('portal.orders.emptyDescription')}
-            actionLabel={t('portal.filters.clear')}
-            onAction={() => actions.clearFilters?.('orders')}
-          />
+          <View style={styles.pad}><PortalEmptyState title={t('portal.orders.emptyTitle')} description={t('portal.orders.emptyDescription')} action={<Button onPress={() => actions.clearFilters?.('orders')}>{t('portal.filters.clear')}</Button>} /></View>
         ) : (
-          <FlatList
-            data={filteredOrders}
+          <SectionList
+            sections={sections}
             keyExtractor={(item, idx) => String(item?.id ?? item?.reference ?? idx)}
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => {
-                  const target = item?.id ?? item?.reference;
-                  if (target != null) router.push(`/portal/orders/${target}`);
-                }}
-              >
-                <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <View style={styles.cardRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text variant="body" weight="bold" color={colors.textPrimary}>
-                        {item?.title || t('portal.orders.defaultTitle')}
-                      </Text>
-                      <Text variant="caption" color={colors.textSecondary}>
-                        {item?.created_at || t('portal.common.placeholder')}
-                      </Text>
+            renderSectionHeader={({ section }) => <View style={styles.sectionHeader}><Text variant="bodySmall" weight="bold" color={colors.textPrimary}>{section.title}</Text><Text variant="caption" color={colors.textMuted}>{section.data.length}</Text></View>}
+            renderItem={({ item }) => {
+              const mapped = getMappedStatus('order', item?.status || item?.state);
+              return (
+                <Pressable onPress={() => router.push(`/portal/orders/${item?.id ?? item?.reference}`)}>
+                  <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+                    <View style={styles.cardRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text variant="body" weight="bold" color={colors.textPrimary}>{item?.title || t('portal.orders.defaultTitle')}</Text>
+                        <Text variant="caption" color={colors.textSecondary}>{`Updated ${item?.updated_at || item?.created_at || t('portal.common.placeholder')}`}</Text>
+                      </View>
+                      <View style={styles.amountWrap}>
+                        <Text variant="body" weight="bold" color={colors.textPrimary}>{item?.total || item?.amount || t('portal.common.placeholder')}</Text>
+                        <PortalStatusBadge label={mapped.label} severity={mapped.severity} />
+                      </View>
+                      <ChevronRight size={18} color={colors.textMuted} />
                     </View>
-
-                    <View style={styles.amountWrap}>
-                      <Text variant="body" weight="bold" color={colors.textPrimary}>
-                        {item?.total || item?.amount || t('portal.common.placeholder')}
-                      </Text>
-                      <Text variant="caption" color={colors.textMuted}>
-                        {item?.status || t('portal.orders.status.pending')}
-                      </Text>
-                    </View>
-
-                    <ChevronRight size={18} color={colors.textMuted} />
-                  </View>
-                </Card>
-              </Pressable>
-            )}
+                  </Card>
+                </Pressable>
+              );
+            }}
             contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
-            showsVerticalScrollIndicator={false}
+            stickySectionHeadersEnabled={false}
           />
         )}
 
         <PortalFilterSheet
           visible={filtersOpen}
           onClose={() => setFiltersOpen(false)}
-          onClear={() => {
-            actions.clearFilters?.('orders');
-            setFiltersOpen(false);
-          }}
-          onApply={(next) => {
-            actions.setFilters?.('orders', next);
-            setFiltersOpen(false);
-          }}
+          onClear={() => { actions.clearFilters?.('orders'); setFiltersOpen(false); }}
+          onApply={(next) => { actions.setFilters?.('orders', next); setFiltersOpen(false); }}
           filters={filters?.orders || {}}
-          statusOptions={statusOptions}
+          statusOptions={[
+            { value: 'all', label: t('portal.filters.statusAll') },
+            { value: 'pending', label: t('portal.orders.status.pending') },
+            { value: 'processing', label: t('portal.orders.status.processing') },
+            { value: 'collected', label: t('portal.orders.status.collected') },
+            { value: 'delivered', label: t('portal.orders.status.delivered') },
+            { value: 'cancelled', label: t('portal.orders.status.cancelled') },
+          ]}
           title={t('portal.orders.filtersTitle')}
           subtitle={t('portal.orders.filtersSubtitle')}
         />
@@ -179,31 +130,11 @@ export function PortalMyOrdersScreen() {
 }
 
 const styles = StyleSheet.create({
-  resultsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  skeletonWrap: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-  },
-  card: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: spacing.md,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  amountWrap: {
-    alignItems: 'flex-end',
-    minWidth: 64,
-  },
+  resultsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: spacing.lg, marginBottom: spacing.md, marginTop: spacing.md },
+  banner: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
+  pad: { paddingHorizontal: spacing.lg },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: spacing.lg, marginTop: spacing.md, marginBottom: spacing.xs },
+  card: { marginHorizontal: spacing.lg, marginBottom: spacing.md, borderRadius: 16, borderWidth: 1, padding: spacing.md },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  amountWrap: { alignItems: 'flex-end', minWidth: 82, gap: 6 },
 });

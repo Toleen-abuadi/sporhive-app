@@ -13,6 +13,19 @@ import { isMissingTryOutError } from '../../services/portal/portal.tryout';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { spacing } from '../../theme/tokens';
+import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
+import { PortalStatusBadge } from '../../components/portal/PortalStatusBadge';
+import { getMappedStatus } from '../../portal/statusMaps';
+import { getGlossaryHelp } from '../../portal/portalGlossary';
+import { PortalInfoAccordion } from '../../components/portal/PortalInfoAccordion';
+import { PortalTimeline } from '../../components/portal/PortalTimeline';
+
+const renewalStepIndex = (eligibility) => {
+  if (!eligibility) return 0;
+  if (eligibility?.eligible) return 2;
+  if (eligibility?.pending || String(eligibility?.status || '').toLowerCase().includes('pending')) return 1;
+  return 0;
+};
 
 export function PortalRenewalDetailScreen() {
   const { colors } = useTheme();
@@ -32,78 +45,66 @@ export function PortalRenewalDetailScreen() {
         const ov = await actions.fetchOverview();
         if (!ov?.success) return;
       }
-      if (!renewals || Object.keys(renewals || {}).length === 0) {
-        await actions.fetchRenewals();
-      }
+      if (!renewals || Object.keys(renewals || {}).length === 0) await actions.fetchRenewals();
     };
     load();
   }, [actions, overview, renewals]);
 
-
   const eligibility = useMemo(() => renewals || {}, [renewals]);
   const missingTryOut = isMissingTryOutError(renewalsError);
+  const statusMeta = getMappedStatus('renewal', eligibility?.eligible ? 'eligible' : 'ineligible');
+  const needsAction = !eligibility?.eligible || Number(eligibility?.days_left) <= 14;
 
   return (
     <PortalAccessGate titleOverride={t('portal.renewals.detailTitle')}>
       <AppScreen safe scroll>
         <AppHeader title={t('portal.renewals.detailTitle')} />
 
+        <PortalInfoAccordion
+          title="What is renewal?"
+          summary={getGlossaryHelp('renewal')}
+          bullets={[
+            'Renewal extends your training registration.',
+            'If renewal is pending, wait for approval notification.',
+            'If ineligible, check your current plan end date and contact academy.',
+          ]}
+        />
+
+        {needsAction ? (
+          <PortalActionBanner
+            title="Action Required"
+            description={`Renewal recommended before ${eligibility?.end_date || overview?.registration?.endDate || t('portal.common.placeholder')}`}
+            actionLabel="Renew now"
+            onAction={() => router.push('/portal/renewals')}
+          />
+        ) : null}
+
         {missingTryOut ? (
-          <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text variant="body" weight="bold" color={colors.textPrimary}>
-              {t('portal.errors.sessionExpiredTitle')}
-            </Text>
-            <Text variant="bodySmall" color={colors.textSecondary}>
-              Missing try_out (tryOutId is null). Please refresh portal session.
-            </Text>
+          <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+            <Text variant="body" weight="bold" color={colors.textPrimary}>{t('portal.errors.sessionExpiredTitle')}</Text>
+            <Text variant="bodySmall" color={colors.textSecondary}>Missing try_out (tryOutId is null). Please refresh portal session.</Text>
             <View style={styles.missingActions}>
-              <Button variant="secondary" onPress={actions.fetchOverview}>
-                {t('portal.common.retry')}
-              </Button>
-              <Button
-                onPress={() => {
-                  logout().finally(() => {
-                    router.replace('/(auth)/login?mode=player');
-                  });
-                }}
-              >
-                {t('portal.errors.reAuthAction')}
-              </Button>
+              <Button variant="secondary" onPress={actions.fetchOverview}>{t('portal.common.retry')}</Button>
+              <Button onPress={() => logout().finally(() => router.replace('/(auth)/login?mode=player'))}>{t('portal.errors.reAuthAction')}</Button>
             </View>
           </Card>
         ) : (
-          <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text variant="body" weight="bold" color={colors.textPrimary}>
-              {t('portal.renewals.detailSummaryTitle')}
-            </Text>
-            <Text variant="caption" color={colors.textSecondary}>
-              {t('portal.renewals.detailSummarySubtitle')}
-            </Text>
-            <View style={styles.row}>
-              <Text variant="caption" color={colors.textMuted}>
-                {t('portal.renewals.statusLabel')}
-              </Text>
-              <Text variant="bodySmall" color={colors.textPrimary}>
-                {eligibility?.eligible ? t('portal.renewals.eligible') : t('portal.renewals.notEligible')}
-              </Text>
-            </View>
-            <View style={styles.row}>
-              <Text variant="caption" color={colors.textMuted}>
-                {t('portal.renewals.ends')}
-              </Text>
-              <Text variant="bodySmall" color={colors.textPrimary}>
-                {eligibility?.end_date || overview?.registration?.endDate || t('portal.common.placeholder')}
-              </Text>
-            </View>
-            <View style={styles.row}>
-              <Text variant="caption" color={colors.textMuted}>
-                {t('portal.renewals.daysLeft')}
-              </Text>
-              <Text variant="bodySmall" color={colors.textPrimary}>
-                {eligibility?.days_left ?? t('portal.common.placeholder')}
-              </Text>
-            </View>
-          </Card>
+          <>
+            <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+              <Text variant="body" weight="bold" color={colors.textPrimary}>STATUS & NEXT STEP</Text>
+              <PortalStatusBadge label={statusMeta.label} severity={statusMeta.severity} />
+              <Text variant="caption" color={colors.textSecondary}>{statusMeta.shortHelp}</Text>
+              <PortalTimeline steps={['Created', 'Pending', 'Approved', 'Completed']} activeIndex={renewalStepIndex(eligibility)} />
+              <View style={styles.row}><Text variant="caption" color={colors.textMuted}>{t('portal.renewals.ends')}</Text><Text variant="bodySmall" color={colors.textPrimary}>{eligibility?.end_date || overview?.registration?.endDate || t('portal.common.placeholder')}</Text></View>
+              <View style={styles.row}><Text variant="caption" color={colors.textMuted}>{t('portal.renewals.daysLeft')}</Text><Text variant="bodySmall" color={colors.textPrimary}>{eligibility?.days_left ?? t('portal.common.placeholder')}</Text></View>
+            </Card>
+
+            <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+              <Text variant="body" weight="bold" color={colors.textPrimary}>What you can do now</Text>
+              <Text variant="caption" color={colors.textSecondary}>{needsAction ? 'Complete renewal request now to avoid interruption.' : 'No action needed right now. Keep tracking your end date.'}</Text>
+              <Button onPress={() => router.push('/portal/renewals')}>{needsAction ? 'Renew now' : 'Open renewal options'}</Button>
+            </Card>
+          </>
         )}
       </AppScreen>
     </PortalAccessGate>
@@ -111,19 +112,7 @@ export function PortalRenewalDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    gap: spacing.sm,
-  },
-  row: {
-    gap: 4,
-  },
-  missingActions: {
-    marginTop: spacing.md,
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
+  card: { borderRadius: 18, borderWidth: 1, padding: spacing.lg, marginBottom: spacing.lg, gap: spacing.sm },
+  row: { gap: 4 },
+  missingActions: { marginTop: spacing.md, flexDirection: 'row', gap: spacing.sm },
 });

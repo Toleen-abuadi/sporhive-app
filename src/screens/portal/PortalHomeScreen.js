@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, Image, RefreshControl, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
+import { UserCircle, CreditCard, ShoppingBag, RefreshCcw, Shirt, ShieldAlert } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Text } from '../../components/ui/Text';
 import { AppScreen } from '../../components/ui/AppScreen';
@@ -15,18 +16,21 @@ import { spacing } from '../../theme/tokens';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { Badge } from '../../components/ui/Badge';
-import { UserCircle, CreditCard, ShoppingBag, CalendarDays, RefreshCcw } from 'lucide-react-native';
+import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
+
+const parseDaysLeft = (dateText) => {
+  if (!dateText) return null;
+  const d = new Date(dateText);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.ceil((d.getTime() - Date.now()) / 86400000);
+};
 
 export function PortalHomeScreen() {
   const { colors } = useTheme();
   const { t, isRTL } = useI18n();
   const router = useRouter();
   const { session, logout, isLoading: authLoading } = useAuth();
-  const {
-    overview,
-    overviewLoading,
-    overviewError,
-  } = usePlayerPortalStore((state) => ({
+  const { overview, overviewLoading, overviewError } = usePlayerPortalStore((state) => ({
     overview: state.overview,
     overviewLoading: state.overviewLoading,
     overviewError: state.overviewError,
@@ -36,24 +40,8 @@ export function PortalHomeScreen() {
   const placeholder = t('portal.common.placeholder');
   const sessionValidation = authLoading ? { ok: true } : validatePortalSession(session);
 
-  if (__DEV__ && !authLoading) {
-    console.log('[PortalHomeScreen] sessionValidation:', sessionValidation);
-    console.log('[PortalHomeScreen] session.user.academy_id:', session?.user?.academy_id);
-    console.log('[PortalHomeScreen] session.academyId:', session?.academyId);
-  }
-
-
-  const errorStatus =
-    overviewError?.status ||
-    overviewError?.response?.status ||
-    overviewError?.statusCode ||
-    overviewError?.meta?.status ||
-    null;
-
   useEffect(() => {
-    if (!authLoading && sessionValidation.ok) {
-      actions.fetchOverview();
-    }
+    if (!authLoading && sessionValidation.ok) actions.fetchOverview();
   }, [actions, authLoading, sessionValidation.ok]);
 
   const onRefresh = useCallback(async () => {
@@ -62,70 +50,33 @@ export function PortalHomeScreen() {
     setRefreshing(false);
   }, [actions]);
 
-  const sessionProgress = overview?.registration?.totalSessions
-    ? overview.registration.remainingSessions / overview.registration.totalSessions
-    : 0.4;
+  const errorStatus = overviewError?.status || overviewError?.response?.status || overviewError?.statusCode || null;
+  const invalidSessionReason = !authLoading && !sessionValidation.ok ? sessionValidation.reason : null;
 
   if ((overviewLoading || authLoading) && !overview) {
-    if (__DEV__) {
-      console.log('[PortalHomeScreen] invalidSessionReason:', invalidSessionReason);
-      console.log('[PortalHomeScreen] overviewError:', overviewError);
-      console.log('[PortalHomeScreen] errorStatus:', errorStatus);
-    }
-
     return (
       <AppScreen safe>
         <View style={styles.skeletonStack}>
           <Skeleton height={120} radius={16} />
-          <View style={styles.skeletonRow}>
-            <Skeleton height={120} radius={16} style={styles.skeletonHalf} />
-            <Skeleton height={120} radius={16} style={styles.skeletonHalf} />
-          </View>
-          <Skeleton height={160} radius={16} />
-          <Skeleton height={140} radius={16} />
+          <Skeleton height={86} radius={16} />
+          <View style={styles.skeletonRow}><Skeleton height={110} radius={16} style={styles.skeletonHalf} /><Skeleton height={110} radius={16} style={styles.skeletonHalf} /></View>
+          <Skeleton height={150} radius={16} />
         </View>
       </AppScreen>
     );
   }
 
-  const invalidSessionReason = !authLoading && !sessionValidation.ok ? sessionValidation.reason : null;
-
   if ((overviewError || invalidSessionReason) && !overview) {
-    const isSessionInvalid = Boolean(invalidSessionReason || overviewError?.kind === 'PORTAL_SESSION_INVALID');
-    const isForbidden = overviewError?.kind === 'PORTAL_FORBIDDEN' || errorStatus === 403;
-    const isUnauthorized = errorStatus === 401;
-    const shouldLogout = isSessionInvalid || isUnauthorized;
-
-    const titleKey = isSessionInvalid
-      ? `portal.errors.${invalidSessionReason || 'sessionExpired'}Title`
-      : isForbidden
-        ? 'portal.errors.forbiddenTitle'
-        : isUnauthorized
-          ? 'portal.errors.unauthorizedTitle'
-          : 'portal.errors.overviewTitle';
-    const descriptionKey = isSessionInvalid
-      ? `portal.errors.${invalidSessionReason || 'sessionExpired'}Description`
-      : isForbidden
-        ? 'portal.errors.forbiddenDescription'
-        : isUnauthorized
-          ? 'portal.errors.unauthorizedDescription'
-          : 'portal.errors.overviewDescription';
-
+    const isSessionInvalid = Boolean(invalidSessionReason || overviewError?.kind === 'PORTAL_SESSION_INVALID' || errorStatus === 401);
     return (
       <AppScreen>
         <EmptyState
-          title={t(titleKey)}
-          message={t(descriptionKey)}
-          actionLabel={
-            shouldLogout
-              ? t('portal.errors.reAuthAction')
-              : t('portal.common.retry')
-          }
+          title={isSessionInvalid ? t('portal.errors.sessionExpiredTitle') : t('portal.errors.overviewTitle')}
+          message={isSessionInvalid ? t('portal.errors.sessionExpiredDescription') : (overviewError?.message || t('portal.errors.overviewDescription'))}
+          actionLabel={isSessionInvalid ? t('portal.errors.reAuthAction') : t('portal.common.retry')}
           onAction={() => {
-            if (shouldLogout) {
-              logout().finally(() => {
-                router.replace('/(auth)/login?mode=player');
-              });
+            if (isSessionInvalid) {
+              logout().finally(() => router.replace('/(auth)/login?mode=player'));
               return;
             }
             onRefresh();
@@ -135,43 +86,33 @@ export function PortalHomeScreen() {
     );
   }
 
-  const sections = [
-    {
-      key: 'profile',
-      title: t('portal.profile.title'),
-      subtitle: t('portal.profile.subtitle'),
-      icon: <UserCircle size={22} color={colors.accentOrange} />,
-      route: '/portal/profile',
-    },
-    {
-      key: 'renewals',
-      title: t('portal.renewals.title'),
-      subtitle: t('portal.renewals.subtitle'),
-      icon: <RefreshCcw size={22} color={colors.accentOrange} />,
-      route: '/portal/renewals',
-    },
-    {
-      key: 'payments',
-      title: t('portal.payments.title'),
-      subtitle: t('portal.payments.subtitle'),
-      icon: <CreditCard size={22} color={colors.accentOrange} />,
-      route: '/portal/payments',
-    },
-    {
-      key: 'orders',
-      title: t('portal.orders.title'),
-      subtitle: t('portal.orders.subtitle'),
-      icon: <ShoppingBag size={22} color={colors.accentOrange} />,
-      route: '/portal/my-orders',
-    },
-    {
-      key: 'schedule',
-      title: t('portal.schedule.title'),
-      subtitle: t('portal.schedule.subtitle'),
-      icon: <CalendarDays size={22} color={colors.accentOrange} />,
-      route: '/portal/performance',
-    },
+  const firstPayment = overview?.payments?.[0] || null;
+  const paymentStatus = String(firstPayment?.status || '').toLowerCase();
+  const hasUnpaid = paymentStatus.includes('unpaid') || paymentStatus.includes('pending') || paymentStatus.includes('overdue');
+  const renewalDays = parseDaysLeft(overview?.registration?.endDate || overview?.renewals?.end_date);
+  const renewalUrgent = renewalDays != null && renewalDays <= 14;
+  const freezePending = Number(overview?.performance?.metrics?.freezing_counts?.pending || 0) > 0;
+
+  const actionConfig = hasUnpaid
+    ? { title: 'Action Required', description: `Payment due ${firstPayment?.dueDate || placeholder}`, cta: 'Pay now', route: '/portal/payments' }
+    : renewalUrgent
+      ? { title: 'Action Required', description: `Renewal recommended in ${Math.max(renewalDays, 0)} day(s).`, cta: 'Renew now', route: '/portal/renewals' }
+      : freezePending
+        ? { title: 'Action Required', description: 'You have a pending freeze request awaiting review.', cta: 'View freeze', route: '/portal/freezes' }
+        : null;
+
+  const quickActions = [
+    { key: 'payments', title: t('portal.payments.title'), route: '/portal/payments', icon: CreditCard },
+    { key: 'renewals', title: t('portal.renewals.title'), route: '/portal/renewals', icon: RefreshCcw },
+    { key: 'uniforms', title: t('portal.uniforms.title'), route: '/portal/uniform-store', icon: Shirt },
+    { key: 'orders', title: t('portal.orders.title'), route: '/portal/my-orders', icon: ShoppingBag },
+    { key: 'profile', title: t('portal.profile.title'), route: '/portal/profile', icon: UserCircle },
   ];
+
+  const recentUpdates = [];
+  if (firstPayment) recentUpdates.push({ key: 'p1', title: 'Latest payment', subtitle: `${firstPayment?.status || placeholder} • ${firstPayment?.dueDate || placeholder}` });
+  if (overview?.performance?.metrics?.last_order_status) recentUpdates.push({ key: 'o1', title: 'Latest order', subtitle: `${overview.performance.metrics.last_order_status} • ${overview.performance.metrics.last_order_date || placeholder}` });
+  if (overview?.registration?.remainingSessions != null) recentUpdates.push({ key: 's1', title: 'Sessions remaining', subtitle: `${overview.registration.remainingSessions}/${overview.registration.totalSessions || 0}` });
 
   return (
     <PortalAccessGate titleOverride={t('portal.home.title')}>
@@ -181,132 +122,58 @@ export function PortalHomeScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentOrange} />}
           showsVerticalScrollIndicator={false}
         >
-          <AppHeader
-            title={t('portal.home.title')}
-            subtitle={t('portal.home.subtitle')}
-            rightAction={{
-              icon: <RefreshCcw size={18} color={colors.textPrimary} />,
-              onPress: onRefresh,
-              accessibilityLabel: t('portal.common.refresh'),
-            }}
-          />
+          <AppHeader title={t('portal.home.title')} subtitle={t('portal.home.subtitle')} />
 
-          <Card style={[styles.heroCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Card style={[styles.heroCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
             <View style={styles.heroRow}>
-              <View style={[styles.avatar, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
-                {overview?.player?.imageBase64 ? (
-                  <Image source={{ uri: overview.player.imageBase64 }} style={styles.avatarImage} />
-                ) : (
-                  <Text variant="h3" weight="bold" color={colors.textPrimary}>
-                    {(overview?.player?.fullName || t('portal.common.player')).slice(0, 1)}
-                  </Text>
-                )}
+              <View style={[styles.avatar, { backgroundColor: colors.surfaceElevated || colors.surface }]}> 
+                {overview?.player?.imageBase64 ? <Image source={{ uri: overview.player.imageBase64 }} style={styles.avatarImage} /> : <UserCircle size={36} color={colors.textMuted} />}
               </View>
               <View style={styles.heroText}>
-                <Text variant="h4" weight="bold" color={colors.textPrimary}>
-                  {overview?.player?.fullName || t('portal.home.welcomeBack')}
-                </Text>
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  {overview?.academyName || t('portal.home.academy')}
-                </Text>
-                <View style={styles.heroMetaRow}>
-                  <Badge style={[styles.heroBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-                    <Text variant="caption" weight="bold" color={colors.textPrimary}>
-                      {overview?.registration?.registrationType || t('portal.home.activePlayer')}
-                    </Text>
-                  </Badge>
-                  <Text variant="caption" color={colors.textMuted}>
-                    {t('portal.home.playerId', { id: overview?.player?.id || placeholder })}
-                  </Text>
-                </View>
+                <Text variant="h4" weight="bold" color={colors.textPrimary}>{overview?.player?.fullName || t('portal.home.welcomeBack')}</Text>
+                <Text variant="bodySmall" color={colors.textSecondary}>{overview?.academyName || t('portal.home.academy')}</Text>
+                <Badge style={[styles.heroBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
+                  <Text variant="caption" weight="bold" color={colors.textPrimary}>{overview?.registration?.registrationType || t('portal.home.activePlayer')}</Text>
+                </Badge>
               </View>
             </View>
           </Card>
 
-          <View style={styles.statsRow}>
-            <Card style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text variant="caption" color={colors.textMuted}>
-                {t('portal.home.nextPayment')}
-              </Text>
-              <Text variant="body" weight="bold" color={colors.textPrimary}>
-                {overview?.payments?.[0]?.amount || placeholder}
-              </Text>
-              <Text variant="caption" color={colors.textSecondary}>
-                {overview?.payments?.[0]?.dueDate || placeholder}
-              </Text>
+          {actionConfig ? (
+            <PortalActionBanner title={actionConfig.title} description={actionConfig.description} actionLabel={actionConfig.cta} onAction={() => router.push(actionConfig.route)} />
+          ) : (
+            <Card style={[styles.goodCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+              <View style={styles.goodRow}><ShieldAlert size={16} color={colors.success} /><Text variant="body" weight="bold" color={colors.textPrimary}>You’re all set</Text></View>
+              <Text variant="caption" color={colors.textSecondary}>No urgent actions right now. Check performance or latest news for updates.</Text>
             </Card>
-            <Card style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text variant="caption" color={colors.textMuted}>
-                {t('portal.home.sessionsRemainingShort')}
-              </Text>
-              <Text variant="body" weight="bold" color={colors.textPrimary}>
-                {overview?.registration?.remainingSessions ?? 0}
-              </Text>
-              <Text variant="caption" color={colors.textSecondary}>
-                {t('portal.home.ofSessions', { total: overview?.registration?.totalSessions ?? 0 })}
-              </Text>
-            </Card>
-            <Card style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text variant="caption" color={colors.textMuted}>
-                {t('portal.home.lastOrder')}
-              </Text>
-              <Text variant="body" weight="bold" color={colors.textPrimary}>
-                {overview?.performance?.metrics?.last_order_status || placeholder}
-              </Text>
-              <Text variant="caption" color={colors.textSecondary}>
-                {overview?.performance?.metrics?.last_order_date || placeholder}
-              </Text>
-            </Card>
+          )}
+
+          <Text variant="body" weight="bold" color={colors.textPrimary}>Quick actions</Text>
+          <View style={styles.grid}>
+            {quickActions.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Pressable key={item.key} style={[styles.quickCard, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => router.push(item.route)}>
+                  <Icon size={18} color={colors.accentOrange} />
+                  <Text variant="bodySmall" weight="semibold" color={colors.textPrimary}>{item.title}</Text>
+                </Pressable>
+              );
+            })}
           </View>
 
-          <Card style={[styles.progressCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text variant="body" weight="semibold" color={colors.textPrimary}>
-              {t('portal.home.sessionsProgress')}
-            </Text>
-            <Text variant="bodySmall" color={colors.textSecondary} style={styles.cardSubtitle}>
-              {t('portal.home.sessionsRemaining', {
-                remaining: overview?.registration?.remainingSessions ?? 0,
-                total: overview?.registration?.totalSessions ?? 0,
-              })}
-            </Text>
-            <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-              <View
-                style={{
-                  height: '100%',
-                  borderRadius: 999,
-                  backgroundColor: colors.accentOrange,
-                  width: `${Math.min(Math.max(sessionProgress, 0), 1) * 100}%`,
-                }}
-              />
-            </View>
+          <Card style={[styles.secondaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+            <Text variant="body" weight="bold" color={colors.textPrimary}>Upcoming / Due soon</Text>
+            <Text variant="caption" color={colors.textSecondary}>{hasUnpaid ? `Next payment due ${firstPayment?.dueDate || placeholder}` : `Registration ends ${overview?.registration?.endDate || placeholder}`}</Text>
           </Card>
 
-          <View style={styles.sectionHeader}>
-            <Text variant="body" weight="bold" color={colors.textPrimary}>
-              {t('portal.home.sections')}
-            </Text>
-            <Text variant="caption" color={colors.textSecondary}>
-              {t('portal.home.sectionsSubtitle')}
-            </Text>
-          </View>
-
-          <View style={styles.sectionGrid}>
-            {sections.map((item) => (
-              <Pressable key={item.key} onPress={() => router.push(item.route)}>
-                <Card style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <View style={styles.sectionIcon}>{item.icon}</View>
-                  <View style={{ flex: 1 }}>
-                    <Text variant="body" weight="bold" color={colors.textPrimary}>
-                      {item.title}
-                    </Text>
-                    <Text variant="caption" color={colors.textSecondary}>
-                      {item.subtitle}
-                    </Text>
-                  </View>
-                </Card>
-              </Pressable>
-            ))}
-          </View>
+          {recentUpdates.length ? (
+            <Card style={[styles.secondaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+              <Text variant="body" weight="bold" color={colors.textPrimary}>Recent updates</Text>
+              {recentUpdates.map((item) => (
+                <View key={item.key} style={styles.feedRow}><Text variant="bodySmall" weight="semibold" color={colors.textPrimary}>{item.title}</Text><Text variant="caption" color={colors.textSecondary}>{item.subtitle}</Text></View>
+              ))}
+            </Card>
+          ) : null}
         </ScrollView>
       </AppScreen>
     </PortalAccessGate>
@@ -314,108 +181,21 @@ export function PortalHomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: {
-    paddingBottom: spacing['2xl'],
-    paddingHorizontal: spacing.lg,
-  },
-  rtl: {
-    direction: 'rtl',
-  },
-  skeletonStack: {
-    padding: spacing.lg,
-    gap: spacing.lg,
-  },
-  skeletonRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  skeletonHalf: {
-    flex: 1,
-  },
-  heroCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: spacing.lg,
-  },
-  heroRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  heroText: {
-    flex: 1,
-    gap: 6,
-  },
-  heroMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  heroBadge: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  avatar: {
-    width: 68,
-    height: 68,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  statCard: {
-    flex: 1,
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: spacing.md,
-    gap: 6,
-  },
-  progressCard: {
-    marginTop: spacing.lg,
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: spacing.lg,
-    gap: 10,
-  },
-  progressTrack: {
-    height: 8,
-    borderRadius: 999,
-    overflow: 'hidden',
-    marginTop: spacing.xs,
-  },
-  sectionHeader: {
-    marginTop: spacing.xl,
-    marginBottom: spacing.md,
-    gap: 4,
-  },
-  sectionGrid: {
-    gap: spacing.md,
-  },
-  sectionCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  sectionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 122, 0, 0.12)',
-  },
+  content: { paddingBottom: spacing['2xl'], paddingHorizontal: spacing.lg, gap: spacing.md },
+  rtl: { direction: 'rtl' },
+  skeletonStack: { padding: spacing.lg, gap: spacing.lg },
+  skeletonRow: { flexDirection: 'row', gap: spacing.md },
+  skeletonHalf: { flex: 1 },
+  heroCard: { borderRadius: 20, borderWidth: 1, padding: spacing.lg },
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  heroText: { flex: 1, gap: 6 },
+  heroBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' },
+  avatar: { width: 68, height: 68, borderRadius: 20, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImage: { width: '100%', height: '100%' },
+  goodCard: { borderRadius: 16, borderWidth: 1, padding: spacing.md, gap: 6 },
+  goodRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  quickCard: { width: '48%', borderWidth: 1, borderRadius: 14, padding: spacing.md, minHeight: 72, justifyContent: 'space-between' },
+  secondaryCard: { borderRadius: 16, borderWidth: 1, padding: spacing.md, gap: spacing.sm },
+  feedRow: { paddingVertical: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(120,120,120,0.25)' },
 });
