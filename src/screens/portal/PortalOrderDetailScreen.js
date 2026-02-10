@@ -59,7 +59,7 @@ export function PortalOrderDetailScreen() {
     <PortalAccessGate titleOverride={t('portal.orders.detailTitle')}>
       <AppScreen safe scroll>
         <AppHeader title={t('portal.orders.detailTitle')} />
-        {inProgress ? <PortalActionBanner title="Next step" description="Your order is in progress. We will notify you when ready." actionLabel="Back to orders" onAction={() => router.push('/portal/my-orders')} /> : null}
+        <PortalActionBanner title="Order status" description={inProgress ? 'Your order is in progress. We will notify you when ready.' : 'This order is complete. Review items and payment details below.'} actionLabel="Back to orders" onAction={() => router.push('/portal/my-orders')} />
 
         <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
           <PortalSection title={order?.title || t('portal.orders.defaultTitle')} subtitle="Status & tracking" infoText={getGlossaryHelp('orderStatus')} />
@@ -84,7 +84,7 @@ export function PortalOrderDetailScreen() {
         <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
           <Text variant="body" weight="bold" color={colors.textPrimary}>Payment & delivery summary</Text>
           <View style={styles.row}><Text variant="caption" color={colors.textMuted}>{t('portal.orders.totalLabel')}</Text><Text variant="bodySmall" color={colors.textPrimary}>{order?.total || order?.amount || t('portal.common.placeholder')}</Text></View>
-          <View style={styles.row}><Text variant="caption" color={colors.textMuted}>Delivery</Text><Text variant="bodySmall" color={colors.textPrimary}>{order?.delivery_method || order?.delivery || t('portal.common.placeholder')}</Text></View>
+          <View style={styles.row}><Text variant="caption" color={colors.textMuted}>Delivery / next step</Text><Text variant="bodySmall" color={colors.textPrimary}>{order?.delivery_method || order?.delivery || (inProgress ? 'Awaiting dispatch/collection update' : t('portal.common.placeholder'))}</Text></View>
         </Card>
       </AppScreen>
     </PortalAccessGate>

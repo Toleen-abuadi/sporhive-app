@@ -1,5 +1,3 @@
-// src/screens/portal/PortalPerformanceScreen.js
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -17,8 +15,6 @@ import { useAuth } from '../../services/auth/auth.store';
 import { useTranslation } from '../../services/i18n/i18n';
 import { isMissingTryOutError, isValidTryOutId } from '../../services/portal/portal.tryout';
 import { spacing } from '../../theme/tokens';
-import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
-import { getGlossaryHelp } from '../../portal/portalGlossary';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 
 const toPercent = (value) => `${Math.min(Math.max(Number(value || 0), 0), 100)}%`;
@@ -34,7 +30,6 @@ export function PortalPerformanceScreen() {
   const { overview } = usePortalOverview();
 
   const tryoutId = isValidTryOutId(overview?.player?.tryOutId) ? overview?.player?.tryOutId : null;
-  const missingTryOutMessage = 'Missing try_out (tryOutId is null). Please refresh portal session.';
 
   const [ratingTypes, setRatingTypes] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -44,7 +39,7 @@ export function PortalPerformanceScreen() {
 
   const load = useCallback(async () => {
     if (!isValidTryOutId(tryoutId)) {
-      setError(missingTryOutMessage);
+      setError('Missing try_out (tryOutId is null). Please refresh portal session.');
       return;
     }
 
@@ -53,37 +48,25 @@ export function PortalPerformanceScreen() {
 
     try {
       const typesRes = await portalApi.fetchRatingTypes({ tryout_id: tryoutId });
-      if (typesRes?.success) {
-        const raw = typesRes.data?.data ?? typesRes.data;
-        setRatingTypes(asArray(raw));
-      } else if (typesRes?.error) {
-        setError(typesRes.error?.message || t('portal.performance.error'));
-      }
+      if (typesRes?.success) setRatingTypes(asArray(typesRes.data?.data ?? typesRes.data));
 
       const summaryRes = await portalApi.fetchPerformanceSummary({ tryout_id: tryoutId, limit: 10 });
-      if (summaryRes?.success) {
-        setSummary(summaryRes.data?.data ?? summaryRes.data ?? null);
-      } else if (!typesRes?.error && summaryRes?.error) {
-        setError(summaryRes.error?.message || t('portal.performance.error'));
-      }
+      if (summaryRes?.success) setSummary(summaryRes.data?.data ?? summaryRes.data ?? null);
 
       const periodsRes = await portalApi.fetchPerformancePeriods({ tryout_id: tryoutId });
-      if (periodsRes?.success) {
-        const raw = periodsRes.data?.data ?? periodsRes.data;
-        setPeriods(asArray(raw));
-      } else if (!typesRes?.error && !summaryRes?.error && periodsRes?.error) {
-        setError(periodsRes.error?.message || t('portal.performance.error'));
+      if (periodsRes?.success) setPeriods(asArray(periodsRes.data?.data ?? periodsRes.data));
+
+      if (!typesRes?.success && !summaryRes?.success && !periodsRes?.success) {
+        setError(typesRes?.error?.message || summaryRes?.error?.message || periodsRes?.error?.message || t('portal.performance.error'));
       }
     } catch (e) {
       setError(e?.message || t('portal.performance.error'));
     } finally {
       setLoading(false);
     }
-  }, [missingTryOutMessage, t, tryoutId]);
+  }, [t, tryoutId]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const handleReauthRequired = useCallback(async () => {
     if (reauthHandledRef.current) return;
@@ -100,215 +83,88 @@ export function PortalPerformanceScreen() {
   const overallScore = summary?.average || summary?.overall_average || summary?.score || 0;
   const recentRatings = asArray(summary?.recent || summary?.ratings);
 
-  const typeMetrics = useMemo(() => {
-    const list = Array.isArray(ratingTypes) ? ratingTypes : [];
-    const used = new Set();
+  const typeMetrics = useMemo(() => asArray(ratingTypes).map((type, index) => ({
+    key: type?.id ?? `${index}`,
+    name: type?.name || type?.label || t('portal.performance.ratingLabel', { index: index + 1 }),
+    score: (summary?.type_scores && type?.id != null ? summary.type_scores[type.id] : null) ?? type?.average ?? 0,
+  })), [ratingTypes, summary, t]);
 
-    return list.map((type, index) => {
-      const base =
-        type?.id != null
-          ? `id:${type.id}`
-          : type?.name
-            ? `name:${String(type.name).trim().toLowerCase()}`
-            : `idx:${index}`;
+  const highlights = [
+    { label: 'Overall score', value: summary ? String(overallScore) : placeholder },
+    { label: 'Recent ratings', value: summary ? String(recentRatings.length) : placeholder },
+    { label: 'Tracked periods', value: String(periods.length || 0) },
+  ];
 
-      // Ensure uniqueness even if backend duplicates ids/names
-      let key = base;
-      let i = 1;
-      while (used.has(key)) {
-        key = `${base}:${i++}`;
-      }
-      used.add(key);
-
-      return {
-        key,
-        id: type?.id ?? key,
-        name: type?.name || type?.label || t('portal.performance.ratingLabel', { index: index + 1 }),
-        score:
-          (summary?.type_scores && type?.id != null ? summary.type_scores[type.id] : null) ??
-          type?.average ??
-          0,
-      };
-    });
-  }, [ratingTypes, summary]);
-
-  if (loading && !summary && periods.length === 0 && ratingTypes.length === 0 && !error) {
-    return (
-      <Screen>
-        <SporHiveLoader />
-      </Screen>
-    );
-  }
-
-  if (error && isMissingTryOutError({ message: error })) {
-    return (
-      <PortalAccessGate titleOverride={t('portal.performance.title')} error={{ message: error, status: 401 }} onRetry={load} onReauthRequired={handleReauthRequired}>
-      <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
-        <PortalHeader
-          title={t('portal.performance.title')}
-          subtitle={t('portal.performance.subtitle')}
-        />
-      <PortalActionBanner title={t('portal.common.nextStep')} description={getGlossaryHelp('performance')} />
-
-      <PortalCard style={styles.card}>
-        <Text variant="body" weight="semibold" color={colors.textPrimary}>Highlights</Text>
-        <View style={styles.highlightsRow}>
-          <View style={styles.highlightItem}><Text variant="caption" color={colors.textMuted}>Overall</Text><Text variant="body" weight="bold" color={colors.textPrimary}>{overallScore || 0}</Text></View>
-          <View style={styles.highlightItem}><Text variant="caption" color={colors.textMuted}>Recent ratings</Text><Text variant="body" weight="bold" color={colors.textPrimary}>{recentRatings.length}</Text></View>
-          <View style={styles.highlightItem}><Text variant="caption" color={colors.textMuted}>Periods</Text><Text variant="body" weight="bold" color={colors.textPrimary}>{periods.length}</Text></View>
-        </View>
-      </PortalCard>
-        <PortalCard style={styles.card}>
-          <Text variant="body" weight="semibold" color={colors.textPrimary}>
-            {t('portal.errors.sessionExpiredTitle')}
-          </Text>
-          <Text variant="bodySmall" color={colors.textSecondary} style={{ marginTop: spacing.xs }}>
-            {missingTryOutMessage}
-          </Text>
-          <View style={styles.missingActions}>
-            <Button variant="secondary" onPress={load}>
-              {t('portal.common.retry')}
-            </Button>
-          </View>
-        </PortalCard>
-      </Screen>
-      </PortalAccessGate>
-    );
-  }
+  if (loading && !summary && periods.length === 0 && ratingTypes.length === 0 && !error) return <Screen><SporHiveLoader /></Screen>;
 
   return (
-    <PortalAccessGate titleOverride={t('portal.performance.title')} error={error ? { message: error } : null} onRetry={load} onReauthRequired={handleReauthRequired}>
-    <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
-      <PortalHeader
-        title={t('portal.performance.title')}
-        subtitle={t('portal.performance.subtitle')}
-      />
+    <PortalAccessGate titleOverride={t('portal.performance.title')} error={error ? { message: error, status: isMissingTryOutError({ message: error }) ? 401 : undefined } : null} onRetry={load} onReauthRequired={handleReauthRequired}>
+      <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
+        <PortalHeader title={t('portal.performance.title')} subtitle={t('portal.performance.subtitle')} />
 
-      <PortalCard style={styles.card}>
-        <Text variant="body" weight="semibold" color={colors.textPrimary}>
-          {t('portal.performance.overall')}
-        </Text>
-
-        <View style={styles.starRow}>
-          {Array.from({ length: 5 }).map((_, index) => (
-            <Text
-              key={index}
-              variant="body"
-              color={index < Math.round(overallScore) ? colors.accentOrange : colors.border}
-            >
-              ★
-            </Text>
-          ))}
-          <Text variant="body" weight="semibold" color={colors.textPrimary} style={styles.starScore}>
-            {summary ? overallScore : placeholder}
-          </Text>
-        </View>
-
-        <Text variant="bodySmall" color={colors.textSecondary}>
-          {t('portal.performance.basedOnSessions', { count: recentRatings.length })}
-        </Text>
-      </PortalCard>
-
-      {typeMetrics.length ? (
         <PortalCard style={styles.card}>
-          <Text variant="body" weight="semibold" color={colors.textPrimary}>
-            {t('portal.performance.categories')}
-          </Text>
+          <Text variant="body" weight="semibold" color={colors.textPrimary}>What this means</Text>
+          <Text variant="bodySmall" color={colors.textSecondary}>Performance shows how your training has progressed over time. Use highlights for a quick check, then review trends for deeper context.</Text>
+        </PortalCard>
 
-          <View style={styles.metricStack}>
-            {typeMetrics.map((metric) => (
-              <View key={metric.key} style={styles.metricItem}>
-                <View style={styles.metricHeader}>
-                  <Text variant="bodySmall" color={colors.textPrimary}>
-                    {metric.name}
-                  </Text>
-                  <Text variant="bodySmall" color={colors.textSecondary}>
-                    {metric.score || placeholder}
-                  </Text>
-                </View>
-
-                <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      { backgroundColor: colors.accentOrange, width: toPercent((metric.score || 0) * 20) },
-                    ]}
-                  />
-                </View>
+        <PortalCard style={styles.card}>
+          <Text variant="body" weight="semibold" color={colors.textPrimary}>Highlights</Text>
+          <View style={styles.highlightRow}>
+            {highlights.map((item) => (
+              <View key={item.label} style={[styles.highlightTile, { borderColor: colors.border }]}> 
+                <Text variant="caption" color={colors.textMuted}>{item.label}</Text>
+                <Text variant="body" weight="bold" color={colors.textPrimary}>{item.value}</Text>
               </View>
             ))}
           </View>
         </PortalCard>
-      ) : null}
 
-      {error ? (
-        <PortalEmptyState icon="alert-triangle" title={t('portal.performance.errorTitle')} description={error} />
-      ) : periods.length ? (
-        <PortalCard style={styles.card}>
-          <Text variant="body" weight="semibold" color={colors.textPrimary}>
-            {t('portal.performance.periods')}
-          </Text>
-
-          {periods.map((period, index) => (
-            <View key={period?.id ?? index} style={styles.periodRow}>
-              <View>
-                <Text variant="bodySmall" color={colors.textPrimary}>
-                  {period?.label || period?.date || t('portal.performance.periodLabel', { index: index + 1 })}
-                </Text>
-                <Text variant="caption" color={colors.textMuted}>
-                  {t('portal.performance.periodRange', {
-                    start: period?.from || period?.start || placeholder,
-                    end: period?.to || period?.end || placeholder,
-                  })}
-                </Text>
-              </View>
-
-              <View style={styles.barGroup}>
-                <View
-                  style={[
-                    styles.bar,
-                    { height: Math.max(8, (period?.score || 0) * 8), backgroundColor: colors.accentOrange },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.bar,
-                    {
-                      height: Math.max(8, (period?.coach_score || 0) * 8),
-                      backgroundColor: colors.accentOrangeLight || colors.accentOrange,
-                    },
-                  ]}
-                />
-              </View>
+        {typeMetrics.length ? (
+          <PortalCard style={styles.card}>
+            <Text variant="body" weight="semibold" color={colors.textPrimary}>Trends</Text>
+            <Text variant="caption" color={colors.textMuted}>Each bar compares the latest rating level by category.</Text>
+            <View style={styles.metricStack}>
+              {typeMetrics.map((metric) => (
+                <View key={metric.key} style={styles.metricItem}>
+                  <View style={styles.metricHeader}><Text variant="bodySmall" color={colors.textPrimary}>{metric.name}</Text><Text variant="bodySmall" color={colors.textSecondary}>{metric.score || placeholder}</Text></View>
+                  <View style={[styles.progressTrack, { backgroundColor: colors.border }]}><View style={[styles.progressFill, { backgroundColor: colors.accentOrange, width: toPercent((metric.score || 0) * 20) }]} /></View>
+                </View>
+              ))}
             </View>
-          ))}
-        </PortalCard>
-      ) : (
-        <PortalEmptyState icon="trending-up" title={t('portal.performance.emptyTitle')} description={t('portal.performance.emptyDescription')} />
-      )}
-    </Screen>
+          </PortalCard>
+        ) : null}
+
+        {periods.length ? (
+          <PortalCard style={styles.card}>
+            <Text variant="body" weight="semibold" color={colors.textPrimary}>Period narrative</Text>
+            {periods.map((period, index) => (
+              <View key={period?.id ?? index} style={[styles.periodRow, { borderBottomColor: colors.border }]}> 
+                <View style={{ flex: 1 }}>
+                  <Text variant="bodySmall" color={colors.textPrimary}>{period?.label || period?.date || t('portal.performance.periodLabel', { index: index + 1 })}</Text>
+                  <Text variant="caption" color={colors.textMuted}>{(period?.from || period?.start || placeholder)} → {(period?.to || period?.end || placeholder)}</Text>
+                </View>
+                <Text variant="caption" weight="semibold" color={colors.textSecondary}>Player {period?.score ?? 0} / Coach {period?.coach_score ?? 0}</Text>
+              </View>
+            ))}
+          </PortalCard>
+        ) : (
+          !error ? <PortalEmptyState icon="trending-up" title={t('portal.performance.emptyTitle')} description={t('portal.performance.emptyDescription')} /> : <PortalEmptyState icon="alert-triangle" title={t('portal.performance.errorTitle')} description={error} action={<Button variant="secondary" onPress={load}>{t('portal.common.retry')}</Button>} />
+        )}
+      </Screen>
     </PortalAccessGate>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: spacing.lg },
-  card: { marginBottom: spacing.lg },
-  starRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md },
-  starScore: { marginLeft: spacing.sm },
+  scroll: { padding: spacing.lg, gap: spacing.md },
+  rtl: { direction: 'rtl' },
+  card: { marginBottom: spacing.sm },
+  highlightRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  highlightTile: { flex: 1, borderWidth: 1, borderRadius: 12, padding: spacing.sm, gap: 4 },
   metricStack: { marginTop: spacing.md, gap: spacing.md },
   metricItem: { gap: spacing.xs },
   metricHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   progressTrack: { height: 6, borderRadius: 999, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 999 },
-  periodRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: spacing.md },
-  barGroup: { flexDirection: 'row', gap: spacing.xs, alignItems: 'flex-end' },
-  bar: { width: 12, borderRadius: 6 },
-  missingActions: {
-    marginTop: spacing.md,
-    flexDirection: 'row',
-    gap: spacing.sm,
-    justifyContent: 'flex-start',
-  },
-  rtl: { direction: 'rtl' },
+  periodRow: { paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth },
 });
