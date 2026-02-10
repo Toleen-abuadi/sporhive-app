@@ -20,7 +20,6 @@ import { useAuth } from '../../services/auth/auth.store';
 import { isPortalForbiddenError } from '../../services/portal/portal.errors';
 import { spacing } from '../../theme/tokens';
 import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
-import { getGlossaryHelp } from '../../portal/portalGlossary';
 import { useToast } from '../../components/ui/ToastHost';
 
 function safeStr(v) {
@@ -97,6 +96,8 @@ export function PortalProfileScreen() {
   const [editMode, setEditMode] = useState(false);
   const isSaving = Boolean(updatingProfile);
 
+  const [formErrors, setFormErrors] = useState({});
+  const [saveMessage, setSaveMessage] = useState('');
   const [form, setForm] = useState({
     first_eng_name: '',
     middle_eng_name: '',
@@ -172,7 +173,10 @@ export function PortalProfileScreen() {
     if (profile && !editMode) hydrateFormFromProfile();
   }, [profile, editMode, hydrateFormFromProfile]);
 
-  const setField = (key) => (value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const setField = (key) => (value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    setFormErrors((prev) => ({ ...prev, [key]: '' }));
+  };
 
   const startEdit = () => {
     hydrateFormFromProfile();
@@ -184,7 +188,18 @@ export function PortalProfileScreen() {
     setEditMode(false);
   };
 
+
+  const validateForm = () => {
+    const next = {};
+    if (!form.first_eng_name.trim()) next.first_eng_name = 'First name is required.';
+    if (!form.last_eng_name.trim()) next.last_eng_name = 'Last name is required.';
+    if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) next.email = 'Enter a valid email address.';
+    setFormErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
   const handleSave = async () => {
+    if (!validateForm()) return;
     try {
       // Payload matches the web page behavior (snake_case + health + registration fields)
       const payload = {
@@ -215,6 +230,7 @@ export function PortalProfileScreen() {
 
       if (ok) {
         setEditMode(false);
+        setSaveMessage(t('portal.profile.updateSuccess') || 'Profile updated successfully');
         toast?.show?.({ type: 'success', message: t('portal.profile.updateSuccess') || 'Profile updated successfully' });
       } else {
         const status = res?.error?.status ?? profileUpdateError?.status ?? null;
@@ -326,7 +342,8 @@ toast?.show?.({ type: 'error', message: msg });
           subtitle={t('portal.profile.subtitle')}
           rightSlot={<RightAction />}
         />
-        <PortalActionBanner title={t('portal.common.nextStep')} description={getGlossaryHelp('performance')} />
+        <PortalActionBanner title="Profile setup" description="Update contact and player details. Save is disabled while changes are being submitted." />
+        {saveMessage ? <Card style={[styles.savedCard, { backgroundColor: `${colors.success}12`, borderColor: colors.success }]}><Text variant="caption" weight="bold" color={colors.success}>{saveMessage}</Text></Card> : null}
 
         {/* -------- Player Card -------- */}
         <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -391,6 +408,7 @@ toast?.show?.({ type: 'error', message: msg });
                 label={t('portal.profile.firstNameEn')}
                 value={form.first_eng_name}
                 onChangeText={setField('first_eng_name')}
+                error={formErrors.first_eng_name}
               />
               <Input
                 label={t('portal.profile.middleNameEn')}
@@ -401,6 +419,7 @@ toast?.show?.({ type: 'error', message: msg });
                 label={t('portal.profile.lastNameEn')}
                 value={form.last_eng_name}
                 onChangeText={setField('last_eng_name')}
+                error={formErrors.last_eng_name}
               />
 
               <Input
@@ -437,6 +456,7 @@ toast?.show?.({ type: 'error', message: msg });
                 onChangeText={setField('email')}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                error={formErrors.email}
               />
               <Input
                 label={t('portal.profile.dob')}
@@ -625,6 +645,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginTop: spacing.md,
   },
+  savedCard: { borderWidth: 1, borderRadius: 12, padding: spacing.sm, marginBottom: spacing.md },
   inlineField: {
     flex: 1,
   },

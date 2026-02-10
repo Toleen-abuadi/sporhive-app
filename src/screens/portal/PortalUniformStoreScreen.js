@@ -26,7 +26,6 @@ import { useAuth } from '../../services/auth/auth.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { spacing } from '../../theme/tokens';
 import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
-import { getGlossaryHelp } from '../../portal/portalGlossary';
 
 const alphaHex = (hex, alpha = '1A') => {
   if (!hex) return hex;
@@ -75,6 +74,7 @@ export function PortalUniformStoreScreen() {
 
   // Quick "selected product" for sheet-like details (famous app feel)
   const [activeProduct, setActiveProduct] = useState(null);
+  const [cartValidationError, setCartValidationError] = useState('');
 
   const catalogSections = useMemo(() => {
     const items = safeArray(catalog);
@@ -255,9 +255,17 @@ export function PortalUniformStoreScreen() {
 
   const checkout = useCallback(async () => {
     if (!cart.length) {
+      setCartValidationError(t('portal.uniforms.validation'));
       toast.warning(t('portal.uniforms.validation'));
       return;
     }
+
+    const invalidPrinting = cart.find((x) => x.needPrinting && (!String(x.number || '').trim() || !String(x.nickname || '').trim()));
+    if (invalidPrinting) {
+      setCartValidationError('Please enter jersey number and nickname for required printing items.');
+      return;
+    }
+    setCartValidationError('');
 
     // Transform to match web version payload exactly
     const uniform_details = cart.map((line) => ({
@@ -489,6 +497,7 @@ export function PortalUniformStoreScreen() {
                             value={item.number || ''}
                             onChangeText={(v) => {
                               const clean = v.replace(/[^\d]/g, '').slice(0, 6);
+                              setCartValidationError('');
                               upsertCartLine({ ...item, number: clean });
                             }}
                           />
@@ -498,7 +507,7 @@ export function PortalUniformStoreScreen() {
                             label={t('portal.uniforms.nickname')}
                             placeholder={t('portal.uniforms.nicknamePlaceholder')}
                             value={item.nickname || ''}
-                            onChangeText={(v) => upsertCartLine({ ...item, nickname: v })}
+                            onChangeText={(v) => { setCartValidationError(''); upsertCartLine({ ...item, nickname: v }); }}
                           />
                         </View>
                       </View>
@@ -521,13 +530,16 @@ export function PortalUniformStoreScreen() {
             </Text>
           </View>
 
-          <Button onPress={checkout} disabled={!cart.length}>
-            {t('portal.uniforms.checkout')}
-          </Button>
+          <View style={{ alignItems: 'flex-end' }}>
+            {cartValidationError ? <Text variant="caption" color={colors.error} style={{ marginBottom: 4 }}>{cartValidationError}</Text> : null}
+            <Button onPress={checkout} disabled={!cart.length}>
+              {t('portal.uniforms.checkout')}
+            </Button>
+          </View>
         </View>
       </View>
     </Modal>
-  ), [cart, cartCount, cartOpen, cartTotal, checkout, colors, removeCartLine, setLineQty, t, upsertCartLine]);
+  ), [cart, cartCount, cartOpen, cartTotal, cartValidationError, checkout, colors, placeholder, removeCartLine, setLineQty, t, upsertCartLine]);
 
   // ---------- Main ----------
   if (loading && catalog.length === 0 && !error) {
@@ -545,7 +557,7 @@ export function PortalUniformStoreScreen() {
         title={t('portal.uniforms.title')}
         subtitle={t('portal.uniforms.subtitle')}
       />
-      <PortalActionBanner title={t('portal.common.nextStep')} description={getGlossaryHelp('performance')} />
+      <PortalActionBanner title="Start here" description="Required kits come first. Select size clearly before adding to cart." />
 
       {error ? (
         <PortalEmptyState
@@ -565,7 +577,10 @@ export function PortalUniformStoreScreen() {
           {catalogSections.map((section) => (
             <View key={section.key} style={{ marginBottom: spacing.md }}>
               <View style={styles.sectionRow}>
-                <Text variant="bodySmall" weight="bold" color={colors.textPrimary}>{section.title}</Text>
+                <View>
+                  <Text variant="bodySmall" weight="bold" color={colors.textPrimary}>{section.title}</Text>
+                  <Text variant="caption" color={colors.textMuted}>{section.key === 'required' ? 'Must be purchased for current season.' : section.key === 'recommended' ? 'Suggested by your academy.' : 'Add only if you need extras.'}</Text>
+                </View>
                 <Text variant="caption" color={colors.textMuted}>{section.data.length}</Text>
               </View>
               <FlatList
@@ -629,7 +644,7 @@ function ProductDetailsModal({
   useEffect(() => {
     setSelectedVariantId(variants?.[0]?.id ?? null);
     setSelectionError('');
-  }, [product?.id]); // reset when product changes
+  }, [product?.id, variants]); // reset when product changes
 
   const selectedVariant = useMemo(() => {
     if (!variants?.length) return null;

@@ -72,7 +72,7 @@ export function PortalMyOrdersScreen() {
         <AppHeader title={t('portal.orders.title')} subtitle={t('portal.orders.subtitle')} rightAction={{ icon: <Filter size={18} color={colors.textPrimary} />, onPress: () => setFiltersOpen(true), accessibilityLabel: t('portal.filters.open') }} />
 
         <View style={styles.pad}>
-          <PortalInfoAccordion title="Order statuses" summary="Track your order from processing to delivery/collection." bullets={['In progress orders need no extra action unless staff contact you.', 'Past orders are completed, collected, delivered, or cancelled.']} />
+          <PortalInfoAccordion title="Start here" summary="In progress orders are shown first so you can check the next step quickly." bullets={['In progress orders may still change status.', 'Past orders are archived for reference and receipts.']} />
         </View>
 
         <View style={styles.resultsRow}>
@@ -101,7 +101,7 @@ export function PortalMyOrdersScreen() {
                     <View style={styles.cardRow}>
                       <View style={{ flex: 1 }}>
                         <Text variant="body" weight="bold" color={colors.textPrimary}>{item?.title || t('portal.orders.defaultTitle')}</Text>
-                        <Text variant="caption" color={colors.textSecondary}>{`Updated ${item?.updated_at || item?.created_at || t('portal.common.placeholder')}`}</Text>
+                        <Text variant="caption" color={colors.textSecondary}>{`Last updated ${item?.updated_at || item?.created_at || t('portal.common.placeholder')}`}</Text>
                       </View>
                       <View style={styles.amountWrap}>
                         <Text variant="body" weight="bold" color={colors.textPrimary}>{item?.total || item?.amount || t('portal.common.placeholder')}</Text>

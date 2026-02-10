@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Image, RefreshControl, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { UserCircle, CreditCard, ShoppingBag, RefreshCcw, Shirt, ShieldAlert } from 'lucide-react-native';
+import { UserCircle, CreditCard, ShoppingBag, RefreshCcw, Shirt, ShieldAlert, ArrowRight } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Text } from '../../components/ui/Text';
 import { AppScreen } from '../../components/ui/AppScreen';
@@ -139,6 +139,11 @@ export function PortalHomeScreen() {
         >
           <AppHeader title={t('portal.home.title')} subtitle={t('portal.home.subtitle')} />
 
+          <Card style={[styles.startCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text variant="bodySmall" weight="semibold" color={colors.textPrimary}>Start here</Text>
+            <Text variant="caption" color={colors.textSecondary}>Review action needed first, then use quick actions for everyday tasks.</Text>
+          </Card>
+
           <Card style={[styles.heroCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
             <View style={styles.heroRow}>
               <View style={[styles.avatar, { backgroundColor: colors.surfaceElevated || colors.surface }]}> 
@@ -163,7 +168,7 @@ export function PortalHomeScreen() {
             </Card>
           )}
 
-          <Text variant="body" weight="bold" color={colors.textPrimary}>Quick actions</Text>
+          <View style={styles.sectionTitleRow}><Text variant="body" weight="bold" color={colors.textPrimary}>Quick actions</Text><Text variant="caption" color={colors.textMuted}>Top 5</Text></View>
           <View style={styles.grid}>
             {quickActions.map((item) => {
               const Icon = item.icon;
@@ -179,6 +184,7 @@ export function PortalHomeScreen() {
           <Card style={[styles.secondaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
             <Text variant="body" weight="bold" color={colors.textPrimary}>Upcoming / Due soon</Text>
             <Text variant="caption" color={colors.textSecondary}>{hasUnpaid ? `Next payment due ${firstPayment?.dueDate || placeholder}` : `Registration ends ${overview?.registration?.endDate || placeholder}`}</Text>
+            <Pressable onPress={() => router.push(hasUnpaid ? '/portal/payments' : '/portal/renewals')} style={styles.inlineLink}><Text variant="caption" weight="semibold" color={colors.accentOrange}>Review</Text><ArrowRight size={14} color={colors.accentOrange} /></Pressable>
           </Card>
 
           {recentUpdates.length ? (
@@ -197,6 +203,7 @@ export function PortalHomeScreen() {
 
 const styles = StyleSheet.create({
   content: { paddingBottom: spacing['2xl'], paddingHorizontal: spacing.lg, gap: spacing.md },
+  startCard: { borderRadius: 14, borderWidth: 1, padding: spacing.sm, gap: 4 },
   rtl: { direction: 'rtl' },
   skeletonStack: { padding: spacing.lg, gap: spacing.lg },
   skeletonRow: { flexDirection: 'row', gap: spacing.md },
@@ -209,8 +216,10 @@ const styles = StyleSheet.create({
   avatarImage: { width: '100%', height: '100%' },
   goodCard: { borderRadius: 16, borderWidth: 1, padding: spacing.md, gap: 6 },
   goodRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  sectionTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   quickCard: { width: '48%', borderWidth: 1, borderRadius: 14, padding: spacing.md, minHeight: 72, justifyContent: 'space-between' },
   secondaryCard: { borderRadius: 16, borderWidth: 1, padding: spacing.md, gap: spacing.sm },
   feedRow: { paddingVertical: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(120,120,120,0.25)' },
+  inlineLink: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 4 },
 });
