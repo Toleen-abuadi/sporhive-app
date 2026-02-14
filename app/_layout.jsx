@@ -56,58 +56,108 @@ function AuthGate({ children, onReady }) {
   const router = useRouter();
   const segments = useSegments();
   const { colors } = useTheme();
-  const { session, isHydrating } = useAuth();
+
+  // ✅ use auth flags, not only session
+  const { session, token, isAuthenticated, isHydrating, isLoading } = useAuth();
+
   const [welcomeSeen, setWelcomeSeen] = useState(null);
   const [welcomeLoaded, setWelcomeLoaded] = useState(false);
 
+  // ✅ hard timeout helper (prevents infinite loader)
+  const withTimeout = useCallback((promise, ms, label) => {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`TIMEOUT:${label}`)), ms),
+      ),
+    ]);
+  }, []);
+
+  // ✅ Load welcome flag, but never block forever
   useEffect(() => {
     let mounted = true;
+
     (async () => {
       try {
-        const seen = await storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN);
+        // if storage hangs, timeout and continue safely
+        const seen = await withTimeout(
+          storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN),
+          2000,
+          'WELCOME_SEEN',
+        );
+
         if (!mounted) return;
         setWelcomeSeen(seen === true || seen === 'true');
       } catch (e) {
         if (!mounted) return;
-        // Fail-safe: do not block the app behind welcome read failures
+        // Fail-safe: proceed as if welcome not seen
         setWelcomeSeen(false);
       } finally {
         if (!mounted) return;
         setWelcomeLoaded(true);
       }
     })();
+
+    // ✅ absolute last-resort (even if promise never settles)
+    const hardFail = setTimeout(() => {
+      if (!mounted) return;
+      if (!welcomeLoaded) {
+        setWelcomeSeen(false);
+        setWelcomeLoaded(true);
+      }
+    }, 2500);
+
     return () => {
       mounted = false;
+      clearTimeout(hardFail);
     };
-  }, []);
+  }, [withTimeout, welcomeLoaded]);
 
   const isInAuthGroup = segments[0] === '(auth)';
-  const isReady = welcomeLoaded && !isHydrating;
+
+  // ✅ consider both flags (some apps keep isLoading true while hydrating)
+  const authReady = !isHydrating && !isLoading;
+  const isReady = welcomeLoaded && authReady;
+
+  // ✅ treat token OR isAuthenticated OR session as "signed in"
+  const signedIn = Boolean(isAuthenticated || token || session);
+
   useEffect(() => {
     if (!isReady) return;
 
     onReady?.();
 
-    if (session && isInAuthGroup) {
+    if (signedIn && isInAuthGroup) {
       router.replace('/(app)/services');
       return;
     }
-    if (!session && !isInAuthGroup) {
+
+    if (!signedIn && !isInAuthGroup) {
       router.replace(welcomeSeen ? '/(auth)/login' : '/(auth)/welcome');
       return;
     }
+
     if (
-      !session &&
+      !signedIn &&
       isInAuthGroup &&
       welcomeSeen === false &&
-      segments[1] !== 'welcome'
+      segments[1] !== 'welcome' &&
+      segments[1] !== 'login'
     ) {
       router.replace('/(auth)/welcome');
       return;
     }
-  }, [isReady, isInAuthGroup, router, segments, session, welcomeSeen, onReady]);
+  }, [
+    isReady,
+    signedIn,
+    isInAuthGroup,
+    router,
+    segments,
+    welcomeSeen,
+    onReady,
+  ]);
 
-  // Safety fallback (rarely visible because splash stays up)
+  // ✅ Fallback loader
   const fallback = useMemo(
     () => (
       <View
@@ -121,7 +171,7 @@ function AuthGate({ children, onReady }) {
         <ActivityIndicator size="large" color={colors.accentOrange} />
       </View>
     ),
-    [colors]
+    [colors],
   );
 
   if (!isReady) return fallback;

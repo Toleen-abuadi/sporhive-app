@@ -190,17 +190,24 @@ export const playgroundsStore = {
     }
   },
   async getVenueDurations(venueId, params = {}) {
-    if (!venueId) return { success: false, error: new Error('Missing venue id') };
+    // Defensive: expo-router params can arrive as arrays, and some callers may pass a venue object.
+    const resolvedVenueId = Array.isArray(venueId)
+      ? venueId[0]
+      : venueId && typeof venueId === 'object'
+        ? venueId.id
+        : venueId;
+
+    if (!resolvedVenueId) return { success: false, error: new Error('Missing venue id') };
     setState({ durationsLoading: true, durationsError: null });
     try {
       const res = await playgroundsApi.getDurations({
-        venueId,
+        venueId: resolvedVenueId,
         activityId: params.activityId,
         academyProfileId: params.academyProfileId,
       });
       const durations = Array.isArray(res?.durations) ? res.durations : res?.data?.durations || res?.data || res;
       setState({
-        durationsByVenue: { ...playgroundsState.durationsByVenue, [venueId]: durations || [] },
+        durationsByVenue: { ...playgroundsState.durationsByVenue, [resolvedVenueId]: durations || [] },
         durationsLoading: false,
         durationsError: null,
       });
@@ -211,23 +218,58 @@ export const playgroundsStore = {
       return { success: false, error };
     }
   },
-  async listAvailableSlots({ venueId, date, durationId, ...rest } = {}) {
-    const key = makeCacheKey({ venueId, date, durationId, ...rest });
+  async listAvailableSlots({
+    venueId,
+    venue_id,
+    date,
+    durationId,
+    duration_minutes,
+    ...rest
+  } = {}) {
+    // Support both keys just in case
+    const resolvedVenueId = venue_id || venueId;
+
+    // Cache key should include minutes (not id)
+    const key = makeCacheKey({
+      venueId: resolvedVenueId,
+      date,
+      duration_minutes: duration_minutes || null,
+      ...rest,
+    });
+
     const cached = playgroundsState.slotsByKey[key];
     if (isFresh(cached)) {
       return { success: true, data: cached.slots, cached: true };
     }
+
     try {
       setState({
         slotsLoadingByKey: { ...playgroundsState.slotsLoadingByKey, [key]: true },
         slotsErrorByKey: { ...playgroundsState.slotsErrorByKey, [key]: null },
       });
-      const res = await playgroundsApi.listAvailableSlots({ venueId, date, durationId, ...rest });
+
+      // ✅ Backend expects: venue_id, date, duration_minutes
+      const payload = {
+        venue_id: resolvedVenueId,
+        date,
+        duration_minutes, // ✅ required by backend
+        ...rest,
+      };
+
+      // keep durationId only if you still use it elsewhere (harmless)
+      // but backend does NOT read it
+      if (durationId && payload.duration_minutes == null) {
+        payload.durationId = durationId;
+      }
+
+      const res = await playgroundsApi.listAvailableSlots(payload);
       const slots = res?.slots || res?.data?.slots || res?.data || [];
+
       setSlots(key, slots);
       setState({
         slotsLoadingByKey: { ...playgroundsState.slotsLoadingByKey, [key]: false },
       });
+
       return { success: true, data: slots };
     } catch (error) {
       const normalized = normalizeApiError(error);
@@ -238,15 +280,31 @@ export const playgroundsStore = {
       return { success: false, error };
     }
   },
-  async verifySlotAvailability({ venueId, date, durationId, startTime, ...rest } = {}) {
+  async verifySlotAvailability({
+    venueId,
+    venue_id,
+    date,
+    duration_minutes,
+    durationId,
+    startTime,
+    start_time, // accept legacy callers too
+    ...rest
+  } = {}) {
     try {
-      const res = await playgroundsApi.verifySlotAvailability({
-        venueId,
+      const resolvedVenueId = venue_id || venueId;
+
+      const resolvedStartTime = startTime || start_time; // ✅ support both keys
+
+      const payload = {
+        venueId: resolvedVenueId,
         date,
+        duration_minutes,
         durationId,
-        startTime,
+        startTime: resolvedStartTime, // ✅ correct key for api wrapper
         ...rest,
-      });
+      };
+
+      const res = await playgroundsApi.verifySlotAvailability(payload);
       return { success: true, data: res };
     } catch (error) {
       const normalized = normalizeApiError(error);
@@ -285,6 +343,10 @@ export const playgroundsStore = {
   async setBookingDraft(draft) {
     await setBookingDraft(draft);
     setState({ bookingDraft: draft });
+  },
+  async clearBookingDraft() {
+    await setBookingDraft(null);
+    setState({ bookingDraft: null });
   },
   async rateBooking(payload) {
     try {
@@ -327,6 +389,7 @@ export function usePlaygroundsActions() {
       createBooking: playgroundsStore.createBooking,
       setBookingDraft: playgroundsStore.setBookingDraft,
       rateBooking: playgroundsStore.rateBooking,
+      clearBookingDraft: playgroundsStore.clearBookingDraft,
     }),
     []
   );

@@ -155,15 +155,15 @@ export function ResetPasswordScreen() {
     const payload =
       mode === MODES.PUBLIC
         ? {
-            user_kind: 'public',
-            phone: normalizePhone(phone),
-          }
+          user_kind: 'public',
+          phone: normalizePhone(phone),
+        }
         : {
-            user_kind: 'player',
-            academy_id: Number(academy?.id),
-            username: username.trim(),
-            phone_number: normalizePhone(phone),
-          };
+          user_kind: 'player',
+          academy_id: Number(academy?.id),
+          username: username.trim(),
+          phone_number: normalizePhone(phone),
+        };
     const res = await authApi.passwordResetRequest(payload);
     setLoading(false);
     if (res.success) {
@@ -179,12 +179,28 @@ export function ResetPasswordScreen() {
 
   const confirmOtp = async () => {
     if (otp.length !== 6) {
-      setErrors({ otp: t('auth.validation.otpLength') });
+      setErrors({ otp: t("auth.validation.otpLength") });
       return;
     }
+
     setErrors({});
+    setLoading(true);
 
     if (mode === MODES.PUBLIC) {
+      const res = await authApi.passwordResetVerify({
+        user_kind: "public",
+        phone: normalizePhone(phone),
+        otp,
+      });
+
+      setLoading(false);
+
+      if (!res.success) {
+        toast.error(t("auth.reset.invalidOtp"));
+        return;
+      }
+
+      toast.success(t("auth.reset.otpVerified"));
       setStep(STEPS.FINAL);
       return;
     }
@@ -250,9 +266,9 @@ export function ResetPasswordScreen() {
   const maskedGenerated = revealGenerated
     ? generatedPassword
     : generatedPassword
-        .split('')
-        .map((char, idx) => (idx < 2 ? char : '•'))
-        .join('');
+      .split('')
+      .map((char, idx) => (idx < 2 ? char : '•'))
+      .join('');
 
   return (
     <Screen scroll contentContainerStyle={styles.scroll} safe>

@@ -1,213 +1,70 @@
+// src/screens/playgrounds/BookingWizardScreen.jsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import {
-  CalendarDays,
-  Check,
-  CreditCard,
-  Moon,
-  Sun,
-  Users,
-} from 'lucide-react-native';
-import * as ImagePicker from 'expo-image-picker';
 
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
 import { AppScreen } from '../../components/ui/AppScreen';
-import { Text } from '../../components/ui/Text';
-import { Input } from '../../components/ui/Input';
-import { Chip } from '../../components/ui/Chip';
-import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
+
 import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
-import { borderRadius, shadows, spacing } from '../../theme/tokens';
 import { useAuth } from '../../services/auth/auth.store';
 
-const QUICK_PLAYER_SUGGESTIONS = [2, 4, 6, 8];
+import { makeWizardStyles } from './bookingWizard.ui';
+import {
+  buildQuickDates,
+  buildDraftPayload,
+  formatSlotLabel,
+  normalizeRouterParam,
+  moneyLabel,
+} from './bookingWizard.utils';
+
+import { BookingWizardSteps } from './BookingWizardSteps';
+
 const CURRENCY = 'JOD';
 
-function formatIsoDate(date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function formatSlotLabel(slot, t) {
-  const start = slot?.start_time || slot?.start || '';
-  const end = slot?.end_time || slot?.end || '';
-  if (!start && !end) return t('service.playgrounds.common.timeTbd');
-  if (!end) return start;
-  return `${start} - ${end}`;
-}
-
-function getSlotPhase(startTime) {
-  if (!startTime) return 'day';
-  const [hour] = startTime.split(':');
-  const parsedHour = Number(hour);
-  return parsedHour >= 6 && parsedHour < 18 ? 'day' : 'night';
-}
-
-function buildDraftPayload(venueId, state) {
-  if (!venueId) return null;
-  return {
-    venueId: String(venueId),
-    draft: state,
-  };
-}
-
-function StepperHeader({ currentStep, onBack, colors, stepLabels, t }) {
-  return (
-    <View style={styles.stepperHeader}>
-      <View style={styles.stepperTopRow}>
-        <Pressable
-          onPress={onBack}
-          disabled={currentStep === 0}
-          style={({ pressed }) => [
-            styles.backButton,
-            {
-              opacity: currentStep === 0 ? 0.4 : 1,
-              backgroundColor: pressed
-                ? colors.surfaceElevated
-                : colors.surface,
-              borderColor: colors.border,
-            },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel={t('service.playgrounds.booking.actions.backAccessibility')}
-        >
-          <Text variant="bodySmall" weight="semibold">
-            {t('service.playgrounds.booking.actions.back')}
-          </Text>
-        </Pressable>
-        <Text variant="bodySmall" color={colors.textSecondary}>
-          {t('service.playgrounds.booking.stepCounter', {
-            current: currentStep + 1,
-            total: stepLabels.length,
-          })}
-        </Text>
-      </View>
-      <View
-        style={[
-          styles.progressTrack,
-          { backgroundColor: colors.surfaceElevated },
-        ]}
-      >
-        <View
-          style={[
-            styles.progressBar,
-            {
-              backgroundColor: colors.accentOrange,
-              width: `${((currentStep + 1) / stepLabels.length) * 100}%`,
-            },
-          ]}
-        />
-      </View>
-      <View style={styles.stepLabelRow}>
-        {stepLabels.map((label, index) => {
-          const isActive = index === currentStep;
-          const isDone = index < currentStep;
-          return (
-            <View key={label} style={styles.stepLabelItem}>
-              <View
-                style={[
-                  styles.stepLabelDot,
-                  {
-                    backgroundColor: isDone
-                      ? colors.accentOrange
-                      : isActive
-                      ? colors.surface
-                      : colors.surfaceElevated,
-                    borderColor:
-                      isActive || isDone ? colors.accentOrange : colors.border,
-                  },
-                ]}
-              >
-                {isDone ? (
-                  <Check size={12} color={colors.surface} />
-                ) : (
-                  <Text
-                    variant="bodySmall"
-                    weight="semibold"
-                    color={isActive ? colors.accentOrange : colors.textMuted}
-                  >
-                    {index + 1}
-                  </Text>
-                )}
-              </View>
-              <Text
-                variant="caption"
-                color={
-                  isActive || isDone ? colors.textPrimary : colors.textSecondary
-                }
-              >
-                {label}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-function StickyFooterCTA({
-  onBack,
-  onNext,
-  currentStep,
-  priceLabel,
-  disableBack,
-  disableNext,
-  submitting,
-  colors,
-  stepLabels,
-  t,
-}) {
-  const primaryLabel =
-    currentStep < stepLabels.length - 1
-      ? t('service.playgrounds.booking.actions.continue')
-      : submitting
-      ? t('service.playgrounds.booking.actions.submitting')
-      : t('service.playgrounds.booking.actions.confirm');
-
-  return (
-    <View
-      style={[
-        styles.stickyFooter,
-        { backgroundColor: colors.surface, borderTopColor: colors.border },
-      ]}
-    >
-      <View>
-        <Text variant="bodySmall" color={colors.textSecondary}>
-          {t('service.playgrounds.booking.summary.total')}
-        </Text>
-        <Text variant="bodySmall" weight="semibold">
-          {priceLabel || t('service.playgrounds.common.placeholder')}
-        </Text>
-      </View>
-      <View style={styles.footerButtons}>
-        <Button variant="secondary" onPress={onBack} disabled={disableBack}>
-          {t('service.playgrounds.booking.actions.back')}
-        </Button>
-        <Button onPress={onNext} disabled={disableNext} loading={submitting}>
-          {primaryLabel}
-        </Button>
-      </View>
-    </View>
-  );
-}
-
-export function BookingStepperScreen() {
+export function BookingWizardScreen() {
   const { colors } = useTheme();
+  const styles = useMemo(() => makeWizardStyles(colors), [colors]);
   const { t } = useTranslation();
   const router = useRouter();
-  const { venueId } = useLocalSearchParams();
   const toast = useToast();
   const { session } = useAuth();
 
-  const [venue, setVenue] = useState(null);
   const publicUser = session?.user || null;
 
+  const routeParams = useLocalSearchParams();
+  const venueId = useMemo(() => {
+    const raw = routeParams?.venueId ?? routeParams?.venue_id ?? routeParams?.id;
+    return normalizeRouterParam(raw);
+  }, [routeParams]);
+
+  const { bookingDraft, durationsLoading } = usePlaygroundsStore((s) => ({
+    bookingDraft: s.bookingDraft,
+    durationsLoading: s.durationsLoading,
+  }));
+
+  const {
+    hydrate,
+    getVenueDetails,
+    getVenueDurations,
+    listAvailableSlots,
+    verifySlotAvailability,
+    listBookings,
+    createBooking,
+    setBookingDraft: persistBookingDraft,
+    clearBookingDraft,
+  } = usePlaygroundsActions();
+
+  // Core state
+  const [loading, setLoading] = useState(true);
+  const [errorText, setErrorText] = useState('');
+
+  const [venue, setVenue] = useState(null);
   const [durations, setDurations] = useState([]);
   const [selectedDurationId, setSelectedDurationId] = useState('');
   const [bookingDate, setBookingDate] = useState('');
@@ -216,55 +73,50 @@ export function BookingStepperScreen() {
   const [selectedSlot, setSelectedSlot] = useState(null);
 
   const [players, setPlayers] = useState(2);
-  const [paymentType, setPaymentType] = useState('cash');
+
+  const [paymentType, setPaymentType] = useState('cash'); // 'cash' | 'cliq'
   const [cashOnDate, setCashOnDate] = useState(false);
   const [cliqImage, setCliqImage] = useState(null);
-
-  const [currentStep, setCurrentStep] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [errorText, setErrorText] = useState('');
   const [inlinePaymentError, setInlinePaymentError] = useState('');
+
+  const [step, setStep] = useState(0); // 0..3
   const [submitting, setSubmitting] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(null);
-
   const [bookingSuccess, setBookingSuccess] = useState(false);
-  const [bookingResult, setBookingResult] = useState(null); // {booking_id, booking_code, total_price, ...}
+  const [bookingResult, setBookingResult] = useState(null);
 
+  // Derived
   const academy = venue?.academy_profile || null;
-  const allowCash =
-    typeof academy?.allow_cash === 'boolean' ? academy.allow_cash : true;
+  const allowCash = typeof academy?.allow_cash === 'boolean' ? academy.allow_cash : true;
   const allowCashOnDate = !!academy?.allow_cash_on_date;
   const allowCliq = !!academy?.allow_cliq;
+
   const cliqName = academy?.cliq_name || '';
   const cliqNumber = academy?.cliq_number || '';
 
   const minPlayers = venue?.min_players ?? 1;
   const maxPlayers = venue?.max_players ?? 100;
 
+  const quickDates = useMemo(() => buildQuickDates(7), []);
+
   const selectedDuration = useMemo(
-    () =>
-      durations.find(
-        (duration) => String(duration.id) === String(selectedDurationId)
-      ) || null,
-    [durations, selectedDurationId]
+    () => durations.find((d) => String(d.id) === String(selectedDurationId)) || null,
+    [durations, selectedDurationId],
   );
 
-  const basePrice =
-    selectedDuration?.base_price !== null &&
-    selectedDuration?.base_price !== undefined
-      ? Number(selectedDuration.base_price)
-      : null;
+  const durationMinutes = useMemo(() => {
+    const m = selectedDuration?.minutes ?? selectedDuration?.duration_minutes ?? null;
+    return m != null ? Number(m) : null;
+  }, [selectedDuration]);
 
-  const quickDates = useMemo(
-    () =>
-      Array.from({ length: 6 }).map((_, index) => {
-        const date = new Date();
-        date.setDate(date.getDate() + index);
-        return formatIsoDate(date);
-      }),
-    []
-  );
+  const basePrice = useMemo(() => {
+    if (selectedDuration?.base_price === null || selectedDuration?.base_price === undefined) return null;
+    return Number(selectedDuration.base_price);
+  }, [selectedDuration]);
 
+  const priceLabel = useMemo(() => moneyLabel(basePrice, CURRENCY, t), [basePrice, t]);
+
+  // Wizard validations
   const scheduleReady = !!selectedDurationId && !!bookingDate && !!selectedSlot;
   const playersValid = players >= minPlayers && players <= maxPlayers;
   const paymentReady = !!paymentType && (paymentType !== 'cliq' || !!cliqImage);
@@ -278,267 +130,234 @@ export function BookingStepperScreen() {
         players,
         selectedSlot: selectedSlot
           ? {
-              start_time: String(
-                selectedSlot.start_time || selectedSlot.start || ''
-              ),
+              start_time: String(selectedSlot.start_time || selectedSlot.start || ''),
               end_time: String(selectedSlot.end_time || selectedSlot.end || ''),
             }
           : undefined,
         paymentType: paymentType || undefined,
         cashOnDate,
-        currentStep,
+        step,
       }),
-    [
-      bookingDate,
-      cashOnDate,
-      currentStep,
-      paymentType,
-      players,
-      selectedDurationId,
-      selectedSlot,
-      venueId,
-    ]
+    [venueId, selectedDurationId, bookingDate, players, selectedSlot, paymentType, cashOnDate, step],
   );
 
-  const { bookingDraft, durationsLoading } = usePlaygroundsStore((state) => ({
-    bookingDraft: state.bookingDraft,
-    durationsLoading: state.durationsLoading,
-  }));
-  const {
-    hydrate,
-    getVenueDetails,
-    getVenueDurations,
-    listAvailableSlots,
-    verifySlotAvailability,
-    listBookings,
-    createBooking,
-    setBookingDraft: persistBookingDraft,
-  } = usePlaygroundsActions();
+  // -------- effects
+  useEffect(() => {
+    hydrate();
+    loadVenue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (venue?.id) loadDurations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [venue?.id]);
+
+  useEffect(() => {
+    if (bookingDate && selectedDurationId && venue?.id) loadSlots(bookingDate, selectedDurationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingDate, selectedDurationId]);
+
+  useEffect(() => {
+    if (draftPayload) persistBookingDraft(draftPayload);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftPayload]);
+
+  // -------- loaders
+  const restoreDraft = useCallback(
+    async (venueObj) => {
+      try {
+        const draft = await Promise.resolve(bookingDraft);
+        if (!draft?.venueId || String(draft.venueId) !== String(venueId)) return;
+
+        const d = draft.draft || {};
+        if (d.selectedDurationId) setSelectedDurationId(String(d.selectedDurationId));
+        if (d.bookingDate) setBookingDate(String(d.bookingDate));
+        if (typeof d.players === 'number') setPlayers(Number(d.players) || 2);
+        if (d.selectedSlot?.start_time) {
+          setSelectedSlot({ start_time: d.selectedSlot.start_time, end_time: d.selectedSlot.end_time });
+        }
+        if (d.paymentType) setPaymentType(d.paymentType);
+        if (typeof d.cashOnDate === 'boolean') setCashOnDate(d.cashOnDate);
+        if (typeof d.step === 'number') setStep(d.step);
+
+        // sanity: if payment type not allowed -> auto fallback
+        const acad = venueObj?.academy_profile || null;
+        const cashAllowed = typeof acad?.allow_cash === 'boolean' ? acad.allow_cash : true;
+        const cliqAllowed = !!acad?.allow_cliq;
+        if (d.paymentType === 'cliq' && !cliqAllowed) setPaymentType(cashAllowed ? 'cash' : 'cliq');
+        if (d.paymentType === 'cash' && !cashAllowed) setPaymentType(cliqAllowed ? 'cliq' : 'cash');
+      } catch (e) {
+        console.warn('restoreDraft failed', e);
+      }
+    },
+    [bookingDraft, venueId],
+  );
 
   const loadVenue = useCallback(async () => {
     setLoading(true);
     setErrorText('');
     try {
-      const draft = await Promise.resolve(bookingDraft);
-
       const res = await getVenueDetails(venueId);
-      if (res?.success && res.data) {
+      if (res?.success && res?.data) {
         setVenue(res.data);
+        await restoreDraft(res.data);
       } else {
         setErrorText(res?.error?.message || t('service.playgrounds.venue.errors.notFound'));
       }
-
-      if (draft?.venueId && String(draft.venueId) === String(venueId)) {
-        const draftState = draft.draft || {};
-        if (draftState.selectedDurationId) {
-          setSelectedDurationId(String(draftState.selectedDurationId));
-        }
-        if (draftState.bookingDate) setBookingDate(draftState.bookingDate);
-        if (draftState.players) setPlayers(Number(draftState.players) || 2);
-        if (draftState.selectedSlot) {
-          setSelectedSlot({
-            start_time: draftState.selectedSlot.start_time,
-            end_time: draftState.selectedSlot.end_time,
-          });
-        }
-        if (draftState.paymentType) setPaymentType(draftState.paymentType);
-        if (typeof draftState.cashOnDate === 'boolean') {
-          setCashOnDate(draftState.cashOnDate);
-        }
-        if (typeof draftState.currentStep === 'number') {
-          setCurrentStep(draftState.currentStep);
-        }
-      }
-    } catch (err) {
-      setErrorText(err?.message || t('service.playgrounds.booking.errors.loadDraft'));
+    } catch (e) {
+      setErrorText(e?.message || t('service.playgrounds.booking.errors.loadVenue'));
     } finally {
       setLoading(false);
     }
-  }, [bookingDraft, getVenueDetails, t, venueId]);
+  }, [getVenueDetails, restoreDraft, t, venueId]);
 
   const loadDurations = useCallback(async () => {
     if (!venue?.id) return;
-    setErrorText('');
     try {
-      const durationRes = await getVenueDurations(venue.id, {
+      const res = await getVenueDurations(venue.id, {
         activityId: venue.activity_id,
         academyProfileId: venue.academy_profile_id,
       });
-      const list = Array.isArray(durationRes?.data)
-        ? durationRes.data
-        : Array.isArray(durationRes?.data?.durations)
-        ? durationRes.data.durations
-        : Array.isArray(durationRes?.durations)
-        ? durationRes.durations
-        : Array.isArray(durationRes?.data)
-        ? durationRes.data
-        : [];
 
-      const normalized = list.map((duration) => ({
-        ...duration,
-        base_price:
-          duration.base_price !== null && duration.base_price !== undefined
-            ? Number(duration.base_price)
-            : null,
+      const list = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res?.data?.durations)
+          ? res.data.durations
+          : Array.isArray(res?.durations)
+            ? res.durations
+            : [];
+
+      const normalized = list.map((d) => ({
+        ...d,
+        base_price: d.base_price !== null && d.base_price !== undefined ? Number(d.base_price) : null,
       }));
 
       setDurations(normalized);
 
-      if (!selectedDurationId) {
-        const defaultDuration =
-          normalized.find((item) => item.is_default) || normalized[0];
-        if (defaultDuration) {
-          setSelectedDurationId(String(defaultDuration.id));
-        }
+      if (!selectedDurationId && normalized.length > 0) {
+        const def = normalized.find((x) => x.is_default) || normalized[0];
+        if (def) setSelectedDurationId(String(def.id));
       }
-    } catch (err) {
-      setErrorText(err?.message || t('service.playgrounds.booking.errors.loadDurations'));
+    } catch (e) {
+      setErrorText(e?.message || t('service.playgrounds.booking.errors.loadDurations'));
     }
-  }, [getVenueDurations, selectedDurationId, t, venue?.academy_profile_id, venue?.activity_id, venue?.id]);
+  }, [getVenueDurations, selectedDurationId, t, venue]);
 
   const loadSlots = useCallback(
-    async (dateValue, durationValue) => {
-      if (!venue?.id) return;
-      if (!dateValue || !durationValue) return;
+    async (dateValue, durationIdValue) => {
+      if (!venue?.id || !dateValue || !durationIdValue) return;
+
       setSlotsLoading(true);
       setSlots([]);
       setSelectedSlot(null);
       setInlinePaymentError('');
-      setErrorText('');
 
       try {
-        const slotRes = await listAvailableSlots({
+        const durationObj = durations.find((d) => String(d.id) === String(durationIdValue));
+        const minutes = Number(durationObj?.minutes ?? durationObj?.duration_minutes);
+        if (!minutes) {
+          setErrorText(t('service.playgrounds.booking.errors.invalidDuration'));
+          return;
+        }
+
+        const res = await listAvailableSlots({
           venueId: venue.id,
           date: dateValue,
-          durationId: durationValue,
+          duration_minutes: minutes,
           number_of_players: players,
           activity_id: venue.activity_id,
           academy_profile_id: venue.academy_profile_id,
         });
-        const list = Array.isArray(slotRes?.data) ? slotRes.data : slotRes?.slots || [];
-        setSlots(list || []);
-      } catch (err) {
-        setSlots([]);
-        setSelectedSlot(null);
-        setErrorText(err?.message || t('service.playgrounds.booking.errors.loadSlots'));
+
+        const list = Array.isArray(res?.data) ? res.data : res?.slots || [];
+        setSlots(list);
+      } catch (e) {
+        setErrorText(e?.message || t('service.playgrounds.booking.errors.loadSlots'));
       } finally {
         setSlotsLoading(false);
       }
     },
-    [listAvailableSlots, players, t, venue?.academy_profile_id, venue?.activity_id, venue?.id]
+    [durations, listAvailableSlots, players, t, venue],
   );
 
-  useEffect(() => {
-    hydrate();
-    loadVenue();
-  }, [hydrate, loadVenue]);
-
-  useEffect(() => {
-    if (!venue?.id) return;
-    loadDurations();
-  }, [loadDurations, venue?.id]);
-
-  useEffect(() => {
-    if (!bookingDate || !selectedDurationId) return;
-    const durationObj = durations.find(
-      (duration) => String(duration.id) === String(selectedDurationId)
-    );
-    if (!durationObj) return;
-    loadSlots(bookingDate, selectedDurationId);
-  }, [bookingDate, durations, loadSlots, selectedDurationId]);
-
-  useEffect(() => {
-    if (!selectedDurationId) return;
-    const durationObj = durations.find(
-      (duration) => String(duration.id) === String(selectedDurationId)
-    );
-    if (!durationObj) return;
-    setSelectedSlot(null);
-    setSlots([]);
-  }, [selectedDurationId, durations]);
-
-  useEffect(() => {
-    if (!draftPayload) return;
-    persistBookingDraft(draftPayload);
-  }, [draftPayload, persistBookingDraft]);
-
-  useEffect(() => {
-    if (!allowCliq && paymentType === 'cliq') {
-      setPaymentType('cash');
+  // -------- wizard navigation
+  const nextStep = useCallback(() => {
+    setInlinePaymentError('');
+    if (step === 0 && !scheduleReady) return;
+    if (step === 1 && !playersValid) return;
+    if (step === 2 && paymentType === 'cliq' && !cliqImage) {
+      setInlinePaymentError(t('service.playgrounds.booking.payment.uploadRequired'));
+      return;
     }
-    if (!allowCash && allowCliq) {
-      setPaymentType('cliq');
-    }
-    if (!allowCash && !allowCliq) {
-      setPaymentType('cash');
-    }
-    if (!allowCashOnDate && cashOnDate) {
-      setCashOnDate(false);
-    }
-  }, [allowCash, allowCashOnDate, allowCliq, cashOnDate, paymentType]);
+    setStep((s) => Math.min(3, s + 1));
+  }, [cliqImage, paymentType, playersValid, scheduleReady, step, t]);
 
-  const stepLabels = useMemo(
-    () => [
-      t('service.playgrounds.booking.steps.schedule'),
-      t('service.playgrounds.booking.steps.players'),
-      t('service.playgrounds.booking.steps.payment'),
-      t('service.playgrounds.booking.steps.review'),
-    ],
-    [t]
-  );
+  const prevStep = useCallback(() => {
+    if (step === 0) {
+      router.back();
+      return;
+    }
+    setInlinePaymentError('');
+    setStep((s) => Math.max(0, s - 1));
+  }, [router, step]);
 
-  const handleSelectDuration = useCallback((id) => {
+  // -------- step handlers
+  const onSelectDuration = useCallback((id) => {
     setSelectedDurationId(String(id));
     setSelectedSlot(null);
     setSlots([]);
   }, []);
 
-  const handleSelectDate = useCallback((dateValue) => {
-    setBookingDate(dateValue);
+  const onSelectDate = useCallback((dateValue) => {
+    setBookingDate(String(dateValue));
     setSelectedSlot(null);
     setSlots([]);
   }, []);
 
-  const handleNextStep = useCallback(() => {
-    if (currentStep === 2 && paymentType === 'cliq' && !cliqImage) {
-      setInlinePaymentError(t('service.playgrounds.booking.payment.uploadRequired'));
-      return;
-    }
-    setInlinePaymentError('');
-    setCurrentStep((prev) => Math.min(prev + 1, stepLabels.length - 1));
-  }, [cliqImage, currentStep, paymentType, stepLabels.length, t]);
+  const onSelectSlot = useCallback((slot) => setSelectedSlot(slot), []);
 
-  const handleBackStep = useCallback(() => {
-    setCurrentStep((prev) => Math.max(prev - 1, 0));
+  const onPlayersPreset = useCallback((value) => {
+    const v = Number(value);
+    if (Number.isNaN(v)) return;
+    setPlayers(Math.min(maxPlayers, Math.max(minPlayers, v)));
+  }, [maxPlayers, minPlayers]);
+
+  const onPlayersInc = useCallback(() => setPlayers((p) => Math.min(maxPlayers, p + 1)), [maxPlayers]);
+  const onPlayersDec = useCallback(() => setPlayers((p) => Math.max(minPlayers, p - 1)), [minPlayers]);
+
+  const onPaymentType = useCallback((type) => {
+    setPaymentType(type);
+    setInlinePaymentError('');
   }, []);
 
-  const handlePickCliqImage = useCallback(async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    if (!res.canceled && res.assets?.[0]) {
-      setCliqImage(res.assets[0]);
+  const onCashOnDate = useCallback((val) => setCashOnDate(val), []);
+
+  const onPickCliqImage = useCallback(async (pickerFn) => {
+    // pickerFn is provided by steps file to avoid importing expo-image-picker in screen
+    const picked = await pickerFn();
+    if (picked) {
+      setCliqImage(picked);
       setInlinePaymentError('');
     }
   }, []);
 
-  const handleSubmitBooking = useCallback(async () => {
-    if (submitting) return;
-    if (!allValid || !selectedDuration || !selectedSlot) {
+  // -------- submit
+  const submitBooking = useCallback(async () => {
+    if (submitting || !allValid || !selectedDuration || !selectedSlot || !durationMinutes) {
       setErrorText(t('service.playgrounds.booking.errors.completeSteps'));
       return;
     }
 
     if (!publicUser?.id) {
-      if (draftPayload) await setBookingDraft(draftPayload);
+      if (draftPayload) await persistBookingDraft(draftPayload);
       const redirectTo = `/playgrounds/book/${venue?.id || venueId}`;
       router.push(`/(auth)/login?redirectTo=${encodeURIComponent(redirectTo)}`);
       return;
     }
 
     if (paymentType === 'cliq' && !cliqImage) {
-      setCurrentStep(2);
+      setStep(2);
       setInlinePaymentError(t('service.playgrounds.booking.payment.uploadRequired'));
       return;
     }
@@ -547,102 +366,70 @@ export function BookingStepperScreen() {
     setErrorText('');
 
     try {
-      const nextIdempotencyKey =
-        idempotencyKey ||
-        `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-      if (!idempotencyKey) {
-        setIdempotencyKey(nextIdempotencyKey);
-      }
+      const nextKey =
+        idempotencyKey || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      if (!idempotencyKey) setIdempotencyKey(nextKey);
+
       const availability = await verifySlotAvailability({
         venueId: venue.id,
         date: bookingDate,
-        durationId: selectedDuration.id,
+        duration_minutes: durationMinutes,
         startTime: selectedSlot.start_time || selectedSlot.start,
         number_of_players: players,
         activity_id: venue.activity_id,
         academy_profile_id: venue.academy_profile_id,
       });
-      const latestSlots = availability?.data?.slots || [];
-      if (Array.isArray(latestSlots)) {
-        setSlots(latestSlots);
-      }
+
       if (!availability?.success || !availability?.data?.available) {
         setSelectedSlot(null);
-        setCurrentStep(0);
+        setStep(0);
         setErrorText(t('service.playgrounds.booking.errors.slotUnavailable'));
         return;
       }
-      const formData = new FormData();
-      formData.append('academy_profile_id', venue.academy_profile_id);
-      formData.append('user_id', publicUser.id);
-      formData.append('activity_id', venue.activity_id);
-      formData.append('venue_id', venue.id);
-      formData.append('duration_id', selectedDuration.id);
-      formData.append('booking_date', bookingDate);
-      formData.append('start_time', selectedSlot.start_time);
-      formData.append('number_of_players', String(players));
-      formData.append('payment_type', paymentType);
-      formData.append(
-        'cash_payment_on_date',
-        paymentType === 'cash' && cashOnDate ? 'true' : 'false'
-      );
+
+      const fd = new FormData();
+      fd.append('academy_profile_id', String(venue.academy_profile_id));
+      fd.append('user_id', String(publicUser.id));
+      fd.append('activity_id', String(venue.activity_id));
+      fd.append('venue_id', String(venue.id));
+      fd.append('duration_id', String(selectedDuration.id));
+      fd.append('booking_date', String(bookingDate));
+      fd.append('start_time', String(selectedSlot.start_time));
+      fd.append('number_of_players', String(players));
+      fd.append('payment_type', String(paymentType));
+      fd.append('cash_payment_on_date', paymentType === 'cash' && cashOnDate ? 'true' : 'false');
 
       if (paymentType === 'cliq' && cliqImage?.uri) {
-        formData.append('cliq_image', {
+        fd.append('cliq_image', {
           uri: cliqImage.uri,
           name: cliqImage.fileName || 'cliq.jpg',
           type: cliqImage.mimeType || 'image/jpeg',
         });
       }
 
-      const res = await createBooking(formData, {
-        headers: { 'Idempotency-Key': nextIdempotencyKey },
-      });
-      if (res?.success === false) {
-        throw res.error || new Error('Booking failed');
-      }
+      const res = await createBooking(fd, { headers: { 'Idempotency-Key': nextKey } });
+      if (res?.success === false) throw res.error || new Error('Booking failed');
 
-      await persistBookingDraft(null);
-
-      if (publicUser?.id) {
-
-       await listBookings({ user_id: publicUser.id });
-      }
+      await clearBookingDraft();
+      await listBookings({ user_id: publicUser.id });
 
       setIdempotencyKey(null);
-      toast.success(t('service.playgrounds.booking.success.toastMessage'), {
-        title: t('service.playgrounds.booking.success.toastTitle'),
-      });
       setBookingResult(res?.data || res || null);
       setBookingSuccess(true);
-      setTimeout(() => {
-        router.replace('/playgrounds/bookings');
-      }, 30000);
-    } catch (err) {
-      const status = err?.status || err?.response?.status || err?.meta?.status || null;
+
+      toast.success(t('service.playgrounds.booking.success.toastMessage'), {
+        title: t('service.playgrounds.booking.success.toastTitle'),
+        duration: 5000,
+      });
+    } catch (e) {
+      const status = e?.status || e?.response?.status || e?.meta?.status;
       if (status === 409) {
         setSelectedSlot(null);
-        setCurrentStep(0);
+        setStep(0);
         setErrorText(t('service.playgrounds.booking.errors.slotUnavailable'));
-        try {
-          const refresh = await verifySlotAvailability({
-            venueId: venue.id,
-            date: bookingDate,
-            durationId: selectedDuration?.id,
-            startTime: selectedSlot?.start_time || selectedSlot?.start || '',
-            number_of_players: players,
-            activity_id: venue?.activity_id,
-            academy_profile_id: venue?.academy_profile_id,
-          });
-          if (Array.isArray(refresh?.data?.slots)) {
-            setSlots(refresh.data.slots);
-          }
-        } catch {
-          // ignore refresh errors
-        }
         return;
       }
-      setErrorText(err?.message || t('service.playgrounds.booking.errors.submit'));
+      setErrorText(e?.message || t('service.playgrounds.booking.errors.submit'));
     } finally {
       setSubmitting(false);
     }
@@ -652,8 +439,8 @@ export function BookingStepperScreen() {
     cashOnDate,
     cliqImage,
     createBooking,
-    verifySlotAvailability,
     draftPayload,
+    durationMinutes,
     idempotencyKey,
     listBookings,
     paymentType,
@@ -666,47 +453,19 @@ export function BookingStepperScreen() {
     submitting,
     t,
     toast,
-    venue?.academy_profile_id,
-    venue?.activity_id,
-    venue?.id,
+    venue,
+    venueId,
+    verifySlotAvailability,
+    clearBookingDraft,
   ]);
 
-  useEffect(() => {
-    setIdempotencyKey(null);
-  }, [bookingDate, selectedDurationId, selectedSlot?.start_time, venue?.id]);
+  const goToMyBookings = useCallback(() => {
+  // replace so user doesn’t come back to a stale wizard
+  router.replace('/playgrounds/bookings');
+}, [router]);
 
-  const handlePlayersChange = useCallback((value) => {
-    const parsed = Number(value);
-    if (Number.isNaN(parsed)) return;
-    setPlayers(parsed);
-  }, []);
 
-  const handlePlayersIncrement = useCallback(() => {
-    setPlayers((prev) => Math.min(maxPlayers, prev + 1));
-  }, [maxPlayers]);
-
-  const handlePlayersDecrement = useCallback(() => {
-    setPlayers((prev) => Math.max(minPlayers, prev - 1));
-  }, [minPlayers]);
-
-  const handleSelectSlot = useCallback((slot) => {
-    setSelectedSlot(slot);
-  }, []);
-
-  const stepTitle =
-    currentStep === 0
-      ? t('service.playgrounds.booking.titles.schedule')
-      : currentStep === 1
-      ? t('service.playgrounds.booking.titles.players')
-      : currentStep === 2
-      ? t('service.playgrounds.booking.titles.payment')
-      : t('service.playgrounds.booking.titles.review');
-
-  const priceLabel =
-    basePrice !== null && basePrice !== undefined
-      ? `${basePrice} ${CURRENCY}`
-      : t('service.playgrounds.common.placeholder');
-
+  // -------- render
   if (loading) {
     return (
       <AppScreen safe>
@@ -722,6 +481,7 @@ export function BookingStepperScreen() {
           title={t('service.playgrounds.booking.errors.title')}
           message={errorText}
           onAction={loadVenue}
+          actionLabel={t('service.playgrounds.booking.errors.retry')}
         />
       </AppScreen>
     );
@@ -733,729 +493,91 @@ export function BookingStepperScreen() {
         <EmptyState
           title={t('service.playgrounds.booking.empty.title')}
           message={t('service.playgrounds.booking.empty.message')}
+          actionLabel={t('service.playgrounds.booking.empty.action')}
+          onAction={() => router.back()}
         />
       </AppScreen>
     );
   }
 
   return (
-    <AppScreen safe>
-      <StepperHeader
-        currentStep={currentStep}
-        onBack={handleBackStep}
-        colors={colors}
-        stepLabels={stepLabels}
-        t={t}
-      />
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
+    <AppScreen safe edges={['top']} style={styles.screen}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <View style={styles.stepHeader}>
-          <Text variant="bodySmall" color={colors.textSecondary}>
-            {venue?.academy_profile?.public_name || t('service.playgrounds.common.academy')}
-          </Text>
-          <Text variant="h4" weight="semibold">
-            {stepTitle}
-          </Text>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <BookingWizardSteps
+            // ui
+            styles={styles}
+            colors={colors}
+            t={t}
+            // wizard
+            step={step}
+            setStep={setStep}
+            priceLabel={priceLabel}
+            submitting={submitting}
+            bookingSuccess={bookingSuccess}
+            bookingResult={bookingResult}
+            errorText={errorText}
+            onGoToBookings={goToMyBookings}
+            // venue
+            venue={venue}
+            academy={academy}
+            // schedule state
+            durations={durations}
+            durationsLoading={durationsLoading}
+            selectedDurationId={selectedDurationId}
+            onSelectDuration={onSelectDuration}
+            quickDates={quickDates}
+            bookingDate={bookingDate}
+            onSelectDate={onSelectDate}
+            slots={slots}
+            slotsLoading={slotsLoading}
+            selectedSlot={selectedSlot}
+            onSelectSlot={onSelectSlot}
+            // players
+            players={players}
+            minPlayers={minPlayers}
+            maxPlayers={maxPlayers}
+            onPlayersPreset={onPlayersPreset}
+            onPlayersInc={onPlayersInc}
+            onPlayersDec={onPlayersDec}
+            // payment
+            allowCash={allowCash}
+            allowCashOnDate={allowCashOnDate}
+            allowCliq={allowCliq}
+            cliqName={cliqName}
+            cliqNumber={cliqNumber}
+            paymentType={paymentType}
+            onPaymentType={onPaymentType}
+            cashOnDate={cashOnDate}
+            onCashOnDate={onCashOnDate}
+            cliqImage={cliqImage}
+            onPickCliqImage={onPickCliqImage}
+            inlinePaymentError={inlinePaymentError}
+            // navigation/submit
+            onBack={prevStep}
+            onNext={nextStep}
+            onConfirm={submitBooking}
+            // validations
+            scheduleReady={scheduleReady}
+            playersValid={playersValid}
+            paymentReady={paymentReady}
+            allValid={allValid}
+            // helpers
+            formatSlotLabel={formatSlotLabel}
+          />
 
-        {currentStep === 0 ? (
-          <View style={styles.stepSection}>
-            <View style={styles.sectionHeaderRow}>
-              <CalendarDays size={18} color={colors.textMuted} />
-              <Text variant="bodySmall" weight="semibold">
-                {t('service.playgrounds.booking.schedule.duration')}
-              </Text>
-            </View>
-            {durationsLoading ? (
-              <SporHiveLoader
-                message={t('service.playgrounds.booking.schedule.loadingDurations')}
-                size={72}
-                style={styles.inlineLoader}
-                contentStyle={styles.inlineLoaderContent}
-              />
-            ) : durations.length === 0 ? (
-              <EmptyState
-                title={t('service.playgrounds.booking.schedule.noDurationsTitle')}
-                message={t('service.playgrounds.booking.schedule.noDurationsMessage')}
-              />
-            ) : (
-              <View style={styles.durationCards}>
-                {durations.map((duration) => {
-                  const minutes =
-                    duration.minutes || duration.duration_minutes || 60;
-                  const isSelected =
-                    String(duration.id) === String(selectedDurationId);
-                  return (
-                    <Pressable
-                      key={String(duration.id)}
-                      onPress={() => handleSelectDuration(duration.id)}
-                      style={({ pressed }) => [
-                        styles.durationCard,
-                        {
-                          borderColor: isSelected
-                            ? colors.accentOrange
-                            : colors.border,
-                          backgroundColor: pressed
-                            ? colors.surfaceElevated
-                            : colors.surface,
-                        },
-                      ]}
-                      accessibilityRole="button"
-                    >
-                      <View style={styles.durationCardTop}>
-                        <Text variant="bodySmall" weight="semibold">
-                          {t('service.playgrounds.booking.schedule.minutesLabel', { minutes })}
-                        </Text>
-                        {duration.is_default ? (
-                          <Text
-                            variant="caption"
-                            color={colors.accentOrange}
-                            weight="semibold"
-                          >
-                            {t('service.playgrounds.booking.schedule.mostPopular')}
-                          </Text>
-                        ) : null}
-                      </View>
-                      <Text variant="bodySmall" color={colors.textSecondary}>
-                        {duration.base_price !== null &&
-                        duration.base_price !== undefined
-                          ? `${Number(duration.base_price)} ${CURRENCY}`
-                          : t('service.playgrounds.booking.schedule.priceOnRequest')}
-                      </Text>
-                      {duration.note ? (
-                        <Text variant="caption" color={colors.textSecondary}>
-                          {duration.note}
-                        </Text>
-                      ) : null}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-
-            <View style={styles.sectionHeaderRow}>
-              <CalendarDays size={18} color={colors.textMuted} />
-              <Text variant="bodySmall" weight="semibold">
-                {t('service.playgrounds.booking.schedule.date')}
-              </Text>
-            </View>
-            <Input
-              label={t('service.playgrounds.booking.schedule.bookingDate')}
-              value={bookingDate}
-              onChangeText={handleSelectDate}
-              placeholder={t('service.playgrounds.booking.schedule.bookingDatePlaceholder')}
-              accessibilityLabel={t('service.playgrounds.booking.schedule.bookingDateAccessibility')}
-            />
-            <View style={styles.quickDateRow}>
-              {quickDates.map((dateValue, index) => {
-                const isSelected = bookingDate === dateValue;
-                const label =
-                  index === 0
-                    ? t('service.playgrounds.booking.schedule.today')
-                    : index === 1
-                    ? t('service.playgrounds.booking.schedule.tomorrow')
-                    : dateValue;
-                return (
-                  <Chip
-                    key={dateValue}
-                    label={label}
-                    selected={isSelected}
-                    onPress={() => handleSelectDate(dateValue)}
-                    accessibilityLabel={t('service.playgrounds.booking.schedule.selectDateAccessibility', {
-                      date: dateValue,
-                    })}
-                  />
-                );
-              })}
-            </View>
-
-            <View style={styles.sectionHeaderRow}>
-              <CalendarDays size={18} color={colors.textMuted} />
-              <Text variant="bodySmall" weight="semibold">
-                {t('service.playgrounds.booking.schedule.availableSlots')}
-              </Text>
-            </View>
-            {!selectedDurationId ? (
-              <EmptyState
-                title={t('service.playgrounds.booking.schedule.selectDurationTitle')}
-                message={t('service.playgrounds.booking.schedule.selectDurationMessage')}
-              />
-            ) : slotsLoading ? (
-              <SporHiveLoader
-                message={t('service.playgrounds.booking.schedule.loadingSlots')}
-                size={72}
-                style={styles.inlineLoader}
-                contentStyle={styles.inlineLoaderContent}
-              />
-            ) : !bookingDate ? (
-              <EmptyState
-                title={t('service.playgrounds.booking.schedule.pickDateTitle')}
-                message={t('service.playgrounds.booking.schedule.pickDateMessage')}
-              />
-            ) : slots.length === 0 ? (
-              <EmptyState
-                title={t('service.playgrounds.booking.schedule.noSlotsTitle')}
-                message={t('service.playgrounds.booking.schedule.noSlotsMessage')}
-              />
-            ) : (
-              <View style={styles.slotsGrid}>
-                {slots.map((slot, index) => {
-                  const slotKey = slot.id ? String(slot.id) : `${index}`;
-                  const label = formatSlotLabel(slot, t);
-                  const isSelected = selectedSlot?.id
-                    ? selectedSlot.id === slot.id
-                    : formatSlotLabel(selectedSlot || {}, t) === label;
-                  const phase = getSlotPhase(slot.start_time || slot.start);
-                  return (
-                    <Chip
-                      key={slotKey}
-                      label={label}
-                      selected={isSelected}
-                      icon={
-                        phase === 'night' ? (
-                          <Moon size={12} color={colors.textMuted} />
-                        ) : (
-                          <Sun size={12} color={colors.textMuted} />
-                        )
-                      }
-                      onPress={() => handleSelectSlot(slot)}
-                    />
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        ) : null}
-
-        {currentStep === 1 ? (
-          <View style={styles.stepSection}>
-            <View style={styles.sectionHeaderRow}>
-              <Users size={18} color={colors.textMuted} />
-              <Text variant="bodySmall" weight="semibold">
-                {t('service.playgrounds.booking.players.title')}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.playersDisplay,
-                { borderColor: colors.border, backgroundColor: colors.surface },
-              ]}
-            >
-              <Text variant="caption" color={colors.textSecondary}>
-                {t('service.playgrounds.booking.players.label')}
-              </Text>
-              <Text variant="h2" weight="bold">
-                {players}
-              </Text>
-            </View>
-            <View style={styles.playersStepper}>
-              <Button
-                variant="secondary"
-                size="small"
-                onPress={handlePlayersDecrement}
-                disabled={players <= minPlayers}
-              >
-                -
-              </Button>
-              <Button
-                variant="secondary"
-                size="small"
-                onPress={handlePlayersIncrement}
-                disabled={players >= maxPlayers}
-              >
-                +
-              </Button>
-            </View>
-            <Text variant="bodySmall" color={colors.textSecondary}>
-              {t('service.playgrounds.booking.players.allowedRange', {
-                min: minPlayers,
-                max: maxPlayers,
-              })}
-            </Text>
-            <Input
-              label={t('service.playgrounds.booking.players.inputLabel')}
-              value={String(players)}
-              onChangeText={handlePlayersChange}
-              placeholder={t('service.playgrounds.booking.players.placeholder')}
-              keyboardType="number-pad"
-              accessibilityLabel={t('service.playgrounds.booking.players.accessibilityLabel')}
-            />
-            <View style={styles.quickPlayersRow}>
-              {QUICK_PLAYER_SUGGESTIONS.map((count) => (
-                <Chip
-                  key={count}
-                  label={t('service.playgrounds.booking.players.countLabel', { count })}
-                  selected={players === count}
-                  onPress={() => setPlayers(count)}
-                />
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {currentStep === 2 ? (
-          <View style={styles.stepSection}>
-            <View style={styles.sectionHeaderRow}>
-              <CreditCard size={18} color={colors.textMuted} />
-              <Text variant="bodySmall" weight="semibold">
-                {t('service.playgrounds.booking.payment.title')}
-              </Text>
-            </View>
-            <Text variant="bodySmall" color={colors.textSecondary}>
-              {t('service.playgrounds.booking.payment.subtitle')}
-            </Text>
-            <View style={styles.chipsWrap}>
-              {allowCash ? (
-                <Chip
-                  label={t('service.playgrounds.booking.payment.cash')}
-                  selected={paymentType === 'cash'}
-                  onPress={() => setPaymentType('cash')}
-                />
-              ) : null}
-              {allowCliq ? (
-                <Chip
-                  label={t('service.playgrounds.booking.payment.cliq')}
-                  selected={paymentType === 'cliq'}
-                  onPress={() => setPaymentType('cliq')}
-                />
-              ) : null}
-            </View>
-            {paymentType === 'cash' ? (
-              <View
-                style={[
-                  styles.paymentDetailCard,
-                  {
-                    backgroundColor: colors.accentOrangeSoft,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Text variant="bodySmall" weight="semibold">
-                  {t('service.playgrounds.booking.payment.cashTitle')}
-                </Text>
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  {t('service.playgrounds.booking.payment.cashSubtitle')}
-                </Text>
-                {allowCashOnDate ? (
-                  <View style={styles.chipsWrap}>
-                    <Chip
-                      label={t('service.playgrounds.booking.payment.payOnDate')}
-                      selected={cashOnDate}
-                      onPress={() => setCashOnDate(true)}
-                    />
-                    <Chip
-                      label={t('service.playgrounds.booking.payment.payNow')}
-                      selected={!cashOnDate}
-                      onPress={() => setCashOnDate(false)}
-                    />
-                  </View>
-                ) : (
-                  <Text variant="caption" color={colors.textSecondary}>
-                    {t('service.playgrounds.booking.payment.cashOnDateUnavailable')}
-                  </Text>
-                )}
-              </View>
-            ) : null}
-            {paymentType === 'cliq' ? (
-              <View
-                style={[
-                  styles.paymentDetailCard,
-                  {
-                    backgroundColor: colors.accentOrangeSoft,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Text variant="bodySmall" weight="semibold">
-                  {t('service.playgrounds.booking.payment.cliqTitle')}
-                </Text>
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  {t('service.playgrounds.booking.payment.cliqSubtitle')}
-                </Text>
-                {(cliqName || cliqNumber) && (
-                  <View style={styles.cliqDetails}>
-                    {cliqName ? (
-                      <Text variant="bodySmall">
-                        {t('service.playgrounds.booking.payment.cliqName', { name: cliqName })}
-                      </Text>
-                    ) : null}
-                    {cliqNumber ? (
-                      <Text variant="bodySmall">
-                        {t('service.playgrounds.booking.payment.cliqNumber', { number: cliqNumber })}
-                      </Text>
-                    ) : null}
-                  </View>
-                )}
-                <Button variant="secondary" onPress={handlePickCliqImage}>
-                  {t('service.playgrounds.booking.payment.uploadScreenshot')}
-                </Button>
-                {cliqImage?.uri ? (
-                  <Image
-                    source={{ uri: cliqImage.uri }}
-                    style={styles.cliqPreview}
-                  />
-                ) : null}
-                {inlinePaymentError ? (
-                  <Text variant="caption" color={colors.error}>
-                    {inlinePaymentError}
-                  </Text>
-                ) : null}
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-
-        {currentStep === 3 ? (
-          <View style={styles.stepSection}>
-            <View style={styles.sectionHeaderRow}>
-              <Check size={18} color={colors.textMuted} />
-              <Text variant="bodySmall" weight="semibold">
-                {t('service.playgrounds.booking.review.title')}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.summaryCard,
-                {
-                  borderColor: colors.border,
-                  backgroundColor: colors.surfaceElevated,
-                },
-              ]}
-            >
-              <View style={styles.summaryRow}>
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  {t('service.playgrounds.booking.review.labels.venue')}
-                </Text>
-                <Text variant="bodySmall" weight="semibold">
-                  {venue.name || t('service.playgrounds.common.venue')}
-                </Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  {t('service.playgrounds.booking.review.labels.academy')}
-                </Text>
-                <Text variant="bodySmall" weight="semibold">
-                  {academy?.public_name || t('service.playgrounds.common.academy')}
-                </Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  {t('service.playgrounds.booking.review.labels.date')}
-                </Text>
-                <Text variant="bodySmall" weight="semibold">
-                  {bookingDate || t('service.playgrounds.common.placeholder')}
-                </Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  {t('service.playgrounds.booking.review.labels.time')}
-                </Text>
-                <Text variant="bodySmall" weight="semibold">
-                  {selectedSlot
-                    ? formatSlotLabel(selectedSlot, t)
-                    : t('service.playgrounds.common.placeholder')}
-                </Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  {t('service.playgrounds.booking.review.labels.duration')}
-                </Text>
-                <Text variant="bodySmall" weight="semibold">
-                  {selectedDuration
-                    ? t('service.playgrounds.booking.schedule.minutesLabel', {
-                        minutes:
-                          selectedDuration.minutes ||
-                          selectedDuration.duration_minutes ||
-                          60,
-                      })
-                    : t('service.playgrounds.common.placeholder')}
-                </Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  {t('service.playgrounds.booking.review.labels.players')}
-                </Text>
-                <Text variant="bodySmall" weight="semibold">
-                  {players}
-                </Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  {t('service.playgrounds.booking.review.labels.payment')}
-                </Text>
-                <Text variant="bodySmall" weight="semibold">
-                  {paymentType === 'cash'
-                    ? t('service.playgrounds.booking.payment.cash')
-                    : t('service.playgrounds.booking.payment.cliq')}
-                  {paymentType === 'cash' && allowCashOnDate
-                    ? cashOnDate
-                      ? ` ${t('service.playgrounds.booking.payment.payOnDateSuffix')}`
-                      : ` ${t('service.playgrounds.booking.payment.payNowSuffix')}`
-                    : ''}
-                </Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  {t('service.playgrounds.booking.review.labels.price')}
-                </Text>
-                <Text variant="bodySmall" weight="semibold">
-                  {priceLabel}
-                </Text>
-              </View>
-            </View>
-            {bookingSuccess ? (
-              <View
-                style={[
-                  styles.successCard,
-                  {
-                    borderColor: colors.accentOrange,
-                    backgroundColor: colors.accentOrangeSoft,
-                  },
-                ]}
-              >
-                <Text variant="bodySmall" weight="semibold">
-                  {t('service.playgrounds.booking.success.title')}
-                </Text>
-                <Text variant="bodySmall" color={colors.textSecondary}>
-                  {t('service.playgrounds.booking.success.message')}
-                </Text>
-
-                {bookingResult?.booking_code ? (
-                  <View style={{ marginTop: spacing.sm }}>
-                    <Text variant="caption" color={colors.textSecondary}>
-                      {t('service.playgrounds.booking.success.codeLabel')}
-                    </Text>
-                    <Text variant="bodySmall" weight="semibold">
-                      {bookingResult.booking_code}
-                    </Text>
-                  </View>
-                ) : null}
-
-                <View
-                  style={{
-                    marginTop: spacing.md,
-                    flexDirection: 'row',
-                    gap: spacing.sm,
-                  }}
-                >
-                  <Button
-                    variant="secondary"
-                    onPress={() => router.push('/playgrounds/bookings')}
-                  >
-                    {t('service.playgrounds.booking.success.viewBookings')}
-                  </Button>
-                  <Button onPress={() => router.back()}>
-                    {t('service.playgrounds.booking.success.done')}
-                  </Button>
-                </View>
-              </View>
-            ) : null}
-            {errorText ? (
-              <View
-                style={[
-                  styles.errorCard,
-                  { borderColor: colors.error, backgroundColor: colors.surfaceElevated },
-                ]}
-              >
-                <Text variant="bodySmall" color={colors.error}>
-                  {errorText}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-      </ScrollView>
-
-      <StickyFooterCTA
-        currentStep={currentStep}
-        onBack={handleBackStep}
-        onNext={
-          bookingSuccess
-            ? () => router.push('/playgrounds/bookings')
-            : currentStep < stepLabels.length - 1
-            ? handleNextStep
-            : handleSubmitBooking
-        }
-        priceLabel={priceLabel}
-        disableBack={currentStep === 0}
-        disableNext={
-          bookingSuccess ||
-          (currentStep === 0 && !scheduleReady) ||
-          (currentStep === 1 && !playersValid) ||
-          (currentStep === 2 && !paymentReady) ||
-          (currentStep === 3 && (!allValid || submitting))
-        }
-        submitting={submitting}
-        colors={colors}
-        stepLabels={stepLabels}
-        t={t}
-      />
+          <View style={styles.footerSpacer} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: spacing.lg,
-    gap: spacing.lg,
-    paddingBottom: spacing['2xl'],
-  },
-  stepperHeader: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    gap: spacing.sm,
-  },
-  stepperTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: borderRadius.full,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    borderRadius: borderRadius.full,
-  },
-  stepLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  stepLabelItem: {
-    alignItems: 'center',
-    gap: spacing.xs,
-    flex: 1,
-  },
-  stepLabelDot: {
-    height: 26,
-    width: 26,
-    borderRadius: 13,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepHeader: {
-    gap: spacing.xs,
-  },
-  stepSection: {
-    gap: spacing.md,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  durationCards: {
-    gap: spacing.sm,
-  },
-  durationCard: {
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    gap: spacing.xs,
-    ...shadows.sm,
-  },
-  durationCardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  quickDateRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  slotsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  playersDisplay: {
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  playersStepper: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  quickPlayersRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  chipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  paymentDetailCard: {
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    gap: spacing.sm,
-  },
-  cliqDetails: {
-    gap: spacing.xs,
-  },
-  cliqPreview: {
-    height: 140,
-    borderRadius: borderRadius.lg,
-  },
-  summaryCard: {
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    gap: spacing.sm,
-    ...shadows.sm,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  errorCard: {
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-  },
-  inlineLoader: {
-    flex: 0,
-    paddingVertical: spacing.lg,
-  },
-  inlineLoaderContent: {
-    paddingHorizontal: spacing.lg,
-  },
-  stickyFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-  },
-  footerButtons: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  successCard: {
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    gap: spacing.xs,
-  },
-
-});
+export default BookingWizardScreen;

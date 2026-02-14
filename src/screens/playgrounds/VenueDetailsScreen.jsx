@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ImageBackground, Linking, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ImageBackground,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MapPin, Share2, Star } from 'lucide-react-native';
 
@@ -13,7 +19,10 @@ import { Chip } from '../../components/ui/Chip';
 import { IconButton } from '../../components/ui/IconButton';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { API_BASE_URL } from '../../services/api/client';
-import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
+import {
+  usePlaygroundsActions,
+  usePlaygroundsStore,
+} from '../../services/playgrounds/playgrounds.store';
 import { borderRadius, shadows, spacing } from '../../theme/tokens';
 
 function getVenueImages(venue) {
@@ -44,18 +53,25 @@ function normalizeFeatureTags(venue) {
     if (Array.isArray(value)) return value;
     return value.split(',').map((item) => item.trim());
   };
-  const tags = [...collect(venue.tags), ...collect(venue.features), ...collect(venue.amenities)];
+  const tags = [
+    ...collect(venue.tags),
+    ...collect(venue.features),
+    ...collect(venue.amenities),
+  ];
   return tags.map((tag) => tag.toLowerCase()).filter(Boolean);
 }
 
 function mapVenueFeatures(venue, t) {
   const tags = normalizeFeatureTags(venue);
-  const mapped = Object.keys(FEATURE_LABELS).filter((key) => tags.includes(key));
+  const mapped = Object.keys(FEATURE_LABELS).filter((key) =>
+    tags.includes(key),
+  );
   return mapped.map((key) => ({ key, label: t(FEATURE_LABELS[key]) }));
 }
 
 function formatMoney(amount, currency) {
-  if (amount === null || amount === undefined || Number.isNaN(Number(amount))) return null;
+  if (amount === null || amount === undefined || Number.isNaN(Number(amount)))
+    return null;
   const normalizedCurrency = currency || 'AED';
   return `${normalizedCurrency} ${Number(amount).toFixed(0)}`;
 }
@@ -75,10 +91,13 @@ export function VenueDetailsScreen() {
     activities: state.activities,
     durationsByVenue: state.durationsByVenue,
   }));
-  const { getVenueDetails, getVenueDurations, listActivities } = usePlaygroundsActions();
+  const { getVenueDetails, getVenueDurations, listActivities } =
+    usePlaygroundsActions();
 
   const activityMap = useMemo(() => {
-    return new Map(activities.map((activity) => [String(activity.id), activity.name || '']));
+    return new Map(
+      activities.map((activity) => [String(activity.id), activity.name || '']),
+    );
   }, [activities]);
 
   const loadVenue = useCallback(async () => {
@@ -89,7 +108,9 @@ export function VenueDetailsScreen() {
       if (res?.success && res.data) {
         setVenue(res.data);
       } else {
-        setError(res?.error?.message || t('service.playgrounds.venue.errors.notFound'));
+        setError(
+          res?.error?.message || t('service.playgrounds.venue.errors.notFound'),
+        );
       }
       if (!activities.length) {
         await listActivities({ include_inactive: false });
@@ -105,44 +126,71 @@ export function VenueDetailsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [activities.length, getVenueDetails, getVenueDurations, listActivities, t, venueId]);
+  }, [
+    activities.length,
+    getVenueDetails,
+    getVenueDurations,
+    listActivities,
+    t,
+    venueId,
+  ]);
 
   useEffect(() => {
     loadVenue();
   }, [loadVenue]);
 
-  const location = venue ? [venue.city, venue.country].filter(Boolean).join(', ') : '';
+  const location = venue
+    ? [venue.city, venue.country].filter(Boolean).join(', ')
+    : '';
   const ratingRaw = venue?.rating ?? venue?.avg_rating ?? null;
-  const rating = ratingRaw !== null && ratingRaw !== undefined ? Number(ratingRaw) : null;
+  const rating =
+    ratingRaw !== null && ratingRaw !== undefined ? Number(ratingRaw) : null;
   const ratingsCount = venue?.ratings_count;
-  const durations = durationsByVenue?.[venue?.id] || venue?.durations || venue?.venue_durations || [];
+  const durations =
+    durationsByVenue?.[venue?.id] ||
+    venue?.durations ||
+    venue?.venue_durations ||
+    [];
   const slots = venue?.slots || venue?.available_slots || [];
-  const currency = venue?.currency || durations?.[0]?.currency || slots?.[0]?.currency || null;
+  const currency =
+    venue?.currency || durations?.[0]?.currency || slots?.[0]?.currency || null;
   const priceFrom =
     venue?.price_from ??
     venue?.starting_price ??
     durations?.[0]?.price ??
     slots?.[0]?.price ??
     null;
-  const activityName = venue?.activity_id ? activityMap.get(String(venue?.activity_id)) : null;
+  const activityName = venue?.activity_id
+    ? activityMap.get(String(venue?.activity_id))
+    : null;
   const features = venue ? mapVenueFeatures(venue, t) : [];
-  const academyName = venue?.academy_profile?.name || venue?.academy_profile?.title;
-  const academyLocation = venue?.academy_profile?.city || venue?.academy_profile?.country || venue?.location_text;
+  const academyName =
+    venue?.academy_profile?.name || venue?.academy_profile?.title;
+  const academyLocation =
+    venue?.academy_profile?.city ||
+    venue?.academy_profile?.country ||
+    venue?.location_text;
 
   return (
     <AppScreen paddingHorizontal={0} paddingTop={0} paddingBottom={0}>
       <AppHeader
-        title={venue?.name || venue?.title || t('service.playgrounds.common.playground')}
+        title={
+          venue?.name ||
+          venue?.title ||
+          t('service.playgrounds.common.playground')
+        }
         subtitle={location || undefined}
         variant="transparent"
-        right={(
+        right={
           <IconButton
-            icon={() => <Share2 size={18} color={colors.textPrimary} />}
+            icon={Share2} // ✅ pass component, not function
+            size={18}
+            color={colors.textPrimary}
             onPress={() => {}}
             accessibilityLabel={t('service.playgrounds.venue.actions.share')}
             style={[styles.headerIcon, { backgroundColor: colors.surface }]}
           />
-        )}
+        }
       />
       {loading ? (
         <SporHiveLoader message={t('service.playgrounds.venue.loading')} />
@@ -157,21 +205,29 @@ export function VenueDetailsScreen() {
         </View>
       ) : venue ? (
         <>
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.hero}>
               <ScrollView
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 style={styles.carousel}
-                onLayout={(event) => setHeroWidth(event.nativeEvent.layout.width)}
+                onLayout={(event) =>
+                  setHeroWidth(event.nativeEvent.layout.width)
+                }
               >
                 {getVenueImages(venue).length ? (
                   getVenueImages(venue).map((uri) => (
                     <ImageBackground
                       key={uri}
                       source={{ uri }}
-                      style={[styles.heroImage, heroWidth ? { width: heroWidth } : null]}
+                      style={[
+                        styles.heroImage,
+                        heroWidth ? { width: heroWidth } : null,
+                      ]}
                       imageStyle={styles.heroImageRadius}
                     />
                   ))
@@ -188,13 +244,26 @@ export function VenueDetailsScreen() {
               </ScrollView>
               <View style={styles.heroOverlay}>
                 {rating !== null ? (
-                  <View style={[styles.ratingBadge, { backgroundColor: colors.surface }]}>
+                  <View
+                    style={[
+                      styles.ratingBadge,
+                      { backgroundColor: colors.surface },
+                    ]}
+                  >
                     <Star size={12} color={colors.accentOrange} />
-                    <Text variant="caption" weight="bold" style={{ marginStart: 4 }}>
+                    <Text
+                      variant="caption"
+                      weight="bold"
+                      style={{ marginStart: 4 }}
+                    >
                       {rating.toFixed(1)}
                     </Text>
                     {ratingsCount ? (
-                      <Text variant="caption" color={colors.textSecondary} style={{ marginStart: 6 }}>
+                      <Text
+                        variant="caption"
+                        color={colors.textSecondary}
+                        style={{ marginStart: 6 }}
+                      >
                         ({ratingsCount})
                       </Text>
                     ) : null}
@@ -204,11 +273,17 @@ export function VenueDetailsScreen() {
             </View>
             <View style={styles.section}>
               <Text variant="h3" weight="semibold">
-                {venue.name || venue.title || t('service.playgrounds.common.playground')}
+                {venue.name ||
+                  venue.title ||
+                  t('service.playgrounds.common.playground')}
               </Text>
               <View style={styles.locationRow}>
                 <MapPin size={14} color={colors.textMuted} />
-                <Text variant="bodySmall" color={colors.textSecondary} style={{ marginStart: spacing.xs }}>
+                <Text
+                  variant="bodySmall"
+                  color={colors.textSecondary}
+                  style={{ marginStart: spacing.xs }}
+                >
                   {location || t('service.playgrounds.common.locationPending')}
                 </Text>
               </View>
@@ -217,14 +292,25 @@ export function VenueDetailsScreen() {
                   variant="secondary"
                   size="small"
                   onPress={() => Linking.openURL(venue.maps_url || '')}
-                  accessibilityLabel={t('service.playgrounds.venue.actions.getDirections')}
+                  accessibilityLabel={t(
+                    'service.playgrounds.venue.actions.getDirections',
+                  )}
                 >
                   {t('service.playgrounds.venue.actions.getDirections')}
                 </Button>
               ) : null}
               <View style={styles.chipsRow}>
-                <Chip label={activityName || t('service.playgrounds.common.multiSport')} />
-                {priceFrom ? <Chip label={`${formatMoney(priceFrom, currency)} +`} selected /> : null}
+                <Chip
+                  label={
+                    activityName || t('service.playgrounds.common.multiSport')
+                  }
+                />
+                {priceFrom ? (
+                  <Chip
+                    label={`${formatMoney(priceFrom, currency)} +`}
+                    selected
+                  />
+                ) : null}
               </View>
             </View>
 
@@ -246,10 +332,13 @@ export function VenueDetailsScreen() {
                 {t('service.playgrounds.venue.academy.title')}
               </Text>
               <Text variant="bodySmall" weight="semibold">
-                {academyName || t('service.playgrounds.venue.academy.defaultName')}
+                {academyName ||
+                  t('service.playgrounds.venue.academy.defaultName')}
               </Text>
               <Text variant="bodySmall" color={colors.textSecondary}>
-                {academyLocation || location || t('service.playgrounds.common.locationPending')}
+                {academyLocation ||
+                  location ||
+                  t('service.playgrounds.common.locationPending')}
               </Text>
               {venue.has_special_offer ? (
                 <Text variant="bodySmall" color={colors.accentOrange}>
@@ -265,11 +354,14 @@ export function VenueDetailsScreen() {
                 {durations.length ? (
                   durations.map((duration) => (
                     <Chip
-                      key={String(duration.id ?? duration.label ?? duration.minutes)}
+                      key={String(
+                        duration.id ?? duration.label ?? duration.minutes,
+                      )}
                       label={
                         duration.label ||
                         t('service.playgrounds.booking.schedule.minutesLabel', {
-                          minutes: duration.minutes || duration.duration_minutes || 60,
+                          minutes:
+                            duration.minutes || duration.duration_minutes || 60,
                         })
                       }
                     />
@@ -290,7 +382,15 @@ export function VenueDetailsScreen() {
               </Text>
             </View>
           </ScrollView>
-          <View style={[styles.stickyBar, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.stickyBar,
+              {
+                backgroundColor: colors.surfaceElevated,
+                borderColor: colors.border,
+              },
+            ]}
+          >
             <View>
               <Text variant="bodySmall" color={colors.textSecondary}>
                 {priceFrom
@@ -304,7 +404,9 @@ export function VenueDetailsScreen() {
             </View>
             <Button
               onPress={() => router.push(`/playgrounds/book/${venue.id}`)}
-              accessibilityLabel={t('service.playgrounds.venue.cta.bookAccessibility')}
+              accessibilityLabel={t(
+                'service.playgrounds.venue.cta.bookAccessibility',
+              )}
             >
               {t('service.playgrounds.venue.cta.book')}
             </Button>

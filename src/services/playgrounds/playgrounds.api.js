@@ -34,11 +34,19 @@ const requireParam = (value, name) => {
   }
 };
 
+// Defensive: allow passing expo-router param arrays or a venue object.
+const resolveId = (value) => {
+  if (Array.isArray(value)) return value[0];
+  if (value && typeof value === 'object') return value.id;
+  return value;
+};
+
 export const playgroundsApi = {
   async listVenues(params = {}) {
     const res = await endpoints.playgrounds.venuesList(params);
     return { raw: res, venues: normalizeVenueList(res) };
   },
+
   async getVenue(venueId, params = {}) {
     requireParam(venueId, 'venueId');
     const res = await endpoints.playgrounds.venuesList({ venue_id: venueId, id: venueId, ...params });
@@ -46,76 +54,110 @@ export const playgroundsApi = {
     const match = venues.find((venue) => String(venue?.id) === String(venueId));
     return { raw: res, venue: match || null };
   },
+
   async getVenueDetails(venueId, params = {}) {
     return playgroundsApi.getVenue(venueId, params);
   },
+
   async getVenueDurations(venueId, params = {}) {
-    requireParam(venueId, 'venueId');
-    return endpoints.playgrounds.venueDurations({ venue_id: venueId, ...params });
+    const resolvedVenueId = resolveId(venueId);
+    requireParam(resolvedVenueId, 'venueId');
+    return endpoints.playgrounds.venueDurations({ venue_id: resolvedVenueId, ...params });
   },
+
   async getDurations({ venueId, activityId, academyProfileId } = {}) {
-    requireParam(venueId, 'venueId');
+    const resolvedVenueId = resolveId(venueId);
+    requireParam(resolvedVenueId, 'venueId');
     return endpoints.playgrounds.venueDurations({
-      venue_id: venueId,
+      venue_id: resolvedVenueId,
       activity_id: activityId,
       academy_profile_id: academyProfileId,
     });
   },
-  async listAvailableSlots({ venueId, date, durationId, ...rest } = {}) {
-    requireParam(venueId, 'venueId');
+
+  /**
+   * Slots endpoint (per store + screen usage): prefers `duration_minutes`.
+   * Keeps legacy `duration_id` only if minutes are not supplied.
+   */
+  async listAvailableSlots({ venueId, venue_id, date, duration_minutes, durationId, ...rest } = {}) {
+    const resolvedVenueId = resolveId(venue_id || venueId);
+    requireParam(resolvedVenueId, 'venueId');
     requireParam(date, 'date');
-    const res = await endpoints.playgrounds.slots({
-      venue_id: venueId,
+
+    const payload = {
+      venue_id: resolvedVenueId,
       date,
-      duration_id: durationId,
+      ...(duration_minutes != null ? { duration_minutes } : {}),
+      ...(duration_minutes == null && durationId != null ? { duration_id: durationId } : {}),
       ...rest,
-    });
+    };
+
+    const res = await endpoints.playgrounds.slots(payload);
     return { raw: res, slots: normalizeSlotsList(res) };
   },
-  async verifySlotAvailability({ venueId, date, durationId, startTime, ...rest } = {}) {
-    requireParam(venueId, 'venueId');
+
+  /**
+   * Local availability check: fetch slots then find by startTime.
+   * Accepts either `duration_minutes` (preferred) OR `durationId` (legacy).
+   */
+  async verifySlotAvailability({ venueId, venue_id, date, duration_minutes, durationId, startTime, start_time, ...rest } = {}) {
+    const resolvedVenueId = resolveId(venue_id || venueId);
+    requireParam(resolvedVenueId, 'venueId');
     requireParam(date, 'date');
-    requireParam(durationId, 'durationId');
-    requireParam(startTime, 'startTime');
+
+    const resolvedStartTime = startTime || start_time; // ✅ accept both
+    requireParam(resolvedStartTime, 'startTime');
+
+    if (duration_minutes == null && (durationId === null || durationId === undefined || durationId === '')) {
+      throw new Error('Missing duration');
+    }
+
     const res = await playgroundsApi.listAvailableSlots({
-      venueId,
+      venueId: resolvedVenueId,
       date,
+      duration_minutes,
       durationId,
       ...rest,
     });
+
     const slots = res?.slots || [];
-    const match = slots.find(
-      (slot) => String(slot?.start_time || slot?.start || '') === String(startTime)
-    );
+    const match = slots.find((slot) => String(slot?.start_time || slot?.start || '') === String(resolvedStartTime));
+
     return { available: Boolean(match), slot: match || null, slots };
   },
+
   async getSlots(payload = {}) {
-    const res = await playgroundsApi.listAvailableSlots(payload);
-    return res;
+    return playgroundsApi.listAvailableSlots(payload);
   },
+
   async createBooking(payload, config = {}) {
     return endpoints.playgrounds.createBooking(payload, config);
   },
+
   async listBookings(payload = {}, config = {}) {
     const res = await endpoints.playgrounds.listBookings(payload, config);
     return { raw: res, bookings: normalizeBookingsList(res) };
   },
+
   async listActivities(payload = {}) {
     const res = await endpoints.playgrounds.activitiesList(payload);
     return { raw: res, activities: normalizeActivitiesList(res) };
   },
+
   async resolveRatingToken(token) {
     if (!endpoints.playgrounds?.ratingResolveToken) {
       throw new Error('Playgrounds rating token resolver is unavailable.');
     }
     return endpoints.playgrounds.ratingResolveToken(token);
   },
+
   async rateBooking(payload) {
     if (!endpoints.playgrounds?.ratingCreate) {
       throw new Error('Playgrounds rating endpoint is unavailable.');
     }
     return endpoints.playgrounds.ratingCreate(payload);
   },
+
   async canRateBooking(payload) {
     if (!endpoints.playgrounds?.ratingCanRate) {
       throw new Error('Playgrounds rating eligibility endpoint is unavailable.');

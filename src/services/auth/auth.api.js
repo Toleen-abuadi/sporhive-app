@@ -55,4 +55,12 @@ export const authApi = {
       }));
     }, 'Failed to fetch academies');
   },
+  passwordResetVerify(payload) {
+    return wrapApi(
+      () => apiClient.post("/app-auth/password-reset/verify", payload),
+      "OTP verification failed"
+    );
+  },
 };
+
+
