@@ -18,7 +18,6 @@ import { getPortalAuthHeaders, resolvePortalAcademyId } from '../../services/api
 import { useTranslation } from '../../services/i18n/i18n';
 import { spacing } from '../../theme/tokens';
 import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
-import { getGlossaryHelp } from '../../portal/portalGlossary';
 import { storage, PORTAL_KEYS } from '../../services/storage/storage';
 import { useAuth } from '../../services/auth/auth.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
@@ -261,7 +260,7 @@ export function PortalNewsScreen() {
         title={t('portal.news.title')}
         subtitle={t('portal.news.subtitle')}
       />
-      <PortalActionBanner title={t('portal.common.nextStep')} description={getGlossaryHelp('performance')} />
+      <PortalActionBanner title="Start here" description="Important updates appear first. Open each card for details and media." />
 
       {!!error ? (
         <PortalEmptyState
@@ -280,9 +279,10 @@ export function PortalNewsScreen() {
               <TouchableOpacity key={`imp-${String(item?.id)}`} activeOpacity={0.9}>
                 <PortalCard style={styles.card}>
                   <Text variant="body" weight="semibold" color={colors.textPrimary}>{item?.title || t('portal.news.defaultTitle')}</Text>
+                  <Text variant="caption" weight="bold" color={colors.error}>Important</Text>
                   <Text variant="caption" color={colors.textMuted} style={styles.meta}>{`${createdAt || t('portal.common.placeholder')} • ${source}`}</Text>
                   {renderImagesRow({ item })}
-                  <Text variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>{item?.description || t('portal.news.defaultDescription')}</Text>
+                  <Text numberOfLines={3} variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>{item?.description || t('portal.news.defaultDescription')}</Text>
                 </PortalCard>
               </TouchableOpacity>
             );
@@ -298,7 +298,7 @@ export function PortalNewsScreen() {
                   <Text variant="body" weight="semibold" color={colors.textPrimary}>{item?.title || t('portal.news.defaultTitle')}</Text>
                   <Text variant="caption" color={colors.textMuted} style={styles.meta}>{`${createdAt || t('portal.common.placeholder')} • ${source}`}</Text>
                   {renderImagesRow({ item })}
-                  <Text variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>{item?.description || t('portal.news.defaultDescription')}</Text>
+                  <Text numberOfLines={3} variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>{item?.description || t('portal.news.defaultDescription')}</Text>
                 </PortalCard>
               </TouchableOpacity>
             );
