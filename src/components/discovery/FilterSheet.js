@@ -1,16 +1,30 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { Filter, MapPin, Sparkles } from 'lucide-react-native';
+import { Filter, Sparkles } from 'lucide-react-native';
 
 import { useTheme } from '../../theme/ThemeProvider';
 import { useI18n } from '../../services/i18n/i18n';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
-import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { Text } from '../ui/Text';
 import { Chip } from '../ui/Chip';
 import { Divider } from '../ui/Divider';
 import { makeADTheme } from '../../theme/academyDiscovery.styles';
+
+const AGE_OPTIONS = [6, 8, 10, 12, 14, 16, 18];
+
+const normalizeDraft = (filters) => {
+  const ageRaw =
+    filters?.age === null || filters?.age === undefined || filters?.age === ''
+      ? null
+      : Number(filters.age);
+  return {
+    age: Number.isFinite(ageRaw) ? ageRaw : null,
+    registrationEnabled: !!filters?.registrationEnabled,
+    proOnly: !!filters?.proOnly,
+    sort: filters?.sort || 'recommended',
+  };
+};
 
 export function FilterSheet({
   visible,
@@ -18,8 +32,6 @@ export function FilterSheet({
   filters,
   onApply,
   onClear,
-  activities = [],
-  cities = [],
   sortOptions = [],
   capabilities,
   locationStatus,
@@ -29,30 +41,13 @@ export function FilterSheet({
   const { t } = useI18n();
   const theme = useMemo(() => makeADTheme(colors, isDark), [colors, isDark]);
 
-  const [draft, setDraft] = useState(filters);
+  const [draft, setDraft] = useState(() => normalizeDraft(filters));
 
   useEffect(() => {
     if (visible) {
-      setDraft(filters);
+      setDraft(normalizeDraft(filters));
     }
   }, [filters, visible]);
-
-  const hasActivities = activities.length > 0;
-  const hasCities = cities.length > 0;
-
-  const toggleActivity = (activity) => {
-    setDraft((prev) => ({
-      ...prev,
-      sport: prev.sport === activity ? '' : activity,
-    }));
-  };
-
-  const toggleCity = (city) => {
-    setDraft((prev) => ({
-      ...prev,
-      city: prev.city === city ? '' : city,
-    }));
-  };
 
   return (
     <BottomSheetModal visible={visible} onClose={onClose}>
@@ -85,78 +80,33 @@ export function FilterSheet({
         </View>
 
         <View style={{ marginTop: theme.space.lg, gap: theme.space.md }}>
-          <Input
-            label={t('service.academy.discovery.filters.searchLabel')}
-            value={draft?.city}
-            onChangeText={(value) => setDraft((prev) => ({ ...prev, city: value }))}
-            placeholder={t('service.academy.discovery.filters.city.placeholder')}
-          />
-
-          {hasCities ? (
+          {capabilities?.supportsAge !== false ? (
             <View style={{ gap: theme.space.sm }}>
               <Text variant="caption" weight="bold" style={{ color: theme.text.primary }}>
-                {t('service.academy.discovery.filters.city.quickPick')}
+                {t('service.academy.discovery.filters.ageLabel', { defaultValue: 'Age' })}
               </Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.xs }}>
-                {cities.map((city) => (
+                <Chip
+                  label={t('service.academy.discovery.filters.ageAny', { defaultValue: 'Any age' })}
+                  selected={draft?.age == null}
+                  onPress={() => setDraft((prev) => ({ ...prev, age: null }))}
+                />
+                {AGE_OPTIONS.map((age) => (
                   <Chip
-                    key={city}
-                    label={city}
-                    selected={draft?.city === city}
-                    onPress={() => toggleCity(city)}
-                    icon={<MapPin size={14} color={draft?.city === city ? colors.accentOrange : colors.textMuted} />}
+                    key={age}
+                    label={String(age)}
+                    selected={Number(draft?.age) === age}
+                    onPress={() =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        age: Number(prev?.age) === age ? null : age,
+                      }))
+                    }
                   />
                 ))}
               </View>
             </View>
           ) : null}
-
-          <Input
-            label={t('service.academy.discovery.filters.sport.label')}
-            value={draft?.sport}
-            onChangeText={(value) => setDraft((prev) => ({ ...prev, sport: value }))}
-            placeholder={t('service.academy.discovery.filters.sport.placeholder')}
-          />
-
-          {hasActivities ? (
-            <View style={{ gap: theme.space.sm }}>
-              <Text variant="caption" weight="bold" style={{ color: theme.text.primary }}>
-                {t('service.academy.discovery.filters.sport.quickPick')}
-              </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.xs }}>
-                {activities.map((activity) => (
-                  <Chip
-                    key={activity}
-                    label={activity}
-                    selected={draft?.sport === activity}
-                    onPress={() => toggleActivity(activity)}
-                    icon={<Filter size={14} color={draft?.sport === activity ? colors.accentOrange : colors.textMuted} />}
-                  />
-                ))}
-              </View>
-            </View>
-          ) : null}
-
-          <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-            <View style={{ flex: 1 }}>
-              <Input
-                label={t('service.academy.discovery.filters.ageFrom.label')}
-                value={draft?.ageFrom}
-                onChangeText={(value) => setDraft((prev) => ({ ...prev, ageFrom: value }))}
-                placeholder={t('service.academy.discovery.filters.ageFrom.placeholder')}
-                keyboardType="number-pad"
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Input
-                label={t('service.academy.discovery.filters.ageTo.label')}
-                value={draft?.ageTo}
-                onChangeText={(value) => setDraft((prev) => ({ ...prev, ageTo: value }))}
-                placeholder={t('service.academy.discovery.filters.ageTo.placeholder')}
-                keyboardType="number-pad"
-              />
-            </View>
-          </View>
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm }}>
             {capabilities?.supportsOpenRegistration ? (
@@ -230,7 +180,7 @@ export function FilterSheet({
             <Button
               style={{ flex: 1 }}
               onPress={() => {
-                onApply?.(draft);
+                onApply?.(normalizeDraft(draft));
               }}
             >
               <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>

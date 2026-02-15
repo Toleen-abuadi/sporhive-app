@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Platform, RefreshControl, StyleSheet, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRouter } from 'expo-router';
-import { SlidersHorizontal } from 'lucide-react-native';
+import { SlidersHorizontal, X } from 'lucide-react-native';
 
 import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
@@ -113,27 +113,6 @@ export function AcademyDiscoveryScreen({ initialView = 'list' }) {
     }
   }, [actions, mapMarkers, selectedAcademy]);
 
-  const activityOptions = useMemo(() => {
-    const set = new Set();
-    academies.forEach((item) => {
-      const academy = normalizeAcademy(item);
-      (academy?.sport_types || []).forEach((sport) => {
-        if (sport) set.add(sport);
-      });
-    });
-    return Array.from(set).slice(0, 12);
-  }, [academies]);
-
-  const cityOptions = useMemo(() => {
-    const set = new Set();
-    academies.forEach((item) => {
-      const academy = normalizeAcademy(item);
-      const city = academy?.city || academy?.location || '';
-      if (city) set.add(city);
-    });
-    return Array.from(set).slice(0, 12);
-  }, [academies]);
-
   const sortOptions = useMemo(
     () => [
       { value: 'recommended', label: t('service.academy.discovery.sort.recommended') },
@@ -156,21 +135,27 @@ export function AcademyDiscoveryScreen({ initialView = 'list' }) {
   const activeChips = useMemo(() => {
     const chips = [];
     if (debouncedQuery) chips.push({ key: 'query', label: debouncedQuery });
-    if (filters.city) chips.push({ key: 'city', label: filters.city });
-    if (filters.sport) chips.push({ key: 'sport', label: filters.sport });
+    if (filters.age != null) {
+      chips.push({
+        key: 'age',
+        label: t('service.academy.discovery.filters.ageChip', {
+          age: filters.age,
+          defaultValue: `Age: ${filters.age}`,
+        }),
+      });
+    }
     if (filters.registrationEnabled) chips.push({ key: 'reg', label: t('service.academy.discovery.filters.registrationEnabled') });
     if (filters.proOnly) chips.push({ key: 'pro', label: t('service.academy.discovery.filters.proOnly') });
     if (filters.sort && filters.sort !== 'recommended') {
       chips.push({ key: 'sort', label: t(`service.academy.discovery.sort.${filters.sort}`) });
     }
     return chips;
-  }, [debouncedQuery, filters.city, filters.proOnly, filters.registrationEnabled, filters.sort, filters.sport, t]);
+  }, [debouncedQuery, filters.age, filters.proOnly, filters.registrationEnabled, filters.sort, t]);
 
   const removeChip = useCallback(
     (key) => {
       if (key === 'query') actions.setQuery('');
-      if (key === 'city') actions.setFilters({ city: '' });
-      if (key === 'sport') actions.setFilters({ sport: '' });
+      if (key === 'age') actions.setFilters({ age: null });
       if (key === 'reg') actions.setFilters({ registrationEnabled: false });
       if (key === 'pro') actions.setFilters({ proOnly: false });
       if (key === 'sort') actions.setFilters({ sort: 'recommended' });
@@ -301,11 +286,6 @@ export function AcademyDiscoveryScreen({ initialView = 'list' }) {
           title={t('service.academy.discovery.title')}
           subtitle={t('service.academy.discovery.subtitle')}
           leftSlot={<BackButton />}
-          rightAction={{
-            icon: <SlidersHorizontal size={20} color={colors.textPrimary} />,
-            onPress: () => setFiltersOpen(true),
-            accessibilityLabel: t('service.academy.discovery.filters.open'),
-          }}
         />
 
         <SegmentedViewToggle
@@ -322,27 +302,66 @@ export function AcademyDiscoveryScreen({ initialView = 'list' }) {
         />
 
         <View style={styles.resultsRow(theme)}>
-          <Text variant="caption" color={theme.text.secondary}>
+          <Text variant="caption" weight="medium" color={theme.text.secondary}>
             {resultCountLabel}
           </Text>
-          <Button variant="secondary" onPress={() => setFiltersOpen(true)}>
-            <Text variant="caption" weight="bold" style={{ color: theme.text.primary }}>
-              {t('service.academy.discovery.filters.open')}
-            </Text>
+          <Button
+            variant="primary"
+            onPress={() => setFiltersOpen(true)}
+            style={{ borderRadius: 20, paddingHorizontal: 16 }}
+            leftIcon={<SlidersHorizontal size={16} color={theme.text.onDark} />}
+          >
+            {t('service.academy.discovery.filters.open')}
           </Button>
         </View>
 
         {activeChips.length ? (
           <View style={styles.chipsWrap(theme)}>
             {activeChips.map((chip) => (
-              <Chip key={chip.key} label={chip.label} selected onPress={() => removeChip(chip.key)} />
+              <Chip
+                key={chip.key}
+                label={chip.label}
+                selected
+                onPress={() => removeChip(chip.key)}
+                rightIcon={<X size={12} color={theme.accent.orange} />}
+                style={{
+                  backgroundColor: theme.accent.orangeSoft,
+                  borderColor: theme.accent.orange,
+                  borderWidth: 1,
+                  shadowColor: theme.black,
+                  shadowOpacity: 0.12,
+                  shadowRadius: 5,
+                  shadowOffset: { width: 0, height: 2 },
+                  elevation: 2,
+                }}
+              />
             ))}
           </View>
         ) : null}
       </View>
 
       {viewMode === 'list' ? (
-        listContent
+        <>
+          {activeChips.length > 0 && (
+            <View
+              style={{
+                paddingHorizontal: theme.space.lg,
+                paddingVertical: theme.space.sm,
+                backgroundColor: theme.surface1,
+                borderBottomWidth: 1,
+                borderBottomColor: theme.hairline,
+              }}
+            >
+              <Text variant="caption" weight="bold">
+                {t('service.academy.discovery.filters.applied', {
+                  count: activeChips.length,
+                  defaultValue: `${activeChips.length} filters applied`,
+                })}
+              </Text>
+            </View>
+          )}
+          {listContent}
+        </>
       ) : (
         <View style={{ flex: 1 }}>
           <MapView
@@ -405,8 +424,6 @@ export function AcademyDiscoveryScreen({ initialView = 'list' }) {
         visible={filtersOpen}
         onClose={() => setFiltersOpen(false)}
         filters={filters}
-        activities={activityOptions}
-        cities={cityOptions}
         sortOptions={sortOptions}
         capabilities={academyDiscoveryCapabilities}
         locationStatus={locationStatus}

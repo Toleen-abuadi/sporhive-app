@@ -3,13 +3,83 @@ import { academyDiscoveryApi, academyDiscoveryFilters, ACADEMY_DISCOVERY_PAGE_SI
 import { getAcademyDiscoveryState, setAcademyDiscoveryState } from './storage';
 
 const DEFAULT_FILTERS = {
-  sport: '',
-  city: '',
-  ageFrom: '',
-  ageTo: '',
+  age: null,
   registrationEnabled: false,
   proOnly: false,
   sort: 'recommended',
+};
+
+const toNumberOrNull = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+const normalizeText = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+const normalizeFilters = (filters = {}) => ({
+  age: toNumberOrNull(filters.age),
+  registrationEnabled: !!filters.registrationEnabled,
+  proOnly: !!filters.proOnly,
+  sort: typeof filters.sort === 'string' && filters.sort ? filters.sort : DEFAULT_FILTERS.sort,
+});
+
+const normalizeAcademy = (item) => item?.academy || item || null;
+
+const isInRange = (value, from, to) => {
+  const min = Math.min(from, to);
+  const max = Math.max(from, to);
+  return value >= min && value <= max;
+};
+
+const matchesQuery = (item, normalizedQuery) => {
+  if (!normalizedQuery) return true;
+  const academy = normalizeAcademy(item);
+  const names = [
+    academy?.name_en,
+    academy?.name_ar,
+    academy?.name,
+    item?.name_en,
+    item?.name_ar,
+    item?.name,
+  ];
+  return names.some((name) => normalizeText(name).includes(normalizedQuery));
+};
+
+const matchesAge = (item, selectedAge) => {
+  if (selectedAge == null) return true;
+  const academy = normalizeAcademy(item);
+
+  const academyFrom = toNumberOrNull(academy?.ages_from);
+  const academyTo = toNumberOrNull(academy?.ages_to);
+  if (academyFrom != null && academyTo != null) {
+    return isInRange(selectedAge, academyFrom, academyTo);
+  }
+
+  const courses = Array.isArray(item?.courses)
+    ? item.courses
+    : Array.isArray(academy?.courses)
+      ? academy.courses
+      : [];
+  return courses.some((course) => {
+    const courseFrom = toNumberOrNull(course?.age_from ?? course?.ages_from);
+    const courseTo = toNumberOrNull(course?.age_to ?? course?.ages_to);
+    if (courseFrom == null || courseTo == null) return false;
+    return isInRange(selectedAge, courseFrom, courseTo);
+  });
+};
+
+const applyClientFilters = (items, { query, filters } = {}) => {
+  const normalizedQuery = normalizeText(query || '');
+  const selectedAge = toNumberOrNull(filters?.age);
+  return (Array.isArray(items) ? items : []).filter(
+    (item) => matchesQuery(item, normalizedQuery) && matchesAge(item, selectedAge)
+  );
 };
 
 const INITIAL_STATE = {
@@ -17,7 +87,9 @@ const INITIAL_STATE = {
   filtersLoaded: false,
   query: '',
   viewMode: 'list',
+  rawAcademies: [],
   academies: [],
+  rawMapAcademies: [],
   mapAcademies: [],
   listLoading: false,
   mapLoading: false,
@@ -84,10 +156,14 @@ export const academyDiscoveryStore = {
   async hydrateSavedFilters() {
     const stored = await getAcademyDiscoveryState();
     if (stored) {
+      const filters = normalizeFilters(stored.filters || {});
+      const query = stored.query || '';
       setState({
-        filters: { ...DEFAULT_FILTERS, ...(stored.filters || {}) },
-        query: stored.query || '',
+        filters,
+        query,
         viewMode: stored.viewMode || 'list',
+        academies: applyClientFilters(discoveryState.rawAcademies, { query, filters }),
+        mapAcademies: applyClientFilters(discoveryState.rawMapAcademies, { query, filters }),
         filtersLoaded: true,
       });
       return;
@@ -95,13 +171,42 @@ export const academyDiscoveryStore = {
     setState({ filtersLoaded: true });
   },
   setQuery(query) {
-    setState({ query: query ?? '' });
+    const nextQuery = query ?? '';
+    setState({
+      query: nextQuery,
+      academies: applyClientFilters(discoveryState.rawAcademies, {
+        query: nextQuery,
+        filters: discoveryState.filters,
+      }),
+      mapAcademies: applyClientFilters(discoveryState.rawMapAcademies, {
+        query: nextQuery,
+        filters: discoveryState.filters,
+      }),
+    });
   },
   setFilters(partial) {
-    setState({ filters: { ...discoveryState.filters, ...(partial || {}) } });
+    const nextFilters = normalizeFilters({ ...discoveryState.filters, ...(partial || {}) });
+    setState({
+      filters: nextFilters,
+      academies: applyClientFilters(discoveryState.rawAcademies, {
+        query: discoveryState.query,
+        filters: nextFilters,
+      }),
+      mapAcademies: applyClientFilters(discoveryState.rawMapAcademies, {
+        query: discoveryState.query,
+        filters: nextFilters,
+      }),
+    });
   },
   async clearFilters() {
-    setState({ filters: { ...DEFAULT_FILTERS }, query: '' });
+    const filters = { ...DEFAULT_FILTERS };
+    const query = '';
+    setState({
+      filters,
+      query,
+      academies: applyClientFilters(discoveryState.rawAcademies, { query, filters }),
+      mapAcademies: applyClientFilters(discoveryState.rawMapAcademies, { query, filters }),
+    });
     await persistState();
   },
   async setViewMode(mode) {
@@ -138,6 +243,7 @@ export const academyDiscoveryStore = {
     );
   },
   async fetchAcademies({ page = 1, append = false, query } = {}) {
+    const effectiveQuery = query ?? discoveryState.query;
     const isFirst = page === 1 && !append;
     if (isFirst) {
       setState({ listLoading: true, listError: null, page: 1, hasMore: true });
@@ -148,15 +254,21 @@ export const academyDiscoveryStore = {
     try {
       const res = await academyDiscoveryApi.listAcademies({
         filters: discoveryState.filters,
-        query: query ?? discoveryState.query,
+        query: effectiveQuery,
         page,
         pageSize: ACADEMY_DISCOVERY_PAGE_SIZE,
         coords: discoveryState.coords,
       });
       const items = Array.isArray(res?.items) ? res.items : [];
+      const rawAcademies = append ? [...discoveryState.rawAcademies, ...items] : items;
+      const filteredAcademies = applyClientFilters(rawAcademies, {
+        query: effectiveQuery,
+        filters: discoveryState.filters,
+      });
       const hasMore = items.length >= ACADEMY_DISCOVERY_PAGE_SIZE;
       setState({
-        academies: append ? [...discoveryState.academies, ...items] : items,
+        rawAcademies,
+        academies: filteredAcademies,
         listLoading: false,
         loadingMore: false,
         listError: null,
@@ -175,15 +287,25 @@ export const academyDiscoveryStore = {
     }
   },
   async fetchMapAcademies({ query } = {}) {
+    const effectiveQuery = query ?? discoveryState.query;
     setState({ mapLoading: true, mapError: null });
     try {
       const res = await academyDiscoveryApi.listMapAcademies({
         filters: discoveryState.filters,
-        query: query ?? discoveryState.query,
+        query: effectiveQuery,
         coords: discoveryState.coords,
       });
       const items = Array.isArray(res?.items) ? res.items : [];
-      setState({ mapAcademies: items, mapLoading: false, mapError: null });
+      const filteredMapAcademies = applyClientFilters(items, {
+        query: effectiveQuery,
+        filters: discoveryState.filters,
+      });
+      setState({
+        rawMapAcademies: items,
+        mapAcademies: filteredMapAcademies,
+        mapLoading: false,
+        mapError: null,
+      });
       await persistState();
       return { success: true, data: items };
     } catch (error) {

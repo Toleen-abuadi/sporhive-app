@@ -17,15 +17,25 @@ export function SporHiveLoader({
   const { colors, isDark } = useTheme();
   const [reduceMotion, setReduceMotion] = useState(false);
 
-  // Core animations
+  // Core animations (simple)
   const spin = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
-  const floatY = useRef(new Animated.Value(0)).current;
   const shimmer = useRef(new Animated.Value(0)).current;
 
+  // Layout
   const ringSize = useMemo(() => Math.round(size * 1.55), [size]);
-  const dotSize = Math.max(5, Math.round(size * 0.08));
-  const orbitRadius = Math.round(ringSize * 0.38);
+  const orbitRadius = useMemo(() => Math.round(ringSize * 0.38), [ringSize]);
+  const dotSize = useMemo(() => Math.max(5, Math.round(size * 0.08)), [size]);
+
+  const shimmerTrackWidth = useMemo(() => {
+    const w = Math.round(size * 1.55);
+    return Math.max(140, Math.min(220, w));
+  }, [size]);
+
+  const shimmerBarWidth = useMemo(
+    () => Math.round(shimmerTrackWidth * 0.32),
+    [shimmerTrackWidth]
+  );
 
   useEffect(() => {
     let active = true;
@@ -43,20 +53,17 @@ export function SporHiveLoader({
 
     return () => {
       active = false;
-      if (subscription?.remove) subscription.remove();
+      subscription?.remove?.();
     };
   }, []);
 
   useEffect(() => {
-    // Reset if reduce motion
     if (reduceMotion) {
       spin.stopAnimation();
       pulse.stopAnimation();
-      floatY.stopAnimation();
       shimmer.stopAnimation();
       spin.setValue(0);
       pulse.setValue(0);
-      floatY.setValue(0);
       shimmer.setValue(0);
       return;
     }
@@ -64,8 +71,8 @@ export function SporHiveLoader({
     const spinAnim = Animated.loop(
       Animated.timing(spin, {
         toValue: 1,
-        duration: 1700,
-        easing: Easing.inOut(Easing.quad),
+        duration: 1600,
+        easing: Easing.linear,
         useNativeDriver: true,
       })
     );
@@ -87,34 +94,17 @@ export function SporHiveLoader({
       ])
     );
 
-    const floatAnim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatY, {
-          toValue: 1,
-          duration: 1200,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatY, {
-          toValue: 0,
-          duration: 1200,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
     const shimmerAnim = Animated.loop(
       Animated.sequence([
         Animated.timing(shimmer, {
           toValue: 1,
-          duration: 1200,
+          duration: 1100,
           easing: Easing.inOut(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(shimmer, {
           toValue: 0,
-          duration: 1200,
+          duration: 1100,
           easing: Easing.inOut(Easing.cubic),
           useNativeDriver: true,
         }),
@@ -123,51 +113,46 @@ export function SporHiveLoader({
 
     spinAnim.start();
     pulseAnim.start();
-    floatAnim.start();
     shimmerAnim.start();
 
     return () => {
       spinAnim.stop();
       pulseAnim.stop();
-      floatAnim.stop();
       shimmerAnim.stop();
     };
-  }, [floatY, pulse, reduceMotion, shimmer, spin]);
+  }, [reduceMotion, spin, pulse, shimmer]);
 
-  // Derived animated styles
+  // Animated values
   const spinDeg = spin.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
 
-  const pulseScale = pulse.interpolate({
+  const scale = pulse.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.96, 1.05],
+    outputRange: [0.98, 1.05],
   });
 
-  const glowOpacity = pulse.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.18, 0.55],
-  });
-
-  const orbitOpacity = pulse.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.45, 0.95],
-  });
-
-  const floatTranslateY = floatY.interpolate({
+  const floatY = pulse.interpolate({
     inputRange: [0, 1],
     outputRange: [0, -6],
   });
 
+  const glowOpacity = pulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.12, 0.45],
+  });
+
   const shimmerX = shimmer.interpolate({
     inputRange: [0, 1],
-    outputRange: [-40, 40],
+    outputRange: [-(shimmerTrackWidth * 0.5), shimmerTrackWidth * 0.5],
   });
 
   const ringBorder = isDark ? 'rgba(255,132,0,0.55)' : 'rgba(255,132,0,0.45)';
-  const glowColor = isDark ? 'rgba(255,132,0,0.65)' : 'rgba(255,132,0,0.35)';
-  const softCardBg = isDark ? colors.surface : 'rgba(255,255,255,0.96)';
+  const glowColor = isDark ? 'rgba(255,132,0,0.60)' : 'rgba(255,132,0,0.32)';
+
+  const cardBg = isDark ? 'rgba(18,18,18,0.92)' : 'rgba(255,255,255,0.92)';
+  const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
 
   return (
     <View
@@ -176,59 +161,61 @@ export function SporHiveLoader({
       accessibilityRole="progressbar"
       accessibilityLabel={accessibilityLabel || message || 'Loading'}
     >
-      <View style={[styles.content, { backgroundColor: softCardBg, borderColor: colors.border }, contentStyle]}>
-        {/* Ambient glow blob */}
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.glow,
-            {
-              width: ringSize * 1.15,
-              height: ringSize * 1.15,
-              borderRadius: (ringSize * 1.15) / 2,
-              backgroundColor: glowColor,
-              opacity: reduceMotion ? 0.25 : glowOpacity,
-              transform: [{ scale: reduceMotion ? 1 : pulseScale }],
-            },
-          ]}
-        />
-
-        {/* Orbit container */}
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.orbitWrap,
-            {
-              width: ringSize,
-              height: ringSize,
-              borderRadius: ringSize / 2,
-              transform: [{ rotate: reduceMotion ? '0deg' : spinDeg }],
-              opacity: reduceMotion ? 0.65 : orbitOpacity,
-            },
-          ]}
-        >
-          {/* Soft dashed ring */}
-          <View
+      <View
+        style={[
+          styles.content,
+          { backgroundColor: cardBg, borderColor: cardBorder, shadowColor: colors.black },
+          contentStyle,
+        ]}
+      >
+        {/* Center layer: glow + orbit */}
+        <View pointerEvents="none" style={styles.centerLayer}>
+          <Animated.View
             style={[
-              styles.dashedRing,
+              styles.glow,
               {
-                width: ringSize,
-                height: ringSize,
-                borderRadius: ringSize / 2,
-                borderColor: ringBorder,
+                width: ringSize * 1.2,
+                height: ringSize * 1.2,
+                borderRadius: (ringSize * 1.2) / 2,
+                backgroundColor: glowColor,
+                opacity: reduceMotion ? 0.2 : glowOpacity,
+                transform: [{ scale: reduceMotion ? 1 : scale }],
               },
             ]}
           />
 
-          {/* Orbit dots (placed cardinal + diagonal for “premium motion” vibe) */}
-          <Dot x={0} y={-orbitRadius} size={dotSize} color={colors.accentOrange} />
-          <Dot x={orbitRadius} y={0} size={dotSize * 0.9} color={colors.accentOrange} />
-          <Dot x={0} y={orbitRadius} size={dotSize * 0.75} color={colors.accentOrange} />
-          <Dot x={-orbitRadius} y={0} size={dotSize * 0.85} color={colors.accentOrange} />
-          <Dot x={orbitRadius * 0.7} y={-orbitRadius * 0.7} size={dotSize * 0.6} color={colors.accentOrange} />
-        </Animated.View>
+          <Animated.View
+            style={[
+              styles.orbit,
+              {
+                width: ringSize,
+                height: ringSize,
+                borderRadius: ringSize / 2,
+                transform: [{ rotate: reduceMotion ? '0deg' : spinDeg }],
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.ring,
+                {
+                  width: ringSize,
+                  height: ringSize,
+                  borderRadius: ringSize / 2,
+                  borderColor: ringBorder,
+                },
+              ]}
+            />
 
-        {/* Logo core */}
+            {/* Clean 4 dots (perfectly centered) */}
+            <Dot x={0} y={-orbitRadius} size={dotSize} color={colors.accentOrange} />
+            <Dot x={orbitRadius} y={0} size={dotSize * 0.9} color={colors.accentOrange} />
+            <Dot x={0} y={orbitRadius} size={dotSize * 0.75} color={colors.accentOrange} />
+            <Dot x={-orbitRadius} y={0} size={dotSize * 0.85} color={colors.accentOrange} />
+          </Animated.View>
+        </View>
+
+        {/* Logo */}
         <Animated.View
           style={[
             styles.logoWrap,
@@ -238,29 +225,29 @@ export function SporHiveLoader({
               borderRadius: size / 2,
               backgroundColor: colors.surfaceElevated,
               shadowColor: colors.black,
-              transform: reduceMotion
-                ? []
-                : [{ translateY: floatTranslateY }, { scale: pulseScale }],
+              transform: reduceMotion ? [] : [{ translateY: floatY }, { scale }],
             },
           ]}
         >
-          <Image
-            source={logoSource}
-            style={{ width: size * 0.66, height: size * 0.66 }}
-            resizeMode="contain"
-          />
+          <Image source={logoSource} style={{ width: size * 0.66, height: size * 0.66 }} resizeMode="contain" />
         </Animated.View>
 
-        {/* Shimmer / progress hint */}
-        <View style={[styles.shimmerTrack, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+        {/* Shimmer bar */}
+        <View
+          style={[
+            styles.shimmerTrack,
+            { width: shimmerTrackWidth, backgroundColor: colors.surfaceElevated, borderColor: cardBorder },
+          ]}
+        >
           <Animated.View
             pointerEvents="none"
             style={[
               styles.shimmerBar,
               {
+                width: shimmerBarWidth,
                 backgroundColor: colors.accentOrange,
                 transform: reduceMotion ? [] : [{ translateX: shimmerX }],
-                opacity: reduceMotion ? 0.55 : 0.85,
+                opacity: reduceMotion ? 0.55 : 0.9,
               },
             ]}
           />
@@ -277,6 +264,7 @@ export function SporHiveLoader({
 }
 
 function Dot({ x, y, size, color }) {
+  const half = size / 2;
   return (
     <View
       style={[
@@ -284,9 +272,9 @@ function Dot({ x, y, size, color }) {
         {
           width: size,
           height: size,
-          borderRadius: size / 2,
+          borderRadius: half,
           backgroundColor: color,
-          transform: [{ translateX: x }, { translateY: y }],
+          transform: [{ translateX: x - half }, { translateY: y - half }],
         },
       ]}
     />
@@ -300,6 +288,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   content: {
     alignItems: 'center',
     gap: spacing.md,
@@ -307,34 +296,39 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     borderWidth: 1,
     overflow: 'hidden',
+    shadowOpacity: 0.16,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 10,
   },
 
-  glow: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginLeft: -1, // small offset to avoid pixel snapping on some Android GPUs
-    transform: [{ translateX: -0.5 }, { translateY: -0.5 }],
-  },
-
-  orbitWrap: {
-    position: 'absolute',
-    top: spacing.lg,
+  centerLayer: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dashedRing: {
+
+  glow: {},
+
+  orbit: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  ring: {
     position: 'absolute',
     borderWidth: 2,
     borderStyle: 'dashed',
     opacity: 0.9,
   },
+
   dot: {
     position: 'absolute',
     top: '50%',
     left: '50%',
-    marginLeft: 0,
-    marginTop: 0,
   },
 
   logoWrap: {
@@ -347,15 +341,14 @@ const styles = StyleSheet.create({
   },
 
   shimmerTrack: {
-    width: 140,
     height: 10,
     borderRadius: 999,
     borderWidth: 1,
     overflow: 'hidden',
     opacity: 0.95,
   },
+
   shimmerBar: {
-    width: 44,
     height: '100%',
     borderRadius: 999,
   },

@@ -704,6 +704,9 @@
             "label": "Age to",
             "placeholder": "18"
           },
+          "ageLabel": "Age",
+          "ageAny": "Any age",
+          "ageChip": "Age: {{age}}",
           "registrationEnabled": "Registration enabled",
           "proOnly": "PRO only",
           "sortLabel": "Sort by",

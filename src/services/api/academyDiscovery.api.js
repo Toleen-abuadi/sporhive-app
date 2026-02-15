@@ -28,12 +28,11 @@ const normalizeTemplateResponse = (res) => {
 };
 
 const buildListPayload = ({ filters = {}, query = '', page = 1, pageSize = DEFAULT_PAGE_SIZE, coords } = {}) => {
+  const age = filters?.age;
+  const normalizedAge = age === null || age === undefined || age === '' ? undefined : Number(age);
   const payload = {
     q: query || '',
-    sport: filters.sport || '',
-    city: filters.city || '',
-    age_from: filters.ageFrom || '',
-    age_to: filters.ageTo || '',
+    age: Number.isFinite(normalizedAge) ? normalizedAge : undefined,
     registration_enabled: filters.registrationEnabled ? true : undefined,
     is_pro: filters.proOnly ? true : undefined,
     sort: filters.sort || 'recommended',
@@ -50,12 +49,11 @@ const buildListPayload = ({ filters = {}, query = '', page = 1, pageSize = DEFAU
 };
 
 const buildMapPayload = ({ filters = {}, query = '', coords } = {}) => {
+  const age = filters?.age;
+  const normalizedAge = age === null || age === undefined || age === '' ? undefined : Number(age);
   const payload = {
     q: query || '',
-    sport: filters.sport || '',
-    city: filters.city || '',
-    age_from: filters.ageFrom || '',
-    age_to: filters.ageTo || '',
+    age: Number.isFinite(normalizedAge) ? normalizedAge : undefined,
     registration_enabled: filters.registrationEnabled ? true : undefined,
     is_pro: filters.proOnly ? true : undefined,
     sort: filters.sort || 'recommended',
@@ -146,6 +144,7 @@ export const academyDiscoveryFilters = {
   supportsPriceRange: false,
   supportsOpenRegistration: true,
   supportsSort: true,
+  supportsAge: true,
 };
 
 export const ACADEMY_DISCOVERY_PAGE_SIZE = DEFAULT_PAGE_SIZE;

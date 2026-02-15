@@ -120,6 +120,12 @@ const buildSession = ({ loginAs, user, token, academyId, username }) => {
   return session;
 };
 
+const tokenPreview = (token) => {
+  if (!token) return null;
+  const s = String(token);
+  return s.length > 18 ? s.slice(0, 18) + "…" : s;
+};
+
 export function AuthProvider({ children }) {
   const [state, setState] = useState(INITIAL_STATE);
 
@@ -132,6 +138,10 @@ export function AuthProvider({ children }) {
   // ✅ portal reauth single-flight
   const portalReauthInFlightRef = useRef(null);
 
+  // ✅ prevent redundant restore right after a successful login
+  // (helps with dev fast-refresh/layout reruns)
+  const skipNextHydrateRef = useRef(false);
+
   // ✅ IMPORTANT: keep ONLY one mount/unmount effect
   useEffect(() => {
     mountedRef.current = true;
@@ -143,6 +153,9 @@ export function AuthProvider({ children }) {
 
       // release portal lock as well (safe)
       portalReauthInFlightRef.current = null;
+
+      // reset skip flag
+      skipNextHydrateRef.current = false;
     };
   }, []);
 
@@ -161,6 +174,16 @@ export function AuthProvider({ children }) {
         })()
       : null;
 
+    if (__DEV__) {
+      console.log("[auth.persistSession]", {
+        hasSession: !!safeSession,
+        login_as: safeSession?.login_as,
+        hasToken: !!token,
+        tokenPreview: tokenPreview(token),
+        sessionKeys: safeSession ? Object.keys(safeSession) : [],
+      });
+    }
+
     await storage.setItem(APP_STORAGE_KEYS.AUTH_SESSION, safeSession);
 
     // ✅ persist single auth token
@@ -172,6 +195,13 @@ export function AuthProvider({ children }) {
   const restoreSession = useCallback(() => {
     // ✅ Single-flight: if hydration already running, return the same promise
     if (hydratePromiseRef.current) return hydratePromiseRef.current;
+
+    // ✅ If we *just* logged in and the layout re-renders, skip redundant hydration once
+    if (skipNextHydrateRef.current) {
+      if (__DEV__) console.log("[auth] restoreSession skipped (post-login guard)");
+      skipNextHydrateRef.current = false;
+      return Promise.resolve();
+    }
 
     if (__DEV__) {
       console.log("[auth] restoreSession called", {
@@ -196,11 +226,7 @@ export function AuthProvider({ children }) {
       let didRestore = false;
 
       try {
-        await withTimeout(
-          storage.ensureSecureMigration(),
-          8000,
-          "secure_migration"
-        );
+        await withTimeout(storage.ensureSecureMigration(), 8000, "secure_migration");
 
         const [sessionRaw, lastAcademyRaw, storedToken] = await withTimeout(
           Promise.all([
@@ -214,7 +240,17 @@ export function AuthProvider({ children }) {
 
         const session =
           sessionRaw && typeof sessionRaw === "object" ? sessionRaw : null;
+
         hadSessionData = Boolean(session || storedToken || lastAcademyRaw != null);
+
+        if (__DEV__) {
+          console.log("[auth.restoreSession:storage]", {
+            hasSession: !!session,
+            hasStoredToken: !!storedToken,
+            storedTokenPreview: tokenPreview(storedToken),
+            lastAcademyRaw,
+          });
+        }
 
         const resolvedToken = session?.token || storedToken || null;
 
@@ -259,16 +295,21 @@ export function AuthProvider({ children }) {
           nextLastSelectedAcademyId != null &&
           lastAcademyRaw == null
         ) {
-          await storage.setItem(
-            APP_STORAGE_KEYS.LAST_ACADEMY_ID,
-            nextLastSelectedAcademyId
-          );
+          await storage.setItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID, nextLastSelectedAcademyId);
         }
 
         // Token persistence / cleanup
         if (resolvedToken) {
           await storage.setAuthToken(resolvedToken);
         } else {
+          if (__DEV__) {
+            console.warn("[auth.restoreSession:CLEARING_STORAGE]", {
+              loginAs,
+              hadSession: !!session,
+              hadStoredToken: !!storedToken,
+            });
+          }
+
           await Promise.all([
             storage.removeAuthToken(),
             storage.removePortalTokens(),
@@ -281,10 +322,7 @@ export function AuthProvider({ children }) {
         if (academySelectionChanged && storage.clearTenantState) {
           await storage.clearTenantState();
           if (nextLastSelectedAcademyId != null) {
-            await storage.setItem(
-              APP_STORAGE_KEYS.LAST_ACADEMY_ID,
-              nextLastSelectedAcademyId
-            );
+            await storage.setItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID, nextLastSelectedAcademyId);
           }
         }
 
@@ -292,10 +330,16 @@ export function AuthProvider({ children }) {
         if (loginAs || resolvedToken) {
           // keep storage session normalized
           if (normalizedSession && normalizedSession !== session) {
-            await storage.setItem(
-              APP_STORAGE_KEYS.AUTH_SESSION,
-              normalizedSession
-            );
+            await storage.setItem(APP_STORAGE_KEYS.AUTH_SESSION, normalizedSession);
+          }
+
+          if (__DEV__) {
+            console.log("[auth.restoreSession:SUCCESS]", {
+              loginAs,
+              hasResolvedToken: !!resolvedToken,
+              tokenPreview: tokenPreview(resolvedToken),
+              lastSelectedAcademyId: nextLastSelectedAcademyId,
+            });
           }
 
           safeSetState({
@@ -365,12 +409,12 @@ export function AuthProvider({ children }) {
       await storage.setItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID, String(id));
     }
 
-    setState((prev) => ({ ...prev, lastSelectedAcademyId: id }));
-  }, []);
+    safeSetState((prev) => ({ ...prev, lastSelectedAcademyId: id }));
+  }, [safeSetState]);
 
   const login = useCallback(
     async ({ loginAs, phone, password, academyId, username }) => {
-      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+      safeSetState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       const payload = {
         login_as: loginAs,
@@ -388,25 +432,24 @@ export function AuthProvider({ children }) {
 
       if (__DEV__) {
         console.log("[auth.store] login result.success:", result?.success);
-        console.log(
-          "[auth.store] login result.data keys:",
-          Object.keys(result?.data || {})
-        );
-        console.log("[auth.store] login result.data:", result?.data);
+        console.log("[auth.store] login result.data keys:", Object.keys(result?.data || {}));
       }
 
       if (result.success) {
         const token = extractToken(result.data);
+
+        if (__DEV__) {
+          console.log("[auth.store] extracted token:", tokenPreview(token));
+        }
+
         if (!token) {
           const err = new Error("LOGIN_TOKEN_MISSING");
           err.code = "LOGIN_TOKEN_MISSING";
           err.kind = "AUTH_TOKEN_MISSING";
-          if (__DEV__)
-            console.warn(
-              "[auth.store] Login success but token missing. Response:",
-              result.data
-            );
-          setState((prev) => ({ ...prev, isLoading: false, error: err }));
+          if (__DEV__) {
+            console.warn("[auth.store] Login success but token missing. Response:", result.data);
+          }
+          safeSetState((prev) => ({ ...prev, isLoading: false, error: err }));
           return { success: false, error: err };
         }
 
@@ -434,7 +477,10 @@ export function AuthProvider({ children }) {
         // ✅ portal uses SAME token
         const portalAccessToken = token || null;
 
-        setState((prev) => ({
+        // ✅ prevent redundant restoreSession firing right after login due to rerenders
+        skipNextHydrateRef.current = true;
+
+        safeSetState((prev) => ({
           ...prev,
           isAuthenticated: true,
           isLoading: false,
@@ -448,14 +494,22 @@ export function AuthProvider({ children }) {
             loginAs === "player" ? Number(academyId) : prev.lastSelectedAcademyId,
         }));
 
+        if (__DEV__) {
+          console.log("[auth.store] login SUCCESS state set", {
+            loginAs,
+            tokenPreview: tokenPreview(token),
+            academyId: loginAs === "player" ? Number(academyId) : null,
+          });
+        }
+
         return { success: true, data: result.data };
       }
 
       const error = result?.error || new Error("Login failed");
-      setState((prev) => ({ ...prev, isLoading: false, error }));
+      safeSetState((prev) => ({ ...prev, isLoading: false, error }));
       return { success: false, error };
     },
-    [persistSession, setLastSelectedAcademyId]
+    [persistSession, setLastSelectedAcademyId, safeSetState]
   );
 
   /**
@@ -466,14 +520,14 @@ export function AuthProvider({ children }) {
     const result = await refreshPortalSessionIfNeeded(state.session);
     if (result?.success && result.session) {
       // ✅ even if session refresh provides a portal token, portal should still use main token
-      setState((prev) => ({
+      safeSetState((prev) => ({
         ...prev,
         session: result.session,
         portalAccessToken: prev.token || result.session?.token || null,
       }));
     }
     return result;
-  }, [state.session]);
+  }, [state.session, safeSetState]);
 
   // ✅ Single-flight portal reauth
   const ensurePortalReauthOnce = useCallback(async () => {
@@ -491,6 +545,8 @@ export function AuthProvider({ children }) {
   }, [refreshPortalIfNeeded]);
 
   const logout = useCallback(async () => {
+    if (__DEV__) console.log("[auth.logout] clearing auth + tenant storage");
+
     await Promise.all([
       storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
       storage.removeItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID),
@@ -500,8 +556,8 @@ export function AuthProvider({ children }) {
       storage.clearTenantState ? storage.clearTenantState() : Promise.resolve(),
     ]);
 
-    setState({ ...INITIAL_STATE, isLoading: false });
-  }, []);
+    safeSetState({ ...INITIAL_STATE, isLoading: false });
+  }, [safeSetState]);
 
   // ✅ explicit logins required by your screens
   const loginPublic = useCallback(

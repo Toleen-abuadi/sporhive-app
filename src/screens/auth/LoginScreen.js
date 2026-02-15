@@ -1,12 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Animated,
   Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   StyleSheet,
   View,
+  TouchableOpacity,
+  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -14,6 +14,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { useTranslation } from '../../services/i18n/i18n';
 import { Screen } from '../../components/ui/Screen';
 import { Input } from '../../components/ui/Input';
+import { PhoneField } from '../../components/ui/PhoneField';
 import { Button } from '../../components/ui/Button';
 import { Text } from '../../components/ui/Text';
 import { useToast } from '../../components/ui/ToastHost';
@@ -25,17 +26,12 @@ import { useAuth } from '../../services/auth/auth.store';
 import { resolveAuthErrorMessage } from '../../services/auth/auth.errors';
 import { borderRadius, spacing } from '../../theme/tokens';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const logoSource = require('../../../assets/images/logo.png');
 
 const MODES = {
   PUBLIC: 'public',
   PLAYER: 'player',
-};
-
-const normalizePhone = (value) => String(value || '').trim();
-const isValidPhone = (value) => {
-  const digits = String(value || '').replace(/[^\d]/g, '');
-  return digits.length >= 9 && digits.length <= 15;
 };
 
 export function LoginScreen() {
@@ -44,32 +40,41 @@ export function LoginScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const toast = useToast();
-  const { loginPublic, loginPlayer, isLoading, error, lastSelectedAcademyId, setLastSelectedAcademyId } =
-    useAuth();
 
-  useEffect(() => {
-    console.log('useAuth keys:', Object.keys(useAuth.getState?.() || {}));
-    console.log('loginPlayer is:', useAuth.getState?.()?.loginPlayer);
-  }, []);
-
-
-  const glow = useRef(new Animated.Value(0)).current;
+  const {
+    loginPublic,
+    loginPlayer,
+    isLoading,
+    lastSelectedAcademyId,
+    setLastSelectedAcademyId,
+  } = useAuth();
 
   const preferredAcademyId = params?.academyId ? Number(params.academyId) : null;
   const redirectTo =
     typeof params?.redirectTo === 'string' && params.redirectTo.trim()
       ? decodeURIComponent(params.redirectTo)
       : null;
+
   const [mode, setMode] = useState(params?.mode === 'player' ? MODES.PLAYER : MODES.PUBLIC);
-  const [phone, setPhone] = useState('');
+
+  const [phoneValue, setPhoneValue] = useState({
+    countryCode: '+962',
+    nationalNumber: '',
+    e164: '',
+    isValid: false,
+  });
   const [password, setPassword] = useState('');
+
   const [academy, setAcademy] = useState(null);
   const [username, setUsername] = useState('');
+
   const [academies, setAcademies] = useState([]);
   const [academyLoading, setAcademyLoading] = useState(false);
   const [academyError, setAcademyError] = useState('');
   const [debbug, setDebbug] = useState('');
+
   const [formErrors, setFormErrors] = useState({});
+  const [submitError, setSubmitError] = useState(null);
 
   const toggleOptions = useMemo(
     () => [
@@ -83,6 +88,7 @@ export function LoginScreen() {
     setMode(next);
     setFormErrors({});
     setPassword('');
+    setSubmitError(null);
   };
 
   const recentAcademies = useMemo(() => {
@@ -102,60 +108,72 @@ export function LoginScreen() {
   );
 
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glow, { toValue: 1, duration: 1600, useNativeDriver: true }),
-        Animated.timing(glow, { toValue: 0, duration: 1600, useNativeDriver: true }),
-      ])
-    ).start();
-  }, [glow]);
-
-  useEffect(() => {
     let mounted = true;
     if (mode !== MODES.PLAYER) return undefined;
+
     const loadAcademies = async () => {
       setAcademyLoading(true);
       setAcademyError('');
       const res = await authApi.fetchAcademies();
       if (!mounted) return;
+
       if (res.success) {
         setAcademies(res.data);
         resolveAcademy(res.data);
       } else {
         setAcademyError(t('auth.academy.error'));
-        setDebbug(JSON.stringify(res.error) + '-' + res);
+        setDebbug(JSON.stringify(res.error || {}) + '-' + String(res));
       }
       setAcademyLoading(false);
     };
+
     loadAcademies();
     return () => {
       mounted = false;
     };
   }, [mode, resolveAcademy, t]);
 
-  const errorMessage = error ? resolveAuthErrorMessage(error, t) : '';
+  const errorMessage = submitError ? resolveAuthErrorMessage(submitError, t) : '';
+
+  const onSelectAcademy = (item) => {
+    setAcademy(item);
+    setLastSelectedAcademyId(item?.id);
+  };
+
+  const handlePhoneChange = (payload) => {
+    setPhoneValue(payload);
+    setFormErrors((prev) => {
+      if (!prev.phone) return prev;
+      const { phone, ...rest } = prev;
+      return rest;
+    });
+  };
 
   const onSubmit = async () => {
     setFormErrors({});
+    setSubmitError(null);
 
     if (mode === MODES.PUBLIC) {
       const nextErrors = {};
-      if (!phone.trim()) nextErrors.phone = t('auth.validation.phoneRequired');
-      else if (!isValidPhone(phone)) nextErrors.phone = t('auth.validation.phoneInvalid');
+      if (!phoneValue?.nationalNumber) nextErrors.phone = t('auth.validation.phoneRequired');
+      else if (!phoneValue?.isValid) nextErrors.phone = t('auth.validation.phoneInvalid');
       if (!password) nextErrors.password = t('auth.validation.passwordRequired');
+
       if (Object.keys(nextErrors).length) {
         setFormErrors(nextErrors);
         return;
       }
+
       const res = await loginPublic({
-        phone: normalizePhone(phone),
+        phone: phoneValue.e164,
         password,
       });
+
       if (res.success) {
         toast.success(t('auth.login.success'));
         router.replace(redirectTo || '/services');
       } else {
-        console.log("API_BASE_URL =", process.env.EXPO_PUBLIC_API_BASE_URL);
+        setSubmitError(res.error);
         toast.error(resolveAuthErrorMessage(res.error, t, 'auth.login.error'));
       }
       return;
@@ -165,6 +183,7 @@ export function LoginScreen() {
     if (!academy?.id) nextErrors.academy = t('auth.validation.academyRequired');
     if (!username.trim()) nextErrors.username = t('auth.validation.usernameRequired');
     if (!password) nextErrors.password = t('auth.validation.passwordRequired');
+
     if (Object.keys(nextErrors).length) {
       setFormErrors(nextErrors);
       return;
@@ -175,26 +194,14 @@ export function LoginScreen() {
       username: username.trim(),
       password,
     });
+
     if (res.success) {
       toast.success(t('auth.login.success'));
       router.replace(redirectTo || '/services');
     } else {
+      setSubmitError(res.error);
       toast.error(resolveAuthErrorMessage(res.error, t, 'auth.login.error'));
     }
-  };
-
-  const glowStyle = {
-    opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.7] }),
-    transform: [
-      {
-        scale: glow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] }),
-      },
-    ],
-  };
-
-  const onSelectAcademy = (item) => {
-    setAcademy(item);
-    setLastSelectedAcademyId(item?.id);
   };
 
   return (
@@ -206,161 +213,203 @@ export function LoginScreen() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.container}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
         >
           <View style={styles.header}>
             <View style={[styles.logoWrap, { backgroundColor: colors.accentOrange + '15' }]}>
-              <Animated.View
-                style={[
-                  styles.logoGlow,
-                  {
-                    backgroundColor: colors.accentOrange,
-                  },
-                  glowStyle,
-                ]}
-              />
               <Image source={logoSource} style={styles.logo} resizeMode="contain" />
             </View>
-            <Text variant="h2" weight="bold" style={styles.title}>
+            <Text variant="h1" weight="bold" style={styles.title}>
               {t('auth.login.title')}
             </Text>
-            <Text
-              variant="body"
-              color={colors.textSecondary}
-              style={[styles.subtitle, { textAlign: 'center' }]}
-            >
+            <Text variant="bodyLarge" color={colors.textSecondary} style={styles.subtitle}>
               {t('auth.login.subtitle')}
             </Text>
           </View>
 
           <AuthCard style={styles.card}>
-            <SegmentedToggle value={mode} onChange={handleModeChange} options={toggleOptions} />
+            {/* ✅ prevents SegmentedToggle overflow & keeps it inside card */}
+            <View
+              style={[
+                styles.toggleWrap,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <SegmentedToggle
+                value={mode}
+                onChange={handleModeChange}
+                options={toggleOptions}
+                style={styles.toggle}
+              />
+            </View>
 
-            {mode === MODES.PUBLIC ? (
-              <View style={styles.form}>
-                <Input
-                  label={t('auth.fields.phone')}
-                  placeholder={t('auth.placeholders.phone')}
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  leftIcon="phone"
-                  error={formErrors.phone}
-                />
-                <Input
-                  label={t('auth.fields.password')}
-                  placeholder={t('auth.placeholders.password')}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  leftIcon="lock"
-                  error={formErrors.password}
-                />
-                {error ? (
-                  <View style={[styles.errorBanner, { backgroundColor: colors.error + '12' }]}>
-                    <Text variant="bodySmall" color={colors.error}>
-                      {errorMessage}
-                    </Text>
+            <View style={styles.formContainer}>
+              {mode === MODES.PUBLIC ? (
+                <View style={styles.form}>
+                  <PhoneField
+                    label={t('auth.fields.phone')}
+                    value={phoneValue}
+                    onChange={handlePhoneChange}
+                    error={formErrors.phone}
+                  />
+
+                  <Input
+                    label={t('auth.fields.password')}
+                    placeholder={t('auth.placeholders.password')}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    leftIcon="lock"
+                    error={formErrors.password}
+                  />
+
+                  {submitError ? (
+                    <View
+                      style={[
+                        styles.errorBanner,
+                        {
+                          backgroundColor: colors.error + '12',
+                          borderColor: colors.error + '30',
+                        },
+                      ]}
+                    >
+                      <Text
+                        variant="body"
+                        color={colors.error}
+                        style={isRTL ? styles.textRTL : styles.textLTR}
+                      >
+                        {errorMessage}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <View style={[styles.linkRow, isRTL ? styles.rowRTL : styles.rowLTR]}>
+                    <TouchableOpacity
+                      onPress={() => router.replace('/(auth)/reset-password?mode=public')}
+                      style={styles.linkButton}
+                    >
+                      <Text variant="body" color={colors.accentOrange} weight="medium">
+                        {t('auth.login.forgotPassword')}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                ) : null}
-                <Pressable onPress={() => router.replace('/(auth)/reset-password?mode=public')}>
-                  <Text
-                    variant="bodySmall"
-                    color={colors.textSecondary}
-                    style={[styles.linkAlign, { textAlign: isRTL ? 'left' : 'right' }]}
-                  >
-                    {t('auth.login.forgotPassword')}
-                  </Text>
-                </Pressable>
-                <Button
-                  onPress={onSubmit}
-                  loading={isLoading}
-                  disabled={!phone || !password}
-                  style={styles.cta}
-                  accessibilityLabel={t('auth.login.cta')}
-                >
-                  {t('auth.login.cta')}
-                </Button>
-                <Pressable onPress={() => router.replace('/(auth)/signup')}>
-                  <Text
-                    variant="bodySmall"
-                    color={colors.textSecondary}
-                    style={[styles.linkAlign, { textAlign: isRTL ? 'left' : 'right' }]}
-                  >
-                    {t('auth.login.noAccount')}{' '}
-                    <Text variant="bodySmall" weight="bold" color={colors.accentOrange}>
-                      {t('auth.login.createAccount')}
+
+                  <View style={[styles.linkRow, isRTL ? styles.rowRTL : styles.rowLTR]}>
+                    <Text variant="body" color={colors.textSecondary}>
+                      {t('auth.login.noAccount')}
                     </Text>
-                  </Text>
-                </Pressable>
-              </View>
-            ) : (
-              <View style={styles.form}>
-                <AcademyPicker
-                  academies={academies}
-                  selectedAcademy={academy}
-                  recentAcademies={recentAcademies}
-                  onSelect={onSelectAcademy}
-                  loading={academyLoading}
-                  error={academyError}
-                  debbug={debbug}
-                  title={t('auth.fields.academy')}
-                  helper={t('auth.academy.helper')}
-                  searchPlaceholder={t('auth.academy.searchPlaceholder')}
-                  doneLabel={t('common.done')}
-                  loadingLabel={t('common.loading')}
-                />
-                {formErrors.academy ? (
-                  <Text variant="caption" color={colors.error}>
-                    {formErrors.academy}
-                  </Text>
-                ) : null}
-                <Input
-                  label={t('auth.fields.username')}
-                  placeholder={t('auth.placeholders.username')}
-                  value={username}
-                  onChangeText={setUsername}
-                  autoCapitalize="none"
-                  leftIcon="user"
-                  error={formErrors.username}
-                />
-                <Input
-                  label={t('auth.fields.password')}
-                  placeholder={t('auth.placeholders.password')}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  leftIcon="lock"
-                  error={formErrors.password}
-                />
-                {error ? (
-                  <View style={[styles.errorBanner, { backgroundColor: colors.error + '12' }]}>
-                    <Text variant="bodySmall" color={colors.error}>
-                      {errorMessage}
-                    </Text>
+                    <TouchableOpacity onPress={() => router.replace('/(auth)/signup')}>
+                      <Text
+                        variant="body"
+                        weight="bold"
+                        color={colors.accentOrange}
+                        style={[styles.signupLink, isRTL ? styles.mrXs : styles.mlXs]}
+                      >
+                        {t('auth.login.createAccount')}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                ) : null}
-                <Pressable onPress={() => router.replace('/(auth)/reset-password?mode=player')}>
-                  <Text
-                    variant="bodySmall"
-                    color={colors.textSecondary}
-                    style={[styles.linkAlign, { textAlign: isRTL ? 'left' : 'right' }]}
-                  >
-                    {t('auth.login.forgotPassword')}
-                  </Text>
-                </Pressable>
-                <Button
-                  onPress={onSubmit}
-                  loading={isLoading}
-                  disabled={!academy?.id || !username || !password}
-                  style={styles.cta}
-                  accessibilityLabel={t('auth.login.ctaPlayer')}
-                >
-                  {t('auth.login.ctaPlayer')}
-                </Button>
-              </View>
-            )}
+                </View>
+              ) : (
+                <View style={styles.form}>
+                  <AcademyPicker
+                    academies={academies}
+                    selectedAcademy={academy}
+                    recentAcademies={recentAcademies}
+                    onSelect={onSelectAcademy}
+                    loading={academyLoading}
+                    error={academyError}
+                    debbug={debbug}
+                    title={t('auth.fields.academy')}
+                    helper={t('auth.academy.helper')}
+                    searchPlaceholder={t('auth.academy.searchPlaceholder')}
+                    doneLabel={t('common.done')}
+                    loadingLabel={t('common.loading')}
+                  />
+
+                  {formErrors.academy ? (
+                    <Text
+                      variant="caption"
+                      color={colors.error}
+                      style={[styles.fieldError, isRTL ? styles.textRTL : styles.textLTR]}
+                    >
+                      {formErrors.academy}
+                    </Text>
+                  ) : null}
+
+                  <Input
+                    label={t('auth.fields.username')}
+                    placeholder={t('auth.placeholders.username')}
+                    value={username}
+                    onChangeText={setUsername}
+                    autoCapitalize="none"
+                    leftIcon="user"
+                    error={formErrors.username}
+                  />
+
+                  <Input
+                    label={t('auth.fields.password')}
+                    placeholder={t('auth.placeholders.password')}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    leftIcon="lock"
+                    error={formErrors.password}
+                  />
+
+                  {submitError ? (
+                    <View
+                      style={[
+                        styles.errorBanner,
+                        {
+                          backgroundColor: colors.error + '12',
+                          borderColor: colors.error + '30',
+                        },
+                      ]}
+                    >
+                      <Text
+                        variant="body"
+                        color={colors.error}
+                        style={isRTL ? styles.textRTL : styles.textLTR}
+                      >
+                        {errorMessage}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <View style={[styles.linkRow, isRTL ? styles.rowRTL : styles.rowLTR]}>
+                    <TouchableOpacity
+                      onPress={() => router.replace('/(auth)/reset-password?mode=public')}
+                      style={styles.linkButton}
+                    >
+                      <Text variant="body" color={colors.accentOrange} weight="medium">
+                        {t('auth.login.forgotPassword')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.ctaContainer}>
+              <Button
+                onPress={onSubmit}
+                loading={isLoading}
+                disabled={
+                  mode === MODES.PUBLIC
+                    ? !phoneValue?.nationalNumber || !password
+                    : !academy?.id || !username || !password
+                }
+                style={styles.cta}
+                textStyle={styles.ctaText}
+                accessibilityLabel={mode === MODES.PUBLIC ? t('auth.login.cta') : t('auth.login.ctaPlayer')}
+              >
+                {mode === MODES.PUBLIC ? t('auth.login.cta') : t('auth.login.ctaPlayer')}
+              </Button>
+            </View>
           </AuthCard>
-
         </KeyboardAvoidingView>
       </LinearGradient>
     </Screen>
@@ -368,61 +417,109 @@ export function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: {
-    padding: spacing.lg,
-  },
-  background: {
-    flex: 1,
-  },
+  scroll: { flexGrow: 1 },
+  background: { flex: 1 },
+
   container: {
     flex: 1,
-    gap: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl,
   },
+
   header: {
     alignItems: 'center',
-    gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
+
   logoWrap: {
-    width: 72,
-    height: 72,
+    width: 88,
+    height: 88,
     borderRadius: borderRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
-    overflow: 'visible',
+    marginBottom: spacing.md,
   },
-  logoGlow: {
-    position: 'absolute',
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-  },
-  logo: {
-    width: 48,
-    height: 48,
-  },
-  title: {
-    textAlign: 'center',
-  },
+  logo: { width: 56, height: 56 },
+
+  title: { textAlign: 'center', marginBottom: spacing.xs },
   subtitle: {
-    maxWidth: 280,
+    textAlign: 'center',
+    maxWidth: SCREEN_WIDTH * 0.85,
+    lineHeight: 24,
   },
+
   card: {
+    width: '100%',
+    padding: spacing.lg,
+    alignSelf: 'stretch',
+  },
+
+  /* ✅ Toggle: clipped + no overflow */
+  toggleWrap: {
+    borderWidth: 1,
+    borderRadius: borderRadius.pill,
+    overflow: 'hidden',
+    padding: 2,
+    marginBottom: spacing.lg,
+    alignSelf: 'stretch',
+  },
+  toggle: {
+    alignSelf: 'stretch',
+  },
+
+  formContainer: {
+    marginBottom: spacing.lg,
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+
+  form: {
+    gap: spacing.md,
+    width: '100%',
+    alignItems: 'stretch',
+  },
+
+  errorBanner: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+  },
+
+  forgotLink: {
+    marginTop: spacing.xs,
+  },
+
+  signupContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs,
     marginTop: spacing.md,
   },
-  form: {
-    marginTop: spacing.lg,
-    gap: spacing.sm,
-  },
-  linkAlign: {
-    textAlign: 'right',
+  signupLink: {},
+
+  ctaContainer: {
+    marginTop: spacing.md,
   },
   cta: {
-    marginTop: spacing.sm,
     borderRadius: borderRadius.pill,
+    height: 56,
   },
-  errorBanner: {
-    borderRadius: borderRadius.md,
-    padding: spacing.sm,
+  ctaText: { fontSize: 18 },
+
+  fieldError: {
+    marginTop: -spacing.sm,
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.sm,
   },
+
+  // RTL/LTR helpers
+  rowLTR: { flexDirection: 'row' },
+  rowRTL: { flexDirection: 'row-reverse' },
+  textLTR: { textAlign: 'left' },
+  textRTL: { textAlign: 'right' },
+  alignRight: { alignSelf: 'flex-end' },
+  alignLeft: { alignSelf: 'flex-start' },
+  mlXs: { marginLeft: spacing.xs },
+  mrXs: { marginRight: spacing.xs },
 });

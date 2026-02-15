@@ -1,32 +1,58 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, I18nManager, Pressable, StyleSheet, View } from 'react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Text } from '../ui/Text';
 import { borderRadius, spacing, fontSize } from '../../theme/tokens';
 
-export function SegmentedToggle({ value, onChange, options }) {
+const PADDING = 4;
+
+export function SegmentedToggle({ value, onChange, options = [] }) {
   const { colors } = useTheme();
   const [layoutWidth, setLayoutWidth] = useState(0);
   const translate = useRef(new Animated.Value(0)).current;
 
-  const indicatorWidth = layoutWidth / options.length || 0;
+  const count = Math.max(1, options.length);
+
+  // IMPORTANT: remove padding from width calculations
+  const innerWidth = Math.max(0, layoutWidth - PADDING * 2);
+  const indicatorWidth = innerWidth / count;
+
+  const index = useMemo(() => {
+    const i = options.findIndex((opt) => opt.value === value);
+    return Math.max(0, i);
+  }, [options, value]);
 
   useEffect(() => {
-    const index = Math.max(0, options.findIndex((opt) => opt.value === value));
+    if (!layoutWidth || !options.length) return;
+
+    // LTR: left -> right
+    // RTL: right -> left (invert)
+    const toValue = I18nManager.isRTL
+      ? innerWidth - indicatorWidth * (index + 1)
+      : indicatorWidth * index;
+
     Animated.spring(translate, {
-      toValue: indicatorWidth * index,
+      toValue,
       useNativeDriver: true,
       damping: 18,
       stiffness: 180,
     }).start();
-  }, [value, indicatorWidth, options, translate]);
+  }, [index, indicatorWidth, innerWidth, layoutWidth, options.length, translate]);
 
   return (
     <View
-      style={[styles.container, { borderColor: colors.border, backgroundColor: colors.surface }]}
+      style={[
+        styles.container,
+        {
+          borderColor: colors.border,
+          backgroundColor: colors.surface,
+          flexDirection: I18nManager.isRTL ? 'row-reverse' : 'row',
+        },
+      ]}
       onLayout={(e) => setLayoutWidth(e.nativeEvent.layout.width)}
     >
       <Animated.View
+        pointerEvents="none"
         style={[
           styles.indicator,
           {
@@ -36,23 +62,23 @@ export function SegmentedToggle({ value, onChange, options }) {
           },
         ]}
       />
+
       {options.map((opt) => {
         const active = opt.value === value;
+
         return (
           <Pressable
             key={opt.value}
             onPress={() => onChange(opt.value)}
-            style={({ pressed }) => [
-              styles.item,
-              {
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}
+            style={({ pressed }) => [styles.item, pressed && { opacity: 0.85 }]}
           >
             <Text
               variant="bodySmall"
               weight={active ? 'bold' : 'semibold'}
-              style={{ color: active ? colors.white : colors.textSecondary, fontSize: fontSize.sm }}
+              style={{
+                color: active ? colors.white : colors.textSecondary,
+                fontSize: fontSize.sm,
+              }}
             >
               {opt.label}
             </Text>
@@ -65,17 +91,16 @@ export function SegmentedToggle({ value, onChange, options }) {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
     borderWidth: 1,
     borderRadius: borderRadius.pill,
     overflow: 'hidden',
-    padding: 4,
+    padding: PADDING,
   },
   indicator: {
     position: 'absolute',
-    top: 4,
-    bottom: 4,
-    left: 4,
+    top: PADDING,
+    bottom: PADDING,
+    left: PADDING, // keep this; we offset RTL via translate calculation
     borderRadius: borderRadius.pill,
   },
   item: {

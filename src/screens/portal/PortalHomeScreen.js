@@ -41,18 +41,28 @@ export function PortalHomeScreen() {
   const placeholder = t('portal.common.placeholder');
   const sessionValidation = authLoading ? { ok: true } : validatePortalSession(session);
 
+  // keep latest function without depending on the whole actions object
+  const fetchOverviewRef = useRef(null);
+
   useEffect(() => {
-    if (!authLoading && sessionValidation.ok) actions.fetchOverview();
-  }, [actions, authLoading, sessionValidation.ok]);
+    fetchOverviewRef.current = actions?.fetchOverview;
+  }, [actions?.fetchOverview]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!sessionValidation.ok) return;
+    if (overview || overviewLoading) return; // ✅ guard: prevents spam
+    fetchOverviewRef.current?.();
+  }, [authLoading, sessionValidation.ok, overview, overviewLoading]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await actions.fetchOverview();
+      await actions?.fetchOverview?.();
     } finally {
       setRefreshing(false);
     }
-  }, [actions]);
+  }, [actions?.fetchOverview]);
 
   const handleReauthRequired = useCallback(async () => {
     if (reauthHandledRef.current) return;
@@ -144,15 +154,15 @@ export function PortalHomeScreen() {
             <Text variant="caption" color={colors.textSecondary}>Review action needed first, then use quick actions for everyday tasks.</Text>
           </Card>
 
-          <Card style={[styles.heroCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+          <Card style={[styles.heroCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.heroRow}>
-              <View style={[styles.avatar, { backgroundColor: colors.surfaceElevated || colors.surface }]}> 
+              <View style={[styles.avatar, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
                 {overview?.player?.imageBase64 ? <Image source={{ uri: overview.player.imageBase64 }} style={styles.avatarImage} /> : <UserCircle size={36} color={colors.textMuted} />}
               </View>
               <View style={styles.heroText}>
                 <Text variant="h4" weight="bold" color={colors.textPrimary}>{overview?.player?.fullName || t('portal.home.welcomeBack')}</Text>
                 <Text variant="bodySmall" color={colors.textSecondary}>{overview?.academyName || t('portal.home.academy')}</Text>
-                <Badge style={[styles.heroBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}> 
+                <Badge style={[styles.heroBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
                   <Text variant="caption" weight="bold" color={colors.textPrimary}>{overview?.registration?.registrationType || t('portal.home.activePlayer')}</Text>
                 </Badge>
               </View>
@@ -162,7 +172,7 @@ export function PortalHomeScreen() {
           {actionConfig ? (
             <PortalActionBanner title={actionConfig.title} description={actionConfig.description} actionLabel={actionConfig.cta} onAction={() => router.push(actionConfig.route)} />
           ) : (
-            <Card style={[styles.goodCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+            <Card style={[styles.goodCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.goodRow}><ShieldAlert size={16} color={colors.success} /><Text variant="body" weight="bold" color={colors.textPrimary}>You’re all set</Text></View>
               <Text variant="caption" color={colors.textSecondary}>No urgent actions right now. Check performance or latest news for updates.</Text>
             </Card>
@@ -181,14 +191,14 @@ export function PortalHomeScreen() {
             })}
           </View>
 
-          <Card style={[styles.secondaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+          <Card style={[styles.secondaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text variant="body" weight="bold" color={colors.textPrimary}>Upcoming / Due soon</Text>
             <Text variant="caption" color={colors.textSecondary}>{hasUnpaid ? `Next payment due ${firstPayment?.dueDate || placeholder}` : `Registration ends ${overview?.registration?.endDate || placeholder}`}</Text>
             <Pressable onPress={() => router.push(hasUnpaid ? '/portal/payments' : '/portal/renewals')} style={styles.inlineLink}><Text variant="caption" weight="semibold" color={colors.accentOrange}>Review</Text><ArrowRight size={14} color={colors.accentOrange} /></Pressable>
           </Card>
 
           {recentUpdates.length ? (
-            <Card style={[styles.secondaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+            <Card style={[styles.secondaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text variant="body" weight="bold" color={colors.textPrimary}>Recent updates</Text>
               {recentUpdates.map((item) => (
                 <View key={item.key} style={styles.feedRow}><Text variant="bodySmall" weight="semibold" color={colors.textPrimary}>{item.title}</Text><Text variant="caption" color={colors.textSecondary}>{item.subtitle}</Text></View>

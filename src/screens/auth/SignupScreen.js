@@ -13,6 +13,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { useTranslation } from '../../services/i18n/i18n';
 import { Screen } from '../../components/ui/Screen';
 import { Input } from '../../components/ui/Input';
+import { PhoneField } from '../../components/ui/PhoneField';
 import { Button } from '../../components/ui/Button';
 import { Text } from '../../components/ui/Text';
 import { useToast } from '../../components/ui/ToastHost';
@@ -23,12 +24,6 @@ import { borderRadius, spacing } from '../../theme/tokens';
 
 const logoSource = require('../../../assets/images/logo.png');
 
-const normalizePhone = (value) => String(value || '').trim();
-const isValidPhone = (value) => {
-  const digits = String(value || '').replace(/[^\d]/g, '');
-  return digits.length >= 9 && digits.length <= 15;
-};
-
 const MIN_PASSWORD = 8;
 
 export function SignupScreen() {
@@ -36,11 +31,19 @@ export function SignupScreen() {
   const { t, isRTL } = useTranslation();
   const router = useRouter();
   const toast = useToast();
+
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phoneValue, setPhoneValue] = useState({
+    countryCode: '+962',
+    nationalNumber: '',
+    e164: '',
+    isValid: false,
+  });
+
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
@@ -61,18 +64,30 @@ export function SignupScreen() {
   const formValid =
     firstName.trim() &&
     lastName.trim() &&
-    isValidPhone(phone) &&
+    phoneValue?.isValid &&
     password.length >= MIN_PASSWORD &&
     password === confirmPassword;
+
+  const handlePhoneChange = (payload) => {
+    setPhoneValue(payload);
+    setErrors((prev) => {
+      if (!prev.phone) return prev;
+      const { phone, ...rest } = prev;
+      return rest;
+    });
+  };
 
   const onSubmit = async () => {
     const nextErrors = {};
     if (!firstName.trim()) nextErrors.firstName = t('auth.validation.firstNameRequired');
     if (!lastName.trim()) nextErrors.lastName = t('auth.validation.lastNameRequired');
-    if (!phone.trim()) nextErrors.phone = t('auth.validation.phoneRequired');
-    else if (!isValidPhone(phone)) nextErrors.phone = t('auth.validation.phoneInvalid');
+
+    if (!phoneValue?.nationalNumber) nextErrors.phone = t('auth.validation.phoneRequired');
+    else if (!phoneValue?.isValid) nextErrors.phone = t('auth.validation.phoneInvalid');
+
     if (!password) nextErrors.password = t('auth.validation.passwordRequired');
     else if (password.length < MIN_PASSWORD) nextErrors.password = t('auth.validation.passwordLength');
+
     if (password !== confirmPassword) nextErrors.confirmPassword = t('auth.validation.passwordMismatch');
 
     setErrors(nextErrors);
@@ -82,7 +97,7 @@ export function SignupScreen() {
     const res = await authApi.registerPublic({
       first_name: firstName.trim(),
       last_name: lastName.trim(),
-      phone: normalizePhone(phone),
+      phone: phoneValue.e164,
       password,
     });
     setLoading(false);
@@ -92,6 +107,8 @@ export function SignupScreen() {
       router.replace('/(auth)/login');
       return;
     }
+
+    // ✅ BR-007: handled by auth.errors.js now
     toast.error(resolveAuthErrorMessage(res?.error, t, 'auth.signup.error'));
   };
 
@@ -112,16 +129,13 @@ export function SignupScreen() {
             <Text variant="h2" weight="bold" style={styles.title}>
               {t('auth.signup.title')}
             </Text>
-            <Text
-              variant="body"
-              color={colors.textSecondary}
-              style={[styles.subtitle, { textAlign: 'center' }]}
-            >
+            <Text variant="body" color={colors.textSecondary} style={[styles.subtitle, { textAlign: 'center' }]}>
               {t('auth.signup.subtitle')}
             </Text>
           </View>
 
           <AuthCard style={styles.card}>
+            {/* ✅ Overflow-safe: wrap on small screens */}
             <View style={styles.row}>
               <Input
                 label={t('auth.fields.firstName')}
@@ -142,15 +156,16 @@ export function SignupScreen() {
                 style={styles.half}
               />
             </View>
-            <Input
+
+            <PhoneField
               label={t('auth.fields.phone')}
-              placeholder={t('auth.placeholders.phone')}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              leftIcon="phone"
+              value={phoneValue}
+              onChange={handlePhoneChange}
               error={errors.phone}
+              minLength={9}
+              containerStyle={{ marginTop: spacing.sm }}
             />
+
             <Input
               label={t('auth.fields.password')}
               placeholder={t('auth.placeholders.password')}
@@ -169,31 +184,28 @@ export function SignupScreen() {
               leftIcon="lock"
               error={errors.confirmPassword}
             />
+
             <View style={styles.hints}>
               {passwordHints.map((hint) => (
-                <View key={hint.label} style={styles.hintRow}>
-                  <View
-                    style={[
-                      styles.hintDot,
-                      { backgroundColor: hint.met ? colors.success : colors.border },
-                    ]}
-                  />
-                  <Text variant="caption" color={colors.textSecondary}>
+                <View key={hint.label} style={[styles.hintRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={[styles.hintDot, { backgroundColor: hint.met ? colors.success : colors.border }]} />
+                  <Text variant="caption" color={colors.textSecondary} style={{ textAlign: isRTL ? 'right' : 'left' }}>
                     {hint.label}
                   </Text>
                 </View>
               ))}
             </View>
-            <Button
-              onPress={onSubmit}
-              loading={loading}
-              disabled={!formValid}
-              style={styles.cta}
-            >
+
+            <Button onPress={onSubmit} loading={loading} disabled={!formValid} style={styles.cta}>
               {t('auth.signup.cta')}
             </Button>
+
             <Pressable onPress={() => router.replace('/(auth)/login')}>
-              <Text variant="bodySmall" color={colors.textSecondary} style={[styles.linkAlign, { textAlign: isRTL ? 'left' : 'right' }]}>
+              <Text
+                variant="bodySmall"
+                color={colors.textSecondary}
+                style={[styles.linkAlign, { textAlign: isRTL ? 'left' : 'right' }]}
+              >
                 {t('auth.signup.haveAccount')}{' '}
                 <Text variant="bodySmall" weight="bold" color={colors.accentOrange}>
                   {t('auth.signup.login')}
@@ -209,19 +221,14 @@ export function SignupScreen() {
 
 const styles = StyleSheet.create({
   scroll: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+    flexGrow: 1,
   },
-  background: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    gap: spacing.lg,
-  },
-  header: {
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
+  background: { flex: 1 },
+  container: { flex: 1, gap: spacing.lg, width: '100%' },
+  header: { alignItems: 'center', gap: spacing.sm },
   logoWrap: {
     width: 72,
     height: 72,
@@ -230,45 +237,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
-  logo: {
-    width: 48,
-    height: 48,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  subtitle: {
-    maxWidth: 300,
-  },
-  card: {
-    marginTop: spacing.md,
-  },
+  logo: { width: 48, height: 48 },
+  title: { textAlign: 'center' },
+  subtitle: { maxWidth: 320 },
+  card: { marginTop: spacing.md },
+
+  // ✅ Wrap to prevent overflow
   row: {
     flexDirection: 'row',
     gap: spacing.md,
+    flexWrap: 'wrap',
   },
   half: {
     flex: 1,
+    minWidth: 160,
   },
-  hints: {
-    marginTop: spacing.sm,
-    gap: spacing.xs,
-  },
-  hintRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  hintDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  cta: {
-    marginTop: spacing.lg,
-    borderRadius: borderRadius.pill,
-  },
-  linkAlign: {
-    marginTop: spacing.sm,
-  },
+
+  hints: { marginTop: spacing.sm, gap: spacing.xs },
+  hintRow: { alignItems: 'center', gap: spacing.xs },
+  hintDot: { width: 8, height: 8, borderRadius: 4 },
+
+  cta: { marginTop: spacing.lg, borderRadius: borderRadius.pill },
+  linkAlign: { marginTop: spacing.sm },
 });

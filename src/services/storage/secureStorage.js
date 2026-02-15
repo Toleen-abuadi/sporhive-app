@@ -45,58 +45,84 @@ const getKey = (key) => {
 };
 
 export const secureStorage = {
-  isAvailable: () => hasSecureStore,
+  // ✅ consider storage "available" if either SecureStore OR AsyncStorage is available
+  isAvailable: () => hasSecureStore || hasAsyncStorage,
 
+  // ✅ durable read: SecureStore -> AsyncStorage -> null (no memory fallback)
   async getItem(key) {
     const resolvedKey = getKey(key);
     if (!resolvedKey) return null;
+
     try {
       if (hasSecureStore) {
         const raw = await SecureStore.getItemAsync(resolvedKey);
-        return parseStoredValue(raw);
+        const parsed = parseStoredValue(raw);
+        if (parsed != null) return parsed;
       }
+
       if (hasAsyncStorage) {
         const raw = await AsyncStorage.getItem(resolvedKey);
         return parseStoredValue(raw);
       }
-      return parseStoredValue(memoryStore.get(resolvedKey));
+
+      return null; // ❌ DO NOT use memoryStore
     } catch {
       return null;
     }
   },
 
+  // ✅ durable write: SecureStore (and AsyncStorage backup) -> AsyncStorage -> noop
   async setItem(key, value) {
     const resolvedKey = getKey(key);
     if (!resolvedKey) return;
+
     const serialized = serializeValue(value);
+
     try {
       if (hasSecureStore) {
         await SecureStore.setItemAsync(resolvedKey, serialized);
+
+        // Optional backup: keep a durable copy in AsyncStorage too
+        if (hasAsyncStorage) {
+          await AsyncStorage.setItem(resolvedKey, serialized);
+        }
         return;
       }
+
       if (hasAsyncStorage) {
         await AsyncStorage.setItem(resolvedKey, serialized);
         return;
       }
-      memoryStore.set(resolvedKey, serialized);
+
+      // ❌ do nothing instead of memory fallback
     } catch {
       return;
     }
   },
 
+  // ✅ durable delete: SecureStore (and AsyncStorage backup) -> AsyncStorage -> noop
   async removeItem(key) {
     const resolvedKey = getKey(key);
     if (!resolvedKey) return;
+
     try {
       if (hasSecureStore) {
         await SecureStore.deleteItemAsync(resolvedKey);
+
+        // keep stores consistent if we wrote a backup
+        if (hasAsyncStorage) {
+          await AsyncStorage.removeItem(resolvedKey);
+        }
         return;
       }
+
       if (hasAsyncStorage) {
         await AsyncStorage.removeItem(resolvedKey);
         return;
       }
-      memoryStore.delete(resolvedKey);
+
+      // ❌ do nothing instead of memory fallback
+      // memoryStore.delete(resolvedKey);
     } catch {
       return;
     }

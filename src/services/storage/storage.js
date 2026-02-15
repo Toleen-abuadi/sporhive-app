@@ -34,7 +34,6 @@ const hasLocalStorage =
   window?.localStorage &&
   typeof window.localStorage.getItem === 'function';
 
-
 const DEBUG_STORAGE = __DEV__;
 const DEBUG_KEYS = new Set([
   APP_STORAGE_KEYS.LAST_ACADEMY_ID,
@@ -46,6 +45,25 @@ const dbg = (...args) => {
   if (DEBUG_STORAGE) console.log('[storage]', ...args);
 };
 
+const safePreview = (value, max = 250) => {
+  try {
+    const s = typeof value === 'string' ? value : JSON.stringify(value);
+    if (s == null) return null;
+    return s.length > max ? s.slice(0, max) + '…' : s;
+  } catch {
+    try {
+      return String(value);
+    } catch {
+      return '[unprintable]';
+    }
+  }
+};
+
+const tokenPreview = (token) => {
+  if (!token) return null;
+  const s = String(token);
+  return s.length > 18 ? s.slice(0, 18) + '…' : s;
+};
 
 const memoryAdapter = {
   async getItem(key) {
@@ -115,7 +133,6 @@ const serializeValue = (value) => {
     return null;
   }
 };
-
 
 let secureMigrationPromise;
 
@@ -204,6 +221,7 @@ export const storage = {
   async ensureSecureMigration() {
     await migrateSensitiveStorage();
   },
+
   async getItem(key) {
     try {
       const adapter = resolveAdapter();
@@ -217,21 +235,44 @@ export const storage = {
       return null;
     }
   },
+
   async setItem(key, value) {
     try {
       const adapter = resolveAdapter();
       const serialized = serializeValue(value);
-      if (__DEV__ && DEBUG_KEYS.has(key)) dbg('SET', key, value);
+
+      // ✅ log a stable single representation (prevents "merged" / duplicated console prints)
+      if (__DEV__ && DEBUG_KEYS.has(key)) {
+        dbg('SET', key, safePreview(value));
+      }
+
       // ✅ null/undefined => remove key instead of writing ''
       if (serialized == null) {
         await adapter.removeItem(key);
+
+        if (__DEV__ && DEBUG_KEYS.has(key)) {
+          dbg('SET removed (serialized null)', key);
+          // verify removal
+          const verify = await adapter.getItem(key);
+          dbg('SET verify raw after remove', key, verify);
+        }
+
         return;
       }
 
       await adapter.setItem(key, serialized);
-      if (__DEV__ && DEBUG_KEYS.has(key)) dbg('SET serialized', key, serialized);
+
+      if (__DEV__ && DEBUG_KEYS.has(key)) {
+        dbg('SET serialized', key, safePreview(serialized));
+
+        // ✅ verify read-back immediately to prove correctness
+        const verifyRaw = await adapter.getItem(key);
+        const verifyParsed = parseStoredValue(verifyRaw);
+        dbg('SET verify raw', key, verifyRaw);
+        dbg('SET verify parsed', key, verifyParsed);
+      }
     } catch (error) {
-      if (__DEV__) console.error("Failed to set item in storage:", key, value, error);
+      if (__DEV__) console.error('Failed to set item in storage:', key, value, error);
       return;
     }
   },
@@ -244,6 +285,7 @@ export const storage = {
       return;
     }
   },
+
   async multiGet(keys) {
     try {
       const adapter = resolveAdapter();
@@ -257,6 +299,7 @@ export const storage = {
       return [];
     }
   },
+
   async multiSet(pairs) {
     try {
       const adapter = resolveAdapter();
@@ -275,34 +318,43 @@ export const storage = {
         ...toSet.map(([k, v]) => adapter.setItem(k, v)),
         ...toRemove.map((k) => adapter.removeItem(k)),
       ]);
-
     } catch {
       return;
     }
   },
+
   async getAuthToken() {
     const token = await secureStorage.getItem(APP_STORAGE_KEYS.AUTH_TOKEN);
+    if (__DEV__) dbg('getAuthToken', tokenPreview(token));
     return typeof token === 'string' ? token : null;
   },
+
   async setAuthToken(token) {
+    if (__DEV__) dbg('setAuthToken', tokenPreview(token));
     await secureStorage.setItem(APP_STORAGE_KEYS.AUTH_TOKEN, token);
   },
+
   async removeAuthToken() {
+    if (__DEV__) dbg('removeAuthToken');
     await secureStorage.removeItem(APP_STORAGE_KEYS.AUTH_TOKEN);
   },
+
   async getPortalTokens() {
     const tokens = await secureStorage.getItem(PORTAL_KEYS.AUTH_TOKENS);
     return tokens && typeof tokens === 'object' ? tokens : null;
   },
+
   async setPortalTokens(tokens) {
     if (!tokens) return;
     // Only store objects (prevents persisting stale string/junk shapes)
     if (typeof tokens !== 'object') return;
     await secureStorage.setItem(PORTAL_KEYS.AUTH_TOKENS, tokens);
   },
+
   async removePortalTokens() {
     await secureStorage.removeItem(PORTAL_KEYS.AUTH_TOKENS);
   },
+
   async getLegacyAuthToken() {
     const entries = await storage.multiGet(LEGACY_AUTH_TOKEN_KEYS);
     for (const [, value] of entries) {
@@ -312,23 +364,29 @@ export const storage = {
     }
     return null;
   },
+
   async removeLegacyAuthTokens() {
     await Promise.all(LEGACY_AUTH_TOKEN_KEYS.map((key) => storage.removeItem(key)));
   },
+
   async removeLegacyPortalCredentials() {
     await Promise.all(LEGACY_PORTAL_CREDENTIAL_KEYS.map((key) => storage.removeItem(key)));
   },
+
   async setPortalSession(session) {
     await storage.setItem(PORTAL_KEYS.SESSION, session);
   },
+
   async getPortalSession() {
     const session = await storage.getItem(PORTAL_KEYS.SESSION);
     return session && typeof session === 'object' ? session : null;
   },
+
   async setPortalAcademyId(id) {
     const value = id == null ? null : String(id);
     await storage.setItem(PORTAL_KEYS.ACADEMY_ID, value);
   },
+
   async getPortalAcademyId() {
     const value = await storage.getItem(PORTAL_KEYS.ACADEMY_ID);
     if (value == null) return null;
@@ -349,6 +407,7 @@ export const storage = {
       storage.removeLegacyPortalCredentials(),
     ]);
   },
+
   async clearTenantState() {
     await Promise.all([
       storage.removeItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID),

@@ -1,5 +1,5 @@
 // src/screens/JoinAcademyScreen.js
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -11,6 +11,8 @@ import {
   Pressable,
   Dimensions,
   Modal,
+  UIManager,
+  findNodeHandle,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -260,6 +262,8 @@ export function JoinAcademyScreen() {
   const [dobPickerOpen, setDobPickerOpen] = useState(false);
   const [tempDob, setTempDob] = useState(null); // iOS temp selection
   const dobMax = useMemo(() => maxDobISO(3), []);
+  const scrollRef = useRef(null);
+  const fieldPositions = useRef({});
 
   const academy = academyBundle?.academy || academyBundle || null;
 
@@ -317,6 +321,36 @@ export function JoinAcademyScreen() {
     setForm((p) => ({ ...p, [key]: value }));
   }, []);
 
+  const getFieldErrorStyle = useCallback(
+    (fieldKey) => ({
+      borderColor: attempted && errors[fieldKey] ? theme.error : theme.hairline,
+      borderWidth: attempted && errors[fieldKey] ? 2 : 1,
+    }),
+    [attempted, errors, theme.error, theme.hairline]
+  );
+
+  const captureFieldPosition = useCallback(
+    (fieldKey) => (event) => {
+      const scrollNode =
+        scrollRef.current?.getInnerViewNode?.() || findNodeHandle(scrollRef.current);
+      if (event?.target && scrollNode) {
+        UIManager.measureLayout(
+          event.target,
+          scrollNode,
+          () => {
+            fieldPositions.current[fieldKey] = event.nativeEvent.layout.y;
+          },
+          (_x, y) => {
+            fieldPositions.current[fieldKey] = y;
+          }
+        );
+        return;
+      }
+      fieldPositions.current[fieldKey] = event?.nativeEvent?.layout?.y ?? 0;
+    },
+    []
+  );
+
   const validateAll = useCallback(() => {
     const e = {};
 
@@ -372,6 +406,12 @@ export function JoinAcademyScreen() {
     setAttempted(true);
     const e = validateAll();
     if (Object.keys(e).length) {
+      const firstErrorKey = Object.keys(e)[0];
+      const yPosition = fieldPositions.current[firstErrorKey];
+      if (yPosition != null) {
+        scrollRef.current?.scrollTo({ y: yPosition - 120, animated: true });
+      }
+
       toast?.warning?.(t('service.academy.join.errors.fix'), {
         title: t('service.academy.common.checkForm'),
       });
@@ -667,6 +707,7 @@ export function JoinAcademyScreen() {
       <Animated.View entering={enterAnim} style={{ flex: 1 }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <ScrollView
+            ref={scrollRef}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
@@ -761,12 +802,15 @@ export function JoinAcademyScreen() {
                 <View style={styles.gridGap}>
                   <View style={[styles.rowOrCol, isWide && styles.row]}>
                     <View style={styles.flex1}>
-                      <Input
-                        label={t('service.academy.join.form.firstEng')}
-                        value={form.first_eng_name}
-                        onChangeText={(v) => setField('first_eng_name', v)}
-                        error={attempted ? errors.first_eng_name : ''}
-                      />
+                      <View onLayout={captureFieldPosition('first_eng_name')}>
+                        <Input
+                          label={t('service.academy.join.form.firstEng')}
+                          value={form.first_eng_name}
+                          onChangeText={(v) => setField('first_eng_name', v)}
+                          error={attempted ? errors.first_eng_name : ''}
+                          style={getFieldErrorStyle('first_eng_name')}
+                        />
+                      </View>
                     </View>
                     <View style={styles.flex1}>
                       <Input
@@ -779,12 +823,15 @@ export function JoinAcademyScreen() {
 
                   <View style={[styles.rowOrCol, isWide && styles.row]}>
                     <View style={styles.flex1}>
-                      <Input
-                        label={t('service.academy.join.form.lastEng')}
-                        value={form.last_eng_name}
-                        onChangeText={(v) => setField('last_eng_name', v)}
-                        error={attempted ? errors.last_eng_name : ''}
-                      />
+                      <View onLayout={captureFieldPosition('last_eng_name')}>
+                        <Input
+                          label={t('service.academy.join.form.lastEng')}
+                          value={form.last_eng_name}
+                          onChangeText={(v) => setField('last_eng_name', v)}
+                          error={attempted ? errors.last_eng_name : ''}
+                          style={getFieldErrorStyle('last_eng_name')}
+                        />
+                      </View>
                     </View>
                     <View style={styles.flex1}>
                   <View style={[styles.softInfo, { backgroundColor: alphaHex(theme.text.primary, isDark ? '14' : '0A') }]}>
@@ -800,12 +847,15 @@ export function JoinAcademyScreen() {
 
                   <View style={[styles.rowOrCol, isWide && styles.row]}>
                     <View style={styles.flex1}>
-                      <Input
-                        label={t('service.academy.join.form.firstAr')}
-                        value={form.first_ar_name}
-                        onChangeText={(v) => setField('first_ar_name', v)}
-                        error={attempted ? errors.first_ar_name : ''}
-                      />
+                      <View onLayout={captureFieldPosition('first_ar_name')}>
+                        <Input
+                          label={t('service.academy.join.form.firstAr')}
+                          value={form.first_ar_name}
+                          onChangeText={(v) => setField('first_ar_name', v)}
+                          error={attempted ? errors.first_ar_name : ''}
+                          style={getFieldErrorStyle('first_ar_name')}
+                        />
+                      </View>
                     </View>
                     <View style={styles.flex1}>
                       <Input
@@ -818,12 +868,15 @@ export function JoinAcademyScreen() {
 
                   <View style={[styles.rowOrCol, isWide && styles.row]}>
                     <View style={styles.flex1}>
-                      <Input
-                        label={t('service.academy.join.form.lastAr')}
-                        value={form.last_ar_name}
-                        onChangeText={(v) => setField('last_ar_name', v)}
-                        error={attempted ? errors.last_ar_name : ''}
-                      />
+                      <View onLayout={captureFieldPosition('last_ar_name')}>
+                        <Input
+                          label={t('service.academy.join.form.lastAr')}
+                          value={form.last_ar_name}
+                          onChangeText={(v) => setField('last_ar_name', v)}
+                          error={attempted ? errors.last_ar_name : ''}
+                          style={getFieldErrorStyle('last_ar_name')}
+                        />
+                      </View>
                     </View>
                     <View style={styles.flex1}>
                       <FieldHint theme={theme} text={t('service.academy.join.form.arHint')} />
@@ -843,24 +896,30 @@ export function JoinAcademyScreen() {
                 <View style={styles.gridGap}>
                   <View style={[styles.rowOrCol, isWide && styles.row]}>
                     <View style={styles.flex1}>
-                      <Input
-                        label={t('service.academy.join.form.phone1')}
-                        value={form.phone1}
-                        onChangeText={(v) => setField('phone1', v)}
-                        keyboardType="phone-pad"
-                        placeholder={t('service.academy.join.form.phonePlaceholder')}
-                        error={attempted ? errors.phone1 : ''}
-                      />
+                      <View onLayout={captureFieldPosition('phone1')}>
+                        <Input
+                          label={t('service.academy.join.form.phone1')}
+                          value={form.phone1}
+                          onChangeText={(v) => setField('phone1', v)}
+                          keyboardType="phone-pad"
+                          placeholder={t('service.academy.join.form.phonePlaceholder')}
+                          error={attempted ? errors.phone1 : ''}
+                          style={getFieldErrorStyle('phone1')}
+                        />
+                      </View>
                     </View>
                     <View style={styles.flex1}>
-                      <Input
-                        label={t('service.academy.join.form.phone2')}
-                        value={form.phone2}
-                        onChangeText={(v) => setField('phone2', v)}
-                        keyboardType="phone-pad"
-                        placeholder={t('service.academy.common.optional')}
-                        error={attempted ? errors.phone2 : ''}
-                      />
+                      <View onLayout={captureFieldPosition('phone2')}>
+                        <Input
+                          label={t('service.academy.join.form.phone2')}
+                          value={form.phone2}
+                          onChangeText={(v) => setField('phone2', v)}
+                          keyboardType="phone-pad"
+                          placeholder={t('service.academy.common.optional')}
+                          error={attempted ? errors.phone2 : ''}
+                          style={getFieldErrorStyle('phone2')}
+                        />
+                      </View>
                     </View>
                   </View>
 
@@ -884,27 +943,30 @@ export function JoinAcademyScreen() {
                 <View style={styles.gridGap}>
                   {/* DOB picker */}
                   <AnimatedPress>
-                    <Pressable
-                      onPress={() => {
-                        const initial = isoToDateOrNull(form.dob) || new Date(`${dobMax}T00:00:00`);
-                        setTempDob(initial);
-                        setDobPickerOpen(true);
-                      }}
-                      style={styles.pressRow}
-                    >
-                      <View pointerEvents="none">
-                        <Input
-                          label={t('service.academy.join.form.dob')}
-                          value={form.dob}
-                          placeholder={t('service.academy.join.form.dobPlaceholder')}
-                          error={attempted ? errors.dob : ''}
-                        />
-                      </View>
+                    <View onLayout={captureFieldPosition('dob')}>
+                      <Pressable
+                        onPress={() => {
+                          const initial = isoToDateOrNull(form.dob) || new Date(`${dobMax}T00:00:00`);
+                          setTempDob(initial);
+                          setDobPickerOpen(true);
+                        }}
+                        style={styles.pressRow}
+                      >
+                        <View pointerEvents="none">
+                          <Input
+                            label={t('service.academy.join.form.dob')}
+                            value={form.dob}
+                            placeholder={t('service.academy.join.form.dobPlaceholder')}
+                            error={attempted ? errors.dob : ''}
+                            style={getFieldErrorStyle('dob')}
+                          />
+                        </View>
 
-                      <View style={[styles.dobAffordance, { backgroundColor: theme.accent.orangeSoft, borderColor: theme.accent.orangeHair }]}>
-                        <CalendarDays size={18} color={theme.accent.orange} />
-                      </View>
-                    </Pressable>
+                        <View style={[styles.dobAffordance, { backgroundColor: theme.accent.orangeSoft, borderColor: theme.accent.orangeHair }]}>
+                          <CalendarDays size={18} color={theme.accent.orange} />
+                        </View>
+                      </Pressable>
+                    </View>
                   </AnimatedPress>
 
                   {/* Android: inline picker when open */}

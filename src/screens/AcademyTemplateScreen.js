@@ -9,6 +9,8 @@ import {
   Dimensions,
   Linking,
   Share,
+  Alert,
+  Clipboard,
   Animated,
   Platform,
   Modal,
@@ -59,6 +61,7 @@ import {
   MessageCircle,
   Download,
   Eye,
+  Copy,
 } from 'lucide-react-native';
 
 import { API_BASE_URL } from '../services/api/client';
@@ -675,6 +678,10 @@ export function AcademyTemplateScreen({ slug }) {
       t('service.academy.common.defaultName')
     );
   }, [academy, i18n, t]);
+  const academyDeepLink = useMemo(
+    () => (academy?.slug ? `https://sporthive.app/academies/${academy.slug}` : ''),
+    [academy]
+  );
 
   const aboutText = useMemo(() => {
     return getLocalized(i18n, academy?.short_desc_en, academy?.short_desc_ar) || '';
@@ -771,17 +778,33 @@ export function AcademyTemplateScreen({ slug }) {
 
   // Actions
   const onShare = useCallback(async () => {
+    const shareTarget = academyDeepLink || mapUrl || '';
     try {
       await Share.share({
         message: t('service.academy.template.shareMessage', {
           academyName,
-          mapUrl: mapUrl || '',
+          mapUrl: shareTarget,
         }).trim(),
       });
     } catch {
       // ignore
     }
-  }, [academyName, mapUrl, t]);
+  }, [academyDeepLink, academyName, mapUrl, t]);
+
+  const onCopyLink = useCallback(async () => {
+    if (!academy?.slug) return;
+    try {
+      Clipboard.setString(academyDeepLink);
+      Alert.alert(
+        t('service.academy.template.linkCopiedTitle', { defaultValue: 'Link copied' }),
+        t('service.academy.template.linkCopiedSubtitle', {
+          defaultValue: 'Academy link copied to clipboard.',
+        })
+      );
+    } catch {
+      // ignore
+    }
+  }, [academy, academyDeepLink, t]);
 
   const onCall = useCallback(() => {
     const phone = contactPhones?.[0];
@@ -1046,9 +1069,14 @@ export function AcademyTemplateScreen({ slug }) {
                 ) : null}
               </View>
 
-              <GlassIconButton onPress={onShare} style={[styles.heroActionBtn, { borderColor: alphaHex(colors.white, '47') }]}>
-                <Share2 size={18} color={colors.white} />
-              </GlassIconButton>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <GlassIconButton onPress={onShare} style={[styles.heroActionBtn, { borderColor: alphaHex(colors.white, '47') }]}>
+                  <Share2 size={18} color={colors.white} />
+                </GlassIconButton>
+                <GlassIconButton onPress={onCopyLink} style={[styles.heroActionBtn, { borderColor: alphaHex(colors.white, '47') }]}>
+                  <Copy size={18} color={colors.white} />
+                </GlassIconButton>
+              </View>
             </View>
 
             {/* Title area */}
@@ -1140,6 +1168,29 @@ export function AcademyTemplateScreen({ slug }) {
               ) : null}
             </View>
 
+            <View style={styles.heroCtaRow}>
+              <Button
+                size="large"
+                onPress={onPrimary}
+                style={{ flex: 1, borderRadius: 18 }}
+              >
+                {academy?.registration_open
+                  ? t('service.academy.template.cta.joinNow')
+                  : t('service.academy.template.cta.contact')}
+              </Button>
+
+              <Button
+                variant="secondary"
+                size="large"
+                onPress={onCall}
+                style={{ borderRadius: 18 }}
+                leftIcon={<Phone size={18} color={colors.textPrimary} />}
+                disabled={contactPhones.length === 0}
+              >
+                {t('service.academy.template.contact.call')}
+              </Button>
+            </View>
+
             {/* Navigation chips */}
             <ScrollView
               horizontal
@@ -1168,7 +1219,10 @@ export function AcademyTemplateScreen({ slug }) {
           {templateSections.about && aboutText ? (
             <View
               onLayout={(e) => (sectionsY.current.about = e.nativeEvent.layout.y)}
-              style={{ marginBottom: 32 }}
+              style={{
+                marginBottom: 40,
+                paddingTop: 8,
+              }}
             >
               <SectionHeader
                 icon={<Info size={18} color={colors.accentOrange} />}
@@ -1241,7 +1295,10 @@ export function AcademyTemplateScreen({ slug }) {
           {templateSections.stats && (sportTypes.length > 0 || awards.length > 0 || certificates.length > 0) ? (
             <View
               onLayout={(e) => (sectionsY.current.sports = e.nativeEvent.layout.y)}
-              style={{ marginBottom: 32 }}
+              style={{
+                marginBottom: 40,
+                paddingTop: 8,
+              }}
             >
               <SectionHeader
                 icon={<Trophy size={18} color={colors.accentOrange} />}
@@ -1370,7 +1427,10 @@ export function AcademyTemplateScreen({ slug }) {
           {templateSections.courses && courses.length > 0 ? (
             <View
               onLayout={(e) => (sectionsY.current.courses = e.nativeEvent.layout.y)}
-              style={{ marginBottom: 32 }}
+              style={{
+                marginBottom: 40,
+                paddingTop: 8,
+              }}
             >
               <SectionHeader
                 icon={<GraduationCap size={18} color={colors.accentOrange} />}
@@ -1391,7 +1451,10 @@ export function AcademyTemplateScreen({ slug }) {
           {(templateSections.media_ads || templateSections.media_gallery) && (ads.length > 0 || galleryItems.length > 0) ? (
             <View
               onLayout={(e) => (sectionsY.current.media = e.nativeEvent.layout.y)}
-              style={{ marginBottom: 32 }}
+              style={{
+                marginBottom: 40,
+                paddingTop: 8,
+              }}
             >
               <SectionHeader
                 icon={<ImageIcon size={18} color={colors.accentOrange} />}
@@ -1458,7 +1521,10 @@ export function AcademyTemplateScreen({ slug }) {
           {templateSections.success_story && successStory ? (
             <View
               onLayout={(e) => (sectionsY.current.story = e.nativeEvent.layout.y)}
-              style={{ marginBottom: 32 }}
+              style={{
+                marginBottom: 40,
+                paddingTop: 8,
+              }}
             >
               <SuccessStoryCard story={successStory} i18n={i18n} t={t} onOpen={openLightbox} />
             </View>
@@ -1468,7 +1534,10 @@ export function AcademyTemplateScreen({ slug }) {
           {templateSections.location ? (
             <View
               onLayout={(e) => (sectionsY.current.location = e.nativeEvent.layout.y)}
-              style={{ marginBottom: 32 }}
+              style={{
+                marginBottom: 40,
+                paddingTop: 8,
+              }}
             >
               <SectionHeader
                 icon={<MapPin size={18} color={colors.accentOrange} />}
@@ -1547,7 +1616,10 @@ export function AcademyTemplateScreen({ slug }) {
           {(templateSections.contact_or_join || contactPhones.length > 0 || academy?.contact_email) ? (
             <View
               onLayout={(e) => (sectionsY.current.contact = e.nativeEvent.layout.y)}
-              style={{ marginBottom: 32 }}
+              style={{
+                marginBottom: 40,
+                paddingTop: 8,
+              }}
             >
               <SectionHeader
                 icon={<Mail size={18} color={colors.accentOrange} />}
@@ -1836,6 +1908,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
     marginTop: 14,
+  },
+  heroCtaRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
   },
   featurePill: {
     flexDirection: 'row',

@@ -487,6 +487,9 @@
             "label": "العمر إلى",
             "placeholder": "18"
           },
+          "ageLabel": "العمر",
+          "ageAny": "كل الأعمار",
+          "ageChip": "العمر: {{age}}",
           "registrationEnabled": "التسجيل متاح",
           "proOnly": "احترافي فقط",
           "sortLabel": "الترتيب حسب",

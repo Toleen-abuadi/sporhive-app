@@ -346,6 +346,7 @@ export function usePlayerPortalActions() {
       printInvoice: playerPortalStore.printInvoice,
       selectFilteredPayments: playerPortalStore.selectFilteredPayments,
       selectFilteredOrders: playerPortalStore.selectFilteredOrders,
+      
     }),
     []
   );
