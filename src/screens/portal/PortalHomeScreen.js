@@ -37,32 +37,49 @@ export function PortalHomeScreen() {
   }));
   const actions = usePlayerPortalActions();
   const [refreshing, setRefreshing] = useState(false);
+  const refreshingRef = useRef(false);
   const reauthHandledRef = useRef(false);
   const placeholder = t('portal.common.placeholder');
   const sessionValidation = authLoading ? { ok: true } : validatePortalSession(session);
 
   // keep latest function without depending on the whole actions object
   const fetchOverviewRef = useRef(null);
+  const autoFetchOnceRef = useRef(false);
 
   useEffect(() => {
-    fetchOverviewRef.current = actions?.fetchOverview;
-  }, [actions?.fetchOverview]);
+    fetchOverviewRef.current = actions.fetchOverview;
+  }, [actions.fetchOverview]);
 
   useEffect(() => {
     if (authLoading) return;
     if (!sessionValidation.ok) return;
-    if (overview || overviewLoading) return; // ✅ guard: prevents spam
+    if (overview || overviewLoading) return; // prevent spamming
+    if (overviewError) return; // block auto-retry loop after failure
+    if (autoFetchOnceRef.current) return; // ✅ extra safety: only auto-fetch once per mount
+    autoFetchOnceRef.current = true;
+   if (__DEV__) {
+      console.trace('[TRACE] PortalHomeScreen useEffect ACTUALLY calling fetchOverview', {
+        overview: !!overview,
+        overviewLoading,
+        hasError: !!overviewError,
+      });
+    }
     fetchOverviewRef.current?.();
-  }, [authLoading, sessionValidation.ok, overview, overviewLoading]);
+  }, [authLoading, sessionValidation.ok, overview, overviewLoading, overviewError]);
+
 
   const onRefresh = useCallback(async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    if (__DEV__) console.trace('[TRACE] onRefresh called (force=true)');
     setRefreshing(true);
     try {
-      await actions?.fetchOverview?.();
+      await actions.fetchOverview({ force: true });
     } finally {
+      refreshingRef.current = false;
       setRefreshing(false);
     }
-  }, [actions?.fetchOverview]);
+  }, [actions.fetchOverview]);
 
   const handleReauthRequired = useCallback(async () => {
     if (reauthHandledRef.current) return;

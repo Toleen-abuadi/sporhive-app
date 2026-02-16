@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
 
 import { AppScreen } from '../ui/AppScreen';
@@ -23,6 +23,33 @@ export function PortalAccessGate({
   const { t } = useI18n();
   const { userType, isLoading } = useAuth();
 
+  // Prevent infinite loops: only trigger reauth once per error occurrence
+  const handledReauthRef = useRef(false);
+  const handleRetry = useCallback(() => {
+    if (__DEV__) {
+      console.trace('[TRACE] PortalAccessGate calling onRetry');
+    }
+    onRetry?.();
+  }, [onRetry]);
+
+  useEffect(() => {
+    if (!error) {
+      handledReauthRef.current = false;
+      return;
+    }
+    if (!isPortalReauthError(error)) return;
+    if (handledReauthRef.current) return;
+
+    handledReauthRef.current = true;
+
+    if (__DEV__) {
+      console.trace('[TRACE] PortalAccessGate triggering onReauthRequired');
+    }
+
+    // IMPORTANT: side-effects must not run during render
+    onReauthRequired?.(error);
+  }, [error, onReauthRequired]);
+
   if (isLoading) {
     return null;
   }
@@ -30,9 +57,7 @@ export function PortalAccessGate({
   // Handle portal API errors (optional, only if a screen passes `error` in)
   if (error) {
     if (isPortalReauthError(error)) {
-      // IMPORTANT: Gate itself does NOT force logout; keep it injectable for minimal diffs.
-      // Screens can pass onReauthRequired={() => logout()} or navigate to login.
-      onReauthRequired?.(error);
+      // Rendering nothing while reauth flow is handled by the effect above.
       return null;
     }
 
@@ -44,7 +69,7 @@ export function PortalAccessGate({
             title={t('portal.forbidden.title')}
             message={t('portal.forbidden.description')}
             actionLabel={t('common.retry')}
-            onAction={onRetry}
+            onAction={handleRetry}
             secondaryActionLabel={t('common.back')}
             onSecondaryAction={onBack || (() => router.back())}
           />

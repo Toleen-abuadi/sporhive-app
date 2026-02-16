@@ -36,6 +36,8 @@
       "@react-native-community/datetimepicker",
       "expo-notifications",
       "expo-secure-store",
+      "@logrocket/react-native",
+      "expo-build-properties",
       [
         "expo-splash-screen",
         {

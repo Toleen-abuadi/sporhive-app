@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { playerPortalApi, portalApi } from '../services/api/playerPortalApi';
 import { normalizeApiError } from '../services/api/normalizeApiError';
 import { storage } from '../services/storage/storage';
@@ -48,6 +48,7 @@ const INITIAL_STATE = {
 
 let portalState = { ...INITIAL_STATE };
 const listeners = new Set();
+let _overviewPromise = null;
 
 const emit = () => {
   listeners.forEach((listener) => listener(portalState));
@@ -135,6 +136,37 @@ const applyOrderFilters = (orders, filters) => {
   });
 };
 
+const isPlainObject = (value) => {
+  if (value == null || typeof value !== 'object') return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+};
+
+const shallowEqual = (a, b) => {
+  if (Object.is(a, b)) return true;
+
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i += 1) {
+      if (!Object.is(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  if (!isPlainObject(a) || !isPlainObject(b)) return false;
+
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+
+  for (const key of aKeys) {
+    if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+    if (!Object.is(a[key], b[key])) return false;
+  }
+
+  return true;
+};
+
 export const playerPortalStore = {
   getState: () => portalState,
 
@@ -185,19 +217,68 @@ export const playerPortalStore = {
   },
 
   // ---- Data ----
-  async fetchOverview() {
-    setState({ overviewLoading: true, overviewError: null });
-    const res = await playerPortalApi.getOverview();
+  async fetchOverview(options = {}) {
+    const { force = false } = options;
 
-    if (res.success) {
-      setState({ overview: res.data, overviewLoading: false, overviewError: null });
-      await persistTryOutIdFromOverview(res.data);
-      return { success: true, data: res.data };
+    if (__DEV__) {
+      console.trace('[TRACE] fetchOverview called', {
+        hasOverview: !!portalState.overview,
+        loading: portalState.overviewLoading,
+        hasError: !!portalState.overviewError,
+        force,
+        hasInFlight: !!_overviewPromise,
+      });
     }
 
-    const normalized = normalizeApiError(res.error);
-    setState({ overviewLoading: false, overviewError: normalized });
-    return { success: false, error: res.error };
+    // ✅ If already in-flight, reuse it (single-flight)
+    if (_overviewPromise) {
+      if (__DEV__) console.log('[TRACE] fetchOverview: returning in-flight promise');
+      return _overviewPromise;
+    }
+
+    // ✅ If we already have data and this is not a forced refresh, return cached (prevents needless calls)
+    // This does NOT remove functionality—manual refresh can pass { force: true }.
+    if (portalState.overview && !force) {
+      return { success: true, data: portalState.overview, cached: true };
+    }
+
+    _overviewPromise = (async () => {
+      if (__DEV__) console.trace('[TRACE] fetchOverview: START network request');
+
+      setState({ overviewLoading: true, overviewError: null });
+
+      let res;
+      try {
+        res = await playerPortalApi.getOverview();
+      } catch (e) {
+        const normalized = normalizeApiError(e);
+        setState({ overviewLoading: false, overviewError: normalized });
+        return { success: false, error: e };
+      }
+
+      if (res?.success) {
+        setState({ overview: res.data, overviewLoading: false, overviewError: null });
+
+        // ✅ IMPORTANT: persist tryOutId best-effort, never break the overview flow
+        try {
+          await persistTryOutIdFromOverview(res.data);
+        } catch (e) {
+          if (__DEV__) console.warn('[playerPortalStore] persistTryOutIdFromOverview failed:', e);
+        }
+
+        return { success: true, data: res.data };
+      }
+
+      const normalized = normalizeApiError(res?.error);
+      setState({ overviewLoading: false, overviewError: normalized });
+      return { success: false, error: res?.error };
+    })();
+
+    try {
+      return await _overviewPromise;
+    } finally {
+      _overviewPromise = null; // ✅ always release lock
+    }
   },
 
   async fetchProfile() {
@@ -317,17 +398,32 @@ export const playerPortalStore = {
   },
 };
 
-export function usePlayerPortalStore(selector = (state) => state) {
-  const [state, setLocalState] = useState(() => selector(playerPortalStore.getState()));
+export function usePlayerPortalStore(selector = (state) => state, equalityFn = shallowEqual) {
+  const selectorRef = useRef(selector);
+  const equalityRef = useRef(equalityFn);
+  selectorRef.current = selector;
+  equalityRef.current = equalityFn;
+
+  const [selectedState, setSelectedState] = useState(() => selector(playerPortalStore.getState()));
+
+  useEffect(() => {
+    setSelectedState((prev) => {
+      const next = selectorRef.current(playerPortalStore.getState());
+      return equalityRef.current(prev, next) ? prev : next;
+    });
+  }, [selector, equalityFn]);
 
   useEffect(() => {
     const unsubscribe = playerPortalStore.subscribe((nextState) => {
-      setLocalState(selector(nextState));
+      setSelectedState((prev) => {
+        const next = selectorRef.current(nextState);
+        return equalityRef.current(prev, next) ? prev : next;
+      });
     });
     return unsubscribe;
-  }, [selector]);
+  }, []);
 
-  return state;
+  return selectedState;
 }
 
 export function usePlayerPortalActions() {
@@ -346,7 +442,7 @@ export function usePlayerPortalActions() {
       printInvoice: playerPortalStore.printInvoice,
       selectFilteredPayments: playerPortalStore.selectFilteredPayments,
       selectFilteredOrders: playerPortalStore.selectFilteredOrders,
-      
+
     }),
     []
   );

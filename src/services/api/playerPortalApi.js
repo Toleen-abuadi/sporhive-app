@@ -180,6 +180,7 @@ export const playerPortalApi = {
 
     try {
       const portal = academyId ? { academyId } : undefined;
+      if (__DEV__) console.trace('[TRACE] overview network request fired');
       const data = await portalPost('/player-portal-external-proxy/player-profile/overview', payload, { portal });
       return { success: true, data };
     } catch (error) {
@@ -208,6 +209,7 @@ export const playerPortalApi = {
       }
 
       const portal = academyId ? { academyId } : undefined;
+      if (__DEV__) console.trace('[TRACE] overview network request fired');
       const data = await portalPost('/player-portal-external-proxy/player-profile/overview', payload, { portal });
       return { success: true, data: normalizePortalOverview(data) };
     } catch (error) {

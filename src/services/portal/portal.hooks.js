@@ -1,48 +1,60 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { portalApi } from '../api/playerPortalApi';
-import { portalStore } from './portal.store';
 import { normalizeUniformOrders } from './portal.normalize';
 import { useAuth } from '../auth/auth.store';
 import { validatePortalSession } from '../auth/portalSession';
+import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 
 export function usePortalOverview() {
-  const [state, setState] = useState(portalStore.getState());
-  const mounted = useRef(true);
   const { session, isLoading: authLoading } = useAuth();
+  const actions = usePlayerPortalActions();
+  const { overview, overviewLoading, overviewError } = usePlayerPortalStore((state) => ({
+    overview: state.overview,
+    overviewLoading: state.overviewLoading,
+    overviewError: state.overviewError,
+  }));
+  const autoLoadOnceRef = useRef(false);
+  const isSessionValid = !authLoading && validatePortalSession(session).ok;
 
   useEffect(() => {
-    mounted.current = true;
-    const unsub = portalStore.subscribe((next) => {
-      if (mounted.current) setState(next);
-    });
-
-    const isSessionValid = !authLoading && validatePortalSession(session).ok;
-    if (!portalStore.getState().overview && !portalStore.getState().loading && isSessionValid) {
-      portalStore.loadOverview();
+    if (!isSessionValid) {
+      autoLoadOnceRef.current = false;
+      return;
     }
+    if (overview || overviewLoading || overviewError) return;
+    if (autoLoadOnceRef.current) return;
 
-    return () => {
-      mounted.current = false;
-      unsub?.();
-    };
-  }, [authLoading, session]);
+    autoLoadOnceRef.current = true;
+    actions.fetchOverview();
+  }, [actions.fetchOverview, isSessionValid, overview, overviewError, overviewLoading]);
 
-  const refresh = useCallback(async () => portalStore.refreshOverview(), []);
+  const refresh = useCallback(async () => actions.fetchOverview({ force: true }), [actions.fetchOverview]);
 
-  return { ...state, refresh };
+  return {
+    overview,
+    loading: overviewLoading,
+    error: overviewError,
+    lastUpdated: null,
+    refresh,
+  };
 }
 
 export function usePortalRefresh() {
   const [refreshing, setRefreshing] = useState(false);
+  const actions = usePlayerPortalActions();
+  const refreshingRef = useRef(false);
 
   const onRefresh = useCallback(async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
     setRefreshing(true);
     try {
-      await portalStore.refreshOverview();
+      await actions.fetchOverview({ force: true });
     } finally {
+      refreshingRef.current = false;
       setRefreshing(false);
     }
-  }, []);
+  }, [actions.fetchOverview]);
 
   return { refreshing, onRefresh };
 }

@@ -33,31 +33,44 @@ export function PortalRenewalDetailScreen() {
   const router = useRouter();
   const { ensurePortalReauthOnce } = useAuth();
   const reauthHandledRef = useRef(false);
-  const { overview, renewals, renewalsError } = usePlayerPortalStore((state) => ({
+  const { overview, overviewLoading, overviewError, renewals, renewalsError } = usePlayerPortalStore((state) => ({
     overview: state.overview,
+    overviewLoading: state.overviewLoading,
+    overviewError: state.overviewError,
     renewals: state.renewals,
     renewalsError: state.renewalsError,
   }));
   const actions = usePlayerPortalActions();
+  const fetchOverview = actions.fetchOverview;
+  const fetchRenewals = actions.fetchRenewals;
 
   useEffect(() => {
+    if (!overview && (overviewLoading || overviewError)) return;
+
     const load = async () => {
       if (!overview) {
-        const ov = await actions.fetchOverview();
+        if (__DEV__) {
+          console.trace('[TRACE] PortalRenewalDetailScreen useEffect triggered overview fetch', {
+            overview: !!overview,
+            overviewLoading,
+            hasError: !!overviewError,
+          });
+        }
+        const ov = await fetchOverview();
         if (!ov?.success) return;
       }
-      if (!renewals || Object.keys(renewals || {}).length === 0) await actions.fetchRenewals();
+      if (!renewals || Object.keys(renewals || {}).length === 0) await fetchRenewals();
     };
     load();
-  }, [actions, overview, renewals]);
+  }, [fetchOverview, fetchRenewals, overview, overviewLoading, overviewError, renewals]);
 
   const load = useCallback(async () => {
     if (!overview) {
-      const ov = await actions.fetchOverview();
+      const ov = await fetchOverview();
       if (!ov?.success) return;
     }
-    if (!renewals || Object.keys(renewals || {}).length === 0) await actions.fetchRenewals();
-  }, [actions, overview, renewals]);
+    if (!renewals || Object.keys(renewals || {}).length === 0) await fetchRenewals();
+  }, [fetchOverview, fetchRenewals, overview, renewals]);
 
   const handleReauthRequired = useCallback(async () => {
     if (reauthHandledRef.current) return;
