@@ -15,15 +15,18 @@ import { I18nProvider } from '../src/services/i18n/i18n';
 import { ToastHost } from '../src/components/ui/ToastHost';
 import { PortalModalsProvider } from '../src/services/portal/portal.modals';
 import { AuthProvider, useAuth } from '../src/services/auth/auth.store';
-import { storage, APP_STORAGE_KEYS } from '../src/services/storage/storage';
+import {
+  storage,
+  APP_STORAGE_KEYS,
+  ENTRY_MODE_VALUES,
+  getEntryMode,
+} from '../src/services/storage/storage';
 
-// ✅ Set splash animation options (Expo official API)
 SplashScreen.setOptions({
   duration: 1000,
   fade: true,
 });
 
-// ✅ Keep splash visible until we explicitly hide it
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function NavThemeBridge({ children }) {
@@ -53,19 +56,16 @@ function AuthGate({ children, onReady }) {
   const pathname = usePathname();
   const { colors } = useTheme();
 
-  // ✅ use auth flags, not only session
   const { session, token, isAuthenticated, isHydrating, isLoading } = useAuth();
 
   const [welcomeSeen, setWelcomeSeen] = useState(null);
   const [welcomeLoaded, setWelcomeLoaded] = useState(false);
+  const [entryMode, setEntryMode] = useState(null);
+  const [entryModeLoaded, setEntryModeLoaded] = useState(false);
 
-  // ✅ ensure onReady is called only once
   const readyCalledRef = useRef(false);
-
-  // ✅ prevent duplicate replace calls
   const navLockRef = useRef(false);
 
-  // ✅ hard timeout helper (prevents infinite loader)
   const withTimeout = useCallback((promise, ms, label) => {
     return Promise.race([
       promise,
@@ -75,36 +75,61 @@ function AuthGate({ children, onReady }) {
     ]);
   }, []);
 
-  // ✅ Load welcome flag, but never block forever
+  const loginRouteForEntryMode = useCallback((mode) => {
+    if (mode === ENTRY_MODE_VALUES.PLAYER) {
+      return '/(auth)/login?mode=player&lockMode=1';
+    }
+    return '/(auth)/login?mode=public&lockMode=1';
+  }, []);
+
+  const resolveUnauthTarget = useCallback(() => {
+    if (welcomeSeen === false) {
+      return '/(auth)/welcome';
+    }
+
+    if (entryMode === ENTRY_MODE_VALUES.PLAYER || entryMode === ENTRY_MODE_VALUES.PUBLIC) {
+      return loginRouteForEntryMode(entryMode);
+    }
+
+    return '/(auth)/entry';
+  }, [entryMode, loginRouteForEntryMode, welcomeSeen]);
+
   useEffect(() => {
     let mounted = true;
 
     (async () => {
       try {
-        // if storage hangs, timeout and continue safely
-        const seen = await withTimeout(
-          storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN),
+        const [seen, storedEntryMode] = await withTimeout(
+          Promise.all([
+            storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN),
+            getEntryMode(),
+          ]),
           2000,
-          'WELCOME_SEEN'
+          'WELCOME_AND_ENTRY'
         );
 
         if (!mounted) return;
         setWelcomeSeen(seen === true || seen === 'true');
-      } catch (e) {
+        setEntryMode(storedEntryMode || null);
+      } catch (_error) {
         if (!mounted) return;
-        // Fail-safe: proceed as if welcome not seen
         setWelcomeSeen(false);
+        setEntryMode(null);
       } finally {
         if (!mounted) return;
         setWelcomeLoaded(true);
+        setEntryModeLoaded(true);
       }
     })();
 
-    // ✅ absolute last-resort (even if promise never settles)
     const hardFail = setTimeout(() => {
       if (!mounted) return;
       setWelcomeSeen((prev) => (prev == null ? false : prev));
+      setEntryMode((prev) =>
+        prev === ENTRY_MODE_VALUES.PLAYER || prev === ENTRY_MODE_VALUES.PUBLIC ? prev : null
+      );
       setWelcomeLoaded(true);
+      setEntryModeLoaded(true);
     }, 2500);
 
     return () => {
@@ -113,24 +138,22 @@ function AuthGate({ children, onReady }) {
     };
   }, [withTimeout]);
 
-  // ✅ consider both flags (some apps keep isLoading true while hydrating)
   const authReady = !isHydrating && !isLoading;
-  const isReady = welcomeLoaded && authReady;
+  const isReady = welcomeLoaded && entryModeLoaded && authReady;
 
-  // ✅ treat token OR isAuthenticated OR session as "signed in"
   const signedIn = Boolean(isAuthenticated || token || session);
 
-  // ✅ Segments can be [] on cold start. Use pathname fallback.
   const isInAuthGroup =
     segments?.[0] === '(auth)' ||
     (typeof pathname === 'string' && pathname.startsWith('/(auth)'));
 
-  // ✅ debug readiness to find the stuck flag on reopen
   useEffect(() => {
     if (!__DEV__) return;
     console.log('[AuthGate] readiness', {
       welcomeLoaded,
+      entryModeLoaded,
       welcomeSeen,
+      entryMode,
       isHydrating,
       isLoading,
       authReady,
@@ -142,7 +165,9 @@ function AuthGate({ children, onReady }) {
     });
   }, [
     welcomeLoaded,
+    entryModeLoaded,
     welcomeSeen,
+    entryMode,
     isHydrating,
     isLoading,
     authReady,
@@ -156,13 +181,11 @@ function AuthGate({ children, onReady }) {
   useEffect(() => {
     if (!isReady) return;
 
-    // ✅ call onReady exactly once
     if (!readyCalledRef.current) {
       readyCalledRef.current = true;
       onReady?.();
     }
 
-    // ✅ avoid duplicate replace calls
     if (navLockRef.current) return;
     navLockRef.current = true;
 
@@ -170,20 +193,13 @@ function AuthGate({ children, onReady }) {
       navLockRef.current = false;
     };
 
-    // ✅ CRITICAL BOOT FIX:
-    // Expo Router can sometimes stay on "/" with segments=[] during cold start.
-    // If auth is ready, force a deterministic redirect.
     const stuckAtRoot =
       (Array.isArray(segments) && segments.length === 0) ||
       pathname === '/' ||
       pathname == null;
 
     if (stuckAtRoot) {
-      const target = signedIn
-        ? '/(app)/services'
-        : welcomeSeen
-        ? '/(auth)/login'
-        : '/(auth)/welcome';
+      const target = signedIn ? '/(app)/services' : resolveUnauthTarget();
 
       if (__DEV__) {
         console.log('[AuthGate] boot redirect from root', {
@@ -191,6 +207,7 @@ function AuthGate({ children, onReady }) {
           segments,
           signedIn,
           welcomeSeen,
+          entryMode,
           target,
         });
       }
@@ -207,7 +224,7 @@ function AuthGate({ children, onReady }) {
     }
 
     if (!signedIn && !isInAuthGroup) {
-      router.replace(welcomeSeen ? '/(auth)/login' : '/(auth)/welcome');
+      router.replace(resolveUnauthTarget());
       setTimeout(unlock, 250);
       return;
     }
@@ -216,18 +233,39 @@ function AuthGate({ children, onReady }) {
       !signedIn &&
       isInAuthGroup &&
       welcomeSeen === false &&
-      segments?.[1] !== 'welcome' &&
-      segments?.[1] !== 'login'
+      segments?.[1] !== 'welcome'
     ) {
       router.replace('/(auth)/welcome');
       setTimeout(unlock, 250);
       return;
     }
 
-    unlock();
-  }, [isReady, signedIn, isInAuthGroup, router, segments, pathname, welcomeSeen, onReady]);
+    if (
+      !signedIn &&
+      isInAuthGroup &&
+      welcomeSeen !== false &&
+      !entryMode &&
+      segments?.[1] === 'login'
+    ) {
+      router.replace('/(auth)/entry');
+      setTimeout(unlock, 250);
+      return;
+    }
 
-  // ✅ Fallback loader
+    unlock();
+  }, [
+    isReady,
+    signedIn,
+    isInAuthGroup,
+    router,
+    segments,
+    pathname,
+    welcomeSeen,
+    entryMode,
+    resolveUnauthTarget,
+    onReady,
+  ]);
+
   const fallback = useMemo(
     () => (
       <View
@@ -257,13 +295,11 @@ export default function RootLayout() {
     if (splashHidden) return;
     setSplashHidden(true);
 
-    // Hide using the configured animation options
     await SplashScreen.hideAsync();
   }, [splashHidden]);
 
   useEffect(() => {
     const t = setTimeout(() => {
-      // ✅ last resort: never allow splash to block forever
       hideSplash();
     }, 3500);
 
@@ -289,3 +325,4 @@ export default function RootLayout() {
     </AppThemeProvider>
   );
 }
+

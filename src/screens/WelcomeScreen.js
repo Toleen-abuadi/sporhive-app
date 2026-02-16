@@ -84,7 +84,7 @@ export function WelcomeScreen() {
     } catch (e) {
       if (__DEV__) console.warn('[Welcome] Failed to persist welcome flag', e);
     }
-    router.replace('/(auth)/login');
+    router.replace('/(auth)/entry');
   };
 
   const iconColor = colors.textSecondary;

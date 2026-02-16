@@ -54,6 +54,7 @@ export function LoginScreen() {
     typeof params?.redirectTo === 'string' && params.redirectTo.trim()
       ? decodeURIComponent(params.redirectTo)
       : null;
+  const lockMode = params?.lockMode === '1' || params?.lockMode === 'true';
 
   const [mode, setMode] = useState(params?.mode === 'player' ? MODES.PLAYER : MODES.PUBLIC);
 
@@ -85,11 +86,17 @@ export function LoginScreen() {
   );
 
   const handleModeChange = (next) => {
+    if (lockMode) return;
     setMode(next);
     setFormErrors({});
     setPassword('');
     setSubmitError(null);
   };
+
+  useEffect(() => {
+    const nextMode = params?.mode === 'player' ? MODES.PLAYER : MODES.PUBLIC;
+    setMode(nextMode);
+  }, [params?.mode]);
 
   const recentAcademies = useMemo(() => {
     if (!lastSelectedAcademyId) return [];
@@ -229,22 +236,46 @@ export function LoginScreen() {
 
           <AuthCard style={styles.card}>
             {/* ✅ prevents SegmentedToggle overflow & keeps it inside card */}
-            <View
-              style={[
-                styles.toggleWrap,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <SegmentedToggle
-                value={mode}
-                onChange={handleModeChange}
-                options={toggleOptions}
-                style={styles.toggle}
-              />
-            </View>
+            {lockMode ? (
+              <View
+                style={[
+                  styles.lockedModeWrap,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                  },
+                ]}
+              >
+                <Text variant="caption" color={colors.textSecondary} style={styles.lockedModeText}>
+                  {t('entry.lockedHint', {
+                    mode: mode === MODES.PLAYER ? t('entry.player.title') : t('entry.public.title'),
+                  })}
+                </Text>
+                <TouchableOpacity onPress={() => router.replace('/(auth)/entry')} style={styles.linkButton}>
+                  <Text variant="caption" weight="bold" color={colors.accentOrange}>
+                    {t('entry.changePath')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View
+                style={[
+                  styles.toggleWrap,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <SegmentedToggle
+                  value={mode}
+                  onChange={handleModeChange}
+                  options={toggleOptions}
+                  style={styles.toggle}
+                />
+              </View>
+            )}
 
             <View style={styles.formContainer}>
               {mode === MODES.PUBLIC ? (
@@ -287,7 +318,7 @@ export function LoginScreen() {
                   ) : null}
                   <View style={[styles.linkRow, isRTL ? styles.rowRTL : styles.rowLTR]}>
                     <TouchableOpacity
-                      onPress={() => router.replace('/(auth)/reset-password?mode=public')}
+                      onPress={() => router.replace(`/(auth)/reset-password?mode=${mode}`)}
                       style={styles.linkButton}
                     >
                       <Text variant="body" color={colors.accentOrange} weight="medium">
@@ -381,7 +412,7 @@ export function LoginScreen() {
 
                   <View style={[styles.linkRow, isRTL ? styles.rowRTL : styles.rowLTR]}>
                     <TouchableOpacity
-                      onPress={() => router.replace('/(auth)/reset-password?mode=public')}
+                      onPress={() => router.replace(`/(auth)/reset-password?mode=${mode}`)}
                       style={styles.linkButton}
                     >
                       <Text variant="body" color={colors.accentOrange} weight="medium">
@@ -467,6 +498,19 @@ const styles = StyleSheet.create({
   toggle: {
     alignSelf: 'stretch',
   },
+  lockedModeWrap: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  lockedModeText: {
+    flex: 1,
+  },
 
   formContainer: {
     marginBottom: spacing.lg,
@@ -478,6 +522,14 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     width: '100%',
     alignItems: 'stretch',
+  },
+  linkRow: {
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  linkButton: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
   },
 
   errorBanner: {

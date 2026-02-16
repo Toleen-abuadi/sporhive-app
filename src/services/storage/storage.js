@@ -11,9 +11,17 @@ export const APP_STORAGE_KEYS = {
   AUTH_SESSION: 'sporhive_auth_session',
   LAST_ACADEMY_ID: 'sporhive_last_academy_id',
   WELCOME_SEEN: 'sporhive_welcome_seen',
+  ENTRY_MODE: 'sporhive_entry_mode',
 };
 
 const LEGACY_AUTH_TOKEN_KEYS = ['token', 'access', 'authToken', 'access_token', 'tokens'];
+
+export const ENTRY_MODE_VALUES = Object.freeze({
+  PUBLIC: 'public',
+  PLAYER: 'player',
+});
+
+const WELCOME_SEEN_TRUE_VALUES = new Set([true, 1, '1', 'true']);
 
 export const PORTAL_KEYS = {
   ACADEMY_ID: 'sporhive_portal_academy_id',
@@ -419,6 +427,51 @@ export const storage = {
     ]);
   },
 };
+
+const normalizeEntryMode = (value) => {
+  const normalized = typeof value === 'string' ? value.toLowerCase() : null;
+  if (normalized === ENTRY_MODE_VALUES.PUBLIC || normalized === ENTRY_MODE_VALUES.PLAYER) {
+    return normalized;
+  }
+  return null;
+};
+
+const normalizeWelcomeSeen = (value) => {
+  if (WELCOME_SEEN_TRUE_VALUES.has(value)) return true;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (WELCOME_SEEN_TRUE_VALUES.has(normalized)) return true;
+  }
+  return false;
+};
+
+export async function setEntryMode(mode) {
+  const normalized = normalizeEntryMode(mode);
+  if (!normalized) return;
+  await storage.setItem(APP_STORAGE_KEYS.ENTRY_MODE, normalized);
+}
+
+export async function getEntryMode() {
+  const value = await storage.getItem(APP_STORAGE_KEYS.ENTRY_MODE);
+  return normalizeEntryMode(value);
+}
+
+export async function clearEntryMode() {
+  await storage.removeItem(APP_STORAGE_KEYS.ENTRY_MODE);
+}
+
+export async function setWelcomeSeen(value = true) {
+  await storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, value ? '1' : '0');
+}
+
+export async function getWelcomeSeen() {
+  const value = await storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN);
+  return normalizeWelcomeSeen(value);
+}
+
+export async function clearWelcomeSeen() {
+  await storage.removeItem(APP_STORAGE_KEYS.WELCOME_SEEN);
+}
 
 export function safeJsonParse(value) {
   if (value == null) return null;

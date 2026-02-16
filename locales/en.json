@@ -168,6 +168,26 @@
     "logoLabel": "SporHive logo",
     "hint": "⚡ Fast & smart booking experience"
   },
+  "entry": {
+    "title": "What do you want to do today?",
+    "subtitle": "Discover Sports Hubs & academies and book the perfect playground for your next activity, or view your player academy account?",
+    "tagline": "Your sports life, organized.",
+    "public": {
+      "title": "Discover & Book",
+      "desc": "Explore academies, hubs, playgrounds, slots, and locations.",
+      "chip": "Explore"
+    },
+    "player": {
+      "title": "Player Portal",
+      "desc": "View your academy account, payments, performance, and more.",
+      "chip": "Sign in"
+    },
+    "lockedHint": "Selected path: {{mode}}",
+    "changePath": "Change path",
+    "languageHint": "Arabic is fully supported, including right-to-left layout.",
+    "notSure": "I’m not sure",
+    "poweredBy": "Powered by SporHive"
+  },
   "service": {
     "playgrounds": {
       "common": {

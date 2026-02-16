@@ -66,7 +66,7 @@ export const resolveAuthErrorMessage = (error, t, fallbackKey = 'auth.errors.gen
 
   // Invalid credentials
   if (status === 401 || message.includes('invalid') || message.includes('credentials')) {
-    return t('auth.errors.invalidCredentials');
+    return message;
   }
 
   // Inactive/deactivated
