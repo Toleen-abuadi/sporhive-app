@@ -20,7 +20,8 @@
     "close": "Close",
     "notFound": "Not found",
     "apply": "Apply filters",
-    "reset": "Reset"
+    "reset": "Reset",
+    "search": "Search"
   },
   "join": {
     "title": "Join {{academy}}",
@@ -61,6 +62,7 @@
     "notFoundTitle": "Oops!",
     "notFoundMessage": "This screen doesn't exist.",
     "notFoundAction": "Go to home screen!",
+    "couldNotSaveChoice": "We couldn't save your choice. Please try again.",
     "notifications": {
       "deviceRequired": "Must use physical device for push notifications.",
       "permissionDenied": "Permission not granted to get push token for push notifications.",
@@ -151,7 +153,11 @@
     "discover": "Discover",
     "book": "Book",
     "portal": "Portal",
-    "profile": "Profile"
+    "profile": "Profile",
+    "notFoundTitle": "Page not found",
+    "notFoundMessage": "The link you opened is invalid or expired.",
+    "goHome": "Go Home",
+    "goToLogin": "Go to Login"
   },
   "services": {
     "subtitle": "Your Sports Hub",
@@ -2179,7 +2185,8 @@
       "newPassword": "New Password",
       "password": "Password",
       "phone": "Mobile Number",
-      "username": "Username"
+      "username": "Username",
+      "countryCode": "Country code"
     },
     "login": {
       "createAccount": "Create account",
@@ -2193,6 +2200,10 @@
       "error": "Unable to sign in. Please try again."
     },
     "logout": "Log out",
+    "offlineTitle": "You're offline",
+    "offlineHint": "Connect to the internet and retry boot checks.",
+    "retry": "Retry",
+    "redirectInvalid": "That link is invalid. We sent you to a safe page.",
     "mode": {
       "player": "Player",
       "public": "Public"

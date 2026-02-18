@@ -20,7 +20,8 @@
     "close": "إغلاق",
     "notFound": "غير موجود",
     "apply": "تطبيق الفلاتر",
-    "reset": "إعادة ضبط"
+    "reset": "إعادة ضبط",
+    "search": "بحث"
   },
   "join": {
     "title": "انضم إلى {{academy}}",
@@ -61,6 +62,7 @@
     "notFoundTitle": "عذرًا!",
     "notFoundMessage": "هذه الشاشة غير موجودة.",
     "notFoundAction": "اذهب إلى الشاشة الرئيسية!",
+    "couldNotSaveChoice": "تعذر حفظ اختيارك. حاول مرة أخرى.",
     "notifications": {
       "deviceRequired": "يجب استخدام جهاز فعلي لتفعيل إشعارات الدفع.",
       "permissionDenied": "لم يتم منح الإذن للحصول على رمز الإشعارات.",
@@ -151,7 +153,11 @@
     "discover": "اكتشف",
     "book": "احجز",
     "portal": "البوابة",
-    "profile": "الملف الشخصي"
+    "profile": "الملف الشخصي",
+    "notFoundTitle": "الصفحة غير موجودة",
+    "notFoundMessage": "الرابط الذي فتحته غير صالح أو منتهي الصلاحية.",
+    "goHome": "العودة للرئيسية",
+    "goToLogin": "الذهاب لتسجيل الدخول"
   },
   "services": {
     "subtitle": "مركزك الرياضي",
@@ -2462,7 +2468,8 @@
         "lastName": "اسم العائلة",
         "academy": "الأكاديمية",
         "username": "اسم المستخدم",
-        "newPassword": "كلمة مرور جديدة"
+        "newPassword": "كلمة مرور جديدة",
+        "countryCode": "رمز الدولة"
       },
       "placeholders": {
         "phone": "+9627xxxxxxxx",
@@ -3278,7 +3285,11 @@
       "invalidOtp": "الرمز غير صالح أو منتهي.",
       "otpVerified": "إذا كان الحساب موجوداً، تم إرسال الرمز."
     },
-    "logout": "تسجيل الخروج"
+    "logout": "تسجيل الخروج",
+    "offlineTitle": "أنت غير متصل بالإنترنت",
+    "offlineHint": "تحقق من الاتصال ثم أعد محاولة التحقق.",
+    "retry": "إعادة المحاولة",
+    "redirectInvalid": "الرابط غير صالح، وتم تحويلك إلى صفحة آمنة."
   },
   "academy": {
     "details": {

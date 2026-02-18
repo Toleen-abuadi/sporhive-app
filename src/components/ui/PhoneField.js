@@ -69,12 +69,15 @@ export function PhoneField({
 
   // keep in sync if parent passes value object
   useEffect(() => {
-    if (value && typeof value === 'object') {
-      if (typeof value.countryCode === 'string') setCountryCode(value.countryCode);
-      if (typeof value.nationalNumber === 'string') setNationalNumber(value.nationalNumber);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value?.countryCode, value?.nationalNumber]);
+    if (!value || typeof value !== 'object') return;
+
+    const nextCC = typeof value.countryCode === 'string' ? value.countryCode : undefined;
+    const nextNN = typeof value.nationalNumber === 'string' ? value.nationalNumber : undefined;
+
+    if (nextCC !== undefined && nextCC !== countryCode) setCountryCode(nextCC);
+    if (nextNN !== undefined && nextNN !== nationalNumber) setNationalNumber(nextNN);
+  }, [value.countryCode, value.nationalNumber, countryCode, nationalNumber, value]);
+
 
   const e164 = useMemo(
     () => normalizePhoneE164(countryCode, nationalNumber),
@@ -97,17 +100,34 @@ export function PhoneField({
   }, [nationalNumber, required, minLength, maxLength, t]);
 
   // emit changes
-  useEffect(() => {
+  const emit = (nextCountryCode, nextNationalNumber) => {
+    const nn = digitsOnly(nextNationalNumber);
+    const nextE164 = normalizePhoneE164(nextCountryCode, nn);
+
+    const rawDigits = digitsOnly(nn);
+    const isEmpty = rawDigits.length === 0;
+
+    let isValid = true;
+    if (required && isEmpty) isValid = false;
+    if (!isEmpty && !isValidNationalNumber(nn, minLength, maxLength)) isValid = false;
+
     const payload = {
-      countryCode,
-      nationalNumber: digitsOnly(nationalNumber), // store digits only
-      e164,
-      isValid: computed.isValid,
+      countryCode: nextCountryCode,
+      nationalNumber: nn,
+      e164: nextE164,
+      isValid,
     };
-    onChange?.(payload);
-    onValidChange?.(computed.isValid);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countryCode, nationalNumber, e164, computed.isValid]);
+
+    // ✅ Only call onChange if it actually differs from parent
+    const parentCC = value?.countryCode ?? defaultCountryCode;
+    const parentNN = digitsOnly(value?.nationalNumber ?? "");
+    if (parentCC !== payload.countryCode || parentNN !== payload.nationalNumber) {
+      onChange?.(payload);
+    }
+
+    onValidChange?.(isValid);
+  };
+
 
   // realtime validation
   useEffect(() => {
@@ -120,13 +140,13 @@ export function PhoneField({
 
   const handleCountryChange = (cc) => {
     setCountryCode(cc);
-    if (validateOnChange && (!showErrorOnBlur || touched)) {
-      setInternalError(computed.error);
-    }
+    emit(cc, nationalNumber);
   };
 
   const handlePhoneChange = (text) => {
-    setNationalNumber(digitsOnly(text));
+    const next = digitsOnly(text);
+    setNationalNumber(next);
+    emit(countryCode, next);
   };
 
   const handleBlur = () => {

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import LogRocket from '@logrocket/react-native';
 import { secureStorage } from './secureStorage';
 import { STORAGE_KEYS } from './keys';
 
@@ -55,6 +56,26 @@ const dbg = (...args) => {
   if (DEBUG_STORAGE) console.log('[storage]', ...args);
 };
 
+const captureStorageException = (error, context) => {
+  if (typeof LogRocket?.captureException !== 'function') return;
+  try {
+    LogRocket.captureException(error, { extra: context });
+  } catch {
+    // Ignore capture failures.
+  }
+};
+
+const reportStorageError = (operation, key, error, context = {}) => {
+  if (__DEV__) {
+    console.warn(`[storage] ${operation} failed`, {
+      key,
+      ...context,
+      error: String(error?.message || error),
+    });
+  }
+  captureStorageException(error, { scope: 'storage', operation, key, ...context });
+};
+
 const safePreview = (value, max = 250) => {
   try {
     const s = typeof value === 'string' ? value : JSON.stringify(value);
@@ -74,6 +95,11 @@ const tokenPreview = (token) => {
   const s = String(token);
   return s.length > 18 ? s.slice(0, 18) + '…' : s;
 };
+
+const CRITICAL_WRITE_KEYS = new Set([
+  APP_STORAGE_KEYS.WELCOME_SEEN,
+  APP_STORAGE_KEYS.ENTRY_MODE,
+]);
 
 const memoryAdapter = {
   async getItem(key) {
@@ -241,12 +267,14 @@ export const storage = {
       if (__DEV__ && DEBUG_KEYS.has(key)) dbg('GET parsed', key, parsed);
       return parsed;
     } catch (error) {
-      if (__DEV__) dbg('GET error', key, error);
+      reportStorageError('getItem', key, error);
       return null;
     }
   },
 
-  async setItem(key, value) {
+  async setItem(key, value, options = {}) {
+    const isCritical = Boolean(options?.critical || CRITICAL_WRITE_KEYS.has(key));
+
     try {
       const adapter = resolveAdapter();
       const serialized = serializeValue(value);
@@ -282,17 +310,27 @@ export const storage = {
         dbg('SET verify parsed', key, verifyParsed);
       }
     } catch (error) {
-      if (__DEV__) console.error('Failed to set item in storage:', key, value, error);
-      return;
+      reportStorageError('setItem', key, error, {
+        critical: isCritical,
+        valuePreview: safePreview(value, 120),
+      });
+      if (isCritical) {
+        throw error;
+      }
     }
   },
 
-  async removeItem(key) {
+  async removeItem(key, options = {}) {
+    const isCritical = Boolean(options?.critical || CRITICAL_WRITE_KEYS.has(key));
+
     try {
       const adapter = resolveAdapter();
       await adapter.removeItem(key);
-    } catch {
-      return;
+    } catch (error) {
+      reportStorageError('removeItem', key, error, { critical: isCritical });
+      if (isCritical) {
+        throw error;
+      }
     }
   },
 
@@ -305,7 +343,8 @@ export const storage = {
       }
       const values = await Promise.all(keys.map((key) => adapter.getItem(key)));
       return keys.map((key, index) => [key, parseStoredValue(values[index])]);
-    } catch {
+    } catch (error) {
+      reportStorageError('multiGet', 'multi', error, { keysCount: keys?.length || 0 });
       return [];
     }
   },
@@ -328,8 +367,11 @@ export const storage = {
         ...toSet.map(([k, v]) => adapter.setItem(k, v)),
         ...toRemove.map((k) => adapter.removeItem(k)),
       ]);
-    } catch {
-      return;
+    } catch (error) {
+      reportStorageError('multiSet', 'multi', error, { pairsCount: pairs?.length || 0 });
+      if (pairs?.some?.(([key]) => CRITICAL_WRITE_KEYS.has(key))) {
+        throw error;
+      }
     }
   },
 
@@ -341,12 +383,26 @@ export const storage = {
 
   async setAuthToken(token) {
     if (__DEV__) dbg('setAuthToken', tokenPreview(token));
-    await secureStorage.setItem(APP_STORAGE_KEYS.AUTH_TOKEN, token);
+    try {
+      await secureStorage.setItem(APP_STORAGE_KEYS.AUTH_TOKEN, token, { critical: true });
+    } catch (error) {
+      reportStorageError('setAuthToken', APP_STORAGE_KEYS.AUTH_TOKEN, error, {
+        critical: true,
+      });
+      throw error;
+    }
   },
 
   async removeAuthToken() {
     if (__DEV__) dbg('removeAuthToken');
-    await secureStorage.removeItem(APP_STORAGE_KEYS.AUTH_TOKEN);
+    try {
+      await secureStorage.removeItem(APP_STORAGE_KEYS.AUTH_TOKEN, { critical: true });
+    } catch (error) {
+      reportStorageError('removeAuthToken', APP_STORAGE_KEYS.AUTH_TOKEN, error, {
+        critical: true,
+      });
+      throw error;
+    }
   },
 
   async getPortalTokens() {
@@ -358,11 +414,25 @@ export const storage = {
     if (!tokens) return;
     // Only store objects (prevents persisting stale string/junk shapes)
     if (typeof tokens !== 'object') return;
-    await secureStorage.setItem(PORTAL_KEYS.AUTH_TOKENS, tokens);
+    try {
+      await secureStorage.setItem(PORTAL_KEYS.AUTH_TOKENS, tokens, { critical: true });
+    } catch (error) {
+      reportStorageError('setPortalTokens', PORTAL_KEYS.AUTH_TOKENS, error, {
+        critical: true,
+      });
+      throw error;
+    }
   },
 
   async removePortalTokens() {
-    await secureStorage.removeItem(PORTAL_KEYS.AUTH_TOKENS);
+    try {
+      await secureStorage.removeItem(PORTAL_KEYS.AUTH_TOKENS, { critical: true });
+    } catch (error) {
+      reportStorageError('removePortalTokens', PORTAL_KEYS.AUTH_TOKENS, error, {
+        critical: true,
+      });
+      throw error;
+    }
   },
 
   async getLegacyAuthToken() {
@@ -451,7 +521,7 @@ export async function setEntryMode(mode) {
   const normalized = normalizeEntryMode(mode);
   if (!normalized) return;
   if (__DEV__) dbg('[onboarding] setEntryMode', normalized);
-  await storage.setItem(APP_STORAGE_KEYS.ENTRY_MODE, normalized);
+  await storage.setItem(APP_STORAGE_KEYS.ENTRY_MODE, normalized, { critical: true });
 }
 
 export async function getEntryMode() {
@@ -466,7 +536,7 @@ export async function clearEntryMode() {
 export async function setWelcomeSeen(value = true) {
   const normalized = Boolean(value);
   if (__DEV__) dbg('[onboarding] setWelcomeSeen', normalized);
-  await storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, normalized);
+  await storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, normalized, { critical: true });
 }
 
 export async function getWelcomeSeenState() {

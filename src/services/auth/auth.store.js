@@ -468,7 +468,15 @@ export function AuthProvider({ children }) {
         }
 
         // ✅ persist single token
-        await persistSession(session, token);
+        try {
+          await persistSession(session, token);
+        } catch (error) {
+          if (__DEV__) {
+            console.warn("[auth.store] failed to persist auth session/token", error);
+          }
+          safeSetState((prev) => ({ ...prev, isLoading: false, error }));
+          return { success: false, error };
+        }
 
         if (loginAs === "player") {
           await setLastSelectedAcademyId(academyId);
@@ -517,7 +525,7 @@ export function AuthProvider({ children }) {
    * If it refreshes successfully, we keep session in sync.
    */
   const refreshPortalIfNeeded = useCallback(async () => {
-    const result = await refreshPortalSessionIfNeeded(state.session);
+    const result = await refreshPortalSessionIfNeeded();
     if (result?.success && result.session) {
       // ✅ even if session refresh provides a portal token, portal should still use main token
       safeSetState((prev) => ({
@@ -527,7 +535,7 @@ export function AuthProvider({ children }) {
       }));
     }
     return result;
-  }, [state.session, safeSetState]);
+  }, [safeSetState]);
 
   // ✅ Single-flight portal reauth
   const ensurePortalReauthOnce = useCallback(async () => {

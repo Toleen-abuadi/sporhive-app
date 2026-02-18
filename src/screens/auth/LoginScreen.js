@@ -25,6 +25,10 @@ import { authApi } from '../../services/auth/auth.api';
 import { useAuth } from '../../services/auth/auth.store';
 import { resolveAuthErrorMessage } from '../../services/auth/auth.errors';
 import { borderRadius, spacing } from '../../theme/tokens';
+import {
+  DEFAULT_POST_LOGIN_ROUTE,
+  sanitizeRedirectTo,
+} from '../../utils/navigation/sanitizeRedirectTo';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const logoSource = require('../../../assets/images/logo.png');
@@ -50,10 +54,14 @@ export function LoginScreen() {
   } = useAuth();
 
   const preferredAcademyId = params?.academyId ? Number(params.academyId) : null;
-  const redirectTo =
+  const rawRedirectTo =
     typeof params?.redirectTo === 'string' && params.redirectTo.trim()
-      ? decodeURIComponent(params.redirectTo)
+      ? params.redirectTo
       : null;
+  const safeRedirect = useMemo(
+    () => sanitizeRedirectTo(rawRedirectTo),
+    [rawRedirectTo]
+  );
   const lockMode = params?.lockMode === '1' || params?.lockMode === 'true';
 
   const [mode, setMode] = useState(params?.mode === 'player' ? MODES.PLAYER : MODES.PUBLIC);
@@ -97,6 +105,11 @@ export function LoginScreen() {
     const nextMode = params?.mode === 'player' ? MODES.PLAYER : MODES.PUBLIC;
     setMode(nextMode);
   }, [params?.mode]);
+
+  useEffect(() => {
+    if (!rawRedirectTo || safeRedirect) return;
+    toast.warning(t('auth.redirectInvalid'));
+  }, [rawRedirectTo, safeRedirect, t, toast]);
 
   const recentAcademies = useMemo(() => {
     if (!lastSelectedAcademyId) return [];
@@ -178,7 +191,7 @@ export function LoginScreen() {
 
       if (res.success) {
         toast.success(t('auth.login.success'));
-        router.replace(redirectTo || '/services');
+        router.replace(safeRedirect || DEFAULT_POST_LOGIN_ROUTE);
       } else {
         setSubmitError(res.error);
         toast.error(resolveAuthErrorMessage(res.error, t, 'auth.login.error'));
@@ -204,7 +217,7 @@ export function LoginScreen() {
 
     if (res.success) {
       toast.success(t('auth.login.success'));
-      router.replace(redirectTo || '/services');
+      router.replace(safeRedirect || DEFAULT_POST_LOGIN_ROUTE);
     } else {
       setSubmitError(res.error);
       toast.error(resolveAuthErrorMessage(res.error, t, 'auth.login.error'));

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   Platform,
   Pressable,
@@ -24,6 +25,7 @@ import { useTranslation } from '../../services/i18n/i18n';
 import { AppScreen } from '../../components/ui/AppScreen';
 import { Text } from '../../components/ui/Text';
 import { Chip } from '../../components/ui/Chip';
+import { useToast } from '../../components/ui/ToastHost';
 import {
   ENTRY_MODE_VALUES,
   setEntryMode,
@@ -169,6 +171,7 @@ export function EntryDecisionScreen() {
   const { colors, isDark } = useTheme();
   const { t, isRTL } = useTranslation();
   const router = useRouter();
+  const toast = useToast();
   const [submittingMode, setSubmittingMode] = useState(null);
 
   const titleProgress = useSharedValue(0);
@@ -233,11 +236,21 @@ export function EntryDecisionScreen() {
           setEntryMode(mode),
           setWelcomeSeen(true),
         ]);
-      } finally {
         router.replace(`/(auth)/login?mode=${mode}&lockMode=1`);
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('[entry] failed to persist mode selection', {
+            mode,
+            source,
+            error: String(error?.message || error),
+          });
+        }
+        toast.error(t('errors.couldNotSaveChoice'));
+      } finally {
+        setSubmittingMode(null);
       }
     },
-    [router, submittingMode]
+    [router, submittingMode, t, toast]
   );
 
   const backgroundColors = useMemo(
@@ -348,6 +361,14 @@ export function EntryDecisionScreen() {
         </View>
 
         <Animated.View style={[styles.footer, footerStyle]}>
+          {submittingMode ? (
+            <View style={[styles.savingRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <ActivityIndicator size="small" color={colors.accentOrange} />
+              <Text variant="caption" color={colors.textSecondary}>
+                {t('common.loading')}
+              </Text>
+            </View>
+          ) : null}
 
           <Pressable
             accessibilityRole="button"
@@ -496,6 +517,11 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     alignItems: 'center',
     gap: spacing.md,
+  },
+  savingRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
   },
   footerHint: {
     textAlign: 'center',

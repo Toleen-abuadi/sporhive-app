@@ -185,6 +185,33 @@ const createApiError = (message, status, payload, config, kind) => {
   return error;
 };
 
+const clearPortalSessionOnAuthFailure = async (status, scope) => {
+  if (scope !== 'portal') return;
+  if (status !== 401 && status !== 403) return;
+
+  try {
+    await Promise.all([
+      typeof storage.logoutPortal === 'function'
+        ? storage.logoutPortal()
+        : Promise.resolve(),
+      storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
+      typeof storage.removeAuthToken === 'function'
+        ? storage.removeAuthToken().catch(() => {})
+        : Promise.resolve(),
+    ]);
+    if (__DEV__) {
+      console.warn('[apiClient] cleared portal session after auth failure', { status });
+    }
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[apiClient] failed clearing portal session after auth failure', {
+        status,
+        error: String(error?.message || error),
+      });
+    }
+  }
+};
+
 const apiRequest = async (config = {}) => {
   const nextConfig = { ...config };
   const method = String(nextConfig.method || 'GET').toUpperCase();
@@ -263,6 +290,8 @@ const apiRequest = async (config = {}) => {
       // Preserve existing app behavior (single reauth kind) outside portal.
       kind = 'REAUTH_REQUIRED';
     }
+
+    await clearPortalSessionOnAuthFailure(response.status, scope);
 
     throw createApiError(message, response.status, payload, {
       url: nextConfig?.url ?? null,

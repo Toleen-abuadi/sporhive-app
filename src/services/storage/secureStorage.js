@@ -1,10 +1,10 @@
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+import LogRocket from '@logrocket/react-native';
 
-// NOTE:
-// SecureStore isn't available on some runtimes (notably web, some dev shells).
-// If we fall back to an in-memory Map, auth tokens will be lost on app restart.
-// Use AsyncStorage as a durable fallback when SecureStore is unavailable.
+// SecureStore is unavailable on some runtimes (notably web/some shells).
+// We prefer durable fallback storage when possible before falling back to memory.
 const memoryStore = new Map();
 
 const hasSecureStore =
@@ -18,6 +18,25 @@ const hasAsyncStorage =
   typeof AsyncStorage.getItem === 'function' &&
   typeof AsyncStorage.setItem === 'function' &&
   typeof AsyncStorage.removeItem === 'function';
+
+const hasLocalStorage =
+  typeof window !== 'undefined' &&
+  window?.localStorage &&
+  typeof window.localStorage.getItem === 'function' &&
+  typeof window.localStorage.setItem === 'function' &&
+  typeof window.localStorage.removeItem === 'function';
+
+const localStorageAdapter = {
+  async getItem(key) {
+    return window.localStorage.getItem(key);
+  },
+  async setItem(key, value) {
+    window.localStorage.setItem(key, value);
+  },
+  async removeItem(key) {
+    window.localStorage.removeItem(key);
+  },
+};
 
 const parseStoredValue = (raw) => {
   if (raw == null) return null;
@@ -44,11 +63,51 @@ const getKey = (key) => {
   return String(key);
 };
 
-export const secureStorage = {
-  // ✅ consider storage "available" if either SecureStore OR AsyncStorage is available
-  isAvailable: () => hasSecureStore || hasAsyncStorage,
+let warnedMemoryFallback = false;
 
-  // ✅ durable read: SecureStore -> AsyncStorage -> null (no memory fallback)
+const captureStorageException = (error, context) => {
+  if (typeof LogRocket?.captureException !== 'function') return;
+  try {
+    LogRocket.captureException(error, { extra: context });
+  } catch {
+    // Ignore LogRocket capture failures.
+  }
+};
+
+const logSecureStorageError = (action, key, error) => {
+  if (__DEV__) {
+    console.warn(`[secureStorage] ${action} failed`, {
+      key,
+      error: String(error?.message || error),
+    });
+  }
+  captureStorageException(error, { scope: 'secureStorage', action, key });
+};
+
+const warnMemoryFallbackOnce = () => {
+  if (warnedMemoryFallback) return;
+  warnedMemoryFallback = true;
+
+  if (__DEV__) {
+    console.warn(
+      '[secureStorage] Durable storage unavailable. Falling back to memory-only storage; tokens will be cleared on restart.'
+    );
+  }
+};
+
+const resolveFallbackAdapter = () => {
+  if (hasAsyncStorage) return AsyncStorage;
+  if (Platform.OS === 'web' && hasLocalStorage) return localStorageAdapter;
+  return null;
+};
+
+export const secureStorage = {
+  // Durable availability (memory fallback is intentionally excluded).
+  isAvailable: () =>
+    hasSecureStore ||
+    hasAsyncStorage ||
+    (Platform.OS === 'web' && hasLocalStorage),
+
   async getItem(key) {
     const resolvedKey = getKey(key);
     if (!resolvedKey) return null;
@@ -60,21 +119,26 @@ export const secureStorage = {
         if (parsed != null) return parsed;
       }
 
-      if (hasAsyncStorage) {
-        const raw = await AsyncStorage.getItem(resolvedKey);
+      const fallbackAdapter = resolveFallbackAdapter();
+      if (fallbackAdapter) {
+        const raw = await fallbackAdapter.getItem(resolvedKey);
         return parseStoredValue(raw);
       }
 
-      return null; // ❌ DO NOT use memoryStore
-    } catch {
+      warnMemoryFallbackOnce();
+      return memoryStore.has(resolvedKey) ? memoryStore.get(resolvedKey) : null;
+    } catch (error) {
+      logSecureStorageError('getItem', resolvedKey, error);
       return null;
     }
   },
 
-  // ✅ durable write: SecureStore (and AsyncStorage backup) -> AsyncStorage -> noop
-  async setItem(key, value) {
+  async setItem(key, value, options = {}) {
     const resolvedKey = getKey(key);
-    if (!resolvedKey) return;
+    if (!resolvedKey) {
+      if (options?.critical) throw new Error('SECURE_STORAGE_INVALID_KEY');
+      return;
+    }
 
     const serialized = serializeValue(value);
 
@@ -82,49 +146,59 @@ export const secureStorage = {
       if (hasSecureStore) {
         await SecureStore.setItemAsync(resolvedKey, serialized);
 
-        // Optional backup: keep a durable copy in AsyncStorage too
+        // Keep durable backup in AsyncStorage when available.
         if (hasAsyncStorage) {
           await AsyncStorage.setItem(resolvedKey, serialized);
         }
         return;
       }
 
-      if (hasAsyncStorage) {
-        await AsyncStorage.setItem(resolvedKey, serialized);
+      const fallbackAdapter = resolveFallbackAdapter();
+      if (fallbackAdapter) {
+        await fallbackAdapter.setItem(resolvedKey, serialized);
         return;
       }
 
-      // ❌ do nothing instead of memory fallback
-    } catch {
-      return;
+      warnMemoryFallbackOnce();
+      memoryStore.set(resolvedKey, parseStoredValue(serialized));
+    } catch (error) {
+      logSecureStorageError('setItem', resolvedKey, error);
+      if (options?.critical) {
+        throw error;
+      }
     }
   },
 
-  // ✅ durable delete: SecureStore (and AsyncStorage backup) -> AsyncStorage -> noop
-  async removeItem(key) {
+  async removeItem(key, options = {}) {
     const resolvedKey = getKey(key);
-    if (!resolvedKey) return;
+    if (!resolvedKey) {
+      if (options?.critical) throw new Error('SECURE_STORAGE_INVALID_KEY');
+      return;
+    }
 
     try {
       if (hasSecureStore) {
         await SecureStore.deleteItemAsync(resolvedKey);
 
-        // keep stores consistent if we wrote a backup
         if (hasAsyncStorage) {
           await AsyncStorage.removeItem(resolvedKey);
         }
         return;
       }
 
-      if (hasAsyncStorage) {
-        await AsyncStorage.removeItem(resolvedKey);
+      const fallbackAdapter = resolveFallbackAdapter();
+      if (fallbackAdapter) {
+        await fallbackAdapter.removeItem(resolvedKey);
         return;
       }
 
-      // ❌ do nothing instead of memory fallback
-      // memoryStore.delete(resolvedKey);
-    } catch {
-      return;
+      warnMemoryFallbackOnce();
+      memoryStore.delete(resolvedKey);
+    } catch (error) {
+      logSecureStorageError('removeItem', resolvedKey, error);
+      if (options?.critical) {
+        throw error;
+      }
     }
   },
 
@@ -132,3 +206,4 @@ export const secureStorage = {
     await Promise.all(keys.map((key) => secureStorage.removeItem(key)));
   },
 };
+

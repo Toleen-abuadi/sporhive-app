@@ -21,11 +21,13 @@ import {
   ThemeProvider as AppThemeProvider,
   useTheme,
 } from '../src/theme/ThemeProvider';
-import { I18nProvider } from '../src/services/i18n/i18n';
+import { I18nProvider, useTranslation } from '../src/services/i18n/i18n';
 import { ToastHost } from '../src/components/ui/ToastHost';
 import { AppBottomNav } from '../src/components/navigation/AppBottomNav';
 import { PortalModalsProvider } from '../src/services/portal/portal.modals';
 import { AuthProvider, useAuth } from '../src/services/auth/auth.store';
+import { Button } from '../src/components/ui/Button';
+import { Text } from '../src/components/ui/Text';
 import {
   ENTRY_MODE_VALUES,
   getEntryMode,
@@ -42,6 +44,14 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 const APP_HOME_ROUTE = '/(app)/services';
 const AUTH_WELCOME_ROUTE = '/(auth)/welcome';
 const AUTH_ENTRY_ROUTE = '/(auth)/entry';
+const ONBOARDING_READ_TIMEOUT_MS = 7000;
+const ONBOARDING_READ_RETRY_DELAY_MS = 250;
+const REDIRECT_DEBOUNCE_MS = 300;
+
+let hydrationStarted = false;
+let onboardingReadPromise = null;
+let lastRedirectAt = 0;
+let lastRedirectTarget = null;
 
 const stripQuery = (value) => {
   if (typeof value !== 'string') return '';
@@ -97,13 +107,24 @@ function AuthGate({ children, onReady }) {
   const segments = useSegments();
   const pathname = usePathname();
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
-  const { session, token, isAuthenticated, isHydrating, isLoading } = useAuth();
+  const {
+    session,
+    token,
+    isAuthenticated,
+    isHydrating,
+    isLoading,
+    restoreSession,
+  } = useAuth();
 
   const [welcomeSeen, setWelcomeSeen] = useState(null);
   const [welcomeLoaded, setWelcomeLoaded] = useState(false);
-  const [entryMode, setEntryMode] = useState(null);
+  const [entryMode, setEntryMode] = useState(undefined);
   const [entryModeLoaded, setEntryModeLoaded] = useState(false);
+  const [bootError, setBootError] = useState(null);
+  const [hydrationNonce, setHydrationNonce] = useState(0);
+  const [isOffline, setIsOffline] = useState(false);
 
   const readyCalledRef = useRef(false);
   const navLockRef = useRef(false);
@@ -117,6 +138,10 @@ function AuthGate({ children, onReady }) {
         setTimeout(() => reject(new Error(`TIMEOUT:${label}`)), ms),
       ),
     ]);
+  }, []);
+
+  const sleep = useCallback((ms) => {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }, []);
 
   const loginRouteForEntryMode = useCallback((mode) => {
@@ -141,71 +166,125 @@ function AuthGate({ children, onReady }) {
     return AUTH_ENTRY_ROUTE;
   }, [entryMode, loginRouteForEntryMode, welcomeSeen]);
 
+  const readOnboardingStateWithRetry = useCallback(
+    (force = false) => {
+      if (force) onboardingReadPromise = null;
+      if (onboardingReadPromise) return onboardingReadPromise;
+
+      hydrationStarted = true;
+      onboardingReadPromise = (async () => {
+        let lastError = null;
+
+        for (let attempt = 1; attempt <= 2; attempt += 1) {
+          try {
+            const [seenState, storedEntryMode] = await withTimeout(
+              Promise.all([
+                getWelcomeSeenState(),
+                getEntryMode(),
+              ]),
+              ONBOARDING_READ_TIMEOUT_MS,
+              `WELCOME_AND_ENTRY_ATTEMPT_${attempt}`,
+            );
+            return { ok: true, seenState, storedEntryMode };
+          } catch (error) {
+            lastError = error;
+            if (__DEV__) {
+              console.warn('[AuthGate] onboarding state read failed', {
+                attempt,
+                error: String(error?.message || error),
+              });
+            }
+            if (attempt < 2) {
+              await sleep(ONBOARDING_READ_RETRY_DELAY_MS);
+            }
+          }
+        }
+
+        return { ok: false, error: lastError };
+      })().finally(() => {
+        hydrationStarted = false;
+        onboardingReadPromise = null;
+      });
+
+      return onboardingReadPromise;
+    },
+    [sleep, withTimeout],
+  );
+
+  const retryHydration = useCallback(() => {
+    if (typeof restoreSession === 'function') {
+      restoreSession().catch(() => {});
+    }
+    setHydrationNonce((prev) => prev + 1);
+  }, [restoreSession]);
+
   useEffect(() => {
     let mounted = true;
+    setBootError(null);
+    setWelcomeLoaded(false);
+    setEntryModeLoaded(false);
+    setWelcomeSeen((prev) => (prev === true ? true : null));
+    setEntryMode((prev) =>
+      prev === ENTRY_MODE_VALUES.PLAYER || prev === ENTRY_MODE_VALUES.PUBLIC
+        ? prev
+        : undefined,
+    );
 
     (async () => {
-      try {
-        const [seenState, storedEntryMode] = await withTimeout(
-          Promise.all([
-            getWelcomeSeenState(),
-            getEntryMode(),
-          ]),
-          2000,
-          'WELCOME_AND_ENTRY',
-        );
-
-        if (!mounted) return;
-        
-        // Sticky-true: do not downgrade to false/null in the same runtime.
-        setWelcomeSeen((prev) => {
-          if (prev === true) return true;
-          if (seenState == null) return prev ?? false;
-          return seenState;
-        });
-
-        setEntryMode((prev) => {
-          const normalized = storedEntryMode || null;
-          if (
-            (prev === ENTRY_MODE_VALUES.PLAYER || prev === ENTRY_MODE_VALUES.PUBLIC) &&
-            !normalized
-          ) {
-            return prev;
-          }
-          return normalized;
-        });
-      } catch (_error) {
-        if (!mounted) return;
-        setWelcomeSeen((prev) => (prev === true ? true : false));
-        setEntryMode((prev) =>
-          prev === ENTRY_MODE_VALUES.PLAYER || prev === ENTRY_MODE_VALUES.PUBLIC
-            ? prev
-            : null,
-        );
-      } finally {
-        if (!mounted) return;
-        setWelcomeLoaded(true);
-        setEntryModeLoaded(true);
-      }
-    })();
-
-    const hardFail = setTimeout(() => {
+      const result = await readOnboardingStateWithRetry(hydrationNonce > 0);
       if (!mounted) return;
-      setWelcomeSeen((prev) => (prev === true ? true : prev ?? false));
-      setEntryMode((prev) =>
-        prev === ENTRY_MODE_VALUES.PLAYER || prev === ENTRY_MODE_VALUES.PUBLIC
-          ? prev
-          : null,
-      );
+
+      if (!result?.ok) {
+        setBootError(result?.error || new Error('ONBOARDING_STATE_UNAVAILABLE'));
+        return;
+      }
+
+      const normalizedWelcomeSeen = result.seenState === true;
+      const normalizedEntryMode = result.storedEntryMode || null;
+
+      // Sticky-true: do not downgrade to false in the same runtime.
+      setWelcomeSeen((prev) => (prev === true ? true : normalizedWelcomeSeen));
+      setEntryMode((prev) => {
+        if (
+          (prev === ENTRY_MODE_VALUES.PLAYER || prev === ENTRY_MODE_VALUES.PUBLIC) &&
+          !normalizedEntryMode
+        ) {
+          return prev;
+        }
+        return normalizedEntryMode;
+      });
+      setBootError(null);
       setWelcomeLoaded(true);
       setEntryModeLoaded(true);
-    }, 2500);
+    })();
 
     return () => {
       mounted = false;
-      clearTimeout(hardFail);
     };
-  }, [withTimeout]);
+  }, [hydrationNonce, readOnboardingStateWithRetry]);
+
+  useEffect(() => {
+    const hasNavigatorOnline =
+      typeof globalThis?.navigator?.onLine === 'boolean';
+    const hasWindowEvents =
+      typeof globalThis?.addEventListener === 'function' &&
+      typeof globalThis?.removeEventListener === 'function';
+
+    if (!hasNavigatorOnline || !hasWindowEvents) return undefined;
+
+    const updateOnlineState = () => {
+      setIsOffline(globalThis.navigator.onLine === false);
+    };
+
+    updateOnlineState();
+    globalThis.addEventListener('online', updateOnlineState);
+    globalThis.addEventListener('offline', updateOnlineState);
+
+    return () => {
+      globalThis.removeEventListener('online', updateOnlineState);
+      globalThis.removeEventListener('offline', updateOnlineState);
+    };
+  }, []);
 
   const authReady = !isHydrating && !isLoading;
   const isReady = welcomeLoaded && entryModeLoaded && authReady;
@@ -235,7 +314,9 @@ function AuthGate({ children, onReady }) {
         if (!mounted) return;
 
         setWelcomeSeen((prev) => {
-          if (prev === true && seenState !== true) {
+          const normalized = seenState === true;
+
+          if (prev === true && normalized !== true) {
             if (__DEV__) {
               console.warn('[AuthGate] welcomeSeen read downgraded after true; keeping sticky true', {
                 pathname,
@@ -244,15 +325,8 @@ function AuthGate({ children, onReady }) {
             }
             return true;
           }
-          if (seenState == null) {
-            if (__DEV__ && prev === true) {
-              console.warn('[AuthGate] welcomeSeen read null after true; keeping sticky true', {
-                pathname,
-              });
-            }
-            return prev;
-          }
-          return prev === seenState ? prev : seenState;
+
+          return prev === normalized ? prev : normalized;
         });
 
         setEntryMode((prev) => {
@@ -299,6 +373,9 @@ function AuthGate({ children, onReady }) {
       segments,
       pathname,
       isInAuthGroup,
+      bootError: bootError ? String(bootError?.message || bootError) : null,
+      isOffline,
+      hydrationStarted,
     });
   }, [
     welcomeLoaded,
@@ -313,6 +390,8 @@ function AuthGate({ children, onReady }) {
     segments,
     pathname,
     isInAuthGroup,
+    bootError,
+    isOffline,
   ]);
 
   useEffect(() => {
@@ -347,7 +426,38 @@ function AuthGate({ children, onReady }) {
         return false;
       }
 
+      const now = Date.now();
+      if (
+        lastRedirectTarget === target &&
+        now - lastRedirectAt < REDIRECT_DEBOUNCE_MS
+      ) {
+        if (__DEV__) {
+          console.log('[AuthGate] redirect skipped (global same target)', {
+            reason,
+            target,
+            pathname,
+            segments,
+          });
+        }
+        return false;
+      }
+
+      if (now - lastRedirectAt < REDIRECT_DEBOUNCE_MS) {
+        if (__DEV__) {
+          console.log('[AuthGate] redirect skipped (global debounce)', {
+            reason,
+            target,
+            pathname,
+            segments,
+            msSinceLast: now - lastRedirectAt,
+          });
+        }
+        return false;
+      }
+
       lastRedirectRef.current = target;
+      lastRedirectAt = now;
+      lastRedirectTarget = target;
       if (__DEV__) {
         console.log('[AuthGate] redirect', {
           reason,
@@ -484,9 +594,42 @@ function AuthGate({ children, onReady }) {
         }}
       >
         <ActivityIndicator size="large" color={colors.accentOrange} />
+        {(isOffline || bootError) ? (
+          <View
+            style={{
+              marginTop: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              width: '100%',
+              paddingHorizontal: 20,
+            }}
+          >
+            {isOffline ? (
+              <Text variant="h4" weight="bold" style={{ textAlign: 'center' }}>
+                {t('auth.offlineTitle')}
+              </Text>
+            ) : null}
+            <Text
+              variant="bodySmall"
+              color={colors.textSecondary}
+              style={{ textAlign: 'center' }}
+            >
+              {isOffline ? t('auth.offlineHint') : t('common.tryAgain')}
+            </Text>
+            <Button
+              variant="secondary"
+              size="small"
+              onPress={retryHydration}
+              style={{ minWidth: 140 }}
+            >
+              {t('auth.retry')}
+            </Button>
+          </View>
+        ) : null}
       </View>
     ),
-    [colors],
+    [bootError, colors, isOffline, retryHydration, t],
   );
 
   if (!isReady) return fallback;
