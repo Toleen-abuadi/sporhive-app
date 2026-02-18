@@ -1,11 +1,11 @@
-export const safeBack = (router, fallback = '/(app)/services') => {
-  if (router?.canGoBack && typeof router.canGoBack === 'function' && router.canGoBack()) {
-    router.back();
-    return true;
-  }
-  if (router?.replace && typeof router.replace === 'function') {
-    router.replace(fallback);
-    return false;
-  }
-  return false;
-};
+import {
+  executeSmartBack,
+  SIGNED_IN_FALLBACK_ROUTE,
+} from './useSmartBack';
+
+export const safeBack = (router, fallback = SIGNED_IN_FALLBACK_ROUTE) =>
+  executeSmartBack({
+    router,
+    fallbackRoute: fallback,
+    allowDismiss: false,
+  });

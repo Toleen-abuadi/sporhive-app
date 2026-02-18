@@ -1,138 +1,106 @@
-// AcademyTemplateScreen.js - Modern Enhanced Version
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  ScrollView,
-  Image,
-  Pressable,
-  StyleSheet,
-  Dimensions,
-  Linking,
-  Share,
-  Alert,
-  Clipboard,
   Animated,
-  Platform,
+  Dimensions,
+  FlatList,
+  I18nManager,
+  Linking,
   Modal,
-  TouchableOpacity,
-  TextInput,
+  Pressable,
+  Share,
+  StyleSheet,
+  View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useI18n } from '../services/i18n/i18n';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import {
-  Share2,
-  MapPin,
-  Phone,
+  BookOpen,
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  Globe,
+  Heart,
+  Image as ImageIcon,
   Mail,
+  MapPin,
+  Navigation2,
+  Phone,
+  ShieldCheck,
+  Share2,
   Sparkles,
   Star,
   Trophy,
-  GraduationCap,
-  Info,
-  CalendarDays,
   Users,
-  Navigation2,
-  CheckCircle2,
-  Flame,
-  ShieldCheck,
-  Award,
-  Globe,
-  ChevronRight,
-  ExternalLink,
-  Filter,
-  X,
-  Maximize2,
-  Play,
-  Camera,
-  Image as ImageIcon,
-  Clock,
-  User,
-  Target,
-  Users as UsersIcon,
-  Crown,
-  Compass,
-  BadgeCheck,
   Wallet,
-  BookOpen,
-  Heart,
-  Bookmark,
-  MessageCircle,
-  Download,
-  Eye,
-  Copy,
+  X,
 } from 'lucide-react-native';
 
+import { useI18n } from '../services/i18n/i18n';
 import { API_BASE_URL } from '../services/api/client';
 import { useAcademyDiscoveryActions, useAcademyDiscoveryStore } from '../services/academyDiscovery/academyDiscovery.store';
 
 import { useTheme } from '../theme/ThemeProvider';
-import { spacing, borderRadius } from '../theme/tokens';
+import { borderRadius, spacing } from '../theme/tokens';
+import { alphaHex } from '../theme/academyDiscovery.styles';
 
 import { Screen } from '../components/ui/Screen';
 import { Text } from '../components/ui/Text';
 import { Button } from '../components/ui/Button';
 import { BackButton } from '../components/ui/BackButton';
-import { AppHeader } from '../components/ui/AppHeader';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { Chip } from '../components/ui/Chip';
 import { ErrorState } from '../components/ui/ErrorState';
-import { SporHiveLoader } from '../components/ui/SporHiveLoader';
-import { alphaHex } from '../theme/academyDiscovery.styles';
+import { SmartImage } from '../components/ui/SmartImage';
+import { Skeleton } from '../components/ui/Skeleton';
 
-const { width: W, height: H } = Dimensions.get('window');
-const HERO_H = Math.max(340, Math.min(440, Math.round(W * 0.92)));
-const HEADER_H = 64;
-const PADDING_X = 20;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// ========== HELPER FUNCTIONS ==========
-function safeText(v) {
-  if (v === null || v === undefined) return '';
-  return String(v).trim();
+const HERO_HEIGHT = Math.max(300, Math.min(430, Math.round(SCREEN_WIDTH * 0.82)));
+const FOOTER_HEIGHT = 88;
+const H_PADDING = spacing.lg;
+const TABS_STICKY_HEIGHT = 64;
+
+function safeText(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
 }
 
-function safeGradientColors(arr, fallback = []) {
-  const fallbackA = fallback[0];
-  const fallbackB = fallback[1] || fallbackA;
-  const a = typeof arr?.[0] === 'string' && arr[0] ? arr[0] : fallbackA;
-  const b = typeof arr?.[1] === 'string' && arr[1] ? arr[1] : a || fallbackB;
-  return [a, b];
+function normalizeArray(value) {
+  return Array.isArray(value) ? value : [];
 }
 
-function safePoint(p, fallback) {
-  const x = typeof p?.x === 'number' ? p.x : fallback.x;
-  const y = typeof p?.y === 'number' ? p.y : fallback.y;
-  return { x, y };
+function toNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
-function normalizeArray(v) {
-  return Array.isArray(v) ? v : [];
-}
-
-function getLocalized(i18n, en, ar) {
-  const lang = (i18n?.language || 'en').toLowerCase();
-  const isAr = lang.startsWith('ar');
-  const primary = isAr ? ar : en;
-  const fallback = isAr ? en : ar;
-  return safeText(primary || fallback || '');
+function getLocalized(localeOrI18n, en, ar) {
+  const langValue = typeof localeOrI18n === 'string'
+    ? localeOrI18n
+    : (localeOrI18n?.language || 'en');
+  const lang = String(langValue).toLowerCase();
+  const useArabic = lang.startsWith('ar');
+  return safeText(useArabic ? (ar || en) : (en || ar));
 }
 
 function dataUrlFromBase64({ mime, base64 }) {
-  if (!base64 || base64 === null || base64 === undefined) return null;
-  if (typeof base64 !== 'string') return null;
+  if (!base64 || typeof base64 !== 'string') return null;
   if (base64.startsWith('data:') || base64.startsWith('http')) return base64;
-  const m = mime || 'image/jpeg';
-  return `data:${m};base64,${base64}`;
+  return `data:${mime || 'image/jpeg'};base64,${base64}`;
 }
 
 function toAbsoluteUrlMaybe(url, base) {
   if (!url) return null;
-  const s = String(url);
-  if (s.startsWith('http://') || s.startsWith('https://')) return s;
-  if (s.startsWith('data:')) return s;
-  if (!base) return s;
-  return `${base.replace(/\/$/, '')}/${s.replace(/^\//, '')}`;
+  const value = String(url);
+  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:')) {
+    return value;
+  }
+  if (!base) return value;
+  return `${base.replace(/\/$/, '')}/${value.replace(/^\//, '')}`;
 }
 
 function academyImageUrl(base, slug, kind) {
@@ -140,499 +108,612 @@ function academyImageUrl(base, slug, kind) {
   return `${base.replace(/\/$/, '')}/public/academies/image/${encodeURIComponent(slug)}/${kind}`;
 }
 
-function pickMediaSrc(item) {
+function resolveMediaUri(item) {
   if (!item) return null;
-  if (item.file_base64) return { base64: item.file_base64, mime: item.file_meta?.mime };
-  if (item.media_base64) return { base64: item.media_base64, mime: item.media_meta?.mime };
-  if (item.image_base64) return { base64: item.image_base64, mime: item.image_meta?.mime };
-  if (item.poster_base64) return { base64: item.poster_base64, mime: item.poster_meta?.mime };
-  return null;
-}
 
-// ========== UI COMPONENTS ==========
-function GlassIconButton({ onPress, children, style }) {
-  const { colors } = useTheme();
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [style, { opacity: pressed ? 0.85 : 1 }]}>
-      <BlurView intensity={70} style={StyleSheet.absoluteFill} />
-      <LinearGradient
-        colors={[alphaHex(colors.white, '26'), alphaHex(colors.white, '0D')]}
-        style={StyleSheet.absoluteFill}
-      />
-      {children}
-    </Pressable>
+  const base64Candidate = item?.file_base64 || item?.media_base64 || item?.image_base64 || item?.poster_base64;
+  const mimeCandidate = item?.file_meta?.mime || item?.media_meta?.mime || item?.image_meta?.mime || item?.poster_meta?.mime;
+  if (base64Candidate) {
+    return dataUrlFromBase64({ mime: mimeCandidate, base64: base64Candidate });
+  }
+
+  return toAbsoluteUrlMaybe(
+    item?.file_url || item?.media_url || item?.image_url || item?.poster_url || item?.url,
+    API_BASE_URL
   );
 }
 
-function SectionHeader({ icon, title, subtitle, right }) {
-  const { colors, isDark } = useTheme();
-  return (
-    <View style={styles.sectionHeaderRow}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-        <LinearGradient
-          colors={[
-            alphaHex(colors.accentOrange, isDark ? '33' : '26'),
-            alphaHex(colors.accentOrange, isDark ? '1A' : '0D'),
-          ]}
-          style={[styles.sectionIcon, { borderColor: colors.accentOrange }]}
-        >
-          {icon}
-        </LinearGradient>
-        <View style={{ flex: 1 }}>
-          <Text variant="h3" weight="bold" style={{ marginBottom: 4, color: colors.textPrimary }}>
-            {title}
-          </Text>
-          {subtitle ? (
-            <Text variant="bodySmall" color={colors.textSecondary} style={{ opacity: 0.85 }}>
-              {subtitle}
-            </Text>
-          ) : null}
-        </View>
-      </View>
-      {right ? <View style={{ marginLeft: 10 }}>{right}</View> : null}
-    </View>
-  );
+function formatNumber(locale, value, digits = 1) {
+  const num = toNumber(value);
+  if (num === null) return '';
+  try {
+    return new Intl.NumberFormat(locale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: digits,
+    }).format(num);
+  } catch {
+    return String(num);
+  }
 }
 
-function FeaturePill({ icon, label, value, color = 'orange' }) {
-  const { colors, isDark } = useTheme();
-  const toneMap = {
-    orange: colors.accentOrange,
-    amber: colors.warning || colors.accentOrange,
-    yellow: colors.warning || colors.accentOrange,
-    green: colors.success || colors.accentOrange,
-  };
-  const tone = toneMap[color] || colors.accentOrange;
-  const gradientColors = safeGradientColors(null, [
-    tone,
-    alphaHex(tone, isDark ? 'B3' : '99'),
-  ]);
-
-  return (
-    <LinearGradient
-      colors={gradientColors}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.featurePill}
-    >
-      <View style={[styles.featurePillIcon, { backgroundColor: alphaHex(colors.white, '40') }]}>
-        {icon}
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text variant="caption" weight="medium" style={{ color: alphaHex(colors.white, 'E6') }}>
-          {label}
-        </Text>
-        <Text variant="bodySmall" weight="bold" numberOfLines={1} style={{ color: colors.white, marginTop: 2 }}>
-          {value}
-        </Text>
-      </View>
-    </LinearGradient>
-  );
+function formatDate(locale, value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return safeText(value);
+  try {
+    return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric' }).format(date);
+  } catch {
+    return date.toISOString().slice(0, 10);
+  }
 }
 
-function NavChip({ icon, label, onPress, isActive = false }) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.navChip,
-        {
-          backgroundColor: isActive
-            ? alphaHex(colors.white, '40')
-            : pressed
-              ? alphaHex(colors.white, '2E')
-              : alphaHex(colors.white, '1F'),
-          borderColor: isActive ? colors.accentOrange : alphaHex(colors.white, '38'),
-          borderWidth: isActive ? 2 : 1,
-        },
-      ]}
-    >
-      {icon}
-      <Text variant="caption" weight="medium" style={{
-        color: isActive ? colors.accentOrange : colors.white,
-        marginLeft: 8
-      }}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
+function resolveReviews(payload, academy) {
+  const source =
+    payload?.reviews ||
+    payload?.academy_reviews ||
+    payload?.ratings ||
+    academy?.reviews ||
+    academy?.ratings ||
+    [];
 
-function MediaCarousel({ items, onOpen }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const { colors } = useTheme();
+  return normalizeArray(source).map((review, idx) => {
+    const name =
+      safeText(review?.author_name) ||
+      safeText(review?.user_name) ||
+      safeText(review?.player_name) ||
+      safeText(review?.name) ||
+      '';
 
-  if (!items || items.length === 0) return null;
-
-  const currentItem = items[currentIndex];
-  const mediaSrc = dataUrlFromBase64({
-    mime: currentItem?.file_meta?.mime,
-    base64: currentItem?.file_base64
+    return {
+      id: review?.id ? String(review.id) : `review-${idx}`,
+      author: name,
+      body: safeText(review?.comment || review?.review || review?.text || review?.content),
+      rating: Math.max(0, Math.min(5, toNumber(review?.rating || review?.score || review?.stars) || 0)),
+      createdAt: review?.created_at || review?.date || review?.createdAt || null,
+    };
   });
-
-  return (
-    <View style={styles.carouselContainer}>
-      <Pressable onPress={() => onOpen(currentItem)} style={styles.carouselImageContainer}>
-        {mediaSrc ? (
-          <Image source={{ uri: mediaSrc }} style={styles.carouselImage} resizeMode="cover" />
-        ) : (
-          <LinearGradient
-            colors={[colors.accentOrange, alphaHex(colors.accentOrange, 'B3')]}
-            style={styles.carouselFallback}
-          >
-            <Camera size={48} color={colors.white} />
-          </LinearGradient>
-        )}
-        <LinearGradient
-          colors={[
-            alphaHex(colors.black, 'B3'),
-            alphaHex(colors.black, '00'),
-            alphaHex(colors.black, '00'),
-            alphaHex(colors.black, 'B3'),
-          ]}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={styles.carouselOverlay}>
-          <Badge variant="accent" style={{ position: 'absolute', top: 12, right: 12 }}>
-            <Maximize2 size={14} color={colors.white} />
-          </Badge>
-          <View style={{ position: 'absolute', bottom: 12, left: 12 }}>
-            <Text variant="caption" weight="bold" style={{ color: colors.white }}>
-              {currentIndex + 1} / {items.length}
-            </Text>
-          </View>
-        </View>
-      </Pressable>
-
-      <View style={styles.carouselControls}>
-        <Pressable
-          onPress={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
-          disabled={currentIndex === 0}
-          style={[
-            styles.carouselButton,
-            { opacity: currentIndex === 0 ? 0.3 : 1, backgroundColor: alphaHex(colors.black, '33') },
-          ]}
-        >
-          <ChevronRight size={20} color={colors.white} style={{ transform: [{ rotate: '180deg' }] }} />
-        </Pressable>
-
-        <View style={styles.carouselDots}>
-          {items.map((_, idx) => (
-            <Pressable
-              key={idx}
-              onPress={() => setCurrentIndex(idx)}
-              style={[
-                styles.carouselDot,
-                {
-                  backgroundColor: idx === currentIndex ? colors.accentOrange : alphaHex(colors.white, '4D'),
-                  width: idx === currentIndex ? 20 : 8,
-                },
-              ]}
-            />
-          ))}
-        </View>
-
-        <Pressable
-          onPress={() => setCurrentIndex(prev => Math.min(items.length - 1, prev + 1))}
-          disabled={currentIndex === items.length - 1}
-          style={[
-            styles.carouselButton,
-            { opacity: currentIndex === items.length - 1 ? 0.3 : 1, backgroundColor: alphaHex(colors.black, '33') },
-          ]}
-        >
-          <ChevronRight size={20} color={colors.white} />
-        </Pressable>
-      </View>
-    </View>
-  );
 }
 
-function GalleryGrid({ items, onOpen, filter = 'all' }) {
-  const { colors, isDark } = useTheme();
-  const { t } = useI18n();
+function resolveSimilarAcademies(payload, academy) {
+  return normalizeArray(
+    payload?.similar_academies ||
+    payload?.similar ||
+    academy?.similar_academies ||
+    academy?.related ||
+    []
+  ).map((item, idx) => ({
+    id: item?.id ? String(item.id) : `similar-${idx}`,
+    slug: safeText(item?.slug),
+    nameEn: safeText(item?.name_en || item?.name),
+    nameAr: safeText(item?.name_ar),
+    city: safeText(item?.city),
+    country: safeText(item?.country),
+    cover: toAbsoluteUrlMaybe(item?.cover_url || item?.image_url, API_BASE_URL),
+    rating: toNumber(item?.rating || item?.rating_avg || item?.avg_rating),
+  }));
+}
 
-  const filteredItems = filter === 'all'
-    ? items
-    : items.filter(item => item.media_type === filter);
-
-  if (filteredItems.length === 0) {
-    return (
-      <View style={styles.emptyGallery}>
-        <ImageIcon size={48} color={colors.textSecondary} />
-        <Text variant="body" color={colors.textSecondary} style={{ marginTop: 12 }}>
-          {t('service.academy.template.media.empty')}
+const SectionHeader = memo(function SectionHeader({ title, subtitle, right }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.sectionHeader}>
+      <View style={{ flex: 1 }}>
+        <Text variant="h3" weight="bold" style={{ color: colors.textPrimary }}>
+          {title}
         </Text>
+        {subtitle ? (
+          <Text variant="bodySmall" color={colors.textSecondary} style={{ marginTop: 4 }}>
+            {subtitle}
+          </Text>
+        ) : null}
       </View>
+      {right ? <View style={styles.sectionHeaderRight}>{right}</View> : null}
+    </View>
+  );
+});
+
+const InfoCards = memo(function InfoCards({ cards }) {
+  const { colors, isDark } = useTheme();
+  const isRTL = I18nManager.isRTL;
+
+  return (
+    <View style={styles.infoGrid}>
+      {cards.map((item) => (
+        <Card
+          key={item.key}
+          elevated
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor: colors.surface,
+              borderColor: alphaHex(colors.border, '99'),
+              shadowColor: colors.black,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.infoIconWrap,
+              {
+                backgroundColor: isDark
+                  ? alphaHex(colors.accentOrange, '26')
+                  : alphaHex(colors.accentOrange, '14'),
+              },
+            ]}
+          >
+            {item.icon}
+          </View>
+          <Text variant="caption" color={colors.textSecondary}>
+            {item.title}
+          </Text>
+          <Text
+            variant="bodySmall"
+            weight="bold"
+            numberOfLines={2}
+            style={{ color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left', marginTop: 6 }}
+          >
+            {item.value}
+          </Text>
+        </Card>
+      ))}
+    </View>
+  );
+});
+
+const GalleryCarousel = memo(function GalleryCarousel({ items, onOpen }) {
+  const { t } = useI18n();
+  const { colors, isDark } = useTheme();
+
+  const renderItem = useCallback(
+    ({ item }) => (
+      <Pressable
+        onPress={() => onOpen(item)}
+        style={({ pressed }) => [
+          styles.galleryCard,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            opacity: pressed ? 0.9 : 1,
+            transform: [{ scale: pressed ? 0.985 : 1 }],
+          },
+        ]}
+      >
+        <SmartImage
+          source={item.source}
+          borderRadius={16}
+          style={styles.galleryImageWrap}
+          imageStyle={styles.galleryImage}
+          showLoader={false}
+        />
+        {!item.source ? (
+          <LinearGradient
+            colors={
+              isDark
+                ? [alphaHex(colors.white, '1A'), alphaHex(colors.white, '08')]
+                : [alphaHex(colors.black, '14'), alphaHex(colors.black, '08')]
+            }
+            style={styles.galleryImageFallback}
+          >
+            <ImageIcon size={28} color={colors.textSecondary} />
+          </LinearGradient>
+        ) : null}
+        <LinearGradient
+          colors={[alphaHex(colors.black, '00'), alphaHex(colors.black, 'A8')]}
+          style={styles.galleryImageOverlay}
+        />
+        <Text variant="caption" weight="medium" numberOfLines={2} style={styles.galleryCaption}>
+          {item.caption || t('academy.details.images')}
+        </Text>
+      </Pressable>
+    ),
+    [colors, isDark, onOpen, t]
+  );
+
+  if (!items.length) {
+    return (
+      <Card style={styles.emptyCard}>
+        <ImageIcon size={22} color={colors.textSecondary} />
+        <Text variant="bodySmall" color={colors.textSecondary} style={{ marginTop: 8 }}>
+          {t('academy.details.galleryEmpty')}
+        </Text>
+      </Card>
     );
   }
 
   return (
-    <View style={styles.galleryGrid}>
-      {filteredItems.slice(0, 8).map((item, idx) => {
-        const mediaSrc = dataUrlFromBase64({
-          mime: item?.file_meta?.mime,
-          base64: item?.file_base64
-        });
-
-        return (
-          <Pressable
-            key={idx}
-            onPress={() => onOpen(item)}
-            style={({ pressed }) => [
-              styles.galleryItem,
-              { opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
-            ]}
-          >
-            {mediaSrc ? (
-              <Image source={{ uri: mediaSrc }} style={styles.galleryImage} resizeMode="cover" />
-            ) : (
-              <LinearGradient
-                colors={
-                  isDark
-                    ? [alphaHex(colors.white, '1A'), alphaHex(colors.white, '0D')]
-                    : [alphaHex(colors.black, '0D'), alphaHex(colors.black, '05')]
-                }
-                style={styles.galleryFallback}
-              >
-                <Camera size={24} color={colors.textSecondary} />
-              </LinearGradient>
-            )}
-            <LinearGradient
-              colors={[alphaHex(colors.black, '00'), alphaHex(colors.black, 'B3')]}
-              style={styles.galleryOverlay}
-            />
-            <Text
-              variant="caption"
-              weight="medium"
-              style={[styles.galleryCaption, { color: colors.white }]}
-              numberOfLines={2}
-            >
-              {item.caption_en || item.caption_ar || t('service.academy.template.media.itemFallback')}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
+    <FlatList
+      horizontal
+      data={items}
+      keyExtractor={(item) => item.id}
+      renderItem={renderItem}
+      contentContainerStyle={styles.galleryListContent}
+      showsHorizontalScrollIndicator={false}
+      decelerationRate="fast"
+      removeClippedSubviews
+    />
   );
-}
+});
 
-function CourseCard({ course, i18n, t }) {
-  const { colors, isDark } = useTheme();
-  const title = getLocalized(i18n, course?.name_en, course?.name_ar) || t('service.academy.template.course.defaultTitle');
-  const emptyValue = t('service.academy.common.emptyValue');
-  const schedules = normalizeArray(course?.schedules);
-  const coaches = normalizeArray(course?.coaches);
-  const posterSrc = dataUrlFromBase64({
-    mime: course?.poster_meta?.mime,
-    base64: course?.poster_base64
-  });
-
-  const dayLabel = (d) => {
-    if (d === 0) return t('service.academy.template.schedule.days.sunday');
-    if (d === 1) return t('service.academy.template.schedule.days.monday');
-    if (d === 2) return t('service.academy.template.schedule.days.tuesday');
-    if (d === 3) return t('service.academy.template.schedule.days.wednesday');
-    if (d === 4) return t('service.academy.template.schedule.days.thursday');
-    if (d === 5) return t('service.academy.template.schedule.days.friday');
-    return t('service.academy.template.schedule.days.saturday');
-  };
+const LocationMapPreview = memo(function LocationMapPreview({ addressLabel, mapUrl, onOpenMaps, coordinatesLabel }) {
+  const { t } = useI18n();
+  const { colors } = useTheme();
+  const disabled = !mapUrl;
+  const isRTL = I18nManager.isRTL;
 
   return (
-    <Card elevation={3} style={[styles.courseCard, { marginBottom: 16 }]}>
-      <LinearGradient
-        colors={
-          isDark
-            ? [alphaHex(colors.surfaceElevated || colors.surface, '0D'), alphaHex(colors.surfaceElevated || colors.surface, '08')]
-            : [alphaHex(colors.surfaceElevated || colors.surface, 'E6'), alphaHex(colors.surfaceElevated || colors.surface, 'B3')]
-        }
-        style={StyleSheet.absoluteFill}
-      />
-
-      <View style={styles.courseCardInner}>
-        {posterSrc && (
-          <View style={styles.courseImageContainer}>
-            <Image source={{ uri: posterSrc }} style={styles.courseImage} resizeMode="cover" />
-            <LinearGradient
-              colors={[alphaHex(colors.black, '66'), alphaHex(colors.black, '00')]}
-              style={styles.courseImageOverlay}
-            />
-            {course?.is_featured && (
-              <Badge variant="accent" style={styles.featuredBadge}>
-                <Star size={12} color={colors.white} />
-                <Text variant="caption" weight="bold" style={{ color: colors.white, marginLeft: 4 }}>
-                  {t('service.academy.template.badges.featured')}
-                </Text>
-              </Badge>
-            )}
-          </View>
-        )}
-
-        <View style={styles.courseContent}>
-          <View style={styles.courseHeader}>
-            <View style={{ flex: 1 }}>
-              <Text variant="h4" weight="bold" numberOfLines={2} style={{ marginBottom: 8 }}>
-                {title}
-              </Text>
-
-              <View style={styles.courseMeta}>
-                {(course?.age_from != null || course?.age_to != null) && (
-                  <View style={styles.metaItem}>
-                    <Users size={14} color={colors.textSecondary} />
-                    <Text variant="caption" style={{ marginLeft: 6, color: colors.textSecondary }}>
-                      {course?.age_from ?? emptyValue}–{course?.age_to ?? emptyValue} {t('service.academy.template.course.years')}
-                    </Text>
-                  </View>
-                )}
-
-                {safeText(course?.level) && (
-                  <View style={styles.metaItem}>
-                    <Target size={14} color={colors.textSecondary} />
-                    <Text variant="caption" style={{ marginLeft: 6, color: colors.textSecondary }}>
-                      {safeText(course.level)}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          </View>
-
-          {coaches.length > 0 && (
-            <View style={styles.courseSection}>
-              <Text variant="bodySmall" weight="medium" style={{ marginBottom: 8, color: colors.textPrimary }}>
-                {t('service.academy.template.course.coaches')}
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {coaches.slice(0, 8).map((c, idx) => (
-                    <View
-                      key={`${c}-${idx}`}
-                      style={[
-                        styles.coachChip,
-                        {
-                          backgroundColor: isDark
-                            ? alphaHex(colors.white, '14')
-                            : alphaHex(colors.black, '0A'),
-                        },
-                      ]}
-                    >
-                      <User size={12} color={colors.textSecondary} />
-                      <Text variant="caption" style={{ marginLeft: 4, color: colors.textSecondary }}>
-                        {safeText(c) || t('service.academy.template.course.unknownCoach')}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
-          )}
-
-          {schedules.length > 0 && (
-            <View style={styles.courseSection}>
-              <Text variant="bodySmall" weight="medium" style={{ marginBottom: 8, color: colors.textPrimary }}>
-                {t('service.academy.template.course.schedule')}
-              </Text>
-              <View style={{ gap: 10 }}>
-                {schedules.slice(0, 4).map((s, idx) => (
-                  <View key={idx} style={[styles.scheduleItem, { borderBottomColor: alphaHex(colors.border, '33') }]}>
-                    <CalendarDays size={16} color={colors.accentOrange} />
-                    <Text variant="caption" weight="medium" style={{ marginLeft: 8, color: colors.textPrimary }}>
-                      {dayLabel(s?.day_of_week)}
-                    </Text>
-                    <Text variant="caption" style={{ marginLeft: 'auto', color: colors.textSecondary }}>
-                      {safeText(s?.start_time).slice(0, 5)}–{safeText(s?.end_time).slice(0, 5)}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
+    <Pressable
+      onPress={disabled ? undefined : onOpenMaps}
+      style={({ pressed }) => [
+        styles.mapPreview,
+        {
+          borderColor: colors.border,
+          backgroundColor: colors.surface,
+          opacity: pressed && !disabled ? 0.92 : disabled ? 0.7 : 1,
+        },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={t('academy.details.map')}
+    >
+      <View style={styles.mapArt}>
+        <LinearGradient
+          colors={[alphaHex(colors.accentOrange, '33'), alphaHex(colors.accentOrange, '0D')]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[styles.mapPinBadge, { backgroundColor: colors.surface }]}>
+          <MapPin size={18} color={colors.accentOrange} />
         </View>
       </View>
-    </Card>
-  );
-}
-
-function SuccessStoryCard({ story, i18n, t, onOpen }) {
-  const { colors, isDark } = useTheme();
-  const title = getLocalized(i18n, story?.title_en, story?.title_ar) ||
-    getLocalized(i18n, story?.name_en, story?.name_ar) ||
-    t('service.academy.template.story.defaultTitle');
-
-  const content = getLocalized(i18n, story?.content_en, story?.content_ar) ||
-    getLocalized(i18n, story?.description_en, story?.description_ar) || '';
-
-  const mediaSrc = dataUrlFromBase64({
-    mime: story?.file_meta?.mime,
-    base64: story?.file_base64
-  });
-
-  return (
-    <Card elevation={3} style={[styles.successStoryCard, { marginBottom: 16 }]}>
-      <LinearGradient
-        colors={[
-          alphaHex(colors.accentOrange, isDark ? '1A' : '14'),
-          alphaHex(colors.accentOrange, isDark ? '0D' : '08'),
-        ]}
-        style={StyleSheet.absoluteFill}
-      />
-
-      <View style={styles.successStoryContent}>
-        <View style={styles.successStoryHeader}>
-          <Award size={24} color={colors.accentOrange} />
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text variant="h4" weight="bold" style={{ marginBottom: 4 }}>
-              {t('service.academy.template.story.title')}
-            </Text>
-            <Text variant="bodySmall" color={colors.textSecondary}>
-              {t('service.academy.template.story.subtitle')}
-            </Text>
-          </View>
-        </View>
-
-        <Text variant="h3" weight="bold" style={{ marginVertical: 16 }}>
-          {title}
+      <View style={styles.mapBody}>
+        <Text variant="bodySmall" weight="bold" numberOfLines={2} style={{ color: colors.textPrimary }}>
+          {addressLabel}
         </Text>
-
-        {content ? (
-          <Text variant="body" style={{ lineHeight: 24, color: colors.textSecondary, marginBottom: 16 }}>
-            {content.length > 200 ? `${content.substring(0, 200)}...` : content}
+        {coordinatesLabel ? (
+          <Text variant="caption" color={colors.textSecondary} style={{ marginTop: 4 }}>
+            {coordinatesLabel}
           </Text>
         ) : null}
+        <View style={[styles.inlineRow, { marginTop: 8, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <Navigation2 size={14} color={colors.accentOrange} />
+          <Text variant="caption" color={colors.accentOrange} style={{ marginHorizontal: 6 }}>
+            {t('academy.details.mapHint')}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.mapActionWrap}>
+        <Button variant="secondary" size="small" onPress={onOpenMaps} disabled={disabled}>
+          {t('academy.details.openInMaps')}
+        </Button>
+      </View>
+    </Pressable>
+  );
+});
 
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          {mediaSrc && (
-            <Pressable onPress={() => onOpen(story)} style={{ flex: 1 }}>
-              <Image source={{ uri: mediaSrc }} style={styles.storyImage} resizeMode="cover" />
-              <LinearGradient
-                colors={[alphaHex(colors.black, '4D'), alphaHex(colors.black, '00')]}
-                style={styles.storyImageOverlay}
+const ReviewStars = memo(function ReviewStars({ value }) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={styles.reviewStars}>
+      {[1, 2, 3, 4, 5].map((index) => (
+        <Star
+          key={index}
+          size={14}
+          color={index <= value ? colors.warning : alphaHex(colors.textSecondary, '80')}
+          fill={index <= value ? colors.warning : 'transparent'}
+        />
+      ))}
+    </View>
+  );
+});
+
+const ReviewList = memo(function ReviewList({ reviews, visibleCount, onLoadMore }) {
+  const { t, language } = useI18n();
+  const locale = language || 'en';
+  const { colors } = useTheme();
+  const shown = reviews.slice(0, visibleCount);
+
+  if (!reviews.length) {
+    return (
+      <Card style={styles.emptyCard}>
+        <Star size={22} color={colors.textSecondary} />
+        <Text variant="bodySmall" color={colors.textSecondary} style={{ marginTop: 8 }}>
+          {t('academy.details.reviewsEmpty')}
+        </Text>
+        <Text variant="caption" color={colors.textSecondary} style={{ marginTop: 4 }}>
+          {t('academy.details.reviewsHint')}
+        </Text>
+      </Card>
+    );
+  }
+
+  return (
+    <View style={{ gap: spacing.md }}>
+      {shown.map((review) => {
+        const avatar = safeText(review.author).slice(0, 1).toUpperCase() || '?';
+        return (
+          <Card key={review.id} style={styles.reviewCard}>
+            <View style={styles.reviewHead}>
+              <View style={[styles.reviewAvatar, { backgroundColor: alphaHex(colors.accentOrange, '22') }]}>
+                <Text variant="bodySmall" weight="bold" style={{ color: colors.accentOrange }}>
+                  {avatar}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text variant="bodySmall" weight="bold" style={{ color: colors.textPrimary }}>
+                  {review.author || t('academy.details.reviewer')}
+                </Text>
+                <ReviewStars value={Math.round(review.rating)} />
+              </View>
+              {review.createdAt ? (
+                <Text variant="caption" color={colors.textSecondary}>
+                  {formatDate(locale, review.createdAt)}
+                </Text>
+              ) : null}
+            </View>
+            {review.body ? (
+              <Text variant="bodySmall" style={{ color: colors.textSecondary, marginTop: 10, lineHeight: 20 }}>
+                {review.body}
+              </Text>
+            ) : null}
+          </Card>
+        );
+      })}
+      {visibleCount < reviews.length ? (
+        <Button variant="secondary" onPress={onLoadMore}>
+          {t('academy.details.loadMoreReviews')}
+        </Button>
+      ) : null}
+    </View>
+  );
+});
+
+const ActionsFooter = memo(function ActionsFooter({
+  onBookNow,
+  onJoin,
+  onShare,
+  onToggleFavorite,
+  isFavorite,
+  canBook,
+  joinLabel,
+  insetsBottom,
+}) {
+  const { t } = useI18n();
+  const { colors } = useTheme();
+  const isRTL = I18nManager.isRTL;
+
+  return (
+    <View pointerEvents="box-none" style={styles.footerOuter}>
+      <View
+        style={[
+          styles.footerCard,
+          {
+            borderColor: colors.border,
+            backgroundColor: alphaHex(colors.surface, 'F2'),
+            paddingBottom: Math.max(insetsBottom, spacing.sm),
+          },
+        ]}
+      >
+        <BlurView intensity={80} style={StyleSheet.absoluteFill} />
+        <View style={styles.footerInner}>
+          <View style={[styles.footerIconGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Pressable
+              onPress={onShare}
+              style={({ pressed }) => [
+                styles.footerIconBtn,
+                {
+                  backgroundColor: alphaHex(colors.textPrimary, '0F'),
+                  borderColor: colors.border,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={t('academy.details.share')}
+            >
+              <Share2 size={18} color={colors.textPrimary} />
+            </Pressable>
+            <Pressable
+              onPress={onToggleFavorite}
+              style={({ pressed }) => [
+                styles.footerIconBtn,
+                {
+                  backgroundColor: alphaHex(colors.textPrimary, '0F'),
+                  borderColor: colors.border,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={isFavorite ? t('academy.details.favourited') : t('academy.details.favourite')}
+            >
+              <Heart
+                size={18}
+                color={isFavorite ? colors.error : colors.textPrimary}
+                fill={isFavorite ? colors.error : 'transparent'}
               />
             </Pressable>
-          )}
-
-          <View style={{ flex: 1, justifyContent: 'center' }}>
-            <Button
-              variant="secondary"
-              onPress={() => onOpen(story)}
-              leftIcon={<Maximize2 size={16} color={colors.white} />}
-              style={{ alignSelf: 'flex-start' }}
-            >
-              {t('service.academy.template.story.view')}
+          </View>
+          <View style={styles.footerButtons}>
+            <Button variant="secondary" onPress={onBookNow} disabled={!canBook} style={styles.footerBtn}>
+              {t('academy.details.bookNow')}
+            </Button>
+            <Button onPress={onJoin} style={styles.footerBtn}>
+              {joinLabel}
             </Button>
           </View>
         </View>
       </View>
-    </Card>
+    </View>
   );
-}
+});
 
-// ========== MAIN SCREEN ==========
+const HeroSection = memo(function HeroSection({
+  academyName,
+  locationLabel,
+  coverSource,
+  logoSource,
+  ratingLabel,
+  registrationOpen,
+  secureEnabled,
+  onShare,
+  heroTranslateY,
+  heroScale,
+  insetsTop,
+}) {
+  const { t } = useI18n();
+  const { colors } = useTheme();
+  const isRTL = I18nManager.isRTL;
+
+  return (
+    <View style={styles.heroShell}>
+      <Animated.View style={[styles.heroMedia, { transform: [{ translateY: heroTranslateY }, { scale: heroScale }] }]}>
+        <SmartImage
+          source={coverSource}
+          style={styles.heroImage}
+          borderRadius={0}
+          showLoader={false}
+          accessibilityLabel={academyName}
+        />
+        {!coverSource ? (
+          <View style={styles.heroFallback}>
+            <Sparkles size={36} color={alphaHex(colors.white, 'C2')} />
+          </View>
+        ) : null}
+        <LinearGradient
+          colors={[alphaHex(colors.black, '52'), alphaHex(colors.black, '1A'), alphaHex(colors.black, 'B3')]}
+          locations={[0, 0.45, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
+
+      <View style={[styles.heroOverlay, { paddingTop: insetsTop + spacing.sm }]}>
+        <View style={[styles.heroTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <BackButton color={colors.white} style={[styles.heroTopIcon, { backgroundColor: alphaHex(colors.black, '66') }]} />
+          <Pressable
+            onPress={onShare}
+            style={({ pressed }) => [
+              styles.heroTopIcon,
+              {
+                backgroundColor: alphaHex(colors.black, '66'),
+                opacity: pressed ? 0.82 : 1,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={t('academy.details.share')}
+          >
+            <Share2 size={18} color={colors.white} />
+          </Pressable>
+        </View>
+
+        <View style={styles.heroBottomContent}>
+          <View style={[styles.heroIdentityRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View style={[styles.heroLogoWrap, { borderColor: alphaHex(colors.white, '5E') }]}>
+              {logoSource ? (
+                <SmartImage
+                  source={logoSource}
+                  style={styles.heroLogo}
+                  borderRadius={16}
+                  showLoader={false}
+                  imageStyle={styles.heroLogoImage}
+                />
+              ) : (
+                <Sparkles size={20} color={colors.white} />
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text variant="h1" weight="bold" numberOfLines={2} style={{ color: colors.white }}>
+                {academyName}
+              </Text>
+              <View style={[styles.inlineRow, { marginTop: 6, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <MapPin size={14} color={alphaHex(colors.white, 'D9')} />
+                <Text variant="bodySmall" numberOfLines={1} style={{ color: alphaHex(colors.white, 'E6'), marginHorizontal: 6 }}>
+                  {locationLabel}
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.heroRatingPill, { backgroundColor: alphaHex(colors.black, '66') }]}>
+              <Star size={13} color={colors.warning} fill={colors.warning} />
+              <Text variant="caption" weight="bold" style={{ color: colors.white, marginLeft: 4 }}>
+                {ratingLabel}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.heroStatusRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View
+              style={[
+                styles.heroStatusChip,
+                {
+                  backgroundColor: registrationOpen
+                    ? alphaHex(colors.success, '29')
+                    : alphaHex(colors.error, '29'),
+                  borderColor: registrationOpen ? colors.success : colors.error,
+                },
+              ]}
+            >
+              <CheckCircle2 size={14} color={registrationOpen ? colors.success : colors.error} />
+              <Text
+                variant="caption"
+                weight="bold"
+                style={{
+                  color: registrationOpen ? colors.success : colors.error,
+                  marginHorizontal: 5,
+                }}
+              >
+                {registrationOpen
+                  ? t('academy.details.registrationOpen')
+                  : t('academy.details.registrationClosed')}
+              </Text>
+            </View>
+
+            {secureEnabled ? (
+              <View
+                style={[
+                  styles.heroStatusChip,
+                  {
+                    backgroundColor: alphaHex(colors.info, '24'),
+                    borderColor: alphaHex(colors.info, '75'),
+                  },
+                ]}
+              >
+                <ShieldCheck size={14} color={colors.info} />
+                <Text variant="caption" weight="bold" style={{ color: colors.info, marginHorizontal: 5 }}>
+                  {t('academy.details.secure')}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+});
+
+const AcademyDetailsSkeleton = memo(function AcademyDetailsSkeleton() {
+  const { isDark } = useTheme();
+  const mode = isDark ? 'dark' : 'light';
+
+  return (
+    <View style={styles.skeletonContainer}>
+      <Skeleton height={HERO_HEIGHT} radius={0} mode={mode} />
+      <View style={{ paddingHorizontal: H_PADDING, paddingTop: spacing.lg, gap: spacing.lg }}>
+        <Skeleton height={24} radius={10} mode={mode} width="55%" />
+        <View style={styles.skeletonGrid}>
+          {[1, 2, 3, 4].map((id) => (
+            <Skeleton key={`skeleton-info-${id}`} height={102} radius={18} mode={mode} style={{ width: '48%' }} />
+          ))}
+        </View>
+        <Skeleton height={160} radius={22} mode={mode} />
+        <Skeleton height={180} radius={22} mode={mode} />
+      </View>
+    </View>
+  );
+});
+
 export function AcademyTemplateScreen({ slug }) {
   const router = useRouter();
-  const { t, i18n } = useI18n();
+  const insets = useSafeAreaInsets();
+  const { t, language } = useI18n();
+  const locale = language || 'en';
   const { colors, isDark } = useTheme();
-  const separator = t('service.academy.common.separator');
+  const isRTL = I18nManager.isRTL;
 
   const { detailsBySlug, detailsLoadingBySlug, detailsErrorBySlug } = useAcademyDiscoveryStore((state) => ({
     detailsBySlug: state.detailsBySlug,
@@ -640,69 +721,113 @@ export function AcademyTemplateScreen({ slug }) {
     detailsErrorBySlug: state.detailsErrorBySlug,
   }));
   const discoveryActions = useAcademyDiscoveryActions();
-  const [activeSection, setActiveSection] = useState('about');
-  const [lightboxVisible, setLightboxVisible] = useState(false);
-  const [lightboxItem, setLightboxItem] = useState(null);
-  const [mediaFilter, setMediaFilter] = useState('all');
 
-  const enter = useRef(new Animated.Value(0)).current;
+  const payload = slug ? detailsBySlug?.[slug] : null;
+  const loading = slug ? Boolean(detailsLoadingBySlug?.[slug]) : false;
+  const error = slug ? safeText(detailsErrorBySlug?.[slug]) : t('academy.details.error');
+
   const scrollRef = useRef(null);
   const sectionsY = useRef({});
   const scrollY = useRef(new Animated.Value(0)).current;
+  const enter = useRef(new Animated.Value(0)).current;
+  const activeTabRef = useRef('overview');
+
+  const [activeTab, setActiveTab] = useState('overview');
+  const [mediaPreview, setMediaPreview] = useState(null);
+  const [lightboxVisible, setLightboxVisible] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [visibleReviewCount, setVisibleReviewCount] = useState(3);
+
+  const load = useCallback(async () => {
+    if (!slug) return;
+    await discoveryActions.fetchDetails(slug);
+  }, [discoveryActions, slug]);
 
   useEffect(() => {
     Animated.timing(enter, {
       toValue: 1,
-      duration: 520,
+      duration: 320,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [enter]);
 
-  const payload = slug ? detailsBySlug?.[slug] : null;
-  const loading = slug ? detailsLoadingBySlug?.[slug] : false;
-  const error = slug ? detailsErrorBySlug?.[slug] : '';
-  const resolvedError = slug ? error : t('service.academy.common.notFound');
+  useEffect(() => {
+    if (!slug) return;
+    load();
+  }, [load, slug]);
+
+  useEffect(() => {
+    setVisibleReviewCount(3);
+    setActiveTab('overview');
+    activeTabRef.current = 'overview';
+  }, [slug]);
 
   const academy = payload?.academy || null;
   const templateSections = payload?.template_sections || {};
-  const courses = payload?.courses || [];
-  const mediaByType = payload?.media_by_type || {};
-  const successStory = payload?.success_story || null;
+  const hasTemplateToggles = Object.keys(templateSections).length > 0;
+  const allowSection = useCallback(
+    (key) => (hasTemplateToggles ? templateSections?.[key] !== false : true),
+    [hasTemplateToggles, templateSections]
+  );
 
-  // Academy data
+  const courses = useMemo(() => normalizeArray(payload?.courses), [payload]);
+  const mediaByType = payload?.media_by_type || {};
+  const sportTypes = useMemo(() => normalizeArray(academy?.sport_types), [academy]);
+  const contactPhones = useMemo(() => normalizeArray(academy?.contact_phones), [academy]);
+  const facilities = useMemo(
+    () => normalizeArray(academy?.facilities || academy?.facility_highlights || payload?.facilities),
+    [academy, payload]
+  );
+
+  const galleryItems = useMemo(() => {
+    const buckets = ['court', 'field', 'training', 'team', 'poster', 'championship', 'certificate', 'other', 'gallery'];
+    return buckets.flatMap((bucket) => {
+      const list = normalizeArray(mediaByType?.[bucket]);
+      return list.map((item, idx) => ({
+        id: `${bucket}-${item?.id || idx}`,
+        source: resolveMediaUri(item) ? { uri: resolveMediaUri(item) } : null,
+        caption: safeText(item?.caption_en || item?.caption_ar || item?.name || bucket),
+        item,
+      }));
+    });
+  }, [mediaByType]);
+
+  const courtImagesCount = useMemo(
+    () =>
+      ['court', 'field', 'training'].reduce(
+        (count, key) => count + normalizeArray(mediaByType?.[key]).length,
+        0
+      ),
+    [mediaByType]
+  );
+
+  const reviews = useMemo(() => resolveReviews(payload, academy), [payload, academy]);
+  const similarAcademies = useMemo(() => resolveSimilarAcademies(payload, academy), [payload, academy]);
+
   const academyName = useMemo(() => {
     if (!academy) return '';
     return (
-      getLocalized(i18n, academy?.name_en, academy?.name_ar) ||
+      getLocalized(locale, academy?.name_en, academy?.name_ar) ||
       safeText(academy?.name) ||
-      t('service.academy.common.defaultName')
+      t('academy.details.title')
     );
-  }, [academy, i18n, t]);
+  }, [academy, locale, t]);
+
+  const aboutText = useMemo(
+    () =>
+      getLocalized(
+        locale,
+        academy?.short_desc_en || academy?.description_en,
+        academy?.short_desc_ar || academy?.description_ar
+      ),
+    [academy, locale]
+  );
+
   const academyDeepLink = useMemo(
     () => (academy?.slug ? `https://sporthive.app/academies/${academy.slug}` : ''),
     [academy]
   );
 
-  const aboutText = useMemo(() => {
-    return getLocalized(i18n, academy?.short_desc_en, academy?.short_desc_ar) || '';
-  }, [academy, i18n]);
-
-  const sportTypes = useMemo(() => normalizeArray(academy?.sport_types), [academy]);
-  const contactPhones = useMemo(() => normalizeArray(academy?.contact_phones), [academy]);
-  const awards = useMemo(() => normalizeArray(academy?.awards), [academy]);
-  const certificates = useMemo(() => normalizeArray(academy?.certificates), [academy]);
-  const languages = useMemo(() => normalizeArray(academy?.languages), [academy]);
-  const yearFounded = academy?.year_founded;
-  const website = academy?.website;
-
-  // Media data
-  const ads = useMemo(() => normalizeArray(mediaByType?.ad), [mediaByType]);
-  const galleryItems = useMemo(() => {
-    const galleryTypes = ['team', 'poster', 'championship', 'certificate', 'other'];
-    return galleryTypes.flatMap(type => normalizeArray(mediaByType?.[type]));
-  }, [mediaByType]);
-
-  // Image URLs
   const coverUri = useMemo(() => {
     if (!academy?.slug) return null;
     return (
@@ -724,209 +849,374 @@ export function AcademyTemplateScreen({ slug }) {
   const coverSource = useMemo(() => (coverUri ? { uri: coverUri } : null), [coverUri]);
   const logoSource = useMemo(() => (logoUri ? { uri: logoUri } : null), [logoUri]);
 
-  // Map URL
   const mapUrl = useMemo(() => {
-    if (academy?.lat != null && academy?.lng != null)
+    if (academy?.lat != null && academy?.lng != null) {
       return `https://www.google.com/maps?q=${academy.lat},${academy.lng}`;
-    const addr = safeText(academy?.address);
-    if (addr) return `https://www.google.com/maps?q=${encodeURIComponent(addr)}`;
+    }
+    const address = safeText(academy?.address);
+    if (address) return `https://www.google.com/maps?q=${encodeURIComponent(address)}`;
     return '';
   }, [academy]);
 
-  // Load data
-  const load = useCallback(async () => {
-    if (!slug) return;
-    await discoveryActions.fetchDetails(slug);
-  }, [discoveryActions, slug]);
+  const locationLabel = useMemo(() => {
+    const cityCountry = [safeText(academy?.city), safeText(academy?.country)].filter(Boolean).join(', ');
+    if (cityCountry) return cityCountry;
+    const address = safeText(academy?.address);
+    if (address) return address;
+    return t('academy.details.notAvailable');
+  }, [academy, t]);
 
-  useEffect(() => {
-    if (!slug) return;
-    load();
-  }, [load, slug]);
+  const coordinatesLabel = useMemo(() => {
+    if (academy?.lat == null || academy?.lng == null) return '';
+    return `${Number(academy.lat).toFixed(6)}, ${Number(academy.lng).toFixed(6)}`;
+  }, [academy]);
 
-  // Animation handlers
-  const scrollHandler = Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: false }
+  const registrationOpen = Boolean(academy?.registration_open);
+  const secureEnabled = Boolean(academy?.is_verified || academy?.is_secure || academy?.is_pro);
+  const canBookNow = Boolean(academy?.has_facilities_booking);
+
+  const ratingValue = toNumber(academy?.rating || academy?.rating_avg || academy?.avg_rating);
+  const ratingCount = toNumber(academy?.rating_count || academy?.ratings_count || academy?.ratingCount);
+  const ratingLabel = ratingValue !== null
+    ? `${formatNumber(locale, ratingValue, 1)}${ratingCount ? ` (${formatNumber(locale, ratingCount, 0)})` : ''}`
+    : t('academy.details.notAvailable');
+
+  const distanceLabel = useMemo(() => {
+    const distanceText = safeText(academy?.distance_text || academy?.distance_label);
+    if (distanceText) return distanceText;
+    const distanceKm = toNumber(academy?.distance_km || academy?.distanceKm);
+    if (distanceKm !== null) {
+      return t('academy.details.distanceKm', { distance: formatNumber(locale, distanceKm, 1) });
+    }
+    return t('academy.details.notAvailable');
+  }, [academy, locale, t]);
+
+  const feeLabel = useMemo(() => {
+    const amount = toNumber(academy?.subscription_fee_amount || academy?.min_fee || academy?.price_from);
+    const feeType = safeText(academy?.subscription_fee_type || academy?.fee_type);
+    if (amount !== null) {
+      return `${formatNumber(locale, amount, 0)} ${feeType}`.trim();
+    }
+    return safeText(academy?.price_range) || t('academy.details.priceOnRequest');
+  }, [academy, locale, t]);
+
+  const dayLabels = useMemo(
+    () => ({
+      0: t('academy.details.days.sunday'),
+      1: t('academy.details.days.monday'),
+      2: t('academy.details.days.tuesday'),
+      3: t('academy.details.days.wednesday'),
+      4: t('academy.details.days.thursday'),
+      5: t('academy.details.days.friday'),
+      6: t('academy.details.days.saturday'),
+    }),
+    [t]
   );
 
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 40, 120],
-    outputRange: [0, 0.55, 1],
-    extrapolate: 'clamp',
-  });
+  const scheduleEntries = useMemo(() => {
+    const entries = [];
+    courses.forEach((course, courseIndex) => {
+      const title = getLocalized(locale, course?.name_en, course?.name_ar) || t('academy.details.courseFallback');
+      normalizeArray(course?.schedules).forEach((schedule, scheduleIndex) => {
+        const dayOfWeek = toNumber(schedule?.day_of_week);
+        const start = safeText(schedule?.start_time).slice(0, 5);
+        const end = safeText(schedule?.end_time).slice(0, 5);
+        entries.push({
+          id: `${course?.id || courseIndex}-${scheduleIndex}`,
+          courseTitle: title,
+          day: dayOfWeek !== null ? dayLabels[dayOfWeek] || t('academy.details.notAvailable') : t('academy.details.notAvailable'),
+          start,
+          end,
+        });
+      });
+    });
+    return entries;
+  }, [courses, dayLabels, locale, t]);
 
-  const heroParallax = scrollY.interpolate({
-    inputRange: [-HERO_H, 0, HERO_H],
-    outputRange: [-HERO_H * 0.45, 0, HERO_H * 0.18],
-    extrapolate: 'clamp',
-  });
+  const nextSessionLabel = useMemo(() => {
+    if (!scheduleEntries.length) return t('academy.details.notAvailable');
+    const session = scheduleEntries[0];
+    const time = session.end ? `${session.start}-${session.end}` : session.start;
+    return `${session.day} • ${time}`;
+  }, [scheduleEntries, t]);
 
-  const heroScale = scrollY.interpolate({
-    inputRange: [-HERO_H, 0, HERO_H],
-    outputRange: [1.35, 1, 1],
-    extrapolate: 'clamp',
-  });
+  const coachesCount = useMemo(() => {
+    const fromAcademy = toNumber(academy?.number_of_coaches);
+    if (fromAcademy !== null) return fromAcademy;
+    return courses.reduce((sum, course) => sum + normalizeArray(course?.coaches).length, 0);
+  }, [academy, courses]);
 
-  // Navigation
-  const jumpTo = useCallback((key) => {
-    const y = sectionsY.current?.[key];
-    if (y == null) return;
-    setActiveSection(key);
-    scrollRef.current?.scrollTo({ y: Math.max(0, y - HEADER_H - 10), animated: true });
+  const facilitiesLabel = useMemo(() => {
+    if (facilities.length > 0) return facilities.slice(0, 2).join(' • ');
+    if (academy?.has_facilities_booking) return t('academy.details.facilitiesAvailable');
+    return t('academy.details.notAvailable');
+  }, [academy, facilities, t]);
+
+  const infoCards = useMemo(
+    () => [
+      {
+        key: 'distance',
+        title: t('academy.details.distance'),
+        value: distanceLabel,
+        icon: <MapPin size={18} color={colors.accentOrange} />,
+      },
+      {
+        key: 'open-status',
+        title: t('academy.details.openStatus'),
+        value: registrationOpen ? t('academy.details.registrationOpen') : t('academy.details.registrationClosed'),
+        icon: <Clock size={18} color={colors.accentOrange} />,
+      },
+      {
+        key: 'facilities',
+        title: t('academy.details.facilities'),
+        value: facilitiesLabel,
+        icon: <Trophy size={18} color={colors.accentOrange} />,
+      },
+      {
+        key: 'fees',
+        title: t('academy.details.fees'),
+        value: feeLabel,
+        icon: <Wallet size={18} color={colors.accentOrange} />,
+      },
+    ],
+    [colors.accentOrange, distanceLabel, facilitiesLabel, feeLabel, registrationOpen, t]
+  );
+
+  const secondaryInfo = useMemo(
+    () => [
+      {
+        key: 'trainers',
+        title: t('academy.details.trainers'),
+        value: coachesCount ? formatNumber(locale, coachesCount, 0) : t('academy.details.notAvailable'),
+        icon: <Users size={16} color={colors.accentOrange} />,
+      },
+      {
+        key: 'facilities',
+        title: t('academy.details.facilities'),
+        value: facilities.length ? formatNumber(locale, facilities.length, 0) : t('academy.details.notAvailable'),
+        icon: <ShieldCheck size={16} color={colors.accentOrange} />,
+      },
+      {
+        key: 'fields',
+        title: t('academy.details.playingFields'),
+        value: sportTypes.length ? formatNumber(locale, sportTypes.length, 0) : t('academy.details.notAvailable'),
+        icon: <Trophy size={16} color={colors.accentOrange} />,
+      },
+      {
+        key: 'courts',
+        title: t('academy.details.courtImages'),
+        value: courtImagesCount ? formatNumber(locale, courtImagesCount, 0) : t('academy.details.notAvailable'),
+        icon: <ImageIcon size={16} color={colors.accentOrange} />,
+      },
+    ],
+    [coachesCount, colors.accentOrange, courtImagesCount, facilities.length, locale, sportTypes.length, t]
+  );
+
+  const tabItems = useMemo(() => {
+    const tabs = [{ key: 'overview', label: t('academy.details.overview') }];
+    if (allowSection('courses')) tabs.push({ key: 'courses', label: t('academy.details.courses') });
+    tabs.push({ key: 'schedule', label: t('academy.details.schedule') });
+    tabs.push({ key: 'reviews', label: t('academy.details.reviews') });
+    return tabs;
+  }, [allowSection, t]);
+
+  const captureSectionY = useCallback(
+    (key) => (event) => {
+      sectionsY.current[key] = event.nativeEvent.layout.y;
+    },
+    []
+  );
+
+  const scrollToSection = useCallback(
+    (key) => {
+      const y = sectionsY.current?.[key];
+      if (typeof y !== 'number') return;
+      activeTabRef.current = key;
+      setActiveTab(key);
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, y - TABS_STICKY_HEIGHT - spacing.sm),
+        animated: true,
+      });
+    },
+    []
+  );
+
+  const openUrl = useCallback(async (url) => {
+    if (!url) return;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      // no-op
+    }
   }, []);
 
-  // Actions
   const onShare = useCallback(async () => {
     const shareTarget = academyDeepLink || mapUrl || '';
     try {
       await Share.share({
-        message: t('service.academy.template.shareMessage', {
-          academyName,
-          mapUrl: shareTarget,
-        }).trim(),
+        message: t('academy.details.shareMessage', { academy: academyName, url: shareTarget }).trim(),
       });
     } catch {
-      // ignore
+      // no-op
     }
   }, [academyDeepLink, academyName, mapUrl, t]);
 
-  const onCopyLink = useCallback(async () => {
-    if (!academy?.slug) return;
-    try {
-      Clipboard.setString(academyDeepLink);
-      Alert.alert(
-        t('service.academy.template.linkCopiedTitle', { defaultValue: 'Link copied' }),
-        t('service.academy.template.linkCopiedSubtitle', {
-          defaultValue: 'Academy link copied to clipboard.',
-        })
-      );
-    } catch {
-      // ignore
-    }
-  }, [academy, academyDeepLink, t]);
-
   const onCall = useCallback(() => {
-    const phone = contactPhones?.[0];
+    const phone = safeText(contactPhones?.[0]);
     if (!phone) return;
-    Linking.openURL(`tel:${phone}`);
-  }, [contactPhones]);
+    openUrl(`tel:${phone}`);
+  }, [contactPhones, openUrl]);
 
   const onEmail = useCallback(() => {
     const email = safeText(academy?.contact_email);
     if (!email) return;
-    Linking.openURL(`mailto:${email}`);
-  }, [academy]);
+    openUrl(`mailto:${email}`);
+  }, [academy, openUrl]);
 
   const onOpenMaps = useCallback(() => {
     if (!mapUrl) return;
-    Linking.openURL(mapUrl);
-  }, [mapUrl]);
+    openUrl(mapUrl);
+  }, [mapUrl, openUrl]);
 
   const onOpenWebsite = useCallback(() => {
+    const website = safeText(academy?.website);
     if (!website) return;
-    Linking.openURL(website.startsWith('http') ? website : `https://${website}`);
-  }, [website]);
+    openUrl(website.startsWith('http') ? website : `https://${website}`);
+  }, [academy, openUrl]);
 
-  const onPrimary = useCallback(() => {
+  const onJoin = useCallback(() => {
     if (!academy?.slug) return;
-
     if (academy?.registration_enabled && academy?.registration_open) {
       router.push(`/academies/${academy.slug}/join`);
       return;
     }
+    scrollToSection('contact');
+  }, [academy, router, scrollToSection]);
 
-    jumpTo('contact');
-  }, [academy, jumpTo, router]);
+  const onBookNow = useCallback(() => {
+    if (!academy?.has_facilities_booking) return;
+    router.push('/playgrounds/explore');
+  }, [academy, router]);
 
-  const openLightbox = useCallback((item) => {
-    setLightboxItem(item);
+  const onToggleFavorite = useCallback(() => {
+    setIsFavorite((prev) => !prev);
+  }, []);
+
+  const onOpenMediaPreview = useCallback((media) => {
+    setMediaPreview(media);
     setLightboxVisible(true);
   }, []);
 
-  const closeLightbox = useCallback(() => {
+  const onCloseMediaPreview = useCallback(() => {
     setLightboxVisible(false);
-    setLightboxItem(null);
+    setMediaPreview(null);
   }, []);
 
-  // Navigation items
-  const navItems = useMemo(() => {
-    const items = [];
-    if (templateSections.about && aboutText) {
-      items.push({
-        key: 'about',
-        label: t('service.academy.template.nav.about'),
-        icon: <Info size={16} color={colors.white} />,
-      });
-    }
-    if (templateSections.stats && (sportTypes.length > 0 || awards.length > 0 || certificates.length > 0)) {
-      items.push({
-        key: 'sports',
-        label: t('service.academy.template.nav.sports'),
-        icon: <Trophy size={16} color={colors.white} />,
-      });
-    }
-    if (templateSections.courses && courses.length > 0) {
-      items.push({
-        key: 'courses',
-        label: t('service.academy.template.nav.courses'),
-        icon: <GraduationCap size={16} color={colors.white} />,
-      });
-    }
-    if ((templateSections.media_ads || templateSections.media_gallery) && (ads.length > 0 || galleryItems.length > 0)) {
-      items.push({
-        key: 'media',
-        label: t('service.academy.template.nav.media'),
-        icon: <ImageIcon size={16} color={colors.white} />,
-      });
-    }
-    if (templateSections.success_story && successStory) {
-      items.push({
-        key: 'story',
-        label: t('service.academy.template.nav.story'),
-        icon: <Award size={16} color={colors.white} />,
-      });
-    }
-    if (templateSections.location) {
-      items.push({
-        key: 'location',
-        label: t('service.academy.template.nav.location'),
-        icon: <MapPin size={16} color={colors.white} />,
-      });
-    }
-    items.push({ key: 'contact', label: t('service.academy.template.nav.contact'), icon: <Mail size={16} color={colors.white} /> });
-    return items;
-  }, [ads, awards, colors.white, courses, galleryItems, successStory, sportTypes, templateSections, aboutText, certificates, t]);
+  const onOpenSimilar = useCallback(
+    (item) => {
+      if (!item?.slug) return;
+      router.push(`/academies/${item.slug}`);
+    },
+    [router]
+  );
 
-  // Lightbox source
-  const lightboxSrc = useMemo(() => {
-    if (!lightboxItem) return null;
-    const media = pickMediaSrc(lightboxItem);
-    return dataUrlFromBase64({ mime: media?.mime, base64: media?.base64 });
-  }, [lightboxItem]);
+  const handleLoadMoreReviews = useCallback(() => {
+    setVisibleReviewCount((prev) => Math.min(prev + 4, reviews.length));
+  }, [reviews.length]);
 
-  // Loading state
-  if (loading) {
+  const handleScrollListener = useCallback((event) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    let nextTab = activeTabRef.current;
+
+    tabItems.forEach((tab) => {
+      const y = sectionsY.current?.[tab.key];
+      if (typeof y === 'number' && offsetY + TABS_STICKY_HEIGHT + 14 >= y) {
+        nextTab = tab.key;
+      }
+    });
+
+    if (nextTab !== activeTabRef.current) {
+      activeTabRef.current = nextTab;
+      setActiveTab(nextTab);
+    }
+  }, [tabItems]);
+
+  const onScroll = useMemo(
+    () =>
+      Animated.event(
+        [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+        { useNativeDriver: false, listener: handleScrollListener }
+      ),
+    [handleScrollListener, scrollY]
+  );
+
+  const topBarOpacity = scrollY.interpolate({
+    inputRange: [0, HERO_HEIGHT * 0.38, HERO_HEIGHT * 0.62],
+    outputRange: [0, 0.2, 1],
+    extrapolate: 'clamp',
+  });
+
+  const heroTranslateY = scrollY.interpolate({
+    inputRange: [-HERO_HEIGHT, 0, HERO_HEIGHT],
+    outputRange: [-HERO_HEIGHT * 0.42, 0, HERO_HEIGHT * 0.15],
+    extrapolate: 'clamp',
+  });
+
+  const heroScale = scrollY.interpolate({
+    inputRange: [-HERO_HEIGHT, 0, HERO_HEIGHT],
+    outputRange: [1.25, 1, 1],
+    extrapolate: 'clamp',
+  });
+
+  const contentEnterStyle = {
+    opacity: enter,
+    transform: [
+      {
+        translateY: enter.interpolate({
+          inputRange: [0, 1],
+          outputRange: [12, 0],
+        }),
+      },
+    ],
+  };
+
+  if (!slug) {
     return (
       <Screen safe>
-        <AppHeader title={t('service.academy.template.loading.title')} leftSlot={<BackButton />} />
-        <SporHiveLoader
-          label={t('service.academy.template.loading.title')}
-          message={t('service.academy.template.loading.subtitle')}
+        <View style={styles.fallbackHeader}>
+          <BackButton />
+        </View>
+        <ErrorState
+          title={t('academy.details.errorTitle')}
+          message={t('academy.details.error')}
+          actionLabel={t('academy.details.retry')}
+          onAction={load}
         />
       </Screen>
     );
   }
 
-  // Error state
-  if (resolvedError) {
+  if (loading && !payload) {
+    return (
+      <Screen safe style={{ backgroundColor: colors.background }}>
+        <View style={styles.fallbackHeader}>
+          <BackButton />
+        </View>
+        <AcademyDetailsSkeleton />
+      </Screen>
+    );
+  }
+
+  if (error && !payload) {
     return (
       <Screen safe>
-        <AppHeader title={t('service.academy.template.error.title')} leftSlot={<BackButton />} />
+        <View style={styles.fallbackHeader}>
+          <BackButton />
+        </View>
         <ErrorState
-          title={t('service.academy.template.error.title')}
-          subtitle={resolvedError}
-          actionLabel={t('service.academy.template.error.retry')}
+          title={t('academy.details.errorTitle')}
+          message={error || t('academy.details.error')}
+          actionLabel={t('academy.details.retry')}
           onAction={load}
         />
       </Screen>
@@ -935,857 +1225,450 @@ export function AcademyTemplateScreen({ slug }) {
 
   return (
     <Screen safe style={{ backgroundColor: colors.background }}>
-      {/* Modern glass header */}
       <Animated.View
         style={[
           styles.topBar,
           {
-            borderBottomColor: colors.border,
-            opacity: headerOpacity,
-            backgroundColor: alphaHex(colors.surface, isDark ? 'D9' : 'EB'),
+            borderBottomColor: alphaHex(colors.border, 'AA'),
+            backgroundColor: alphaHex(colors.surface, isDark ? 'E6' : 'F2'),
+            opacity: topBarOpacity,
+            paddingTop: insets.top,
           },
         ]}
       >
         <BlurView intensity={80} style={StyleSheet.absoluteFill} />
-        <View style={styles.topBarInner}>
-          <BackButton color={colors.textPrimary} style={styles.topIconBtn} />
-
-          <View style={{ flex: 1, marginHorizontal: 10 }}>
+        <View style={[styles.topBarRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <BackButton color={colors.textPrimary} style={styles.topBarBack} />
+          <View style={styles.topBarTitleWrap}>
             <Text variant="body" weight="bold" numberOfLines={1} style={{ color: colors.textPrimary }}>
               {academyName}
             </Text>
-            {academy?.city && (
-              <Text variant="caption" color={colors.textSecondary} numberOfLines={1}>
-                {safeText(academy.city)}
-              </Text>
-            )}
+            <Text variant="caption" numberOfLines={1} style={{ color: colors.textSecondary, marginTop: 2 }}>
+              {locationLabel}
+            </Text>
           </View>
-
-          <Pressable onPress={onShare} style={({ pressed }) => [styles.topIconBtn, { opacity: pressed ? 0.7 : 1 }]}>
-            <Share2 size={20} color={colors.textPrimary} />
+          <Pressable
+            onPress={onShare}
+            style={({ pressed }) => [
+              styles.topBarAction,
+              {
+                borderColor: colors.border,
+                backgroundColor: colors.surface,
+                opacity: pressed ? 0.84 : 1,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={t('academy.details.share')}
+          >
+            <Share2 size={18} color={colors.textPrimary} />
           </Pressable>
         </View>
       </Animated.View>
 
-      <ScrollView
+      <Animated.ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 180 }}
-        onScroll={scrollHandler}
+        contentContainerStyle={{ paddingBottom: FOOTER_HEIGHT + insets.bottom + spacing['3xl'] }}
+        stickyHeaderIndices={[1]}
         scrollEventThrottle={16}
-        onMomentumScrollEnd={(event) => {
-          const offsetY = event.nativeEvent.contentOffset.y;
-          // Determine active section based on scroll position
-          Object.entries(sectionsY.current).forEach(([key, y]) => {
-            if (offsetY >= y - HEADER_H - 50) {
-              setActiveSection(key);
-            }
-          });
-        }}
+        onScroll={onScroll}
       >
-        {/* HERO SECTION */}
-        <View style={styles.heroWrap}>
-          <Animated.View style={[styles.heroMedia, { transform: [{ translateY: heroParallax }, { scale: heroScale }] }]}>
-            {coverSource ? (
-              <Image source={coverSource} style={styles.heroImg} resizeMode="cover" />
-            ) : (
-              <LinearGradient
-                colors={[colors.accentOrange, alphaHex(colors.accentOrange, 'B3')]}
-                start={{ x: 0.1, y: 0.0 }}
-                end={{ x: 0.9, y: 1.0 }}
-                style={styles.heroImg}
+        <HeroSection
+          academyName={academyName}
+          locationLabel={locationLabel}
+          coverSource={coverSource}
+          logoSource={logoSource}
+          ratingLabel={ratingLabel}
+          registrationOpen={registrationOpen}
+          secureEnabled={secureEnabled}
+          onShare={onShare}
+          heroTranslateY={heroTranslateY}
+          heroScale={heroScale}
+          insetsTop={insets.top}
+        />
+
+        <View
+          style={[
+            styles.tabsSticky,
+            {
+              borderBottomColor: alphaHex(colors.border, '7A'),
+              backgroundColor: alphaHex(colors.background, isDark ? 'F2' : 'FA'),
+            },
+          ]}
+        >
+          <FlatList
+            horizontal
+            data={tabItems}
+            keyExtractor={(item) => item.key}
+            contentContainerStyle={styles.tabsContent}
+            showsHorizontalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <Chip
+                label={item.label}
+                selected={activeTab === item.key}
+                onPress={() => scrollToSection(item.key)}
+                icon={
+                  item.key === 'overview' ? <BookOpen size={14} color={activeTab === item.key ? colors.accentOrange : colors.textSecondary} /> :
+                    item.key === 'courses' ? <Trophy size={14} color={activeTab === item.key ? colors.accentOrange : colors.textSecondary} /> :
+                      item.key === 'schedule' ? <CalendarDays size={14} color={activeTab === item.key ? colors.accentOrange : colors.textSecondary} /> :
+                        <Star size={14} color={activeTab === item.key ? colors.accentOrange : colors.textSecondary} />
+                }
+                style={styles.tabChip}
               />
             )}
+          />
+        </View>
 
-            {/* Smart readability overlays (top light / bottom strong) */}
-            <LinearGradient
-              colors={[
-                alphaHex(colors.black, '55'), // top: light shade so header icons pop
-                alphaHex(colors.black, '15'),
-                alphaHex(colors.black, 'A8'), // bottom: strong shade for title/chips
-              ]}
-              locations={[0, 0.45, 1]}
-              style={StyleSheet.absoluteFill}
+        <Animated.View style={[styles.content, contentEnterStyle]}>
+          <View onLayout={captureSectionY('overview')} style={styles.sectionBlock}>
+            <SectionHeader
+              title={t('academy.details.overview')}
+              subtitle={t('academy.details.featureHighlights')}
             />
 
-            {/* subtle brand tint, not competing with text */}
-            <LinearGradient
-              colors={[
-                alphaHex(colors.accentOrange, '22'),
-                alphaHex(colors.accentOrange, '00'),
-                alphaHex(colors.accentOrange, '14'),
-              ]}
-              locations={[0, 0.6, 1]}
-              style={StyleSheet.absoluteFill}
-            />
+            <Card style={styles.sectionCard}>
+              <Text variant="body" style={{ color: colors.textPrimary, lineHeight: 24 }}>
+                {aboutText || t('academy.details.aboutFallback')}
+              </Text>
+              {academy?.website ? (
+                <Pressable
+                  onPress={onOpenWebsite}
+                  style={({ pressed }) => [
+                    styles.websiteRow,
+                    {
+                      borderColor: alphaHex(colors.accentOrange, '6B'),
+                      backgroundColor: alphaHex(colors.accentOrange, '12'),
+                      opacity: pressed ? 0.85 : 1,
+                    },
+                  ]}
+                >
+                  <Globe size={15} color={colors.accentOrange} />
+                  <Text
+                    variant="bodySmall"
+                    weight="bold"
+                    style={{ color: colors.accentOrange, marginHorizontal: 8 }}
+                  >
+                    {t('academy.details.website')}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </Card>
 
-            {/* optional: add a soft vignette for better edges */}
-            <View pointerEvents="none" style={styles.heroVignette} />
+            <InfoCards cards={infoCards} />
 
-          </Animated.View>
-
-          <Animated.View
-            style={[
-              styles.heroContent,
-              {
-                opacity: enter,
-                transform: [
-                  {
-                    translateY: enter.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [18, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            {/* Badges + actions */}
-            <View style={styles.heroTopRow}>
-              <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                {academy?.is_pro ? (
-                  <Badge variant="primary" style={styles.badgeRow}>
-                    <Crown size={14} color={colors.white} />
-                    <Text variant="caption" weight="bold" style={[styles.badgeText, { color: colors.white }]}>
-                      {t('service.academy.template.badges.pro')}
-                    </Text>
-                  </Badge>
-                ) : null}
-                {academy?.is_featured ? (
-                  <Badge variant="accent" style={styles.badgeRow}>
-                    <Flame size={14} color={colors.white} />
-                    <Text variant="caption" weight="bold" style={[styles.badgeText, { color: colors.white }]}>
-                      {t('service.academy.template.badges.featured')}
-                    </Text>
-                  </Badge>
-                ) : null}
-                {academy?.has_facilities_booking ? (
-                  <Badge variant="secondary" style={styles.badgeRow}>
-                    <CheckCircle2 size={14} color={colors.white} />
-                    <Text variant="caption" weight="bold" style={[styles.badgeText, { color: colors.white }]}>
-                      {t('service.academy.template.badges.facilities')}
-                    </Text>
-                  </Badge>
-                ) : null}
+            <Card style={styles.sectionCard}>
+              <View style={styles.trustRows}>
+                <View style={[styles.inlineRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <CheckCircle2 size={16} color={colors.success} />
+                  <Text variant="bodySmall" style={{ color: colors.textPrimary, marginHorizontal: 8 }}>
+                    {t('academy.details.openRegistration')}
+                  </Text>
+                </View>
+                <View style={[styles.inlineRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <ShieldCheck size={16} color={colors.info} />
+                  <Text variant="bodySmall" style={{ color: colors.textPrimary, marginHorizontal: 8 }}>
+                    {t('academy.details.secureEncrypted')}
+                  </Text>
+                </View>
+                <View style={[styles.inlineRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Clock size={16} color={colors.warning} />
+                  <Text variant="bodySmall" style={{ color: colors.textPrimary, marginHorizontal: 8 }}>
+                    {t('academy.details.responseTime')}
+                  </Text>
+                </View>
               </View>
+            </Card>
+          </View>
 
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <GlassIconButton onPress={onShare} style={[styles.heroActionBtn, { borderColor: alphaHex(colors.white, '47') }]}>
-                  <Share2 size={18} color={colors.white} />
-                </GlassIconButton>
-                <GlassIconButton onPress={onCopyLink} style={[styles.heroActionBtn, { borderColor: alphaHex(colors.white, '47') }]}>
-                  <Copy size={18} color={colors.white} />
-                </GlassIconButton>
+          {allowSection('stats') ? (
+            <View style={styles.sectionBlock}>
+              <SectionHeader
+                title={t('academy.details.academiesSportsOffered')}
+                subtitle={t('academy.details.sportsOffered')}
+              />
+
+              <Card style={styles.sectionCard}>
+                {sportTypes.length ? (
+                  <View style={styles.sportChips}>
+                    {sportTypes.map((sport, idx) => (
+                      <Badge key={`${sport}-${idx}`} variant="default" style={styles.sportBadge}>
+                        {safeText(sport)}
+                      </Badge>
+                    ))}
+                  </View>
+                ) : (
+                  <Text variant="bodySmall" color={colors.textSecondary}>
+                    {t('academy.details.notAvailable')}
+                  </Text>
+                )}
+              </Card>
+
+              <View style={styles.secondaryGrid}>
+                {secondaryInfo.map((item) => (
+                  <Card key={item.key} style={styles.secondaryCard}>
+                    <View style={styles.inlineRow}>
+                      {item.icon}
+                      <Text
+                        variant="caption"
+                        color={colors.textSecondary}
+                        style={{ marginHorizontal: 6 }}
+                      >
+                        {item.title}
+                      </Text>
+                    </View>
+                    <Text variant="h4" weight="bold" style={{ color: colors.textPrimary, marginTop: 6 }}>
+                      {item.value}
+                    </Text>
+                  </Card>
+                ))}
               </View>
             </View>
+          ) : null}
 
-            {/* Title area */}
-            <View style={styles.heroTitleRow}>
-              {logoSource ? (
-                <View style={[styles.logoBox, { borderColor: alphaHex(colors.white, '47') }]}>
-                  <BlurView intensity={40} style={StyleSheet.absoluteFill} />
-                  <Image source={logoSource} style={styles.logoImg} resizeMode="contain" />
+          {allowSection('courses') ? (
+            <View onLayout={captureSectionY('courses')} style={styles.sectionBlock}>
+              <SectionHeader title={t('academy.details.courses')} subtitle={t('academy.details.schedule')} />
+
+              {courses.length ? (
+                <View style={{ gap: spacing.md }}>
+                  {courses.map((course, idx) => {
+                    const title = getLocalized(locale, course?.name_en, course?.name_ar) || t('academy.details.courseFallback');
+                    const ageFrom = toNumber(course?.age_from);
+                    const ageTo = toNumber(course?.age_to);
+                    const coaches = normalizeArray(course?.coaches);
+                    return (
+                      <Card key={course?.id || `course-${idx}`} style={styles.courseCard}>
+                        <View style={styles.inlineRow}>
+                          <BookOpen size={16} color={colors.accentOrange} />
+                          <Text variant="bodySmall" weight="bold" style={{ color: colors.textPrimary, marginHorizontal: 8 }}>
+                            {title}
+                          </Text>
+                        </View>
+                        {(ageFrom !== null || ageTo !== null) ? (
+                          <Text variant="caption" color={colors.textSecondary} style={{ marginTop: 6 }}>
+                            {t('academy.details.ageRange', {
+                              from: ageFrom !== null ? formatNumber(locale, ageFrom, 0) : '-',
+                              to: ageTo !== null ? formatNumber(locale, ageTo, 0) : '-',
+                            })}
+                          </Text>
+                        ) : null}
+                        {coaches.length ? (
+                          <Text variant="caption" color={colors.textSecondary} style={{ marginTop: 4 }}>
+                            {coaches.slice(0, 4).join(' • ')}
+                          </Text>
+                        ) : null}
+                      </Card>
+                    );
+                  })}
                 </View>
               ) : (
-                <View style={[styles.logoBox, { borderColor: alphaHex(colors.white, '47') }]}>
-                  <BlurView intensity={40} style={StyleSheet.absoluteFill} />
-                  <Sparkles size={22} color={colors.white} />
-                </View>
+                <Card style={styles.emptyCard}>
+                  <BookOpen size={20} color={colors.textSecondary} />
+                  <Text variant="bodySmall" color={colors.textSecondary} style={{ marginTop: 8 }}>
+                    {t('academy.details.noCourses')}
+                  </Text>
+                </Card>
               )}
+            </View>
+          ) : null}
 
-              <View style={{ flex: 1 }}>
-                <Text variant="h1" weight="bold" style={[styles.heroTitle, { color: colors.white }]} numberOfLines={2}>
-                  {academyName}
+          <View onLayout={captureSectionY('schedule')} style={styles.sectionBlock}>
+            <SectionHeader
+              title={t('academy.details.schedule')}
+              subtitle={`${t('academy.details.nextSession')}: ${nextSessionLabel}`}
+            />
+
+            {scheduleEntries.length ? (
+              <View style={{ gap: spacing.sm }}>
+                {scheduleEntries.slice(0, 12).map((session) => (
+                  <Card key={session.id} style={styles.scheduleCard}>
+                    <View style={[styles.inlineRow, { justifyContent: 'space-between' }]}>
+                      <View style={{ flex: 1 }}>
+                        <Text variant="bodySmall" weight="bold" style={{ color: colors.textPrimary }}>
+                          {session.courseTitle}
+                        </Text>
+                        <Text variant="caption" color={colors.textSecondary} style={{ marginTop: 4 }}>
+                          {session.day}
+                        </Text>
+                      </View>
+                      <Text variant="bodySmall" weight="bold" style={{ color: colors.accentOrange }}>
+                        {session.end ? `${session.start}-${session.end}` : session.start}
+                      </Text>
+                    </View>
+                  </Card>
+                ))}
+              </View>
+            ) : (
+              <Card style={styles.emptyCard}>
+                <CalendarDays size={20} color={colors.textSecondary} />
+                <Text variant="bodySmall" color={colors.textSecondary} style={{ marginTop: 8 }}>
+                  {t('academy.details.noSchedule')}
                 </Text>
-
-                <View style={styles.heroSubRow}>
-                  <MapPin size={16} color={alphaHex(colors.white, 'E6')} />
-                  <Text variant="bodySmall" style={[styles.heroSub, { color: alphaHex(colors.white, 'E0') }]} numberOfLines={1}>
-                    {safeText(academy?.city || '')}
-                    {academy?.city && academy?.address ? separator : ''}
-                    {safeText(academy?.address || '')}
-                  </Text>
-                </View>
-
-                {academy?.registration_open !== undefined && (
-                  <View style={[styles.statusBadge, {
-                    backgroundColor: academy.registration_open
-                      ? alphaHex(colors.success, '33')
-                      : alphaHex(colors.error, '33'),
-                    borderColor: academy.registration_open ? colors.success : colors.error,
-                  }]}>
-                    <Text variant="caption" weight="bold" style={{
-                      color: academy.registration_open ? colors.success : colors.error,
-                    }}>
-                      {academy.registration_open
-                        ? t('service.academy.template.status.registrationOpen')
-                        : t('service.academy.template.status.registrationClosed')}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {/* Feature pills */}
-            <View style={styles.featureRow}>
-              {academy?.ages_from != null && academy?.ages_to != null ? (
-                <FeaturePill
-                  icon={<Users size={18} color={colors.white} />}
-                  label={t('service.academy.template.feature.ageRange')}
-                  value={`${academy.ages_from}-${academy.ages_to} ${t('service.academy.template.feature.years')}`}
-                  color="orange"
-                />
-              ) : null}
-
-              {sportTypes.length > 0 ? (
-                <FeaturePill
-                  icon={<Trophy size={18} color={colors.white} />}
-                  label={t('service.academy.template.feature.sports')}
-                  value={`${sportTypes.length} ${sportTypes.length === 1
-                    ? t('service.academy.template.feature.sportSingle')
-                    : t('service.academy.template.feature.sportPlural')
-                    }`}
-                  color="amber"
-                />
-              ) : null}
-
-              {academy?.subscription_fee_amount ? (
-                <FeaturePill
-                  icon={<Wallet size={18} color={colors.white} />}
-                  label={t('service.academy.template.feature.startingFrom')}
-                  value={`${academy.subscription_fee_amount} ${safeText(academy?.subscription_fee_type) || t('service.academy.template.feature.perMonth')}`}
-                  color="yellow"
-                />
-              ) : null}
-
-              {academy?.has_facilities_booking ? (
-                <FeaturePill
-                  icon={<CalendarDays size={18} color={colors.white} />}
-                  label={t('service.academy.template.feature.facilities')}
-                  value={t('service.academy.template.feature.bookingAvailable')}
-                  color="green"
-                />
-              ) : null}
-            </View>
-
-            <View style={styles.heroCtaRow}>
-              <Button
-                size="large"
-                onPress={onPrimary}
-                style={{ flex: 1, borderRadius: 18 }}
-              >
-                {academy?.registration_open
-                  ? t('service.academy.template.cta.joinNow')
-                  : t('service.academy.template.cta.contact')}
-              </Button>
-
-              <Button
-                variant="secondary"
-                size="large"
-                onPress={onCall}
-                style={{ borderRadius: 18 }}
-                leftIcon={<Phone size={18} color={colors.textPrimary} />}
-                disabled={contactPhones.length === 0}
-              >
-                {t('service.academy.template.contact.call')}
-              </Button>
-            </View>
-
-            {/* Navigation chips */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginHorizontal: -PADDING_X }}
-              contentContainerStyle={{ paddingHorizontal: PADDING_X }}
-            >
-              <View style={{ flexDirection: 'row', paddingTop: 4, gap: 8 }}>
-                {navItems.map((it) => (
-                  <NavChip
-                    key={it.key}
-                    icon={it.icon}
-                    label={it.label}
-                    onPress={() => jumpTo(it.key)}
-                    isActive={activeSection === it.key}
-                  />
-                ))}
-              </View>
-            </ScrollView>
-          </Animated.View>
-        </View>
-
-        {/* CONTENT SECTIONS */}
-        <View style={{ paddingHorizontal: PADDING_X, paddingTop: 24 }}>
-          {/* About Section */}
-          {templateSections.about && aboutText ? (
-            <View
-              onLayout={(e) => (sectionsY.current.about = e.nativeEvent.layout.y)}
-              style={{
-                marginBottom: 40,
-                paddingTop: 8,
-              }}
-            >
-              <SectionHeader
-                icon={<Info size={18} color={colors.accentOrange} />}
-                title={t('service.academy.template.sections.about.title')}
-                subtitle={t('service.academy.template.sections.about.subtitle')}
-              />
-
-              <Card elevation={3} style={[styles.sectionCard, { shadowColor: colors.black }]}>
-                <View style={styles.sectionCardContent}>
-                  <Text style={{ lineHeight: 24, fontSize: 16, color: colors.textPrimary }}>
-                    {aboutText}
-                  </Text>
-
-                  {(yearFounded || website) && (
-                    <View style={styles.aboutMeta}>
-                      {yearFounded && (
-                        <View style={styles.metaRow}>
-                          <CalendarDays size={16} color={colors.textSecondary} />
-                          <Text variant="body" style={{ marginLeft: 8, color: colors.textPrimary }}>
-                            {t('service.academy.template.about.founded')}: {yearFounded}
-                          </Text>
-                        </View>
-                      )}
-
-                      {website && (
-                        <Pressable
-                          onPress={onOpenWebsite}
-                          style={[styles.websiteButton, { backgroundColor: alphaHex(colors.accentOrange, '1A') }]}
-                        >
-                          <Globe size={16} color={colors.accentOrange} />
-                          <Text variant="body" weight="medium" style={{ marginLeft: 8, color: colors.accentOrange }}>
-                            {t('service.academy.template.about.visitWebsite')}
-                          </Text>
-                          <ExternalLink size={14} color={colors.accentOrange} style={{ marginLeft: 4 }} />
-                        </Pressable>
-                      )}
-                    </View>
-                  )}
-
-                  {languages.length > 0 && (
-                    <View style={[styles.languagesSection, { borderTopColor: alphaHex(colors.border, '33') }]}>
-                      <Text variant="bodySmall" weight="medium" style={{ marginBottom: 12, color: colors.textPrimary }}>
-                        {t('service.academy.template.about.languages')}
-                      </Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        {languages.slice(0, 6).map((lang, idx) => (
-                          <Badge
-                            key={idx}
-                            variant="outline"
-                            style={{
-                              backgroundColor: isDark
-                                ? alphaHex(colors.white, '0D')
-                                : alphaHex(colors.black, '05'),
-                            }}
-                          >
-                            <Text variant="caption" style={{ color: colors.textPrimary }}>
-                              {lang}
-                            </Text>
-                          </Badge>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-                </View>
               </Card>
-            </View>
-          ) : null}
+            )}
+          </View>
 
-          {/* Sports & Stats Section */}
-          {templateSections.stats && (sportTypes.length > 0 || awards.length > 0 || certificates.length > 0) ? (
-            <View
-              onLayout={(e) => (sectionsY.current.sports = e.nativeEvent.layout.y)}
-              style={{
-                marginBottom: 40,
-                paddingTop: 8,
-              }}
-            >
+          {(allowSection('media_gallery') || allowSection('media_ads')) ? (
+            <View style={styles.sectionBlock}>
               <SectionHeader
-                icon={<Trophy size={18} color={colors.accentOrange} />}
-                title={t('service.academy.template.sections.sports.title')}
-                subtitle={t('service.academy.template.sections.sports.subtitle')}
-                right={sportTypes.length > 0 ? <Badge variant="accent">{sportTypes.length}</Badge> : null}
+                title={t('academy.details.imagesGallery')}
+                subtitle={t('academy.details.images')}
               />
-
-              <Card elevation={3} style={[styles.sectionCard, { shadowColor: colors.black }]}>
-                <View style={styles.sectionCardContent}>
-                  {/* Sports Grid */}
-                  {sportTypes.length > 0 && (
-                    <View style={{ marginBottom: 24 }}>
-                      <Text variant="body" weight="medium" style={{ marginBottom: 16, color: colors.textPrimary }}>
-                        {t('service.academy.template.sports.offered')}
-                      </Text>
-                      <View style={styles.sportsGrid}>
-                        {sportTypes.map((sport, idx) => (
-                          <View key={`${sport}-${idx}`} style={styles.sportItem}>
-                            <LinearGradient
-                              colors={[
-                                alphaHex(colors.accentOrange, isDark ? '33' : '26'),
-                                alphaHex(colors.accentOrange, isDark ? '1A' : '0D'),
-                              ]}
-                              style={styles.sportIcon}
-                            >
-                              <Trophy size={22} color={colors.accentOrange} />
-                            </LinearGradient>
-                            <Text weight="medium" style={{ marginTop: 8, textTransform: 'capitalize', color: colors.textPrimary }}>
-                              {safeText(sport)}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Stats */}
-                  <View style={{ marginBottom: 24 }}>
-                    <Text variant="body" weight="medium" style={{ marginBottom: 16, color: colors.textPrimary }}>
-                      {t('service.academy.template.stats.title')}
-                    </Text>
-                    <View style={styles.statsGrid}>
-                      {academy?.number_of_players != null && (
-                        <View style={[styles.statItem, { backgroundColor: alphaHex(colors.textPrimary, isDark ? '0D' : '05') }]}>
-                          <Users size={20} color={colors.accentOrange} />
-                          <Text variant="h3" weight="bold" style={{ marginTop: 8, color: colors.textPrimary }}>
-                            {academy.number_of_players}
-                          </Text>
-                          <Text variant="caption" color={colors.textSecondary}>
-                            {t('service.academy.template.stats.players')}
-                          </Text>
-                        </View>
-                      )}
-
-                      {academy?.number_of_coaches != null && (
-                        <View style={[styles.statItem, { backgroundColor: alphaHex(colors.textPrimary, isDark ? '0D' : '05') }]}>
-                          <User size={20} color={colors.accentOrange} />
-                          <Text variant="h3" weight="bold" style={{ marginTop: 8, color: colors.textPrimary }}>
-                            {academy.number_of_coaches}
-                          </Text>
-                          <Text variant="caption" color={colors.textSecondary}>
-                            {t('service.academy.template.stats.coaches')}
-                          </Text>
-                        </View>
-                      )}
-
-                      {awards.length > 0 && (
-                        <View style={[styles.statItem, { backgroundColor: alphaHex(colors.textPrimary, isDark ? '0D' : '05') }]}>
-                          <Award size={20} color={colors.accentOrange} />
-                          <Text variant="h3" weight="bold" style={{ marginTop: 8, color: colors.textPrimary }}>
-                            {awards.length}
-                          </Text>
-                          <Text variant="caption" color={colors.textSecondary}>
-                            {t('service.academy.template.stats.awards')}
-                          </Text>
-                        </View>
-                      )}
-
-                      {certificates.length > 0 && (
-                        <View style={[styles.statItem, { backgroundColor: alphaHex(colors.textPrimary, isDark ? '0D' : '05') }]}>
-                          <BadgeCheck size={20} color={colors.accentOrange} />
-                          <Text variant="h3" weight="bold" style={{ marginTop: 8, color: colors.textPrimary }}>
-                            {certificates.length}
-                          </Text>
-                          <Text variant="caption" color={colors.textSecondary}>
-                            {t('service.academy.template.stats.certificates')}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-
-                  {/* Awards & Certificates */}
-                  {(awards.length > 0 || certificates.length > 0) && (
-                    <View>
-                      <Text variant="body" weight="medium" style={{ marginBottom: 16, color: colors.textPrimary }}>
-                        {t('service.academy.template.stats.achievements')}
-                      </Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        {awards.slice(0, 4).map((award, idx) => (
-                          <Badge key={idx} variant="accent">
-                            <Award size={12} color={colors.white} />
-                            <Text variant="caption" weight="medium" style={{ color: colors.white, marginLeft: 4 }}>
-                              {award}
-                            </Text>
-                          </Badge>
-                        ))}
-                        {certificates.slice(0, 4).map((cert, idx) => (
-                          <Badge key={idx} variant="secondary">
-                            <BadgeCheck size={12} color={colors.white} />
-                            <Text variant="caption" weight="medium" style={{ color: colors.white, marginLeft: 4 }}>
-                              {cert}
-                            </Text>
-                          </Badge>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-                </View>
-              </Card>
+              <GalleryCarousel items={galleryItems} onOpen={onOpenMediaPreview} />
             </View>
           ) : null}
 
-          {/* Courses Section */}
-          {templateSections.courses && courses.length > 0 ? (
-            <View
-              onLayout={(e) => (sectionsY.current.courses = e.nativeEvent.layout.y)}
-              style={{
-                marginBottom: 40,
-                paddingTop: 8,
-              }}
-            >
-              <SectionHeader
-                icon={<GraduationCap size={18} color={colors.accentOrange} />}
-                title={t('service.academy.template.sections.courses.title')}
-                subtitle={t('service.academy.template.sections.courses.subtitle')}
-                right={<Badge variant="primary">{courses.length}</Badge>}
+          {allowSection('location') ? (
+            <View style={styles.sectionBlock}>
+              <SectionHeader title={t('academy.details.location')} subtitle={t('academy.details.map')} />
+              <LocationMapPreview
+                addressLabel={safeText(academy?.address) || locationLabel}
+                mapUrl={mapUrl}
+                onOpenMaps={onOpenMaps}
+                coordinatesLabel={coordinatesLabel}
               />
-
-              <View style={{ marginTop: 16 }}>
-                {courses.map((c, idx) => (
-                  <CourseCard key={c?.id || idx} course={c} i18n={i18n} t={t} />
-                ))}
-              </View>
             </View>
           ) : null}
 
-          {/* Media Section */}
-          {(templateSections.media_ads || templateSections.media_gallery) && (ads.length > 0 || galleryItems.length > 0) ? (
-            <View
-              onLayout={(e) => (sectionsY.current.media = e.nativeEvent.layout.y)}
-              style={{
-                marginBottom: 40,
-                paddingTop: 8,
-              }}
-            >
-              <SectionHeader
-                icon={<ImageIcon size={18} color={colors.accentOrange} />}
-                title={t('service.academy.template.sections.media.title')}
-                subtitle={t('service.academy.template.sections.media.subtitle')}
-                right={
-                  galleryItems.length > 0 ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Badge variant="outline" style={{ marginRight: 8 }}>
-                        <Filter size={12} color={colors.textSecondary} />
-                      </Badge>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ width: 120 }}>
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                          <Pressable onPress={() => setMediaFilter('all')}>
-                            <Text variant="caption" weight={mediaFilter === 'all' ? 'bold' : 'normal'}
-                              style={{ color: mediaFilter === 'all' ? colors.accentOrange : colors.textSecondary }}>
-                              {t('service.academy.template.media.filters.all')}
-                            </Text>
-                          </Pressable>
-                          <Pressable onPress={() => setMediaFilter('team')}>
-                            <Text variant="caption" weight={mediaFilter === 'team' ? 'bold' : 'normal'}
-                              style={{ color: mediaFilter === 'team' ? colors.accentOrange : colors.textSecondary }}>
-                              {t('service.academy.template.media.filters.team')}
-                            </Text>
-                          </Pressable>
-                          <Pressable onPress={() => setMediaFilter('poster')}>
-                            <Text variant="caption" weight={mediaFilter === 'poster' ? 'bold' : 'normal'}
-                              style={{ color: mediaFilter === 'poster' ? colors.accentOrange : colors.textSecondary }}>
-                              {t('service.academy.template.media.filters.posters')}
-                            </Text>
-                          </Pressable>
-                        </View>
-                      </ScrollView>
-                    </View>
-                  ) : null
-                }
-              />
+          <View onLayout={captureSectionY('reviews')} style={styles.sectionBlock}>
+            <SectionHeader
+              title={t('academy.details.reviews')}
+              subtitle={t('academy.details.reviewsCount', { count: reviews.length })}
+            />
+            <ReviewList
+              reviews={reviews}
+              visibleCount={visibleReviewCount}
+              onLoadMore={handleLoadMoreReviews}
+            />
+          </View>
 
-              {ads.length > 0 && (
-                <Card elevation={3} style={[styles.sectionCard, { marginBottom: 24, shadowColor: colors.black }]}>
-                  <View style={styles.sectionCardContent}>
-                    <Text variant="body" weight="medium" style={{ marginBottom: 16, color: colors.textPrimary }}>
-                      {t('service.academy.template.media.adsTitle')}
-                    </Text>
-                    <MediaCarousel items={ads} onOpen={openLightbox} />
-                  </View>
-                </Card>
-              )}
-
-              {galleryItems.length > 0 && (
-                <Card elevation={3} style={[styles.sectionCard, { shadowColor: colors.black }]}>
-                  <View style={styles.sectionCardContent}>
-                    <Text variant="body" weight="medium" style={{ marginBottom: 16, color: colors.textPrimary }}>
-                      {t('service.academy.template.media.galleryTitle')}
-                    </Text>
-                    <GalleryGrid items={galleryItems} onOpen={openLightbox} filter={mediaFilter} />
-                  </View>
-                </Card>
-              )}
-            </View>
-          ) : null}
-
-          {/* Success Story Section */}
-          {templateSections.success_story && successStory ? (
-            <View
-              onLayout={(e) => (sectionsY.current.story = e.nativeEvent.layout.y)}
-              style={{
-                marginBottom: 40,
-                paddingTop: 8,
-              }}
-            >
-              <SuccessStoryCard story={successStory} i18n={i18n} t={t} onOpen={openLightbox} />
-            </View>
-          ) : null}
-
-          {/* Location Section */}
-          {templateSections.location ? (
-            <View
-              onLayout={(e) => (sectionsY.current.location = e.nativeEvent.layout.y)}
-              style={{
-                marginBottom: 40,
-                paddingTop: 8,
-              }}
-            >
-              <SectionHeader
-                icon={<MapPin size={18} color={colors.accentOrange} />}
-                title={t('service.academy.template.sections.location.title')}
-                subtitle={t('service.academy.template.sections.location.subtitle')}
-                right={
-                  mapUrl ? (
-                    <Button
-                      variant="secondary"
-                      size="small"
-                      onPress={onOpenMaps}
-                      leftIcon={<Navigation2 size={16} color={colors.white} />}
-                    >
-                      {t('service.academy.template.location.navigate')}
-                    </Button>
-                  ) : null
-                }
-              />
-
-              <Card elevation={3} style={[styles.sectionCard, { shadowColor: colors.black }]}>
-                <View style={styles.sectionCardContent}>
-                  <View style={styles.locationRow}>
-                    <LinearGradient
-                      colors={[
-                        alphaHex(colors.accentOrange, isDark ? '33' : '26'),
-                        alphaHex(colors.accentOrange, isDark ? '1A' : '0D'),
-                      ]}
-                      style={styles.locationBadge}
-                    >
-                      <MapPin size={22} color={colors.accentOrange} />
-                    </LinearGradient>
-                    <View style={{ flex: 1 }}>
-                      <Text weight="bold" style={{ marginBottom: 4, fontSize: 16, color: colors.textPrimary }}>
-                        {safeText(academy?.address) || t('service.academy.template.location.addressEmpty')}
-                      </Text>
-                      <Text variant="bodySmall" color={colors.textSecondary}>
-                        {safeText(academy?.city)}{safeText(academy?.country) ? `, ${safeText(academy?.country)}` : ''}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {academy?.lat != null && academy?.lng != null ? (
-                    <View style={[styles.inlineRow, { marginTop: 16 }]}>
-                      <Compass size={16} color={colors.textSecondary} />
-                      <Text variant="caption" color={colors.textSecondary} style={{ marginLeft: 8 }}>
-                        {Number(academy.lat).toFixed(6)}, {Number(academy.lng).toFixed(6)}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {academy?.has_facilities_booking ? (
-                    <View style={[styles.inlineRow, { marginTop: 16 }]}>
-                      <CheckCircle2 size={18} color={colors.success} />
-                      <Text variant="bodySmall" style={{ marginLeft: 8, color: colors.success }}>
-                        {t('service.academy.template.location.facilitiesBooking')}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {mapUrl && (
-                    <Button
-                      variant="outline"
-                      onPress={onOpenMaps}
-                      leftIcon={<Navigation2 size={16} color={colors.accentOrange} />}
-                      style={{ marginTop: 20 }}
-                    >
-                      {t('service.academy.template.location.getDirections')}
-                    </Button>
-                  )}
-                </View>
-              </Card>
-            </View>
-          ) : null}
-
-          {/* Contact Section */}
-          {(templateSections.contact_or_join || contactPhones.length > 0 || academy?.contact_email) ? (
-            <View
-              onLayout={(e) => (sectionsY.current.contact = e.nativeEvent.layout.y)}
-              style={{
-                marginBottom: 40,
-                paddingTop: 8,
-              }}
-            >
-              <SectionHeader
-                icon={<Mail size={18} color={colors.accentOrange} />}
-                title={t('service.academy.template.sections.contact.title')}
-                subtitle={t('service.academy.template.sections.contact.subtitle')}
-              />
-
-              <Card elevation={3} style={[styles.sectionCard, { shadowColor: colors.black }]}>
-                <View style={styles.sectionCardContent}>
-                  <Button
-                    onPress={onPrimary}
-                    leftIcon={academy?.registration_open ? 'person-add' : 'mail'}
-                    style={{ marginBottom: 20 }}
+          {similarAcademies.length ? (
+            <View style={styles.sectionBlock}>
+              <SectionHeader title={t('academy.details.similarAcademies')} />
+              <FlatList
+                horizontal
+                data={similarAcademies}
+                keyExtractor={(item) => item.id}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.similarList}
+                renderItem={({ item }) => (
+                  <Pressable
+                    onPress={() => onOpenSimilar(item)}
+                    style={({ pressed }) => [
+                      styles.similarCard,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.surface,
+                        opacity: pressed ? 0.9 : 1,
+                      },
+                    ]}
                   >
-                    {academy?.registration_open
-                      ? t('service.academy.template.contact.registerNow')
-                      : t('service.academy.template.contact.contactAcademy')}
-                  </Button>
-
-                  <View style={{ gap: 16 }}>
-                    {contactPhones.length > 0 ? (
-                      <Pressable
-                        onPress={onCall}
-                        style={({ pressed }) => [
-                          styles.contactRow,
-                          { opacity: pressed ? 0.88 : 1, backgroundColor: alphaHex(colors.textPrimary, isDark ? '0D' : '05') },
-                        ]}
-                      >
-                        <View
-                          style={[
-                            styles.contactIcon,
-                            { backgroundColor: alphaHex(colors.success, isDark ? '24' : '1F') },
-                          ]}
-                        >
-                          <Phone size={20} color={colors.success} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text weight="medium" style={{ color: colors.textPrimary }}>{t('service.academy.template.contact.call')}</Text>
-                          <Text variant="bodySmall" color={colors.textSecondary}>
-                            {safeText(contactPhones[0])}
-                            {contactPhones.length > 1 &&
-                              ` ${t('service.academy.template.contact.morePhones', {
-                                count: contactPhones.length - 1,
-                              })}`}
-                          </Text>
-                        </View>
-                        <Navigation2 size={18} color={colors.textSecondary} />
-                      </Pressable>
-                    ) : null}
-
-                    {academy?.contact_email ? (
-                      <Pressable
-                        onPress={onEmail}
-                        style={({ pressed }) => [
-                          styles.contactRow,
-                          { opacity: pressed ? 0.88 : 1, backgroundColor: alphaHex(colors.textPrimary, isDark ? '0D' : '05') },
-                        ]}
-                      >
-                        <View
-                          style={[
-                            styles.contactIcon,
-                            { backgroundColor: alphaHex(colors.accentOrange, isDark ? '24' : '1F') },
-                          ]}
-                        >
-                          <Mail size={20} color={colors.accentOrange} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text weight="medium" style={{ color: colors.textPrimary }}>{t('service.academy.template.contact.email')}</Text>
-                          <Text variant="bodySmall" color={colors.textSecondary}>
-                            {safeText(academy.contact_email)}
-                          </Text>
-                        </View>
-                        <Navigation2 size={18} color={colors.textSecondary} />
-                      </Pressable>
-                    ) : null}
-                  </View>
-                </View>
-              </Card>
+                    <SmartImage source={item.cover ? { uri: item.cover } : null} style={styles.similarImage} borderRadius={14} showLoader={false} />
+                    <Text
+                      variant="bodySmall"
+                      weight="bold"
+                      numberOfLines={1}
+                      style={{ color: colors.textPrimary, marginTop: 8 }}
+                    >
+                      {getLocalized(locale, item.nameEn, item.nameAr) || t('academy.details.title')}
+                    </Text>
+                    <Text variant="caption" color={colors.textSecondary} numberOfLines={1}>
+                      {[item.city, item.country].filter(Boolean).join(', ') || t('academy.details.notAvailable')}
+                    </Text>
+                  </Pressable>
+                )}
+              />
             </View>
           ) : null}
-        </View>
-      </ScrollView>
 
-      {/* Floating CTA */}
-      <Animated.View
-        style={[
-          styles.fabWrap,
-          {
-            opacity: scrollY.interpolate({
-              inputRange: [0, 80],
-              outputRange: [0, 1],
-              extrapolate: 'clamp',
-            }),
-            transform: [
-              {
-                translateY: scrollY.interpolate({
-                  inputRange: [0, 80],
-                  outputRange: [14, 0],
-                  extrapolate: 'clamp',
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <View style={[styles.fabShadow, { shadowColor: colors.black }]}>
-          <LinearGradient
-            colors={[colors.accentOrange, alphaHex(colors.accentOrange, 'B3')]}
-            start={{ x: 0.0, y: 0.2 }}
-            end={{ x: 1.0, y: 0.8 }}
-            style={styles.fabGradient}
-          />
-          <Button
-            onPress={onPrimary}
-            size="large"
-            leftIcon={academy?.registration_open ? 'person-add' : 'chatbubble'}
-            style={[styles.fabBtn, { backgroundColor: alphaHex(colors.accentOrange, '00') }]}
-          >
-            {academy?.registration_open
-              ? t('service.academy.template.cta.joinNow')
-              : t('service.academy.template.cta.contact')}
-          </Button>
-        </View>
-      </Animated.View>
+          <View onLayout={captureSectionY('contact')} style={styles.sectionBlock}>
+            <SectionHeader title={t('academy.details.contact')} />
+            <Card style={styles.sectionCard}>
+              <View style={[styles.contactButtons, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Button
+                  variant="secondary"
+                  onPress={onCall}
+                  disabled={!contactPhones.length}
+                  style={styles.contactBtn}
+                >
+                  {t('academy.details.call')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={onEmail}
+                  disabled={!safeText(academy?.contact_email)}
+                  style={styles.contactBtn}
+                >
+                  {t('academy.details.email')}
+                </Button>
+              </View>
 
-      {/* Media Lightbox Modal */}
+              {contactPhones.length ? (
+                <View style={[styles.inlineRow, { marginTop: 10, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Phone size={14} color={colors.textSecondary} />
+                  <Text variant="caption" color={colors.textSecondary} style={{ marginHorizontal: 8 }}>
+                    {safeText(contactPhones[0])}
+                  </Text>
+                </View>
+              ) : null}
+
+              {academy?.contact_email ? (
+                <View style={[styles.inlineRow, { marginTop: 6, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Mail size={14} color={colors.textSecondary} />
+                  <Text variant="caption" color={colors.textSecondary} style={{ marginHorizontal: 8 }}>
+                    {safeText(academy.contact_email)}
+                  </Text>
+                </View>
+              ) : null}
+            </Card>
+          </View>
+        </Animated.View>
+      </Animated.ScrollView>
+
+      <ActionsFooter
+        onBookNow={onBookNow}
+        onJoin={onJoin}
+        onShare={onShare}
+        onToggleFavorite={onToggleFavorite}
+        isFavorite={isFavorite}
+        canBook={canBookNow}
+        joinLabel={registrationOpen ? t('academy.details.joinAcademy') : t('academy.details.contact')}
+        insetsBottom={insets.bottom}
+      />
+
       <Modal
         visible={lightboxVisible}
         transparent
         animationType="fade"
-        onRequestClose={closeLightbox}
+        onRequestClose={onCloseMediaPreview}
       >
-        <View style={[styles.lightboxContainer, { backgroundColor: alphaHex(colors.black, 'E6') }]}>
-          <BlurView intensity={80} style={StyleSheet.absoluteFill} />
-          <Pressable style={StyleSheet.absoluteFill} onPress={closeLightbox} />
-
-          <View style={[styles.lightboxContent, { backgroundColor: alphaHex(colors.surface, 'F2') }]}>
-            <View style={styles.lightboxHeader}>
-              <Text variant="h4" weight="bold" style={{ color: colors.white }} numberOfLines={2}>
-                {lightboxItem?.caption_en || lightboxItem?.caption_ar || t('service.academy.template.media.preview')}
+        <View style={[styles.lightboxOuter, { backgroundColor: alphaHex(colors.black, 'D9') }]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={onCloseMediaPreview} />
+          <View style={[styles.lightboxCard, { backgroundColor: colors.surface }]}>
+            <View style={[styles.lightboxHead, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text variant="bodySmall" weight="bold" numberOfLines={2} style={{ color: colors.textPrimary, flex: 1 }}>
+                {mediaPreview?.caption || t('academy.details.images')}
               </Text>
-              <Pressable onPress={closeLightbox} style={[styles.lightboxClose, { backgroundColor: alphaHex(colors.white, '1A') }]}>
-                <X size={24} color={colors.white} />
+              <Pressable
+                onPress={onCloseMediaPreview}
+                style={({ pressed }) => [
+                  styles.lightboxClose,
+                  {
+                    backgroundColor: alphaHex(colors.textPrimary, '12'),
+                    opacity: pressed ? 0.84 : 1,
+                  },
+                ]}
+              >
+                <X size={20} color={colors.textPrimary} />
               </Pressable>
             </View>
-
-            {lightboxSrc ? (
-              <Image
-                source={{ uri: lightboxSrc }}
-                style={styles.lightboxImage}
-                resizeMode="contain"
-              />
-            ) : (
-              <View style={styles.lightboxFallback}>
-                <ImageIcon size={48} color={colors.white} />
-                <Text variant="body" style={{ color: colors.white, marginTop: 16 }}>
-                  {t('service.academy.template.media.noPreview')}
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.lightboxActions}>
-              <Button variant="secondary" onPress={closeLightbox} style={{ flex: 1 }}>
-                {t('service.academy.common.close')}
-              </Button>
-            </View>
+            <SmartImage
+              source={mediaPreview?.source}
+              style={styles.lightboxImageWrap}
+              imageStyle={styles.lightboxImage}
+              borderRadius={16}
+              showLoader={false}
+            />
           </View>
         </View>
       </Modal>
@@ -1794,506 +1677,406 @@ export function AcademyTemplateScreen({ slug }) {
 }
 
 const styles = StyleSheet.create({
-  // Header
+  fallbackHeader: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+  },
   topBar: {
     position: 'absolute',
-    top: 0,
     left: 0,
     right: 0,
-    zIndex: 1000,
+    zIndex: 30,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  topBarInner: {
-    height: HEADER_H,
-    paddingHorizontal: PADDING_X,
-    paddingTop: Platform.OS === 'ios' ? 10 : 10,
-    flexDirection: 'row',
+  topBarRow: {
     alignItems: 'center',
+    minHeight: 56,
+    paddingHorizontal: H_PADDING,
   },
-  topIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+  topBarBack: {
+    marginHorizontal: -spacing.sm,
+  },
+  topBarTitleWrap: {
+    flex: 1,
+    marginHorizontal: spacing.sm,
+  },
+  topBarAction: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // Hero
-  heroWrap: {
-    height: HERO_H,
+  heroShell: {
+    height: HERO_HEIGHT,
     overflow: 'hidden',
   },
   heroMedia: {
     ...StyleSheet.absoluteFillObject,
   },
-  heroImg: {
+  heroImage: {
     width: '100%',
     height: '100%',
   },
-  heroContent: {
+  heroFallback: {
     ...StyleSheet.absoluteFillObject,
-    paddingTop: HEADER_H + 12,
-    paddingBottom: 18,
-    paddingHorizontal: PADDING_X,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    paddingHorizontal: H_PADDING,
     justifyContent: 'space-between',
+    paddingBottom: spacing.lg,
   },
   heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  badgeRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
   },
-  badgeText: {
-    marginLeft: 6,
-  },
-  heroActionBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 18,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  heroTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    marginTop: 8,
-  },
-  logoBox: {
-    width: 74,
-    height: 74,
-    borderRadius: 24,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-  },
-  logoImg: {
-    width: '82%',
-    height: '82%',
-  },
-  heroTitle: {
-    fontSize: 28,
-    letterSpacing: -0.6,
-    lineHeight: 34,
-  },
-  heroSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    gap: 6,
-  },
-  heroSub: {
-  },
-  statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginTop: 8,
-  },
-
-  // Features
-  featureRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 14,
-  },
-  heroCtaRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 18,
-  },
-  featurePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 18,
-    flex: 1,
-    minWidth: '46%',
-  },
-  featurePillIcon: {
-    width: 36,
-    height: 36,
+  heroTopIcon: {
+    width: 44,
+    height: 44,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
-
-  // Navigation
-  navChip: {
-    flexDirection: 'row',
+  heroBottomContent: {
+    gap: spacing.md,
+  },
+  heroIdentityRow: {
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 22,
-    borderWidth: 1,
-    marginRight: 12,
-    marginTop: 14,
+    gap: spacing.sm,
   },
-
-  // Sections
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  sectionIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 16,
+  heroLogoWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 18,
+    borderWidth: 1.2,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-    borderWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
-  sectionCard: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.10,
-    shadowRadius: 14,
-    elevation: 6,
-  },
-  sectionCardContent: {
-    padding: 22,
-  },
-
-  // About
-  aboutMeta: {
-    marginTop: 20,
-    gap: 12,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  websiteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  languagesSection: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-  },
-
-  // Sports & Stats
-  sportsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    justifyContent: 'space-around',
-  },
-  sportItem: {
-    alignItems: 'center',
-    width: '30%',
-    minWidth: 100,
-    paddingVertical: 6,
-  },
-  sportIcon: {
-    width: 62,
-    height: 62,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    justifyContent: 'space-between',
-  },
-  statItem: {
-    alignItems: 'center',
-    minWidth: '22%',
-    padding: 12,
-    borderRadius: 16,
-  },
-
-  // Courses
-  courseCard: {
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  courseCardInner: {
-    overflow: 'hidden',
-    borderRadius: 24,
-  },
-  courseImageContainer: {
-    height: 180,
-    position: 'relative',
-  },
-  courseImage: {
+  heroLogo: {
     width: '100%',
     height: '100%',
   },
-  courseImageOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  heroLogoImage: {
+    width: '76%',
+    height: '76%',
+    marginLeft: '12%',
+    marginTop: '12%',
   },
-  featuredBadge: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
+  heroRatingPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: borderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  heroStatusRow: {
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  heroStatusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  courseContent: {
-    padding: 16,
-  },
-  courseHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  courseMeta: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 10,
-    flexWrap: 'wrap',
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  courseSection: {
-    marginBottom: 16,
-  },
-  coachChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  scheduleItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-  },
-
-  // Media
-  carouselContainer: {
-    marginBottom: 16,
-  },
-  carouselImageContainer: {
-    height: 200,
-    borderRadius: 16,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  carouselImage: {
-    width: '100%',
-    height: '100%',
-  },
-  carouselFallback: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
+  tabsSticky: {
+    minHeight: TABS_STICKY_HEIGHT,
     justifyContent: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  carouselOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  tabsContent: {
+    paddingHorizontal: H_PADDING,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
-  carouselControls: {
+  tabChip: {
+    marginHorizontal: spacing.xs,
+  },
+  content: {
+    paddingHorizontal: H_PADDING,
+    paddingTop: spacing.lg,
+    gap: spacing['2xl'],
+  },
+  sectionBlock: {
+    gap: spacing.md,
+  },
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 12,
   },
-  carouselButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+  sectionHeaderRight: {
+    marginLeft: spacing.sm,
   },
-  carouselDots: {
+  sectionCard: {
+    borderRadius: 22,
+    padding: spacing.lg,
+  },
+  websiteRow: {
+    marginTop: spacing.md,
+    alignSelf: 'flex-start',
+    borderRadius: 12,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  carouselDot: {
-    height: 8,
-    borderRadius: 4,
-  },
-  galleryGrid: {
+  infoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
-  galleryItem: {
+  infoCard: {
     width: '48%',
-    aspectRatio: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-    position: 'relative',
+    minHeight: 108,
+    borderRadius: 18,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    justifyContent: 'space-between',
   },
-  galleryImage: {
-    width: '100%',
-    height: '100%',
-  },
-  galleryFallback: {
-    width: '100%',
-    height: '100%',
+  infoIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 8,
   },
-  galleryOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  galleryCaption: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    right: 8,
-  },
-  emptyGallery: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-  },
-
-  // Success Story
-  successStoryCard: {
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  successStoryContent: {
-    padding: 20,
-  },
-  successStoryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  storyImage: {
-    width: '100%',
-    height: 120,
-    borderRadius: 12,
-  },
-  storyImageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 12,
-  },
-
-  // Location
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  locationBadge: {
-    width: 52,
-    height: 52,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
+  trustRows: {
+    gap: spacing.sm,
   },
   inlineRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-
-  // Contact
-  contactRow: {
+  sportChips: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 18,
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
-  contactIcon: {
-    width: 46,
-    height: 46,
+  sportBadge: {
+    marginRight: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  secondaryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  secondaryCard: {
+    width: '48%',
     borderRadius: 16,
+    padding: spacing.md,
+  },
+  courseCard: {
+    borderRadius: 16,
+    padding: spacing.md,
+  },
+  scheduleCard: {
+    borderRadius: 16,
+    padding: spacing.md,
+  },
+  galleryListContent: {
+    paddingRight: H_PADDING,
+    gap: spacing.sm,
+  },
+  galleryCard: {
+    width: Math.round(SCREEN_WIDTH * 0.64),
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  galleryImageWrap: {
+    width: '100%',
+    height: 190,
+  },
+  galleryImage: {
+    width: '100%',
+    height: '100%',
+  },
+  galleryImageFallback: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
   },
-  heroVignette: {
+  galleryImageOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.10)',
   },
-
-  // Floating CTA
-  fabWrap: {
+  galleryCaption: {
     position: 'absolute',
-    left: PADDING_X,
-    right: PADDING_X,
-    bottom: 22,
-    zIndex: 2000,
+    bottom: 10,
+    left: 10,
+    right: 10,
+    color: '#FFFFFF',
   },
-  fabShadow: {
-    borderRadius: 26,
+  emptyCard: {
+    borderRadius: 16,
+    padding: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 120,
+  },
+  mapPreview: {
+    borderWidth: 1,
+    borderRadius: 20,
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.22,
-    shadowRadius: 16,
-    elevation: 10,
   },
-  fabGradient: {
-    ...StyleSheet.absoluteFillObject,
+  mapArt: {
+    height: 110,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  fabBtn: {
+  mapPinBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-
-  // Lightbox
-  lightboxContainer: {
+  mapBody: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  mapActionWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+  },
+  reviewCard: {
+    borderRadius: 16,
+    padding: spacing.md,
+  },
+  reviewHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  reviewAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  reviewStars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 4,
+  },
+  similarList: {
+    paddingRight: H_PADDING,
+    gap: spacing.sm,
+  },
+  similarCard: {
+    width: Math.round(SCREEN_WIDTH * 0.52),
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: spacing.sm,
+  },
+  similarImage: {
+    width: '100%',
+    height: 118,
+  },
+  contactButtons: {
+    gap: spacing.sm,
+  },
+  contactBtn: {
+    flex: 1,
+  },
+  footerOuter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: H_PADDING,
+    zIndex: 20,
+  },
+  footerCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    overflow: 'hidden',
+    paddingTop: spacing.sm,
+  },
+  footerInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    minHeight: FOOTER_HEIGHT,
+  },
+  footerIconGroup: {
+    gap: spacing.xs,
+  },
+  footerIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerButtons: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  footerBtn: {
+    flex: 1,
+    minHeight: 44,
+  },
+  lightboxOuter: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: spacing.lg,
   },
-  lightboxContent: {
-    width: '90%',
-    maxHeight: '80%',
-    borderRadius: 24,
-    overflow: 'hidden',
-    padding: 20,
+  lightboxCard: {
+    width: '100%',
+    maxWidth: 520,
+    borderRadius: 22,
+    padding: spacing.md,
   },
-  lightboxHeader: {
-    flexDirection: 'row',
+  lightboxHead: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
   },
   lightboxClose: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: spacing.sm,
+  },
+  lightboxImageWrap: {
+    width: '100%',
+    height: 320,
   },
   lightboxImage: {
     width: '100%',
-    height: 300,
-    borderRadius: 12,
+    height: '100%',
   },
-  lightboxFallback: {
-    height: 300,
-    alignItems: 'center',
-    justifyContent: 'center',
+  skeletonContainer: {
+    flex: 1,
   },
-  lightboxActions: {
-    marginTop: 20,
+  skeletonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing.sm,
   },
 });

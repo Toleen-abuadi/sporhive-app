@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AcademyDiscoveryScreen } from './AcademyDiscoveryScreen';
 import { View, StyleSheet, Platform } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRouter } from 'expo-router';
@@ -8,6 +7,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
 import { endpoints } from '../services/api/endpoints';
 import { API_BASE_URL } from '../services/api/client';
+import { useSmartBack } from '../navigation/useSmartBack';
 
 import { Screen } from '../components/ui/Screen';
 import { AppHeader } from '../components/ui/AppHeader';
@@ -20,7 +20,7 @@ import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ErrorState } from '../components/ui/ErrorState';
 
-import { MapPin, X, Filter, Navigation } from 'lucide-react-native';
+import { MapPin, X, Filter } from 'lucide-react-native';
 import { spacing, borderRadius } from '../theme/tokens';
 
 function safeText(v) {
@@ -44,6 +44,7 @@ function academyImageUrl(base, slug, kind) {
 
 export function AcademyMapScreen() {
   const router = useRouter();
+  const { goBack } = useSmartBack();
   const { colors, isDark } = useTheme();
   const { t } = useI18n();
 
@@ -154,7 +155,7 @@ export function AcademyMapScreen() {
         <AppHeader
           title={t('academies.map.title', 'Academies map')}
           subtitle={t('academies.map.subtitle', 'Explore nearby academies and open the template in one tap.')}
-          leftAction={{ icon: <Navigation size={20} color={colors.textPrimary} />, onPress: () => router.back() }}
+          onBackPress={goBack}
           rightAction={{
             icon: <Filter size={20} color={colors.textPrimary} />,
             onPress: () => setFiltersOpen(true),

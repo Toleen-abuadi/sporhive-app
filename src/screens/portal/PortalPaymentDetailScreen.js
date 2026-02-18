@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { AppScreen } from '../../components/ui/AppScreen';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { Card } from '../../components/ui/Card';
@@ -20,6 +20,7 @@ import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playe
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { useToast } from '../../components/ui/ToastHost';
 import { spacing } from '../../theme/tokens';
+import { useSmartBack } from '../../navigation/useSmartBack';
 
 const stepIndexForStatus = (status) => {
   const normalized = String(status || '').toLowerCase();
@@ -31,7 +32,7 @@ const stepIndexForStatus = (status) => {
 
 export function PortalPaymentDetailScreen() {
   const { invoiceId } = useLocalSearchParams();
-  const router = useRouter();
+  const { goBack } = useSmartBack({ fallbackRoute: '/portal/home' });
   const { colors } = useTheme();
   const { t } = useI18n();
   const toast = useToast();
@@ -51,8 +52,8 @@ export function PortalPaymentDetailScreen() {
   if (!payment) {
     return (
       <AppScreen safe>
-        <AppHeader title={t('portal.payments.detailTitle')} onBackPress={() => router.back()} />
-        <EmptyState title={t('portal.payments.detailMissingTitle')} message={t('portal.payments.detailMissingDescription')} actionLabel={t('portal.common.back')} onAction={() => router.back()} />
+        <AppHeader title={t('portal.payments.detailTitle')} onBackPress={goBack} />
+        <EmptyState title={t('portal.payments.detailMissingTitle')} message={t('portal.payments.detailMissingDescription')} actionLabel={t('portal.common.back')} onAction={goBack} />
       </AppScreen>
     );
   }

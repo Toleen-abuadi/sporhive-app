@@ -6,7 +6,39 @@
   "scripts": {
     "dev": "cross-env EXPO_NO_TELEMETRY=1 expo start",
     "build:web": "expo export --platform web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "check:i18n": "node scripts/check-i18n.js",
+        "check:types": "tsc --noEmit",
+    "check:lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "check:format": "prettier --check .",
+    "check:unused": "ts-prune",
+    "check:deps": "depcheck",
+
+    "check:i18n": "node scripts/check-i18n.js",
+    "check:i18n:missing": "node scripts/check-i18n-missing.js",
+    "check:i18n:variables": "node scripts/check-i18n-vars.js",
+    "check:i18n:rtl": "node scripts/check-hardcoded-strings.js",
+
+    "check:navigation": "node scripts/check-navigation.js",
+    "check:replace-usage": "grep -R \"router.replace\" ./src",
+    "check:dead-routes": "node scripts/check-dead-routes.js",
+
+    "check:safe-area": "grep -R \"SafeAreaView\" ./src",
+    "check:scroll": "grep -R \"ScrollView\" ./src",
+    "check:keyboard": "grep -R \"KeyboardAvoidingView\" ./src",
+
+    "check:images": "grep -R \"<Image\" ./src",
+    "check:cover": "node scripts/check-images-cover.js",
+
+    "check:rerenders": "node scripts/check-rerenders.js",
+    "check:memo": "grep -R \"React.memo\" ./src",
+    "check:callbacks": "node scripts/check-inline-callbacks.js",
+
+    "check:tokens": "grep -R \"token\" ./src",
+    "check:console": "grep -R \"console.log\" ./src",
+    "check:env": "node scripts/check-env.js",
+
+    "check:all": "npm run check:types && npm run check:lint && npm run check:i18n && npm run check:navigation && npm run check:images"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

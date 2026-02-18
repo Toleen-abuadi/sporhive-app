@@ -13,7 +13,7 @@ export const SERVICE_DEFINITIONS = [
     descriptionKey: 'home.portalCard.description',
     icon: 'user',
     colorKey: 'info',
-    href: '/portal/(tabs)/home',
+    href: '/portal/home',
     requiresPlayer: true,
   },
   {

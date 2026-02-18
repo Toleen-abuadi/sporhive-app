@@ -25,6 +25,7 @@ import { authApi } from '../../services/auth/auth.api';
 import { resolveAuthErrorMessage } from '../../services/auth/auth.errors';
 import { useAuth } from '../../services/auth/auth.store';
 import { borderRadius, spacing } from '../../theme/tokens';
+import { useSmartBack } from '../../navigation/useSmartBack';
 
 const STEPS = { IDENTIFY: 1, OTP: 2, FINAL: 3 };
 const MODES = { PUBLIC: 'public', PLAYER: 'player' };
@@ -33,6 +34,7 @@ export function ResetPasswordScreen() {
   const { colors, isDark } = useTheme();
   const { t, isRTL } = useTranslation();
   const router = useRouter();
+  const { goBack } = useSmartBack();
   const toast = useToast();
   const params = useLocalSearchParams();
   const { lastSelectedAcademyId, setLastSelectedAcademyId } = useAuth();
@@ -288,7 +290,7 @@ export function ResetPasswordScreen() {
         >
           <View style={styles.header}>
             <Pressable
-              onPress={() => router.back()}
+              onPress={goBack}
               style={[styles.backRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
             >
               <Feather

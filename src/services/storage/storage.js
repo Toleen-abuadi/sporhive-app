@@ -46,6 +46,8 @@ const DEBUG_STORAGE = __DEV__;
 const DEBUG_KEYS = new Set([
   APP_STORAGE_KEYS.LAST_ACADEMY_ID,
   APP_STORAGE_KEYS.AUTH_SESSION,
+  APP_STORAGE_KEYS.WELCOME_SEEN,
+  APP_STORAGE_KEYS.ENTRY_MODE,
   PORTAL_KEYS.ACADEMY_ID,
 ]);
 
@@ -448,6 +450,7 @@ const normalizeWelcomeSeen = (value) => {
 export async function setEntryMode(mode) {
   const normalized = normalizeEntryMode(mode);
   if (!normalized) return;
+  if (__DEV__) dbg('[onboarding] setEntryMode', normalized);
   await storage.setItem(APP_STORAGE_KEYS.ENTRY_MODE, normalized);
 }
 
@@ -461,12 +464,26 @@ export async function clearEntryMode() {
 }
 
 export async function setWelcomeSeen(value = true) {
-  await storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, value ? '1' : '0');
+  const normalized = Boolean(value);
+  if (__DEV__) dbg('[onboarding] setWelcomeSeen', normalized);
+  await storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, normalized);
+}
+
+export async function getWelcomeSeenState() {
+  const value = await storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN);
+  const normalized = value == null ? null : normalizeWelcomeSeen(value);
+  if (__DEV__) {
+    dbg('[onboarding] getWelcomeSeenState', {
+      raw: value,
+      normalized,
+    });
+  }
+  return normalized;
 }
 
 export async function getWelcomeSeen() {
-  const value = await storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN);
-  return normalizeWelcomeSeen(value);
+  const normalized = await getWelcomeSeenState();
+  return normalized === true;
 }
 
 export async function clearWelcomeSeen() {

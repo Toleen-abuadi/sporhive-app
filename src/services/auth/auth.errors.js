@@ -32,6 +32,14 @@ const flattenErrorTexts = (obj) => {
 export const resolveAuthErrorMessage = (error, t, fallbackKey = 'auth.errors.generic') => {
   if (!error) return t(fallbackKey);
 
+  // Print exact API response for debugging
+  try {
+    if (error?.response) console.error('API response:', error.response);
+    else console.error('API error:', error);
+  } catch (e) {
+    console.error('Failed to print API response', e);
+  }
+
   const status = error instanceof ApiError ? error.statusCode : error?.statusCode;
   const code = error instanceof ApiError ? error.code : error?.code;
 

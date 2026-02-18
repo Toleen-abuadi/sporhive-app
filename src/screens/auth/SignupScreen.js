@@ -200,7 +200,7 @@ export function SignupScreen() {
               {t('auth.signup.cta')}
             </Button>
 
-            <Pressable onPress={() => router.replace('/(auth)/login')}>
+            <Pressable onPress={() => router.push('/(auth)/login')}>
               <Text
                 variant="bodySmall"
                 color={colors.textSecondary}

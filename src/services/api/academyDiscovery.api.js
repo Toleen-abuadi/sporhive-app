@@ -1,4 +1,10 @@
 import { endpoints } from './endpoints';
+import {
+  FILTER_LIMITS,
+  getPrimaryApiSport,
+  normalizeDiscoveryFilters,
+  normalizeDiscoverySort,
+} from '../academyDiscovery/discoveryFilters';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -19,28 +25,50 @@ const normalizeTemplateResponse = (res) => {
   const data = res?.data || res || null;
   if (!data) return null;
   return {
+    ...data,
     academy: data?.academy || null,
     template_sections: data?.template_sections || {},
     courses: Array.isArray(data?.courses) ? data.courses : [],
     media_by_type: data?.media_by_type || {},
     success_story: data?.success_story || null,
+    reviews: Array.isArray(data?.reviews) ? data.reviews : [],
+    academy_reviews: Array.isArray(data?.academy_reviews) ? data.academy_reviews : [],
+    similar_academies: Array.isArray(data?.similar_academies) ? data.similar_academies : [],
+    facilities: Array.isArray(data?.facilities) ? data.facilities : [],
   };
 };
 
-const buildListPayload = ({ filters = {}, query = '', page = 1, pageSize = DEFAULT_PAGE_SIZE, coords } = {}) => {
-  const age = filters?.age;
-  const normalizedAge = age === null || age === undefined || age === '' ? undefined : Number(age);
+const pickAgeQueryValue = (filters) => {
+  const ageMin = Number(filters?.ageMin);
+  const ageMax = Number(filters?.ageMax);
+  if (!Number.isFinite(ageMin) || !Number.isFinite(ageMax)) return undefined;
+
+  if (ageMin === FILTER_LIMITS.age.min && ageMax === FILTER_LIMITS.age.max) return undefined;
+  return Math.round((ageMin + ageMax) / 2);
+};
+
+const buildListPayload = ({
+  filters = {},
+  sort,
+  query = '',
+  page = 1,
+  pageSize = DEFAULT_PAGE_SIZE,
+  coords,
+} = {}) => {
+  const normalizedFilters = normalizeDiscoveryFilters(filters);
+  const normalizedSort = normalizeDiscoverySort(sort);
+
   const payload = {
     q: query || '',
-    age: Number.isFinite(normalizedAge) ? normalizedAge : undefined,
-    registration_enabled: filters.registrationEnabled ? true : undefined,
-    is_pro: filters.proOnly ? true : undefined,
-    sort: filters.sort || 'recommended',
+    age: pickAgeQueryValue(normalizedFilters),
+    registration_enabled: normalizedFilters.registrationOpen ? true : undefined,
+    sort: normalizedSort,
+    sport: getPrimaryApiSport(normalizedFilters.sports),
     page,
     page_size: pageSize,
   };
 
-  if (filters.sort === 'nearest' && coords?.lat && coords?.lng) {
+  if (normalizedSort === 'nearest' && coords?.lat && coords?.lng) {
     payload.lat = coords.lat;
     payload.lng = coords.lng;
   }
@@ -48,18 +76,19 @@ const buildListPayload = ({ filters = {}, query = '', page = 1, pageSize = DEFAU
   return payload;
 };
 
-const buildMapPayload = ({ filters = {}, query = '', coords } = {}) => {
-  const age = filters?.age;
-  const normalizedAge = age === null || age === undefined || age === '' ? undefined : Number(age);
+const buildMapPayload = ({ filters = {}, sort, query = '', coords } = {}) => {
+  const normalizedFilters = normalizeDiscoveryFilters(filters);
+  const normalizedSort = normalizeDiscoverySort(sort);
+
   const payload = {
     q: query || '',
-    age: Number.isFinite(normalizedAge) ? normalizedAge : undefined,
-    registration_enabled: filters.registrationEnabled ? true : undefined,
-    is_pro: filters.proOnly ? true : undefined,
-    sort: filters.sort || 'recommended',
+    age: pickAgeQueryValue(normalizedFilters),
+    registration_enabled: normalizedFilters.registrationOpen ? true : undefined,
+    sort: normalizedSort,
+    sport: getPrimaryApiSport(normalizedFilters.sports),
   };
 
-  if (filters.sort === 'nearest' && coords?.lat && coords?.lng) {
+  if (normalizedSort === 'nearest' && coords?.lat && coords?.lng) {
     payload.lat = coords.lat;
     payload.lng = coords.lng;
   }
@@ -75,18 +104,18 @@ const normalizeError = (error) => {
 };
 
 export const academyDiscoveryApi = {
-  async listAcademies({ filters, query, page, pageSize, coords } = {}) {
+  async listAcademies({ filters, sort, query, page, pageSize, coords } = {}) {
     try {
-      const payload = buildListPayload({ filters, query, page, pageSize, coords });
+      const payload = buildListPayload({ filters, sort, query, page, pageSize, coords });
       const res = await endpoints.publicAcademies.list(payload);
       return normalizeListResponse(res);
     } catch (error) {
       throw normalizeError(error);
     }
   },
-  async listMapAcademies({ filters, query, coords } = {}) {
+  async listMapAcademies({ filters, sort, query, coords } = {}) {
     try {
-      const payload = buildMapPayload({ filters, query, coords });
+      const payload = buildMapPayload({ filters, sort, query, coords });
       const res = await endpoints.publicAcademies.map(payload);
       return normalizeListResponse(res);
     } catch (error) {
@@ -102,9 +131,10 @@ export const academyDiscoveryApi = {
       throw normalizeError(error);
     }
   },
-  async listActivities({ filters, query, coords } = {}) {
+  async listActivities({ filters, sort, query, coords } = {}) {
     const res = await academyDiscoveryApi.listAcademies({
       filters,
+      sort,
       query,
       page: 1,
       pageSize: 50,
@@ -120,9 +150,10 @@ export const academyDiscoveryApi = {
     });
     return Array.from(set);
   },
-  async listCities({ filters, query, coords } = {}) {
+  async listCities({ filters, sort, query, coords } = {}) {
     const res = await academyDiscoveryApi.listAcademies({
       filters,
+      sort,
       query,
       page: 1,
       pageSize: 50,
@@ -139,12 +170,15 @@ export const academyDiscoveryApi = {
 };
 
 export const academyDiscoveryFilters = {
-  supportsDistance: false,
+  supportsDistance: true,
   supportsRating: false,
-  supportsPriceRange: false,
+  supportsPriceRange: true,
   supportsOpenRegistration: true,
   supportsSort: true,
   supportsAge: true,
+  supportsSports: true,
+  supportsCities: false,
 };
 
 export const ACADEMY_DISCOVERY_PAGE_SIZE = DEFAULT_PAGE_SIZE;
+

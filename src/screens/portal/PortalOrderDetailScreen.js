@@ -17,6 +17,7 @@ import { getGlossaryHelp } from '../../portal/portalGlossary';
 import { PortalSection } from '../../components/portal/PortalSection';
 import { PortalTimeline } from '../../components/portal/PortalTimeline';
 import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
+import { useSmartBack } from '../../navigation/useSmartBack';
 
 const statusStep = (status) => {
   const s = String(status || '').toLowerCase();
@@ -29,6 +30,7 @@ const statusStep = (status) => {
 export function PortalOrderDetailScreen() {
   const { orderId } = useLocalSearchParams();
   const router = useRouter();
+  const { goBack } = useSmartBack({ fallbackRoute: '/portal/home' });
   const { colors } = useTheme();
   const { t } = useI18n();
   const { orders } = usePlayerPortalStore((state) => ({ orders: state.orders }));
@@ -46,8 +48,8 @@ export function PortalOrderDetailScreen() {
   if (!order) {
     return (
       <AppScreen safe>
-        <AppHeader title={t('portal.orders.detailTitle')} onBackPress={() => router.back()} />
-        <EmptyState title={t('portal.orders.detailMissingTitle')} message={t('portal.orders.detailMissingDescription')} actionLabel={t('portal.common.back')} onAction={() => router.back()} />
+        <AppHeader title={t('portal.orders.detailTitle')} onBackPress={goBack} />
+        <EmptyState title={t('portal.orders.detailMissingTitle')} message={t('portal.orders.detailMissingDescription')} actionLabel={t('portal.common.back')} onAction={goBack} />
       </AppScreen>
     );
   }

@@ -1,9 +1,19 @@
 // app/_layout.js
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Stack, useRouter, useSegments, usePathname } from 'expo-router';
-import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
+import {
+  ThemeProvider,
+  DarkTheme,
+  DefaultTheme,
+} from '@react-navigation/native';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { useFrameworkReady } from '../hooks/useFrameworkReady';
@@ -13,13 +23,13 @@ import {
 } from '../src/theme/ThemeProvider';
 import { I18nProvider } from '../src/services/i18n/i18n';
 import { ToastHost } from '../src/components/ui/ToastHost';
+import { AppBottomNav } from '../src/components/navigation/AppBottomNav';
 import { PortalModalsProvider } from '../src/services/portal/portal.modals';
 import { AuthProvider, useAuth } from '../src/services/auth/auth.store';
 import {
-  storage,
-  APP_STORAGE_KEYS,
   ENTRY_MODE_VALUES,
   getEntryMode,
+  getWelcomeSeenState,
 } from '../src/services/storage/storage';
 
 SplashScreen.setOptions({
@@ -28,6 +38,38 @@ SplashScreen.setOptions({
 });
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+const APP_HOME_ROUTE = '/(app)/services';
+const AUTH_WELCOME_ROUTE = '/(auth)/welcome';
+const AUTH_ENTRY_ROUTE = '/(auth)/entry';
+
+const stripQuery = (value) => {
+  if (typeof value !== 'string') return '';
+  const [path] = value.split('?');
+  return path || '';
+};
+
+const isRouteMatch = (segments, pathname, target) => {
+  const targetPath = stripQuery(target);
+
+  if (targetPath === AUTH_WELCOME_ROUTE) {
+    return segments?.[0] === '(auth)' && segments?.[1] === 'welcome';
+  }
+
+  if (targetPath === AUTH_ENTRY_ROUTE) {
+    return segments?.[0] === '(auth)' && segments?.[1] === 'entry';
+  }
+
+  if (targetPath === '/(auth)/login') {
+    return segments?.[0] === '(auth)' && segments?.[1] === 'login';
+  }
+
+  if (targetPath === APP_HOME_ROUTE) {
+    return segments?.[0] === '(app)' && segments?.[1] === 'services';
+  }
+
+  return stripQuery(pathname) === targetPath;
+};
 
 function NavThemeBridge({ children }) {
   const { colors, isDark } = useTheme();
@@ -65,12 +107,14 @@ function AuthGate({ children, onReady }) {
 
   const readyCalledRef = useRef(false);
   const navLockRef = useRef(false);
+  const lastRedirectRef = useRef(null);
+  const onboardingRefreshRef = useRef(false);
 
   const withTimeout = useCallback((promise, ms, label) => {
     return Promise.race([
       promise,
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`TIMEOUT:${label}`)), ms)
+        setTimeout(() => reject(new Error(`TIMEOUT:${label}`)), ms),
       ),
     ]);
   }, []);
@@ -84,14 +128,17 @@ function AuthGate({ children, onReady }) {
 
   const resolveUnauthTarget = useCallback(() => {
     if (welcomeSeen === false) {
-      return '/(auth)/welcome';
+      return AUTH_WELCOME_ROUTE;
     }
 
-    if (entryMode === ENTRY_MODE_VALUES.PLAYER || entryMode === ENTRY_MODE_VALUES.PUBLIC) {
+    if (
+      entryMode === ENTRY_MODE_VALUES.PLAYER ||
+      entryMode === ENTRY_MODE_VALUES.PUBLIC
+    ) {
       return loginRouteForEntryMode(entryMode);
     }
 
-    return '/(auth)/entry';
+    return AUTH_ENTRY_ROUTE;
   }, [entryMode, loginRouteForEntryMode, welcomeSeen]);
 
   useEffect(() => {
@@ -99,22 +146,42 @@ function AuthGate({ children, onReady }) {
 
     (async () => {
       try {
-        const [seen, storedEntryMode] = await withTimeout(
+        const [seenState, storedEntryMode] = await withTimeout(
           Promise.all([
-            storage.getItem(APP_STORAGE_KEYS.WELCOME_SEEN),
+            getWelcomeSeenState(),
             getEntryMode(),
           ]),
           2000,
-          'WELCOME_AND_ENTRY'
+          'WELCOME_AND_ENTRY',
         );
 
         if (!mounted) return;
-        setWelcomeSeen(seen === true || seen === 'true');
-        setEntryMode(storedEntryMode || null);
+        
+        // Sticky-true: do not downgrade to false/null in the same runtime.
+        setWelcomeSeen((prev) => {
+          if (prev === true) return true;
+          if (seenState == null) return prev ?? false;
+          return seenState;
+        });
+
+        setEntryMode((prev) => {
+          const normalized = storedEntryMode || null;
+          if (
+            (prev === ENTRY_MODE_VALUES.PLAYER || prev === ENTRY_MODE_VALUES.PUBLIC) &&
+            !normalized
+          ) {
+            return prev;
+          }
+          return normalized;
+        });
       } catch (_error) {
         if (!mounted) return;
-        setWelcomeSeen(false);
-        setEntryMode(null);
+        setWelcomeSeen((prev) => (prev === true ? true : false));
+        setEntryMode((prev) =>
+          prev === ENTRY_MODE_VALUES.PLAYER || prev === ENTRY_MODE_VALUES.PUBLIC
+            ? prev
+            : null,
+        );
       } finally {
         if (!mounted) return;
         setWelcomeLoaded(true);
@@ -124,9 +191,11 @@ function AuthGate({ children, onReady }) {
 
     const hardFail = setTimeout(() => {
       if (!mounted) return;
-      setWelcomeSeen((prev) => (prev == null ? false : prev));
+      setWelcomeSeen((prev) => (prev === true ? true : prev ?? false));
       setEntryMode((prev) =>
-        prev === ENTRY_MODE_VALUES.PLAYER || prev === ENTRY_MODE_VALUES.PUBLIC ? prev : null
+        prev === ENTRY_MODE_VALUES.PLAYER || prev === ENTRY_MODE_VALUES.PUBLIC
+          ? prev
+          : null,
       );
       setWelcomeLoaded(true);
       setEntryModeLoaded(true);
@@ -146,6 +215,74 @@ function AuthGate({ children, onReady }) {
   const isInAuthGroup =
     segments?.[0] === '(auth)' ||
     (typeof pathname === 'string' && pathname.startsWith('/(auth)'));
+  const segment0 = segments?.[0];
+  const segment1 = segments?.[1];
+
+  // Keep onboarding state in sync after welcome/entry interactions mutate storage.
+  useEffect(() => {
+    let mounted = true;
+
+    if (!isInAuthGroup || signedIn) return;
+    onboardingRefreshRef.current = true;
+
+    (async () => {
+      try {
+        const [seenState, storedEntryMode] = await Promise.all([
+          getWelcomeSeenState(),
+          getEntryMode(),
+        ]);
+
+        if (!mounted) return;
+
+        setWelcomeSeen((prev) => {
+          if (prev === true && seenState !== true) {
+            if (__DEV__) {
+              console.warn('[AuthGate] welcomeSeen read downgraded after true; keeping sticky true', {
+                pathname,
+                seenState,
+              });
+            }
+            return true;
+          }
+          if (seenState == null) {
+            if (__DEV__ && prev === true) {
+              console.warn('[AuthGate] welcomeSeen read null after true; keeping sticky true', {
+                pathname,
+              });
+            }
+            return prev;
+          }
+          return prev === seenState ? prev : seenState;
+        });
+
+        setEntryMode((prev) => {
+          const normalized = storedEntryMode || null;
+          if (
+            (prev === ENTRY_MODE_VALUES.PLAYER || prev === ENTRY_MODE_VALUES.PUBLIC) &&
+            !normalized
+          ) {
+            if (__DEV__) {
+              console.warn('[AuthGate] entryMode read null after selection; keeping sticky value', {
+                pathname,
+                prev,
+              });
+            }
+            return prev;
+          }
+          return prev === normalized ? prev : normalized;
+        });
+      } catch {
+        // Keep current in-memory state on transient storage errors.
+      } finally {
+        if (mounted) onboardingRefreshRef.current = false;
+      }
+    })();
+
+    return () => {
+      mounted = false;
+      onboardingRefreshRef.current = false;
+    };
+  }, [isInAuthGroup, pathname, signedIn]);
 
   useEffect(() => {
     if (!__DEV__) return;
@@ -179,12 +316,64 @@ function AuthGate({ children, onReady }) {
   ]);
 
   useEffect(() => {
+    lastRedirectRef.current = null;
+  }, [pathname, segment0, segment1]);
+
+  const replaceWithGuard = useCallback(
+    (target, reason) => {
+      if (!target) return false;
+
+      if (isRouteMatch(segments, pathname, target)) {
+        if (__DEV__) {
+          console.log('[AuthGate] redirect skipped (already on target)', {
+            reason,
+            target,
+            pathname,
+            segments,
+          });
+        }
+        return false;
+      }
+
+      if (lastRedirectRef.current === target) {
+        if (__DEV__) {
+          console.log('[AuthGate] redirect skipped (throttled)', {
+            reason,
+            target,
+            pathname,
+            segments,
+          });
+        }
+        return false;
+      }
+
+      lastRedirectRef.current = target;
+      if (__DEV__) {
+        console.log('[AuthGate] redirect', {
+          reason,
+          target,
+          pathname,
+          segments,
+          welcomeSeen,
+          entryMode,
+          signedIn,
+        });
+      }
+      router.replace(target);
+      return true;
+    },
+    [entryMode, pathname, router, segments, signedIn, welcomeSeen],
+  );
+
+  useEffect(() => {
     if (!isReady) return;
 
     if (!readyCalledRef.current) {
       readyCalledRef.current = true;
       onReady?.();
     }
+
+    if (onboardingRefreshRef.current) return;
 
     if (navLockRef.current) return;
     navLockRef.current = true;
@@ -199,7 +388,7 @@ function AuthGate({ children, onReady }) {
       pathname == null;
 
     if (stuckAtRoot) {
-      const target = signedIn ? '/(app)/services' : resolveUnauthTarget();
+      const target = signedIn ? APP_HOME_ROUTE : resolveUnauthTarget();
 
       if (__DEV__) {
         console.log('[AuthGate] boot redirect from root', {
@@ -212,31 +401,44 @@ function AuthGate({ children, onReady }) {
         });
       }
 
-      router.replace(target);
-      setTimeout(unlock, 250);
+      if (replaceWithGuard(target, 'root')) {
+        setTimeout(unlock, 250);
+        return;
+      }
+      unlock();
       return;
     }
 
     if (signedIn && isInAuthGroup) {
-      router.replace('/(app)/services');
-      setTimeout(unlock, 250);
+      if (replaceWithGuard(APP_HOME_ROUTE, 'signed_in_inside_auth')) {
+        setTimeout(unlock, 250);
+        return;
+      }
+      unlock();
       return;
     }
 
     if (!signedIn && !isInAuthGroup) {
-      router.replace(resolveUnauthTarget());
-      setTimeout(unlock, 250);
+      if (replaceWithGuard(resolveUnauthTarget(), 'signed_out_outside_auth')) {
+        setTimeout(unlock, 250);
+        return;
+      }
+      unlock();
       return;
     }
 
     if (
       !signedIn &&
       isInAuthGroup &&
+      welcomeLoaded &&
       welcomeSeen === false &&
-      segments?.[1] !== 'welcome'
+      segment1 !== 'welcome'
     ) {
-      router.replace('/(auth)/welcome');
-      setTimeout(unlock, 250);
+      if (replaceWithGuard(AUTH_WELCOME_ROUTE, 'welcome_required')) {
+        setTimeout(unlock, 250);
+        return;
+      }
+      unlock();
       return;
     }
 
@@ -245,10 +447,13 @@ function AuthGate({ children, onReady }) {
       isInAuthGroup &&
       welcomeSeen !== false &&
       !entryMode &&
-      segments?.[1] === 'login'
+      segment1 === 'login'
     ) {
-      router.replace('/(auth)/entry');
-      setTimeout(unlock, 250);
+      if (replaceWithGuard(AUTH_ENTRY_ROUTE, 'entry_mode_missing')) {
+        setTimeout(unlock, 250);
+        return;
+      }
+      unlock();
       return;
     }
 
@@ -257,13 +462,15 @@ function AuthGate({ children, onReady }) {
     isReady,
     signedIn,
     isInAuthGroup,
-    router,
     segments,
     pathname,
     welcomeSeen,
     entryMode,
+    welcomeLoaded,
     resolveUnauthTarget,
     onReady,
+    replaceWithGuard,
+    segment1,
   ]);
 
   const fallback = useMemo(
@@ -279,7 +486,7 @@ function AuthGate({ children, onReady }) {
         <ActivityIndicator size="large" color={colors.accentOrange} />
       </View>
     ),
-    [colors]
+    [colors],
   );
 
   if (!isReady) return fallback;
@@ -315,6 +522,7 @@ export default function RootLayout() {
               <NavThemeBridge>
                 <AuthGate onReady={hideSplash}>
                   <Stack screenOptions={{ headerShown: false }} />
+                  <AppBottomNav />
                   <StatusBar style="auto" />
                 </AuthGate>
               </NavThemeBridge>
@@ -325,4 +533,3 @@ export default function RootLayout() {
     </AppThemeProvider>
   );
 }
-

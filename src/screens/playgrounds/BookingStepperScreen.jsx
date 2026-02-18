@@ -10,6 +10,7 @@ import { AppScreen } from '../../components/ui/AppScreen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
+import { useSmartBack } from '../../navigation/useSmartBack';
 
 import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { useAuth } from '../../services/auth/auth.store';
@@ -32,6 +33,7 @@ export function BookingWizardScreen() {
   const styles = useMemo(() => makeWizardStyles(colors), [colors]);
   const { t } = useTranslation();
   const router = useRouter();
+  const { goBack } = useSmartBack();
   const toast = useToast();
   const { session } = useAuth();
 
@@ -295,12 +297,12 @@ export function BookingWizardScreen() {
 
   const prevStep = useCallback(() => {
     if (step === 0) {
-      router.back();
+      goBack();
       return;
     }
     setInlinePaymentError('');
     setStep((s) => Math.max(0, s - 1));
-  }, [router, step]);
+  }, [goBack, step]);
 
   // -------- step handlers
   const onSelectDuration = useCallback((id) => {
@@ -494,7 +496,7 @@ export function BookingWizardScreen() {
           title={t('service.playgrounds.booking.empty.title')}
           message={t('service.playgrounds.booking.empty.message')}
           actionLabel={t('service.playgrounds.booking.empty.action')}
-          onAction={() => router.back()}
+          onAction={goBack}
         />
       </AppScreen>
     );

@@ -17,7 +17,7 @@ import { Button } from '../components/ui/Button';
 import { Text } from '../components/ui/Text';
 import { useI18n } from '../services/i18n/i18n';
 import { spacing, borderRadius, shadow } from '../theme/tokens';
-import { storage, APP_STORAGE_KEYS } from '../services/storage/storage';
+import { setWelcomeSeen } from '../services/storage/storage';
 
 const logoSource = require('../../assets/images/logo.png');
 
@@ -80,7 +80,7 @@ export function WelcomeScreen() {
 
   const handleExplore = async () => {
     try {
-      await storage.setItem(APP_STORAGE_KEYS.WELCOME_SEEN, true);
+      await setWelcomeSeen(true);
     } catch (e) {
       if (__DEV__) console.warn('[Welcome] Failed to persist welcome flag', e);
     }

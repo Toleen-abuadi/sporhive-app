@@ -1,12 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { I18nManager, Pressable, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Icon } from './Icon';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
 import { Text } from './Text';
-import { safeBack } from '../../navigation/safeBack';
 import { useTranslation } from '../../services/i18n/i18n';
+import { useSmartBack } from '../../navigation/useSmartBack';
+import { useBottomNavVisibility } from '../../navigation/bottomNav';
 
 export function AppHeader({
   title,
@@ -27,29 +27,26 @@ export function AppHeader({
   rightAction,
   style,
   contentStyle,
+  fallbackRoute,
 }) {
   const { colors } = useTheme();
-  const router = useRouter();
   const { t } = useTranslation();
+  const { goBack } = useSmartBack({ fallbackRoute });
+  const bottomNavVisible = useBottomNavVisibility();
 
   const isRTL = I18nManager.isRTL;
-  const canGoBack = useMemo(() => {
-    if (typeof router?.canGoBack === 'function') {
-      return router.canGoBack();
-    }
-    return false;
-  }, [router]);
 
-  const shouldShowBack = typeof showBack === 'boolean' ? showBack : canGoBack;
+  const shouldShowBack =
+    typeof showBack === 'boolean' ? showBack : !bottomNavVisible;
   const iconName = isRTL ? 'chevron-right' : 'chevron-left';
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (typeof onBackPress === 'function') {
       onBackPress();
       return;
     }
-    safeBack(router);
-  };
+    goBack();
+  }, [goBack, onBackPress]);
 
   const leftIconName = typeof leftIcon === 'string' ? leftIcon : undefined;
   const leftIconComponent = typeof leftIcon === 'string' ? undefined : leftIcon;
@@ -95,7 +92,7 @@ export function AppHeader({
           onPress={handleBack}
           style={styles.iconButton}
           accessibilityRole="button"
-          accessibilityLabel={t('common.goBack')}
+          accessibilityLabel={t('common.back')}
         >
           <Icon name={iconName} size={24} color={colors.textPrimary} />
         </Pressable>

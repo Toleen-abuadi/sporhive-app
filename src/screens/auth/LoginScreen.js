@@ -252,7 +252,7 @@ export function LoginScreen() {
                     mode: mode === MODES.PLAYER ? t('entry.player.title') : t('entry.public.title'),
                   })}
                 </Text>
-                <TouchableOpacity onPress={() => router.replace('/(auth)/entry')} style={styles.linkButton}>
+                <TouchableOpacity onPress={() => router.push('/(auth)/entry')} style={styles.linkButton}>
                   <Text variant="caption" weight="bold" color={colors.accentOrange}>
                     {t('entry.changePath')}
                   </Text>
@@ -318,7 +318,7 @@ export function LoginScreen() {
                   ) : null}
                   <View style={[styles.linkRow, isRTL ? styles.rowRTL : styles.rowLTR]}>
                     <TouchableOpacity
-                      onPress={() => router.replace(`/(auth)/reset-password?mode=${mode}`)}
+                      onPress={() => router.push(`/(auth)/reset-password?mode=${mode}`)}
                       style={styles.linkButton}
                     >
                       <Text variant="body" color={colors.accentOrange} weight="medium">
@@ -331,7 +331,7 @@ export function LoginScreen() {
                     <Text variant="body" color={colors.textSecondary}>
                       {t('auth.login.noAccount')}
                     </Text>
-                    <TouchableOpacity onPress={() => router.replace('/(auth)/signup')}>
+                    <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
                       <Text
                         variant="body"
                         weight="bold"
@@ -412,7 +412,7 @@ export function LoginScreen() {
 
                   <View style={[styles.linkRow, isRTL ? styles.rowRTL : styles.rowLTR]}>
                     <TouchableOpacity
-                      onPress={() => router.replace(`/(auth)/reset-password?mode=${mode}`)}
+                      onPress={() => router.push(`/(auth)/reset-password?mode=${mode}`)}
                       style={styles.linkButton}
                     >
                       <Text variant="body" color={colors.accentOrange} weight="medium">

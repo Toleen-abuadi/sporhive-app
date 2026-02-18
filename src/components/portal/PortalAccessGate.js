@@ -10,6 +10,7 @@ import {
   isPortalReauthError,
   isPortalForbiddenError,
 } from '../../services/portal/portal.errors';
+import { useSmartBack } from '../../navigation/useSmartBack';
 
 export function PortalAccessGate({
   children,
@@ -22,6 +23,7 @@ export function PortalAccessGate({
   const router = useRouter();
   const { t } = useI18n();
   const { userType, isLoading } = useAuth();
+  const { goBack } = useSmartBack({ fallbackRoute: '/(app)/services' });
 
   // Prevent infinite loops: only trigger reauth once per error occurrence
   const handledReauthRef = useRef(false);
@@ -71,7 +73,7 @@ export function PortalAccessGate({
             actionLabel={t('common.retry')}
             onAction={handleRetry}
             secondaryActionLabel={t('common.back')}
-            onSecondaryAction={onBack || (() => router.back())}
+            onSecondaryAction={onBack || goBack}
           />
         </AppScreen>
       );

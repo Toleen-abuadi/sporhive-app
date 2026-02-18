@@ -60,6 +60,7 @@ import { getGlossaryHelp } from '../../portal/portalGlossary';
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
 import { useAuth } from '../../services/auth/auth.store';
+import { useSmartBack } from '../../navigation/useSmartBack';
 import { isMissingTryOutError } from '../../services/portal/portal.tryout';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
@@ -460,6 +461,7 @@ function SessionsStepper({ value, onChange, min = 1, max = 999, colors, label, u
 // ----------------------- Main Screen -----------------------
 export function PortalRenewalsScreen() {
   const router = useRouter();
+  const { goBack } = useSmartBack({ fallbackRoute: '/portal/home' });
   const { colors, isDark } = useTheme();
   const toast = useToast();
   const { t, locale, isRTL } = useTranslation();
@@ -1004,7 +1006,7 @@ export function PortalRenewalsScreen() {
                     )}
                   </View>
 
-                  <Button title={t('portal.renewals.actions.back')} onPress={() => router.back()} variant="outline" style={{ marginTop: 24 }} />
+                  <Button title={t('portal.renewals.actions.back')} onPress={goBack} variant="outline" style={{ marginTop: 24 }} />
                 </GradientCard>
               ) : (
                 <GradientCard>

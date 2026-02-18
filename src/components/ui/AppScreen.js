@@ -9,12 +9,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeProvider';
 import { spacing } from '../../theme/tokens';
+import { useBottomNavInset } from '../../navigation/bottomNav';
 
 export function AppScreen({
   children,
   scroll = false,
   keyboardAvoiding = false,
   safe = true,
+  noPadding = false,
+  withBottomNavPadding = true,
+  edges = ['top', 'bottom'],
   variant = 'default',
   paddingHorizontal = spacing.lg,
   paddingTop = spacing.lg,
@@ -25,6 +29,7 @@ export function AppScreen({
   ...props
 }) {
   const { colors } = useTheme();
+  const bottomNavInset = useBottomNavInset({ enabled: withBottomNavPadding });
 
   const backgroundColor =
     variant === 'transparent'
@@ -34,23 +39,33 @@ export function AppScreen({
       : colors.background;
 
   const containerStyles = [styles.container, { backgroundColor }, style];
-  const contentStyles = [
-    styles.content,
-    { paddingHorizontal, paddingTop, paddingBottom },
-    contentStyle,
-  ];
+  const resolvedPadding = {
+    paddingHorizontal: noPadding ? 0 : paddingHorizontal,
+    paddingTop: noPadding ? 0 : paddingTop,
+    paddingBottom: noPadding ? 0 : paddingBottom,
+  };
+
+  const mergedContentStyle = StyleSheet.flatten([contentStyle, contentContainerStyle]) || {};
+  const desiredPaddingBottom =
+    typeof mergedContentStyle.paddingBottom === 'number'
+      ? mergedContentStyle.paddingBottom
+      : resolvedPadding.paddingBottom;
+  const navPaddingStyle =
+    bottomNavInset > 0 ? { paddingBottom: desiredPaddingBottom + bottomNavInset } : null;
+
+  const contentStyles = [styles.content, resolvedPadding, contentStyle];
 
   const content = scroll ? (
     <ScrollView
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={[contentStyles, contentContainerStyle]}
+      contentContainerStyle={[contentStyles, contentContainerStyle, navPaddingStyle]}
       keyboardShouldPersistTaps="handled"
       {...props}
     >
       {children}
     </ScrollView>
   ) : (
-    <View style={contentStyles} {...props}>
+    <View style={[contentStyles, contentContainerStyle, navPaddingStyle]} {...props}>
       {children}
     </View>
   );
@@ -71,7 +86,7 @@ export function AppScreen({
   }
 
   return (
-    <SafeAreaView style={containerStyles} edges={['top', 'bottom']}>
+    <SafeAreaView style={containerStyles} edges={edges}>
       {body}
     </SafeAreaView>
   );

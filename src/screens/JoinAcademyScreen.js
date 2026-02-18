@@ -1,35 +1,27 @@
 // src/screens/JoinAcademyScreen.js
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
+  Linking,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   View,
-  Linking,
-  Pressable,
-  Dimensions,
-  Modal,
-  UIManager,
-  findNodeHandle,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-
 import Animated, {
   Easing,
   FadeInDown,
-  FadeInUp,
   FadeOutDown,
-  interpolate,
-  Extrapolate,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
@@ -37,204 +29,267 @@ import { endpoints } from '../services/api/endpoints';
 import { API_BASE_URL } from '../services/api/client';
 
 import { Screen } from '../components/ui/Screen';
-import { AppHeader } from '../components/ui/AppHeader';
 import { Card } from '../components/ui/Card';
 import { Text } from '../components/ui/Text';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Badge } from '../components/ui/Badge';
-import { Divider } from '../components/ui/Divider';
-import { useToast } from '../components/ui/ToastHost';
+import { PhoneField } from '../components/ui/PhoneField';
 import { BackButton } from '../components/ui/BackButton';
+import { useToast } from '../components/ui/ToastHost';
 import { SporHiveLoader } from '../components/ui/SporHiveLoader';
 
 import {
   AlertCircle,
+  CalendarDays,
+  Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Mail,
   Phone,
-  Send,
-  ShieldCheck,
   Sparkles,
-  User,
-  Contact2,
-  ClipboardList,
-  Check,
-  CalendarDays,
-  X,
+  ShieldCheck,
 } from 'lucide-react-native';
 
-import { ad, makeADTheme, pressableScaleConfig, getShadow, alphaHex } from '../theme/academyDiscovery.styles';
+import { ad, alphaHex, makeADTheme } from '../theme/academyDiscovery.styles';
+import { borderRadius, spacing } from '../theme/tokens';
+import { useSmartBack } from '../navigation/useSmartBack';
 
-const { width: W } = Dimensions.get('window');
+const TOTAL_STEPS = 3;
+const MIN_AGE = 3;
 
-function safeText(v) {
-  if (v === null || v === undefined) return '';
-  return String(v).trim();
+const STEP_ONE_FIELDS = [
+  'first_eng_name',
+  'middle_eng_name',
+  'last_eng_name',
+  'first_ar_name',
+  'middle_ar_name',
+  'last_ar_name',
+];
+const STEP_TWO_FIELDS = ['phone1', 'phone2', 'dob'];
+const STEP_THREE_FIELDS = [...STEP_ONE_FIELDS, ...STEP_TWO_FIELDS];
+
+const LATIN_NAME_RE = /^[A-Za-z][A-Za-z\s'-]*$/;
+const ARABIC_NAME_RE = /^[\u0600-\u06FF][\u0600-\u06FF\s'-]*$/;
+
+const EMPTY_PHONE = {
+  countryCode: '+962',
+  nationalNumber: '',
+  e164: '',
+  isValid: false,
+};
+
+const INITIAL_FORM = {
+  first_eng_name: '',
+  middle_eng_name: '',
+  last_eng_name: '',
+  first_ar_name: '',
+  middle_ar_name: '',
+  last_ar_name: '',
+  phone1: { ...EMPTY_PHONE },
+  phone2: { ...EMPTY_PHONE },
+  dob: '',
+  notes: '',
+};
+
+function safeText(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
 }
 
-function isValidPhone(phone) {
-  const p = String(phone || '').trim();
-  const normalized = p.replace(/[^\d+]/g, '');
-  const digits = normalized.startsWith('+') ? normalized.slice(1) : normalized;
-  return /^[0-9]{8,15}$/.test(digits);
+function digitsOnly(value) {
+  return String(value || '').replace(/\D/g, '');
 }
 
-function formatISODate(d) {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
+function isPhoneFilled(phoneValue) {
+  return digitsOnly(phoneValue?.nationalNumber).length > 0;
+}
+
+function isPhoneValid(phoneValue, min = 8, max = 15) {
+  const digits = digitsOnly(phoneValue?.nationalNumber);
+  if (!digits) return false;
+  return digits.length >= min && digits.length <= max;
+}
+
+function formatISODate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 }
 
 function parseISODate(iso) {
-  const s = String(iso || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-  const d = new Date(`${s}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
-  return d;
+  const value = safeText(iso);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
 }
 
-function isoToDateOrNull(iso) {
-  const d = parseISODate(iso);
-  return d || null;
-}
-
-function maxDobISO(minAgeYears = 3) {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - minAgeYears);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function isAtLeastAge(dobISO, years) {
-  const dob = parseISODate(dobISO);
-  if (!dob) return false;
+function getAgeYears(iso) {
+  const dob = parseISODate(iso);
+  if (!dob) return null;
   const now = new Date();
   let age = now.getFullYear() - dob.getFullYear();
-  const m = now.getMonth() - dob.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age -= 1;
-  return age >= years;
+  const monthDiff = now.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dob.getDate())) {
+    age -= 1;
+  }
+  return age;
 }
 
-function FieldHint({ theme, text }) {
-  if (!text) return null;
-  return (
-    <Text variant="caption" style={{ color: theme.text.muted, marginTop: 6 }}>
-      {text}
-    </Text>
-  );
+function formatLocalizedDate(iso, locale) {
+  const parsed = parseISODate(iso);
+  if (!parsed) return '';
+  try {
+    return new Intl.DateTimeFormat(locale || undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    }).format(parsed);
+  } catch {
+    return iso;
+  }
 }
 
-/** Reanimated press-scale wrapper (doesn't change Button logic) */
-function AnimatedPress({ children, disabled }) {
-  const p = useSharedValue(0);
-
-  const aStyle = useAnimatedStyle(() => {
-    const s = interpolate(
-      p.value,
-      [0, 1],
-      [pressableScaleConfig.from, pressableScaleConfig.to],
-      Extrapolate.CLAMP
-    );
-    return { transform: [{ scale: s }] };
-  }, []);
-
-  const onIn = useCallback(() => {
-    if (disabled) return;
-    p.value = withTiming(1, {
-      duration: pressableScaleConfig.in?.duration ?? 120,
-      easing: Easing.out(Easing.quad),
-    });
-  }, [disabled, p]);
-
-  const onOut = useCallback(() => {
-    if (disabled) return;
-    p.value = withTiming(0, {
-      duration: pressableScaleConfig.out?.duration ?? 160,
-      easing: Easing.out(Easing.quad),
-    });
-  }, [disabled, p]);
-
-  return (
-    <Animated.View style={aStyle} onTouchStart={onIn} onTouchEnd={onOut}>
-      {children}
-    </Animated.View>
-  );
+function getMaxDobDate(minAgeYears = MIN_AGE) {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - minAgeYears);
+  return date;
 }
 
-function SectionCard({ theme, icon, title, subtitle, children, enteringDelay = 0, right }) {
+function combineName(parts = []) {
+  return parts.map((part) => safeText(part)).filter(Boolean).join(' ');
+}
+
+function getProgressPercent(step) {
+  return Math.round((step / TOTAL_STEPS) * 100);
+}
+
+function isNameValid(value, isArabic = false) {
+  const trimmed = safeText(value);
+  if (trimmed.length < 2) return false;
+  return (isArabic ? ARABIC_NAME_RE : LATIN_NAME_RE).test(trimmed);
+}
+
+function pickErrors(errors, keys) {
+  return keys.reduce((acc, key) => {
+    if (errors[key]) acc[key] = errors[key];
+    return acc;
+  }, {});
+}
+
+function formReducer(state, action) {
+  switch (action.type) {
+    case 'SET_FIELD':
+      return { ...state, [action.field]: action.value };
+    case 'SET_PHONE':
+      return {
+        ...state,
+        [action.field]: {
+          ...(state[action.field] || EMPTY_PHONE),
+          ...(action.value || {}),
+        },
+      };
+    default:
+      return state;
+  }
+}
+
+function SectionCard({ theme, title, subtitle, right, children }) {
   return (
-    <Animated.View entering={FadeInUp.delay(enteringDelay).duration(260)}>
-      <Card style={[styles.dsCard, theme.shadow.md, { backgroundColor: theme.surface2, borderColor: theme.hairline }]}>
-        <View style={styles.sectionHead}>
-          <View style={styles.sectionHeadLeft}>
-            <View style={[styles.sectionIcon, { backgroundColor: theme.accent.orangeSoft, borderColor: theme.accent.orangeHair }]}>
-              {icon}
-            </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text variant="h4" weight="bold" numberOfLines={1} style={{ color: theme.text.primary }}>
-                {title}
-              </Text>
-              {subtitle ? (
-                <Text variant="caption" numberOfLines={2} style={{ color: theme.text.secondary, marginTop: 4 }}>
-                  {subtitle}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-          {right ? <View style={{ marginLeft: 10 }}>{right}</View> : null}
+    <Card
+      style={[
+        styles.sectionCard,
+        {
+          backgroundColor: theme.surface2,
+          borderColor: theme.hairline,
+        },
+        theme.shadow.md,
+      ]}
+      padding="none"
+      elevated={false}
+    >
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionHeaderText}>
+          <Text variant="h4" weight="bold" style={{ color: theme.text.primary }}>
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text variant="caption" style={{ color: theme.text.secondary, marginTop: 4 }}>
+              {subtitle}
+            </Text>
+          ) : null}
         </View>
-
-        <View style={styles.sectionBody}>{children}</View>
-      </Card>
-    </Animated.View>
+        {right ? <View>{right}</View> : null}
+      </View>
+      <View style={styles.sectionBody}>{children}</View>
+    </Card>
   );
 }
 
-function InlineErrorSummary({ theme, visible, errors, t }) {
-  if (!visible) return null;
-  const count = Object.keys(errors || {}).length;
-  if (!count) return null;
-
+function ReviewCard({ theme, title, isRTL, children }) {
   return (
-    <Animated.View entering={FadeInDown.duration(220)} exiting={FadeOutDown.duration(160)}>
-      <View style={[styles.summaryBar, theme.shadow.sm, { backgroundColor: theme.surface1, borderColor: theme.hairline }]}>
+    <View
+      style={[
+        styles.reviewCard,
+        {
+          backgroundColor: theme.surface1,
+          borderColor: theme.hairline,
+        },
+      ]}
+    >
+      <View style={[styles.reviewHeader, isRTL && styles.rowReverse]}>
+        <Text variant="bodyMedium" weight="bold" style={{ color: theme.text.primary }}>
+          {title}
+        </Text>
         <View
           style={[
-            styles.summaryIcon,
-            { backgroundColor: alphaHex(theme.error, '1F'), borderColor: alphaHex(theme.error, '38') },
+            styles.reviewCheck,
+            {
+              backgroundColor: theme.accent.orangeSoft,
+              borderColor: theme.accent.orangeHair,
+            },
           ]}
         >
-          <AlertCircle size={16} color={theme.error} />
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text weight="bold" numberOfLines={1} style={{ color: theme.text.primary }}>
-            {t('service.academy.join.errors.fix')}
-          </Text>
-          <Text variant="caption" numberOfLines={1} style={{ color: theme.text.secondary, marginTop: 2 }}>
-            {count} {count === 1 ? t('service.academy.join.errors.single') : t('service.academy.join.errors.plural')}
-          </Text>
+          <Check size={14} color={theme.accent.orange} />
         </View>
       </View>
-    </Animated.View>
+      <View style={styles.reviewBody}>{children}</View>
+    </View>
   );
 }
 
-export function JoinAcademyScreen() {
+function ReviewLine({ label, value, theme }) {
+  return (
+    <View style={styles.reviewLine}>
+      <Text variant="caption" style={{ color: theme.text.secondary }}>
+        {label}
+      </Text>
+      <Text variant="bodySmall" weight="medium" style={{ color: theme.text.primary }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+export function JoinAcademyScreen({ slug: slugProp }) {
   const router = useRouter();
+  const { goBack } = useSmartBack();
   const params = useLocalSearchParams();
-  const slug = String(params?.slug || '').trim();
+  const insets = useSafeAreaInsets();
+
+  const resolvedParamSlug = Array.isArray(params?.slug) ? params.slug[0] : params?.slug;
+  const slug = safeText(slugProp || resolvedParamSlug);
 
   const { colors, isDark } = useTheme();
-  const { t } = useI18n();
+  const { t, language, isRTL } = useI18n();
   const toast = useToast();
 
   const theme = useMemo(() => makeADTheme(colors, isDark), [colors, isDark]);
-  const emptyValue = t('service.academy.common.emptyValue');
-  const isWide = W >= 410;
+  const locale = language === 'ar' ? 'ar' : 'en';
+  const requireArabicNames = language === 'ar';
 
   const [loading, setLoading] = useState(true);
   const [academyBundle, setAcademyBundle] = useState(null);
@@ -243,29 +298,80 @@ export function JoinAcademyScreen() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const [attempted, setAttempted] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [currentStep, setCurrentStep] = useState(1);
+  const [arabicExpanded, setArabicExpanded] = useState(requireArabicNames);
 
-  const [form, setForm] = useState({
-    first_eng_name: '',
-    middle_eng_name: '',
-    last_eng_name: '',
-    first_ar_name: '',
-    middle_ar_name: '',
-    last_ar_name: '',
-    phone1: '',
-    phone2: '',
-    dob: '',
-    notes: '',
-  });
+  const [form, dispatchForm] = useReducer(formReducer, INITIAL_FORM);
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [attemptedSteps, setAttemptedSteps] = useState({});
 
   const [dobPickerOpen, setDobPickerOpen] = useState(false);
-  const [tempDob, setTempDob] = useState(null); // iOS temp selection
-  const dobMax = useMemo(() => maxDobISO(3), []);
+  const [tempDob, setTempDob] = useState(getMaxDobDate(MIN_AGE));
+
+  const maxDobDate = useMemo(() => getMaxDobDate(MIN_AGE), []);
+
   const scrollRef = useRef(null);
   const fieldPositions = useRef({});
 
   const academy = academyBundle?.academy || academyBundle || null;
+
+  useEffect(() => {
+    if (requireArabicNames) setArabicExpanded(true);
+  }, [requireArabicNames]);
+
+  useEffect(() => {
+    const primaryCode = safeText(form.phone1?.countryCode || EMPTY_PHONE.countryCode);
+    const secondaryDigits = digitsOnly(form.phone2?.nationalNumber);
+    if (!secondaryDigits && primaryCode && form.phone2?.countryCode !== primaryCode) {
+      dispatchForm({
+        type: 'SET_PHONE',
+        field: 'phone2',
+        value: { countryCode: primaryCode },
+      });
+    }
+  }, [form.phone1?.countryCode, form.phone2?.countryCode, form.phone2?.nationalNumber]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      if (!slug) {
+        if (mounted) {
+          setLoadError(t('service.academy.join.notFound.subtitle'));
+          setLoading(false);
+        }
+        return;
+      }
+
+      setLoading(true);
+      setLoadError('');
+
+      try {
+        const res = await endpoints.publicAcademies.getTemplate(slug, { include_images: true });
+        const normalized =
+          res?.data?.academy
+            ? res.data
+            : res?.academy
+              ? res
+              : { academy: res?.data || res };
+
+        if (mounted) {
+          setAcademyBundle(normalized);
+        }
+      } catch (error) {
+        if (mounted) {
+          setLoadError(error?.message || t('service.academy.join.error.generic'));
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [slug, t]);
 
   const academyName = useMemo(() => {
     if (!academy) return '';
@@ -273,119 +379,214 @@ export function JoinAcademyScreen() {
   }, [academy]);
 
   const logoUri = useMemo(() => {
-    if (!academy?.slug) return null;
-    if (!academy?.logo_meta?.has) return null;
+    if (!academy?.slug || !academy?.logo_meta?.has) return null;
     return `${API_BASE_URL}/public/academies/image/${encodeURIComponent(academy.slug)}/logo`;
-  }, [academy]);
-
-  const coverUri = useMemo(() => {
-    if (!academy?.slug) return null;
-    if (!academy?.cover_meta?.has) return null;
-    return `${API_BASE_URL}/public/academies/image/${encodeURIComponent(academy.slug)}/cover`;
   }, [academy]);
 
   const contactPhones = useMemo(() => {
     const raw = academy?.contact_phones || academy?.phones_json || academy?.phones || [];
-    if (Array.isArray(raw)) return raw.filter(Boolean).map((x) => String(x).trim()).filter(Boolean);
-    if (typeof raw === 'string') return raw.split(',').map((x) => x.trim()).filter(Boolean);
+    if (Array.isArray(raw)) {
+      return raw.map((item) => safeText(item)).filter(Boolean);
+    }
+    if (typeof raw === 'string') {
+      return raw
+        .split(',')
+        .map((item) => safeText(item))
+        .filter(Boolean);
+    }
     return [];
   }, [academy]);
 
-  const contactEmail = useMemo(() => academy?.contact_email || academy?.email || '', [academy]);
+  const contactEmail = useMemo(
+    () => safeText(academy?.contact_email || academy?.email),
+    [academy]
+  );
 
   const showClosed = academy?.registration_enabled && !academy?.registration_open;
   const isContactOnly = !!academy && !academy?.registration_enabled;
-  const isOpen = !showClosed && !isContactOnly && academy?.registration_enabled;
+
+  const progressPercent = useMemo(() => getProgressPercent(currentStep), [currentStep]);
+  const progressValue = useSharedValue(progressPercent);
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      setLoadError('');
-      try {
-        const res = await endpoints.publicAcademies.getTemplate(slug, { include_images: true });
-        const normalized = res?.data?.academy ? res.data : res?.academy ? res : { academy: res?.data || res };
-        if (mounted) setAcademyBundle(normalized);
-      } catch (e) {
-        if (mounted) setLoadError(e?.message || t('service.academy.join.error.generic'));
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [slug, t]);
+    progressValue.value = withTiming(progressPercent, {
+      duration: 280,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [progressPercent, progressValue]);
 
-  const setField = useCallback((key, value) => {
-    setForm((p) => ({ ...p, [key]: value }));
+  const progressFillStyle = useAnimatedStyle(() => ({
+    width: `${progressValue.value}%`,
+  }));
+
+  const setField = useCallback((field, value) => {
+    dispatchForm({ type: 'SET_FIELD', field, value });
   }, []);
 
-  const getFieldErrorStyle = useCallback(
-    (fieldKey) => ({
-      borderColor: attempted && errors[fieldKey] ? theme.error : theme.hairline,
-      borderWidth: attempted && errors[fieldKey] ? 2 : 1,
-    }),
-    [attempted, errors, theme.error, theme.hairline]
-  );
+  const setPhoneField = useCallback((field, value) => {
+    dispatchForm({ type: 'SET_PHONE', field, value });
+  }, []);
+
+  const markTouched = useCallback((field) => {
+    setTouched((prev) => {
+      if (prev[field]) return prev;
+      return { ...prev, [field]: true };
+    });
+  }, []);
 
   const captureFieldPosition = useCallback(
-    (fieldKey) => (event) => {
-      const scrollNode =
-        scrollRef.current?.getInnerViewNode?.() || findNodeHandle(scrollRef.current);
-      if (event?.target && scrollNode) {
-        UIManager.measureLayout(
-          event.target,
-          scrollNode,
-          () => {
-            fieldPositions.current[fieldKey] = event.nativeEvent.layout.y;
-          },
-          (_x, y) => {
-            fieldPositions.current[fieldKey] = y;
-          }
-        );
-        return;
-      }
-      fieldPositions.current[fieldKey] = event?.nativeEvent?.layout?.y ?? 0;
+    (field) => (event) => {
+      fieldPositions.current[field] = event?.nativeEvent?.layout?.y ?? 0;
     },
     []
   );
 
-  const validateAll = useCallback(() => {
-    const e = {};
+  const scrollToError = useCallback(
+    (field) => {
+      const y = fieldPositions.current[field];
+      if (typeof y === 'number') {
+        scrollRef.current?.scrollTo({ y: Math.max(0, y - 18), animated: true });
+      }
+    },
+    []
+  );
 
-    const latinNameRe = /^[A-Za-z][A-Za-z\s'-]{1,48}$/; // 2..49 chars
-    const arabicNameRe = /^[\u0600-\u06FF][\u0600-\u06FF\s]{1,48}$/;
+  const validateStep = useCallback(
+    (step, values = form) => {
+      const allErrors = {};
 
-    const fe = safeText(form.first_eng_name);
-    const le = safeText(form.last_eng_name);
-    if (!fe) e.first_eng_name = t('service.academy.join.errors.firstEngRequired');
-    else if (!latinNameRe.test(fe)) e.first_eng_name = t('service.academy.join.errors.firstEngInvalid');
-    if (!le) e.last_eng_name = t('service.academy.join.errors.lastEngRequired');
-    else if (!latinNameRe.test(le)) e.last_eng_name = t('service.academy.join.errors.lastEngInvalid');
+      const firstEng = safeText(values.first_eng_name);
+      const middleEng = safeText(values.middle_eng_name);
+      const lastEng = safeText(values.last_eng_name);
 
-    const fa = safeText(form.first_ar_name);
-    const la = safeText(form.last_ar_name);
-    if (!fa) e.first_ar_name = t('service.academy.join.errors.firstArRequired');
-    else if (!arabicNameRe.test(fa)) e.first_ar_name = t('service.academy.join.errors.firstArInvalid');
-    if (!la) e.last_ar_name = t('service.academy.join.errors.lastArRequired');
-    else if (!arabicNameRe.test(la)) e.last_ar_name = t('service.academy.join.errors.lastArInvalid');
+      if (!firstEng) allErrors.first_eng_name = t('join.required');
+      else if (!isNameValid(firstEng, false)) allErrors.first_eng_name = t('join.invalidName');
 
-    if (!safeText(form.phone1)) e.phone1 = t('service.academy.join.errors.phone1Required');
-    else if (!isValidPhone(form.phone1)) e.phone1 = t('service.academy.join.errors.phoneInvalid');
-    if (safeText(form.phone2) && !isValidPhone(form.phone2)) e.phone2 = t('service.academy.join.errors.phone2Invalid');
+      if (middleEng && !isNameValid(middleEng, false)) {
+        allErrors.middle_eng_name = t('join.invalidName');
+      }
 
-    const dob = safeText(form.dob);
-    if (!dob) e.dob = t('service.academy.join.errors.dobRequired');
-    else {
-      const d = parseISODate(dob);
-      if (!d) e.dob = t('service.academy.join.errors.dobInvalid');
-      else if (!isAtLeastAge(dob, 3)) e.dob = t('service.academy.join.errors.dobMinAge');
+      if (!lastEng) allErrors.last_eng_name = t('join.required');
+      else if (!isNameValid(lastEng, false)) allErrors.last_eng_name = t('join.invalidName');
+
+      const firstAr = safeText(values.first_ar_name);
+      const middleAr = safeText(values.middle_ar_name);
+      const lastAr = safeText(values.last_ar_name);
+      const hasAnyArabicValue = Boolean(firstAr || middleAr || lastAr);
+      const shouldValidateArabic = requireArabicNames || hasAnyArabicValue;
+
+      if (shouldValidateArabic) {
+        if (!firstAr) allErrors.first_ar_name = t('join.required');
+        else if (!isNameValid(firstAr, true)) allErrors.first_ar_name = t('join.invalidName');
+
+        if (!lastAr) allErrors.last_ar_name = t('join.required');
+        else if (!isNameValid(lastAr, true)) allErrors.last_ar_name = t('join.invalidName');
+      }
+
+      if (middleAr && !isNameValid(middleAr, true)) {
+        allErrors.middle_ar_name = t('join.invalidName');
+      }
+
+      if (!isPhoneFilled(values.phone1)) {
+        allErrors.phone1 = t('join.required');
+      } else if (!isPhoneValid(values.phone1)) {
+        allErrors.phone1 = t('join.invalidPhone');
+      }
+
+      if (isPhoneFilled(values.phone2) && !isPhoneValid(values.phone2)) {
+        allErrors.phone2 = t('join.invalidPhone');
+      }
+
+      const dobISO = safeText(values.dob);
+      if (!dobISO) {
+        allErrors.dob = t('join.required');
+      } else {
+        const parsedDob = parseISODate(dobISO);
+        if (!parsedDob) {
+          allErrors.dob = t('join.pickDate');
+        } else if (parsedDob > new Date()) {
+          allErrors.dob = t('join.pickDate');
+        } else {
+          const age = getAgeYears(dobISO);
+          if (age !== null && age < MIN_AGE) {
+            allErrors.dob = t('service.academy.join.errors.dobMinAge');
+          }
+        }
+      }
+
+      const scope =
+        step === 1
+          ? STEP_ONE_FIELDS
+          : step === 2
+            ? STEP_TWO_FIELDS
+            : STEP_THREE_FIELDS;
+
+      const scopedErrors = pickErrors(allErrors, scope);
+
+      return {
+        isValid: Object.keys(scopedErrors).length === 0,
+        errors: scopedErrors,
+        allErrors,
+      };
+    },
+    [form, requireArabicNames, t]
+  );
+
+  const currentStepValidation = useMemo(
+    () => validateStep(currentStep, form),
+    [currentStep, form, validateStep]
+  );
+  const reviewValidation = useMemo(() => validateStep(3, form), [form, validateStep]);
+
+  const showFieldError = useCallback(
+    (field) => {
+      if (!errors[field]) return false;
+      return Boolean(touched[field] || attemptedSteps[currentStep] || attemptedSteps[TOTAL_STEPS]);
+    },
+    [attemptedSteps, currentStep, errors, touched]
+  );
+
+  const goToStepError = useCallback(
+    (step, stepErrors) => {
+      const orderedFields =
+        step === 1
+          ? STEP_ONE_FIELDS
+          : step === 2
+            ? STEP_TWO_FIELDS
+            : STEP_THREE_FIELDS;
+      const firstInvalid = orderedFields.find((field) => stepErrors[field]);
+      if (firstInvalid) scrollToError(firstInvalid);
+    },
+    [scrollToError]
+  );
+
+  const handleBack = useCallback(() => {
+    if (currentStep > 1) {
+      setCurrentStep((prev) => Math.max(1, prev - 1));
+      return;
+    }
+    goBack();
+  }, [currentStep, goBack]);
+
+  const handleContinue = useCallback(() => {
+    setAttemptedSteps((prev) => ({ ...prev, [currentStep]: true }));
+
+    const result = validateStep(currentStep, form);
+    setErrors(result.allErrors);
+
+    if (!result.isValid) {
+      if (result.errors.first_ar_name || result.errors.middle_ar_name || result.errors.last_ar_name) {
+        setArabicExpanded(true);
+      }
+      goToStepError(currentStep, result.errors);
+      toast?.warning?.(t('service.academy.join.errors.fix'), {
+        title: t('service.academy.common.checkForm'),
+      });
+      return;
     }
 
-    setErrors(e);
-    return e;
-  }, [form, t]);
+    setCurrentStep((prev) => Math.min(TOTAL_STEPS, prev + 1));
+  }, [currentStep, form, goToStepError, t, toast, validateStep]);
 
   const submit = useCallback(async () => {
     if (!academy) return;
@@ -396,6 +597,7 @@ export function JoinAcademyScreen() {
       });
       return;
     }
+
     if (!academy.registration_open) {
       toast?.warning?.(t('service.academy.join.toast.closed'), {
         title: t('service.academy.join.badges.closed'),
@@ -403,14 +605,21 @@ export function JoinAcademyScreen() {
       return;
     }
 
-    setAttempted(true);
-    const e = validateAll();
-    if (Object.keys(e).length) {
-      const firstErrorKey = Object.keys(e)[0];
-      const yPosition = fieldPositions.current[firstErrorKey];
-      if (yPosition != null) {
-        scrollRef.current?.scrollTo({ y: yPosition - 120, animated: true });
+    setAttemptedSteps((prev) => ({ ...prev, 1: true, 2: true, 3: true }));
+
+    const result = validateStep(3, form);
+    setErrors(result.allErrors);
+
+    if (!result.isValid) {
+      const hasStepOneError = STEP_ONE_FIELDS.some((key) => Boolean(result.allErrors[key]));
+      const nextStep = hasStepOneError ? 1 : 2;
+      setCurrentStep(nextStep);
+
+      if (result.allErrors.first_ar_name || result.allErrors.middle_ar_name || result.allErrors.last_ar_name) {
+        setArabicExpanded(true);
       }
+
+      goToStepError(nextStep, result.allErrors);
 
       toast?.warning?.(t('service.academy.join.errors.fix'), {
         title: t('service.academy.common.checkForm'),
@@ -429,8 +638,8 @@ export function JoinAcademyScreen() {
         first_ar_name: safeText(form.first_ar_name),
         middle_ar_name: safeText(form.middle_ar_name) || null,
         last_ar_name: safeText(form.last_ar_name),
-        phone1: safeText(form.phone1),
-        phone2: safeText(form.phone2) || '',
+        phone1: safeText(form.phone1?.e164),
+        phone2: safeText(form.phone2?.e164) || '',
         dob: safeText(form.dob),
         notes: safeText(form.notes) || '',
       };
@@ -443,877 +652,1011 @@ export function JoinAcademyScreen() {
         actionLabel: t('service.academy.join.actions.viewAcademy'),
         onAction: () => router.push(`/academies/${slug}`),
       });
-    } catch (e2) {
-      toast?.error?.(e2?.message || t('service.academy.common.errorMessage'), {
+    } catch (error) {
+      toast?.error?.(error?.message || t('service.academy.common.errorMessage'), {
         title: t('service.academy.common.errorTitle'),
       });
     } finally {
       setSubmitting(false);
     }
-  }, [academy, form, slug, t, toast, validateAll, router]);
+  }, [academy, form, goToStepError, router, slug, t, toast, validateStep]);
 
-  // ===== Motion: screen enter =====
-  const enterAnim = useMemo(() => FadeInDown.duration(340).easing(Easing.out(Easing.quad)), []);
+  const openDobPicker = useCallback(() => {
+    const initial = parseISODate(form.dob) || maxDobDate;
+    setTempDob(initial);
+    setDobPickerOpen(true);
+  }, [form.dob, maxDobDate]);
 
-  // Minimal dynamic styles (colors only) – keep <= 5
-  const heroOverlay = useMemo(
-    () => [
-      alphaHex(theme.black, isDark ? 'C7' : '80'),
-      alphaHex(theme.black, isDark ? '42' : '29'),
-      alphaHex(theme.black, isDark ? 'D1' : '99'),
-    ],
-    [isDark, theme.black]
-  );
+  const closeDobPicker = useCallback(() => {
+    setDobPickerOpen(false);
+  }, []);
 
-  const bottomGlass = useMemo(
-    () => alphaHex(theme.surface0, isDark ? 'C7' : 'E6'),
-    [isDark, theme.surface0]
-  );
+  const confirmDob = useCallback(() => {
+    const finalDate = tempDob || maxDobDate;
+    setField('dob', formatISODate(finalDate));
+    markTouched('dob');
+    setDobPickerOpen(false);
+  }, [markTouched, maxDobDate, setField, tempDob]);
 
-  const heroFallback = useMemo(
-    () => [theme.surface2, alphaHex(theme.accent.orange, isDark ? '24' : '33')],
-    [isDark, theme.accent.orange, theme.surface2]
-  );
+  const emptyValue = t('service.academy.common.emptyValue');
+  const joinTitle = t('join.title', { academy: academyName || t('service.academy.common.defaultName') });
+  const stepLabel = t('join.step', { step: currentStep, total: TOTAL_STEPS });
 
-  const successGradient = useMemo(
-    () => [theme.surface0, alphaHex(theme.accent.orange, isDark ? '14' : '1A')],
-    [isDark, theme.accent.orange, theme.surface0]
-  );
+  const reviewNameEn = combineName([
+    form.first_eng_name,
+    form.middle_eng_name,
+    form.last_eng_name,
+  ]);
+  const reviewNameAr = combineName([
+    form.first_ar_name,
+    form.middle_ar_name,
+    form.last_ar_name,
+  ]);
 
-  // ===== Loading =====
+  const reviewPhonePrimary = safeText(form.phone1?.e164);
+  const reviewPhoneSecondary = safeText(form.phone2?.e164);
+  const reviewDob = formatLocalizedDate(form.dob, locale);
+  const ageYears = getAgeYears(form.dob);
+
+  const secondaryFooterLabel = currentStep === 3 ? t('join.cancel') : t('join.back');
+  const primaryFooterLabel = currentStep === 3 ? t('join.sendRequest') : t('join.continue');
+
+  const primaryFooterDisabled =
+    currentStep === 3
+      ? submitting || !reviewValidation.isValid
+      : submitting || !currentStepValidation.isValid;
+
+  const footerBottomPadding = Math.max(insets.bottom, spacing.md);
+  const scrollBottomPadding = 124 + footerBottomPadding;
+
   if (loading) {
     return (
       <Screen safe scroll={false} style={ad.screen(theme)}>
-        <AppHeader title={t('service.academy.join.loading.title')} leftSlot={<BackButton />} />
         <SporHiveLoader label={t('service.academy.join.loading.title')} />
       </Screen>
     );
   }
 
-  // ===== Error / Not found =====
   if (loadError || !academy) {
     return (
-      <Screen safe scroll style={ad.screen(theme)}>
-        <View style={styles.pad}>
-          <AppHeader
-            title={t('service.academy.join.notFound.title')}
-            leftSlot={<BackButton color={theme.text.primary} />}
-          />
-          <View style={styles.centerState}>
+      <Screen safe scroll={false} style={ad.screen(theme)}>
+        <View style={styles.stateContainer}>
+          <BackButton color={theme.text.primary} />
+          <Card
+            style={[
+              styles.stateCard,
+              {
+                backgroundColor: theme.surface2,
+                borderColor: theme.hairline,
+              },
+            ]}
+            elevated={false}
+          >
             <View
               style={[
                 styles.stateIcon,
-                { backgroundColor: alphaHex(theme.error, '24'), borderColor: alphaHex(theme.error, '38') },
+                {
+                  backgroundColor: alphaHex(theme.error, '18'),
+                  borderColor: alphaHex(theme.error, '3A'),
+                },
               ]}
             >
-              <AlertCircle size={34} color={theme.error} />
+              <AlertCircle size={26} color={theme.error} />
             </View>
-            <Text variant="h4" weight="bold" style={{ color: theme.text.primary, marginTop: 12 }}>
+
+            <Text variant="h4" weight="bold" style={{ color: theme.text.primary, textAlign: 'center' }}>
               {t('service.academy.join.notFound.title')}
             </Text>
-            <Text variant="body" style={{ color: theme.text.secondary, marginTop: 10, textAlign: 'center' }}>
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.text.secondary, textAlign: 'center', marginTop: 6 }}
+            >
               {loadError || t('service.academy.join.notFound.subtitle')}
             </Text>
 
-            <View style={{ marginTop: 18 }}>
-              <AnimatedPress>
-                <Button onPress={() => router.push('/academies')}>
-                  <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                    {t('service.academy.join.actions.browse')}
-                  </Text>
-                </Button>
-              </AnimatedPress>
-            </View>
-          </View>
+            <Button style={styles.stateButton} onPress={() => router.push('/academies')}>
+              {t('service.academy.join.actions.browse')}
+            </Button>
+          </Card>
         </View>
       </Screen>
     );
   }
 
-  // ===== Success panel (premium + motion, keeps behavior) =====
   if (submitted) {
     return (
       <Screen safe scroll={false} style={ad.screen(theme)}>
-        <LinearGradient colors={successGradient} style={StyleSheet.absoluteFill} />
-        <Animated.View entering={enterAnim} style={styles.successWrap}>
-          <Card style={[styles.successCard, theme.shadow.lg, { backgroundColor: theme.surface2, borderColor: theme.hairline }]}>
-            <View style={[styles.successIconWrap, { backgroundColor: theme.accent.orangeSoft, borderColor: theme.accent.orangeHair }]}>
-              <CheckCircle2 size={34} color={theme.success} />
+        <View style={styles.stateContainer}>
+          <Card
+            style={[
+              styles.stateCard,
+              {
+                backgroundColor: theme.surface2,
+                borderColor: theme.hairline,
+              },
+            ]}
+            elevated={false}
+          >
+            <View
+              style={[
+                styles.stateIcon,
+                {
+                  backgroundColor: theme.accent.orangeSoft,
+                  borderColor: theme.accent.orangeHair,
+                },
+              ]}
+            >
+              <CheckCircle2 size={26} color={theme.success} />
             </View>
 
             <Text variant="h3" weight="bold" style={{ color: theme.text.primary, textAlign: 'center' }}>
               {t('service.academy.join.success.title')}
             </Text>
-
-            <Text variant="body" style={{ color: theme.text.secondary, textAlign: 'center', marginTop: 10, lineHeight: 22 }}>
-              {t('service.academy.join.success.subtitle')}{' '}
-              <Text weight="bold" style={{ color: theme.text.primary }}>
-                {academyName}
-              </Text>
-              . {'\n'}
-              {t('service.academy.join.success.hint')}
+            <Text
+              variant="body"
+              style={{ color: theme.text.secondary, textAlign: 'center', marginTop: 8 }}
+            >
+              {t('service.academy.join.success.subtitle')} {academyName}. {t('service.academy.join.success.hint')}
             </Text>
 
-            <View style={styles.successActions}>
-              <AnimatedPress>
-                <Button variant="secondary" style={{ flex: 1 }} onPress={() => router.push(`/academies/${slug}`)}>
-                  <Text variant="caption" weight="bold" style={{ color: theme.text.primary }}>
-                    {t('service.academy.join.actions.viewAcademy')}
-                  </Text>
-                </Button>
-              </AnimatedPress>
-
-              <AnimatedPress>
-                <Button style={{ flex: 1 }} onPress={() => router.push('/academies')}>
-                  <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                    {t('service.academy.join.actions.findMore')}
-                  </Text>
-                </Button>
-              </AnimatedPress>
-            </View>
-
-            <AnimatedPress>
-              <Button variant="ghost" onPress={() => router.back()} style={{ marginTop: 12, alignSelf: 'center' }}>
-                <Text variant="caption" weight="bold" style={{ color: theme.text.secondary }}>
-                  {t('service.academy.common.back')}
-                </Text>
+            <View style={[styles.stateActions, isRTL && styles.rowReverse]}>
+              <Button
+                variant="secondary"
+                style={styles.stateActionBtn}
+                onPress={() => router.push(`/academies/${slug}`)}
+              >
+                {t('service.academy.join.actions.viewAcademy')}
               </Button>
-            </AnimatedPress>
+              <Button style={styles.stateActionBtn} onPress={() => router.push('/academies')}>
+                {t('service.academy.join.actions.findMore')}
+              </Button>
+            </View>
           </Card>
-        </Animated.View>
+        </View>
       </Screen>
     );
   }
 
-  // ===== Contact-only / Closed mode (kept) =====
   if (isContactOnly || showClosed) {
     return (
-      <Screen safe scroll style={ad.screen(theme)}>
-        <Animated.View entering={enterAnim} style={{ flex: 1 }}>
-          {/* Hero header */}
-          <View style={styles.hero}>
-            {coverUri ? (
-              <Image source={{ uri: coverUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-            ) : (
-              <LinearGradient colors={heroFallback} style={StyleSheet.absoluteFill} />
-            )}
-            <LinearGradient colors={heroOverlay} style={StyleSheet.absoluteFill} />
-
-            <View style={styles.heroTop}>
-              <AnimatedPress>
-                <BackButton color={theme.text.onDark} style={styles.backBtn} />
-              </AnimatedPress>
-            </View>
-
-            <View style={styles.heroBottom}>
-              <View style={styles.heroTitleRow}>
-                <View style={[styles.heroLogo, { borderColor: alphaHex(theme.white, '47'), backgroundColor: alphaHex(theme.white, '1A') }]}>
-                  {logoUri ? (
-                    <Image source={{ uri: logoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                  ) : (
-                    <View style={styles.logoFallback}>
-                      <Sparkles size={18} color={theme.text.onDark} />
-                    </View>
-                  )}
-                </View>
-
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text variant="h3" weight="bold" style={{ color: theme.text.onDark }} numberOfLines={1}>
-                    {academyName}
-                  </Text>
-
-                  <View style={styles.heroBadgesRow}>
-                    <Badge
-                      style={{
-                        backgroundColor: showClosed ? alphaHex(theme.error, 'E6') : alphaHex(theme.black, '8C'),
-                      }}
-                    >
-                      <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                        {showClosed ? t('service.academy.join.badges.closed') : t('service.academy.join.badges.contact')}
-                      </Text>
-                    </Badge>
-
-                    <Badge style={{ backgroundColor: alphaHex(theme.black, '8C') }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <ShieldCheck size={12} color={theme.text.onDark} />
-                        <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                          {' '}
-                          {t('service.academy.join.badges.secure')}
-                        </Text>
-                      </View>
-                    </Badge>
-                  </View>
-                </View>
+      <Screen safe scroll={false} style={ad.screen(theme)}>
+        <View style={styles.simpleHeaderWrap}>
+          <View style={[styles.simpleHeaderRow, isRTL && styles.rowReverse]}>
+            <BackButton color={theme.text.primary} />
+            <View style={[styles.simpleHeaderMeta, isRTL && styles.rowReverse]}>
+              <View
+                style={[
+                  styles.headerAvatar,
+                  {
+                    backgroundColor: theme.surface1,
+                    borderColor: theme.hairline,
+                  },
+                ]}
+              >
+                {logoUri ? (
+                  <Image source={{ uri: logoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                ) : (
+                  <Sparkles size={16} color={theme.accent.orange} />
+                )}
               </View>
-            </View>
-          </View>
-
-          <View style={styles.pad}>
-            <Card style={[styles.dsCard, theme.shadow.md, { backgroundColor: theme.surface2, borderColor: theme.hairline }]}>
-              <View style={styles.sectionBody}>
+              <View style={styles.headerTitleBlock}>
+                <Text variant="bodySmall" style={{ color: theme.text.secondary }}>
+                  {academyName}
+                </Text>
                 <Text variant="h4" weight="bold" style={{ color: theme.text.primary }}>
                   {showClosed
                     ? t('service.academy.join.closed.title')
                     : t('service.academy.join.contact.title')}
                 </Text>
-                <Text variant="body" style={{ color: theme.text.secondary, marginTop: 10, lineHeight: 22 }}>
-                  {showClosed
-                    ? t('service.academy.join.closed.message')
-                    : t('service.academy.join.contact.message')}
-                </Text>
-
-                <View style={{ marginTop: 16, gap: 10 }}>
-                  {contactPhones.map((phone) => (
-                    <AnimatedPress key={phone}>
-                      <Button onPress={() => Linking.openURL(`tel:${phone}`)}>
-                        <Phone size={16} color={theme.text.onDark} />
-                        <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                          {' '}
-                          {phone}
-                        </Text>
-                      </Button>
-                    </AnimatedPress>
-                  ))}
-
-                  {contactEmail ? (
-                    <AnimatedPress>
-                      <Button variant="secondary" onPress={() => Linking.openURL(`mailto:${contactEmail}`)}>
-                        <Mail size={16} color={theme.text.primary} />
-                        <Text variant="caption" weight="bold" style={{ color: theme.text.primary }}>
-                          {' '}
-                          {contactEmail}
-                        </Text>
-                      </Button>
-                    </AnimatedPress>
-                  ) : null}
-                </View>
               </View>
-            </Card>
+            </View>
           </View>
-        </Animated.View>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing['3xl'] }}
+          showsVerticalScrollIndicator={false}
+        >
+          <Card
+            style={[
+              styles.contactOnlyCard,
+              {
+                backgroundColor: theme.surface2,
+                borderColor: theme.hairline,
+              },
+            ]}
+            elevated={false}
+          >
+            <Text variant="body" style={{ color: theme.text.secondary }}>
+              {showClosed
+                ? t('service.academy.join.closed.message')
+                : t('service.academy.join.contact.message')}
+            </Text>
+
+            <View style={styles.contactOnlyActions}>
+              {contactPhones.map((phone) => (
+                <Pressable
+                  key={phone}
+                  onPress={() => Linking.openURL(`tel:${phone}`)}
+                  style={[
+                    styles.contactAction,
+                    {
+                      backgroundColor: theme.surface1,
+                      borderColor: theme.hairline,
+                    },
+                  ]}
+                >
+                  <Phone size={16} color={theme.text.secondary} />
+                  <Text variant="bodySmall" weight="medium" style={{ color: theme.text.primary }}>
+                    {phone}
+                  </Text>
+                </Pressable>
+              ))}
+
+              {contactEmail ? (
+                <Pressable
+                  onPress={() => Linking.openURL(`mailto:${contactEmail}`)}
+                  style={[
+                    styles.contactAction,
+                    {
+                      backgroundColor: theme.surface1,
+                      borderColor: theme.hairline,
+                    },
+                  ]}
+                >
+                  <Mail size={16} color={theme.text.secondary} />
+                  <Text variant="bodySmall" weight="medium" style={{ color: theme.text.primary }}>
+                    {contactEmail}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </Card>
+        </ScrollView>
       </Screen>
     );
   }
 
-  // ===== Main Guided Form =====
-  const reviewNameEn = `${safeText(form.first_eng_name)} ${safeText(form.middle_eng_name)} ${safeText(form.last_eng_name)}`.replace(/\s+/g, ' ').trim();
-  const reviewNameAr = `${safeText(form.first_ar_name)} ${safeText(form.middle_ar_name)} ${safeText(form.last_ar_name)}`.replace(/\s+/g, ' ').trim();
-  const reviewDob = safeText(form.dob);
-  const reviewPhone1 = safeText(form.phone1);
-  const reviewPhone2 = safeText(form.phone2);
-
   return (
     <Screen safe scroll={false} style={ad.screen(theme)}>
-      <Animated.View entering={enterAnim} style={{ flex: 1 }}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-          <ScrollView
-            ref={scrollRef}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+        style={{ flex: 1 }}
+      >
+        <View style={{ flex: 1 }}>
+          <View
+            style={[
+              styles.stickyHeader,
+              {
+                backgroundColor: theme.surface2,
+                borderBottomColor: theme.hairline,
+              },
+            ]}
           >
-            {/* Premium Hero */}
-            <View style={styles.hero}>
-              {coverUri ? (
-                <Image source={{ uri: coverUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-              ) : (
-                <LinearGradient colors={heroFallback} style={StyleSheet.absoluteFill} />
-              )}
-              <LinearGradient colors={heroOverlay} style={StyleSheet.absoluteFill} />
+            <View style={[styles.headerRow, isRTL && styles.rowReverse]}>
+              <BackButton color={theme.text.primary} onPress={handleBack} />
 
-              <View style={styles.heroTop}>
-                <AppHeader
-                  title={t('service.academy.join.title')}
-                  subtitle={t('service.academy.join.subtitle')}
-                  leftSlot={<BackButton color={theme.text.onDark} />}
-                />
-              </View>
-
-              <View style={styles.heroBottom}>
-                <View style={styles.heroTitleRow}>
-                  <View style={[styles.heroLogo, { borderColor: alphaHex(theme.white, '47'), backgroundColor: alphaHex(theme.white, '1A') }]}>
-                    {logoUri ? (
-                      <Image source={{ uri: logoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                    ) : (
-                      <View style={styles.logoFallback}>
-                        <Sparkles size={18} color={theme.text.onDark} />
-                      </View>
-                    )}
-                  </View>
-
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text variant="h3" weight="bold" style={{ color: theme.text.onDark }} numberOfLines={1}>
-                      {academyName}
-                    </Text>
-
-                    <View style={styles.heroBadgesRow}>
-                      <Badge
-                        style={{
-                          backgroundColor: isOpen ? alphaHex(theme.success, 'EB') : alphaHex(theme.black, '8C'),
-                        }}
-                      >
-                        <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                          {isOpen ? t('service.academy.join.badges.open') : t('service.academy.join.badges.contact')}
-                        </Text>
-                      </Badge>
-
-                      <Badge style={{ backgroundColor: alphaHex(theme.black, '8C') }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <ShieldCheck size={12} color={theme.text.onDark} />
-                          <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                            {' '}
-                            {t('service.academy.join.badges.secure')}
-                          </Text>
-                        </View>
-                      </Badge>
-                    </View>
-                  </View>
+              <View style={[styles.headerMeta, isRTL && styles.rowReverse]}>
+                <View
+                  style={[
+                    styles.headerAvatar,
+                    {
+                      backgroundColor: theme.surface1,
+                      borderColor: theme.hairline,
+                    },
+                  ]}
+                >
+                  {logoUri ? (
+                    <Image source={{ uri: logoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  ) : (
+                    <Sparkles size={16} color={theme.accent.orange} />
+                  )}
                 </View>
 
-                <View style={styles.stepRow}>
-                  <View style={[styles.stepDot, { backgroundColor: theme.accent.orange }]} />
-                  <View style={[styles.stepDot, { backgroundColor: alphaHex(theme.white, '40') }]} />
-                  <View style={[styles.stepDot, { backgroundColor: alphaHex(theme.white, '40') }]} />
-                  <Text variant="caption" style={{ color: alphaHex(theme.white, 'DB'), marginLeft: 10 }}>
-                    {t('service.academy.join.steps')}
+                <View style={styles.headerTitleBlock}>
+                  <Text variant="caption" style={{ color: theme.text.secondary }} numberOfLines={1}>
+                    {joinTitle}
+                  </Text>
+                  <Text variant="h4" weight="bold" style={{ color: theme.text.primary }} numberOfLines={1}>
+                    {academyName}
+                  </Text>
+                  <Text variant="caption" style={{ color: theme.text.secondary }} numberOfLines={1}>
+                    {stepLabel}
                   </Text>
                 </View>
               </View>
             </View>
 
-            <View style={styles.pad}>
-              <InlineErrorSummary theme={theme} visible={attempted} errors={errors} t={t} />
-
-              {/* 1) Player identity */}
-              <SectionCard
-                theme={theme}
-                icon={<User size={18} color={theme.accent.orange} />}
-                title={t('service.academy.join.sections.player.title')}
-                subtitle={t('service.academy.join.sections.player.subtitle')}
-                enteringDelay={40}
-                right={
-                  <Badge style={[styles.reqBadge, { backgroundColor: theme.surface1, borderColor: theme.hairline }]}>
-                    <Text variant="caption" weight="bold" style={{ color: theme.text.secondary }}>
-                      {t('service.academy.common.required')}
-                    </Text>
-                  </Badge>
-                }
+            <View style={[styles.progressRow, isRTL && styles.rowReverse]}>
+              <View
+                style={[
+                  styles.progressTrack,
+                  {
+                    backgroundColor: alphaHex(theme.accent.orange, isDark ? '33' : '1F'),
+                  },
+                ]}
               >
-                <View style={styles.gridGap}>
-                  <View style={[styles.rowOrCol, isWide && styles.row]}>
-                    <View style={styles.flex1}>
+                <Animated.View
+                  style={[
+                    styles.progressFill,
+                    {
+                      backgroundColor: theme.accent.orange,
+                    },
+                    progressFillStyle,
+                  ]}
+                />
+              </View>
+              <Text variant="caption" weight="bold" style={{ color: theme.text.secondary }}>
+                {`${progressPercent}%`}
+              </Text>
+            </View>
+          </View>
+
+          <ScrollView
+            ref={scrollRef}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{
+              paddingHorizontal: spacing.lg,
+              paddingTop: spacing.md,
+              paddingBottom: scrollBottomPadding,
+              gap: spacing.md,
+            }}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.View
+              key={`join-step-${currentStep}`}
+              entering={FadeInDown.duration(220)}
+              exiting={FadeOutDown.duration(160)}
+            >
+              {currentStep === 1 ? (
+                <View style={styles.stepStack}>
+                  <SectionCard
+                    theme={theme}
+                    title={t('join.playerIdentity')}
+                    subtitle={t('join.playerIdentitySubtitle')}
+                  >
+                    <View style={styles.fieldStack}>
                       <View onLayout={captureFieldPosition('first_eng_name')}>
                         <Input
-                          label={t('service.academy.join.form.firstEng')}
+                          label={t('join.firstName')}
                           value={form.first_eng_name}
-                          onChangeText={(v) => setField('first_eng_name', v)}
-                          error={attempted ? errors.first_eng_name : ''}
-                          style={getFieldErrorStyle('first_eng_name')}
+                          onChangeText={(value) => setField('first_eng_name', value)}
+                          onEndEditing={() => markTouched('first_eng_name')}
+                          textAlign={isRTL ? 'right' : 'left'}
+                          error={showFieldError('first_eng_name') ? errors.first_eng_name : ''}
                         />
                       </View>
-                    </View>
-                    <View style={styles.flex1}>
-                      <Input
-                        label={t('service.academy.join.form.middleEng')}
-                        value={form.middle_eng_name}
-                        onChangeText={(v) => setField('middle_eng_name', v)}
-                      />
-                    </View>
-                  </View>
 
-                  <View style={[styles.rowOrCol, isWide && styles.row]}>
-                    <View style={styles.flex1}>
+                      <View onLayout={captureFieldPosition('middle_eng_name')}>
+                        <Input
+                          label={t('join.middleName')}
+                          value={form.middle_eng_name}
+                          onChangeText={(value) => setField('middle_eng_name', value)}
+                          onEndEditing={() => markTouched('middle_eng_name')}
+                          textAlign={isRTL ? 'right' : 'left'}
+                          error={showFieldError('middle_eng_name') ? errors.middle_eng_name : ''}
+                        />
+                      </View>
+
                       <View onLayout={captureFieldPosition('last_eng_name')}>
                         <Input
-                          label={t('service.academy.join.form.lastEng')}
+                          label={t('join.lastName')}
                           value={form.last_eng_name}
-                          onChangeText={(v) => setField('last_eng_name', v)}
-                          error={attempted ? errors.last_eng_name : ''}
-                          style={getFieldErrorStyle('last_eng_name')}
+                          onChangeText={(value) => setField('last_eng_name', value)}
+                          onEndEditing={() => markTouched('last_eng_name')}
+                          textAlign={isRTL ? 'right' : 'left'}
+                          error={showFieldError('last_eng_name') ? errors.last_eng_name : ''}
                         />
                       </View>
                     </View>
-                    <View style={styles.flex1}>
-                  <View style={[styles.softInfo, { backgroundColor: alphaHex(theme.text.primary, isDark ? '14' : '0A') }]}>
-                    <Sparkles size={14} color={theme.text.secondary} />
-                        <Text variant="caption" style={{ color: theme.text.secondary, marginLeft: 8 }}>
-                          {t('service.academy.join.form.nameHint')}
-                        </Text>
+
+                    <Pressable
+                      onPress={() => setArabicExpanded((prev) => !prev)}
+                      style={[
+                        styles.accordionRow,
+                        {
+                          borderColor: theme.hairline,
+                          backgroundColor: theme.surface1,
+                        },
+                      ]}
+                    >
+                      <View style={[styles.accordionRowInner, isRTL && styles.rowReverse]}>
+                        <View style={[styles.accordionTitleWrap, isRTL && styles.rowReverse]}>
+                          <Text variant="bodySmall" weight="semibold" style={{ color: theme.text.primary }}>
+                            {t('join.arabicName')}
+                          </Text>
+                          {!requireArabicNames ? (
+                            <Text variant="caption" style={{ color: theme.text.secondary }}>
+                              ({t('join.optional')})
+                            </Text>
+                          ) : null}
+                        </View>
+
+                        {arabicExpanded ? (
+                          <ChevronUp size={18} color={theme.text.secondary} />
+                        ) : (
+                          <ChevronDown size={18} color={theme.text.secondary} />
+                        )}
                       </View>
-                    </View>
-                  </View>
+                    </Pressable>
 
-                  <Divider />
-
-                  <View style={[styles.rowOrCol, isWide && styles.row]}>
-                    <View style={styles.flex1}>
-                      <View onLayout={captureFieldPosition('first_ar_name')}>
-                        <Input
-                          label={t('service.academy.join.form.firstAr')}
-                          value={form.first_ar_name}
-                          onChangeText={(v) => setField('first_ar_name', v)}
-                          error={attempted ? errors.first_ar_name : ''}
-                          style={getFieldErrorStyle('first_ar_name')}
-                        />
-                      </View>
-                    </View>
-                    <View style={styles.flex1}>
-                      <Input
-                        label={t('service.academy.join.form.middleAr')}
-                        value={form.middle_ar_name}
-                        onChangeText={(v) => setField('middle_ar_name', v)}
-                      />
-                    </View>
-                  </View>
-
-                  <View style={[styles.rowOrCol, isWide && styles.row]}>
-                    <View style={styles.flex1}>
-                      <View onLayout={captureFieldPosition('last_ar_name')}>
-                        <Input
-                          label={t('service.academy.join.form.lastAr')}
-                          value={form.last_ar_name}
-                          onChangeText={(v) => setField('last_ar_name', v)}
-                          error={attempted ? errors.last_ar_name : ''}
-                          style={getFieldErrorStyle('last_ar_name')}
-                        />
-                      </View>
-                    </View>
-                    <View style={styles.flex1}>
-                      <FieldHint theme={theme} text={t('service.academy.join.form.arHint')} />
-                    </View>
-                  </View>
-                </View>
-              </SectionCard>
-
-              {/* 2) Contact */}
-              <SectionCard
-                theme={theme}
-                icon={<Contact2 size={18} color={theme.accent.orange} />}
-                title={t('service.academy.join.sections.contact.title')}
-                subtitle={t('service.academy.join.sections.contact.subtitle')}
-                enteringDelay={70}
-              >
-                <View style={styles.gridGap}>
-                  <View style={[styles.rowOrCol, isWide && styles.row]}>
-                    <View style={styles.flex1}>
-                      <View onLayout={captureFieldPosition('phone1')}>
-                        <Input
-                          label={t('service.academy.join.form.phone1')}
-                          value={form.phone1}
-                          onChangeText={(v) => setField('phone1', v)}
-                          keyboardType="phone-pad"
-                          placeholder={t('service.academy.join.form.phonePlaceholder')}
-                          error={attempted ? errors.phone1 : ''}
-                          style={getFieldErrorStyle('phone1')}
-                        />
-                      </View>
-                    </View>
-                    <View style={styles.flex1}>
-                      <View onLayout={captureFieldPosition('phone2')}>
-                        <Input
-                          label={t('service.academy.join.form.phone2')}
-                          value={form.phone2}
-                          onChangeText={(v) => setField('phone2', v)}
-                          keyboardType="phone-pad"
-                          placeholder={t('service.academy.common.optional')}
-                          error={attempted ? errors.phone2 : ''}
-                          style={getFieldErrorStyle('phone2')}
-                        />
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={styles.trustRow}>
-                    <ShieldCheck size={14} color={theme.text.muted} />
-                    <Text variant="caption" style={{ color: theme.text.muted, marginLeft: 8, flex: 1 }}>
-                      {t('service.academy.join.form.trust')}
-                    </Text>
-                  </View>
-                </View>
-              </SectionCard>
-
-              {/* 3) Details */}
-              <SectionCard
-                theme={theme}
-                icon={<ClipboardList size={18} color={theme.accent.orange} />}
-                title={t('service.academy.join.sections.details.title')}
-                subtitle={t('service.academy.join.sections.details.subtitle')}
-                enteringDelay={100}
-              >
-                <View style={styles.gridGap}>
-                  {/* DOB picker */}
-                  <AnimatedPress>
-                    <View onLayout={captureFieldPosition('dob')}>
-                      <Pressable
-                        onPress={() => {
-                          const initial = isoToDateOrNull(form.dob) || new Date(`${dobMax}T00:00:00`);
-                          setTempDob(initial);
-                          setDobPickerOpen(true);
-                        }}
-                        style={styles.pressRow}
-                      >
-                        <View pointerEvents="none">
+                    {arabicExpanded ? (
+                      <Animated.View entering={FadeInDown.duration(180)} style={styles.fieldStack}>
+                        <View onLayout={captureFieldPosition('first_ar_name')}>
                           <Input
-                            label={t('service.academy.join.form.dob')}
-                            value={form.dob}
-                            placeholder={t('service.academy.join.form.dobPlaceholder')}
-                            error={attempted ? errors.dob : ''}
-                            style={getFieldErrorStyle('dob')}
+                            label={t('join.firstName')}
+                            value={form.first_ar_name}
+                            onChangeText={(value) => setField('first_ar_name', value)}
+                            onEndEditing={() => markTouched('first_ar_name')}
+                            textAlign={isRTL ? 'right' : 'left'}
+                            error={showFieldError('first_ar_name') ? errors.first_ar_name : ''}
                           />
                         </View>
 
-                        <View style={[styles.dobAffordance, { backgroundColor: theme.accent.orangeSoft, borderColor: theme.accent.orangeHair }]}>
-                          <CalendarDays size={18} color={theme.accent.orange} />
+                        <View onLayout={captureFieldPosition('middle_ar_name')}>
+                          <Input
+                            label={t('join.middleName')}
+                            value={form.middle_ar_name}
+                            onChangeText={(value) => setField('middle_ar_name', value)}
+                            onEndEditing={() => markTouched('middle_ar_name')}
+                            textAlign={isRTL ? 'right' : 'left'}
+                            error={showFieldError('middle_ar_name') ? errors.middle_ar_name : ''}
+                          />
                         </View>
-                      </Pressable>
+
+                        <View onLayout={captureFieldPosition('last_ar_name')}>
+                          <Input
+                            label={t('join.lastName')}
+                            value={form.last_ar_name}
+                            onChangeText={(value) => setField('last_ar_name', value)}
+                            onEndEditing={() => markTouched('last_ar_name')}
+                            textAlign={isRTL ? 'right' : 'left'}
+                            error={showFieldError('last_ar_name') ? errors.last_ar_name : ''}
+                          />
+                        </View>
+                      </Animated.View>
+                    ) : null}
+                  </SectionCard>
+                </View>
+              ) : null}
+
+              {currentStep === 2 ? (
+                <View style={styles.stepStack}>
+                  <SectionCard theme={theme} title={t('join.contact')} subtitle={t('join.phoneOnDetails')}>
+                    <View style={styles.fieldStack}>
+                      <View onLayout={captureFieldPosition('phone1')}>
+                        <PhoneField
+                          label={t('join.primaryPhone')}
+                          value={form.phone1}
+                          onChange={(payload) => {
+                            setPhoneField('phone1', payload);
+                            if (isPhoneFilled(payload)) markTouched('phone1');
+                          }}
+                          minLength={8}
+                          maxLength={15}
+                          required
+                          error={showFieldError('phone1') ? errors.phone1 : ''}
+                        />
+                      </View>
+
+                      <View onLayout={captureFieldPosition('phone2')}>
+                        <PhoneField
+                          label={t('join.secondPhone')}
+                          value={form.phone2}
+                          onChange={(payload) => {
+                            setPhoneField('phone2', payload);
+                            if (isPhoneFilled(payload)) markTouched('phone2');
+                          }}
+                          minLength={8}
+                          maxLength={15}
+                          required={false}
+                          error={showFieldError('phone2') ? errors.phone2 : ''}
+                        />
+                      </View>
                     </View>
-                  </AnimatedPress>
 
-                  {/* Android: inline picker when open */}
-                  {dobPickerOpen && Platform.OS === 'android' ? (
-                    <DateTimePicker
-                      value={tempDob || new Date(`${dobMax}T00:00:00`)}
-                      mode="date"
-                      display="default"
-                      maximumDate={new Date(`${dobMax}T00:00:00`)}
-                      onChange={(event, selectedDate) => {
-                        setDobPickerOpen(false);
-                        if (event.type === 'dismissed') return;
-                        if (!selectedDate) return;
-                        setField('dob', formatISODate(selectedDate));
-                      }}
-                    />
-                  ) : null}
+                    <View
+                      style={[
+                        styles.infoRow,
+                        {
+                          backgroundColor: theme.surface1,
+                          borderColor: theme.hairline,
+                        },
+                      ]}
+                    >
+                      <ShieldCheck size={14} color={theme.text.secondary} />
+                      <Text variant="caption" style={{ color: theme.text.secondary, flex: 1 }}>
+                        {t('join.phonePrivacy')}
+                      </Text>
+                    </View>
+                  </SectionCard>
 
-                  {/* iOS: modal with Done/Cancel */}
-                  {Platform.OS === 'ios' ? (
-                    <Modal visible={dobPickerOpen} transparent animationType="fade" onRequestClose={() => setDobPickerOpen(false)}>
-                      <Pressable style={[styles.dobModalBackdrop, { backgroundColor: alphaHex(theme.black, '7A') }]} onPress={() => setDobPickerOpen(false)}>
-                        <Pressable
-                          style={[
-                            styles.dobModalCard,
-                            theme.shadow.lg,
-                            { backgroundColor: theme.surface2, borderColor: theme.hairline },
-                          ]}
-                          onPress={() => {}}
-                        >
-                          <View style={styles.dobModalHead}>
-                            <Text weight="bold" variant="bodySmall" style={{ color: theme.text.primary }}>
-                              {t('service.academy.join.form.dobTitle')}
-                            </Text>
-                            <AnimatedPress>
-                              <Pressable onPress={() => setDobPickerOpen(false)} style={[styles.dobCloseBtn, { backgroundColor: alphaHex(theme.white, '0F') }]}>
-                                <X size={18} color={theme.text.primary} />
-                              </Pressable>
-                            </AnimatedPress>
-                          </View>
-
-                          <View style={{ marginTop: 10 }}>
-                            <DateTimePicker
-                              value={tempDob || new Date(`${dobMax}T00:00:00`)}
-                              mode="date"
-                              display="spinner"
-                              maximumDate={new Date(`${dobMax}T00:00:00`)}
-                              onChange={(event, selectedDate) => {
-                                if (selectedDate) setTempDob(selectedDate);
-                              }}
+                  <SectionCard theme={theme} title={t('join.details')}>
+                    <View style={styles.fieldStack}>
+                      <View onLayout={captureFieldPosition('dob')}>
+                        <Pressable onPress={openDobPicker} style={styles.dobPressable}>
+                          <View pointerEvents="none" style={{ flex: 1 }}>
+                            <Input
+                              label={t('join.dob')}
+                              value={reviewDob}
+                              placeholder={t('join.pickDate')}
+                              editable={false}
+                              error={showFieldError('dob') ? errors.dob : ''}
                             />
                           </View>
 
-                          <View style={styles.dobModalActions}>
-                            <AnimatedPress>
-                              <Button variant="secondary" style={{ flex: 1 }} onPress={() => setDobPickerOpen(false)}>
-                                <Text variant="caption" weight="bold" style={{ color: theme.text.primary }}>
-                                  {t('service.academy.common.cancel')}
-                                </Text>
-                              </Button>
-                            </AnimatedPress>
-
-                            <AnimatedPress>
-                              <Button
-                                style={{ flex: 1 }}
-                                onPress={() => {
-                                  const finalDate = tempDob || new Date(`${dobMax}T00:00:00`);
-                                  setField('dob', formatISODate(finalDate));
-                                  setDobPickerOpen(false);
-                                }}
-                              >
-                                <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                                  {t('service.academy.common.done')}
-                                </Text>
-                              </Button>
-                            </AnimatedPress>
+                          <View
+                            style={[
+                              styles.calendarBtn,
+                              {
+                                backgroundColor: theme.accent.orangeSoft,
+                                borderColor: theme.accent.orangeHair,
+                              },
+                            ]}
+                          >
+                            <CalendarDays size={16} color={theme.accent.orange} />
                           </View>
                         </Pressable>
-                      </Pressable>
-                    </Modal>
-                  ) : null}
+                      </View>
 
-                  {/* Notes */}
-                  <Input
-                    label={t('service.academy.join.form.notes')}
-                    value={form.notes}
-                    onChangeText={(v) => setField('notes', v)}
-                    placeholder={t('service.academy.join.form.notesPlaceholder')}
-                    multiline
-                    numberOfLines={4}
-                    maxLength={200}
-                  />
+                      {typeof ageYears === 'number' ? (
+                        <Text variant="caption" style={{ color: theme.text.secondary }}>
+                          {t('join.age', { age: ageYears })}
+                        </Text>
+                      ) : null}
+
+                      <Input
+                        label={t('join.notes')}
+                        value={form.notes}
+                        onChangeText={(value) => setField('notes', value)}
+                        textAlign={isRTL ? 'right' : 'left'}
+                        placeholder={t('join.notesPlaceholder')}
+                        multiline
+                        numberOfLines={4}
+                        maxLength={240}
+                      />
+                    </View>
+                  </SectionCard>
                 </View>
-              </SectionCard>
+              ) : null}
 
-              {/* 4) Review & Submit */}
-              <SectionCard
-                theme={theme}
-                icon={<Check size={18} color={theme.accent.orange} />}
-                title={t('service.academy.join.sections.review.title')}
-                subtitle={t('service.academy.join.sections.review.subtitle')}
-                enteringDelay={130}
-              >
-                <View style={styles.reviewList}>
-                  <View style={[styles.reviewRow, { borderBottomColor: theme.hairline }]}>
-                    <Text variant="caption" style={{ color: theme.text.muted }}>
-                      {t('service.academy.join.review.nameEn')}
-                    </Text>
-                    <Text weight="bold" numberOfLines={1} style={{ color: theme.text.primary }}>
-                      {reviewNameEn || emptyValue}
-                    </Text>
-                  </View>
+              {currentStep === 3 ? (
+                <View style={styles.stepStack}>
+                  <SectionCard
+                    theme={theme}
+                    title={t('join.reviewSubmit')}
+                    subtitle={t('join.reviewHint')}
+                  >
+                    <View style={styles.reviewStack}>
+                      <ReviewCard theme={theme} title={t('join.player')} isRTL={isRTL}>
+                        <ReviewLine label={t('join.firstName')} value={reviewNameEn || emptyValue} theme={theme} />
+                        <ReviewLine
+                          label={t('join.arabicName')}
+                          value={reviewNameAr || t('service.academy.common.notFound')}
+                          theme={theme}
+                        />
+                      </ReviewCard>
 
-                  <View style={[styles.reviewRow, { borderBottomColor: theme.hairline }]}>
-                    <Text variant="caption" style={{ color: theme.text.muted }}>
-                      {t('service.academy.join.review.nameAr')}
-                    </Text>
-                    <Text weight="bold" numberOfLines={1} style={{ color: theme.text.primary }}>
-                      {reviewNameAr || emptyValue}
-                    </Text>
-                  </View>
+                      <ReviewCard theme={theme} title={t('join.contact')} isRTL={isRTL}>
+                        <ReviewLine label={t('join.primaryPhone')} value={reviewPhonePrimary || emptyValue} theme={theme} />
+                        <ReviewLine label={t('join.secondPhone')} value={reviewPhoneSecondary || emptyValue} theme={theme} />
+                        <ReviewLine label={t('join.dob')} value={reviewDob || emptyValue} theme={theme} />
+                      </ReviewCard>
 
-                  <View style={[styles.reviewRow, { borderBottomColor: theme.hairline }]}>
-                    <Text variant="caption" style={{ color: theme.text.muted }}>
-                      {t('service.academy.join.review.phone')}
-                    </Text>
-                    <Text weight="bold" numberOfLines={1} style={{ color: theme.text.primary }}>
-                      {reviewPhone1 || emptyValue}
-                      {reviewPhone2 ? `${t('service.academy.common.separator')}${reviewPhone2}` : ''}
-                    </Text>
-                  </View>
+                      <ReviewCard theme={theme} title={t('join.academy')} isRTL={isRTL}>
+                        <ReviewLine label={t('join.academy')} value={academyName || emptyValue} theme={theme} />
+                        <ReviewLine
+                          label={t('service.academy.card.sport')}
+                          value={safeText(academy?.sport_name || academy?.sport || emptyValue)}
+                          theme={theme}
+                        />
+                      </ReviewCard>
+                    </View>
 
-                  <View style={styles.reviewRow}>
-                    <Text variant="caption" style={{ color: theme.text.muted }}>
-                      {t('service.academy.join.review.dob')}
-                    </Text>
-                    <Text weight="bold" numberOfLines={1} style={{ color: theme.text.primary }}>
-                      {reviewDob || emptyValue}
-                    </Text>
-                  </View>
+                    <View style={styles.trustStack}>
+                      <View style={[styles.trustRow, isRTL && styles.rowReverse]}>
+                        <ShieldCheck size={15} color={theme.text.secondary} />
+                        <Text variant="caption" style={{ color: theme.text.secondary }}>
+                          {t('join.secureEncrypted')}
+                        </Text>
+                      </View>
 
-                  <View style={[styles.reviewNotice, { backgroundColor: theme.surface1, borderColor: theme.hairline }]}>
-                    <ShieldCheck size={16} color={theme.text.secondary} />
-                    <Text variant="caption" style={{ color: theme.text.secondary, marginLeft: 8, flex: 1, lineHeight: 18 }}>
-                      {t('service.academy.join.review.hint')}
-                    </Text>
-                  </View>
+                      <View style={[styles.trustRow, isRTL && styles.rowReverse]}>
+                        <Sparkles size={15} color={theme.text.secondary} />
+                        <Text variant="caption" style={{ color: theme.text.secondary }}>
+                          {t('join.responseTime')}
+                        </Text>
+                      </View>
+                    </View>
+                  </SectionCard>
                 </View>
-              </SectionCard>
-            </View>
+              ) : null}
+            </Animated.View>
           </ScrollView>
 
-          {/* Sticky bottom CTA (safe-area aware; guided + trust-first) */}
-          <View style={[styles.bottomBar, getShadow(3, isDark, theme.black), { backgroundColor: bottomGlass, borderTopColor: theme.hairline }]}>
-            <View style={styles.bottomBarInner}>
-              <View style={styles.bottomMini}>
-                <Text variant="caption" style={{ color: theme.text.secondary }} numberOfLines={1}>
-                  {t('service.academy.join.sendingTo')} <Text weight="bold">{academyName}</Text>
-                </Text>
-              </View>
+          <View
+            style={[
+              styles.footerWrap,
+              {
+                borderTopColor: theme.hairline,
+                backgroundColor: alphaHex(theme.surface0, isDark ? 'F0' : 'FA'),
+                paddingBottom: footerBottomPadding,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.footerCard,
+                {
+                  backgroundColor: theme.surface2,
+                  borderColor: theme.hairline,
+                },
+                theme.shadow.sm,
+              ]}
+            >
+              <View style={[styles.footerActions, isRTL && styles.rowReverse]}>
+                <Button
+                  variant="secondary"
+                  style={styles.footerBtn}
+                  onPress={currentStep === 3 ? goBack : handleBack}
+                  disabled={submitting}
+                >
+                  {secondaryFooterLabel}
+                </Button>
 
-              <View style={styles.bottomActions}>
-                <AnimatedPress disabled={submitting}>
-                  <Button variant="secondary" style={styles.bottomBtn} onPress={() => router.back()} disabled={submitting}>
-                    <Text variant="caption" weight="bold" style={{ color: theme.text.primary }}>
-                      {t('service.academy.common.cancel')}
-                    </Text>
-                  </Button>
-                </AnimatedPress>
-
-                <AnimatedPress disabled={submitting}>
-                  <Button style={styles.bottomBtn} onPress={submit} disabled={submitting}>
-                    <Send size={16} color={theme.text.onDark} />
-                    <Text variant="caption" weight="bold" style={{ color: theme.text.onDark }}>
-                      {' '}
-                      {submitting ? t('service.academy.join.sending') : t('service.academy.join.send')}
-                    </Text>
-                  </Button>
-                </AnimatedPress>
+                <Button
+                  style={styles.footerBtn}
+                  onPress={currentStep === 3 ? submit : handleContinue}
+                  disabled={primaryFooterDisabled}
+                  loading={currentStep === 3 && submitting}
+                >
+                  {primaryFooterLabel}
+                </Button>
               </View>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </Animated.View>
+        </View>
+      </KeyboardAvoidingView>
+
+      {dobPickerOpen && Platform.OS === 'android' ? (
+        <DateTimePicker
+          value={tempDob || maxDobDate}
+          mode="date"
+          display="default"
+          maximumDate={maxDobDate}
+          onChange={(event, date) => {
+            setDobPickerOpen(false);
+            if (event.type === 'dismissed') return;
+            if (!date) return;
+            setField('dob', formatISODate(date));
+            markTouched('dob');
+          }}
+        />
+      ) : null}
+
+      {Platform.OS === 'ios' ? (
+        <Modal visible={dobPickerOpen} transparent animationType="fade" onRequestClose={closeDobPicker}>
+          <Pressable
+            style={[styles.dobBackdrop, { backgroundColor: alphaHex(theme.black, '7A') }]}
+            onPress={closeDobPicker}
+          >
+            <Pressable
+              onPress={() => {}}
+              style={[
+                styles.dobSheet,
+                {
+                  backgroundColor: theme.surface2,
+                  borderColor: theme.hairline,
+                },
+                theme.shadow.lg,
+              ]}
+            >
+              <Text variant="bodyMedium" weight="bold" style={{ color: theme.text.primary }}>
+                {t('join.dob')}
+              </Text>
+
+              <View style={{ marginTop: spacing.sm }}>
+                <DateTimePicker
+                  value={tempDob || maxDobDate}
+                  mode="date"
+                  display="spinner"
+                  maximumDate={maxDobDate}
+                  onChange={(_event, date) => {
+                    if (date) setTempDob(date);
+                  }}
+                />
+              </View>
+
+              <View style={[styles.dobActions, isRTL && styles.rowReverse]}>
+                <Button variant="secondary" style={styles.footerBtn} onPress={closeDobPicker}>
+                  {t('join.cancel')}
+                </Button>
+                <Button style={styles.footerBtn} onPress={confirmDob}>
+                  {t('common.done')}
+                </Button>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  pad: { padding: 18 },
-  scrollContent: { paddingBottom: 140 },
-
-  // Hero
-  hero: { height: 250, overflow: 'hidden' },
-  heroTop: { position: 'absolute', top: 14, left: 0, right: 0, paddingHorizontal: 14 },
-  heroBottom: { position: 'absolute', left: 18, right: 18, bottom: 18 },
-
-  backBtn: { paddingHorizontal: 10 },
-  heroTitleRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  heroLogo: {
-    width: 62,
-    height: 62,
-    borderRadius: 22,
-    overflow: 'hidden',
-    borderWidth: 1.5,
-  },
-  logoFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-
-  heroBadgesRow: { flexDirection: 'row', gap: 10, marginTop: 8, flexWrap: 'wrap' },
-  stepRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
-  stepDot: { width: 8, height: 8, borderRadius: 999, marginRight: 6 },
-
-  // DS cards
-  dsCard: { borderWidth: 1, borderRadius: 22, overflow: 'hidden', marginTop: 14 },
-  sectionHead: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  sectionHeadLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 },
-  sectionIcon: { width: 40, height: 40, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  sectionBody: { paddingHorizontal: 16, paddingBottom: 16 },
-
-  reqBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
-
-  gridGap: { gap: 12 },
-  rowOrCol: { flexDirection: 'column', gap: 12 },
-  row: { flexDirection: 'row' },
-  flex1: { flex: 1 },
-
-  softInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: 16,
-  },
-
-  trustRow: { flexDirection: 'row', alignItems: 'center', opacity: 0.95, marginTop: 2 },
-
-  // DOB affordance
-  pressRow: { position: 'relative' },
-  dobAffordance: {
-    position: 'absolute',
-    right: 10,
-    top: 34,
-    width: 38,
-    height: 38,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // iOS DOB modal
-  dobModalBackdrop: {
-    flex: 1,
-    padding: 18,
-    justifyContent: 'flex-end',
-  },
-  dobModalCard: {
-    borderWidth: 1,
-    borderRadius: 22,
-    padding: 16,
-  },
-  dobModalHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dobCloseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dobModalActions: { flexDirection: 'row', gap: 12, marginTop: 14 },
-
-  // Review
-  reviewList: { gap: 10 },
-  reviewRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-    paddingVertical: 10,
+  stickyHeader: {
     borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
   },
-  reviewNotice: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.sm,
+  },
+  headerMeta: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  headerAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     borderWidth: 1,
-    borderRadius: 18,
-    padding: 12,
-    marginTop: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  headerTitleBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 8,
+    borderRadius: 999,
   },
 
-  // Inline summary
-  summaryBar: {
+  stepStack: {
+    gap: spacing.md,
+  },
+
+  sectionCard: {
+    borderWidth: 1,
+    borderRadius: 20,
+  },
+  sectionHeader: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 12,
-    marginBottom: 6,
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
-  summaryIcon: {
+  sectionHeaderText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  sectionBody: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+
+  fieldStack: {
+    gap: spacing.sm,
+  },
+
+  accordionRow: {
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  accordionRowInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  accordionTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+
+  infoRow: {
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+
+  dobPressable: {
+    position: 'relative',
+  },
+  calendarBtn: {
+    position: 'absolute',
+    top: 34,
+    right: 8,
     width: 34,
     height: 34,
-    borderRadius: 14,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  // Bottom sticky CTA
-  bottomBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingBottom: Platform.OS === 'ios' ? 18 : 12,
-    paddingTop: 10,
+  reviewStack: {
+    gap: spacing.sm,
   },
-  bottomBarInner: { paddingHorizontal: 14, gap: 10 },
-  bottomMini: { paddingHorizontal: 6 },
-  bottomActions: { flexDirection: 'row', gap: 12 },
-  bottomBtn: { flex: 1 },
+  reviewCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  reviewCheck: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewBody: {
+    marginTop: spacing.xs,
+    gap: spacing.xs,
+  },
+  reviewLine: {
+    gap: 2,
+  },
 
-  // States
-  centerState: { marginTop: 40, alignItems: 'center' },
+  trustStack: {
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  trustRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+
+  footerWrap: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  footerCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: spacing.sm,
+  },
+  footerActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  footerBtn: {
+    flex: 1,
+  },
+
+  dobBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    padding: spacing.lg,
+  },
+  dobSheet: {
+    borderWidth: 1,
+    borderRadius: 22,
+    padding: spacing.lg,
+  },
+  dobActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+
+  stateContainer: {
+    flex: 1,
+    padding: spacing.lg,
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  stateCard: {
+    borderWidth: 1,
+    borderRadius: 22,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   stateIcon: {
     width: 64,
     height: 64,
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stateButton: {
+    marginTop: spacing.sm,
+    minWidth: 180,
+  },
+  stateActions: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    width: '100%',
+  },
+  stateActionBtn: {
+    flex: 1,
   },
 
-  // Success
-  successWrap: { flex: 1, padding: 18, justifyContent: 'center' },
-  successCard: { borderWidth: 1, borderRadius: 24, padding: 18 },
-  successIconWrap: {
-    width: 84,
-    height: 84,
-    borderRadius: 32,
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    marginBottom: 14,
+  simpleHeaderWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
-  successActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  simpleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  simpleHeaderMeta: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+
+  contactOnlyCard: {
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  contactOnlyActions: {
+    gap: spacing.sm,
+  },
+  contactAction: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+
+  rowReverse: {
+    flexDirection: 'row-reverse',
+  },
 });

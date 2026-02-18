@@ -26,7 +26,7 @@ export function Chip({ label, selected = false, onPress, icon, rightIcon, style,
         weight="semibold"
         style={[
           styles.label,
-          { color: selected ? colors.accentOrange : colors.textPrimaryPrimary },
+          { color: selected ? colors.accentOrange : colors.textPrimary },
           textStyle,
         ]}
         numberOfLines={1}

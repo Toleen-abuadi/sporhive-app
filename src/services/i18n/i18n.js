@@ -15,6 +15,15 @@ const DEFAULT_LANGUAGE = 'en';
 const I18nContext = createContext();
 
 const isRTLLanguage = (lang) => lang === 'ar';
+const getCurrentRouteLabel = () => {
+  const appRoute = globalThis?.__SPORHIVE_CURRENT_ROUTE;
+  if (typeof appRoute === 'string' && appRoute.trim()) return appRoute.trim();
+
+  const webPath = globalThis?.location?.pathname;
+  if (typeof webPath === 'string' && webPath.trim()) return webPath.trim();
+
+  return 'unknown';
+};
 
 const initI18n = () => {
   if (i18n.isInitialized) return;
@@ -25,6 +34,17 @@ const initI18n = () => {
     },
     lng: DEFAULT_LANGUAGE,
     fallbackLng: DEFAULT_LANGUAGE,
+    debug: __DEV__,
+    saveMissing: __DEV__,
+    missingKeyHandler: __DEV__
+      ? (lngs, namespace, key) => {
+          const lngLabel = Array.isArray(lngs) ? lngs.join(',') : `${lngs ?? ''}`;
+          const routeLabel = getCurrentRouteLabel();
+          console.warn(
+            `[i18n][missing] route=${routeLabel} namespace=${namespace} key=${key} languages=${lngLabel}`
+          );
+        }
+      : undefined,
     interpolation: {
       escapeValue: false,
     },

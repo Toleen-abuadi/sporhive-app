@@ -18,7 +18,44 @@
     "retry": "Retry",
     "share": "Share",
     "close": "Close",
-    "notFound": "Not found"
+    "notFound": "Not found",
+    "apply": "Apply filters",
+    "reset": "Reset"
+  },
+  "join": {
+    "title": "Join {{academy}}",
+    "step": "Step {{step}} of {{total}}",
+    "playerIdentity": "Player Identity",
+    "playerIdentitySubtitle": "English Name and Arabic",
+    "firstName": "First Name",
+    "middleName": "Middle Name",
+    "lastName": "Last Name",
+    "arabicName": "Arabic Name",
+    "optional": "optional",
+    "contact": "Contact",
+    "phoneOnDetails": "Phone on details",
+    "primaryPhone": "Phone number",
+    "secondPhone": "Second phone number",
+    "phonePrivacy": "Your phone number is only shared with this academy.",
+    "details": "Details",
+    "dob": "Date of birth",
+    "age": "Age: {{age}} years",
+    "notes": "Notes",
+    "notesPlaceholder": "Medical conditions, Previous training experience, Requests...",
+    "reviewSubmit": "Review & Submit",
+    "reviewHint": "Please check details before sending.",
+    "player": "Player",
+    "academy": "Academy",
+    "secureEncrypted": "Secure & encrypted",
+    "responseTime": "Academy usually responds within 24 hours",
+    "back": "Back",
+    "continue": "Continue",
+    "cancel": "Cancel",
+    "sendRequest": "Send Request",
+    "required": "This field is required",
+    "invalidPhone": "Enter a valid phone number",
+    "invalidName": "Enter a valid name",
+    "pickDate": "Pick a date"
   },
   "errors": {
     "notFoundTitle": "Oops!",
@@ -37,6 +74,41 @@
   "home": {
     "title": "SporHive",
     "subtitle": "Your Sports Hub",
+    "greeting": "Good {{timeOfDay}}, {{name}} 👋",
+    "timeOfDay": {
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening"
+    },
+    "location": "{{city}}, {{country}}",
+    "exploreAcademies": "Explore Academies",
+    "slotsLeft": "{{count}} slots left today",
+    "bookPlaygroundNow": "Book a Playground Now",
+    "viewCourts": "View Courts",
+    "quickAccessTitle": "2x2 Quick Access Smart Grid",
+    "quickAccessSubtitle": "{{count}} players booked today in {{city}}",
+    "discoverAcademies": "Discover Academies",
+    "discoverAcademiesDesc": "Find professional training",
+    "playerPortal": "Player Portal",
+    "playerPortalDesc": "Manage stats & profile",
+    "playgroundsLabel": "Playgrounds",
+    "playgroundsDesc": "Book courts instantly",
+    "events": "Events",
+    "eventsDesc": "Join local matches",
+    "soon": "soon",
+    "trendingNearYou": "Trending Near You",
+    "mostBookedToday": "Most Booked Today",
+    "trendingSubtitle": "{{count}} bookings this week in {{city}}",
+    "distanceAway": "{{distance}} km away",
+    "activitySnapshot": "Your Activity Snapshot",
+    "nextTrainingSession": "Next Training Session: {{session}}",
+    "sessionMeta": "{{time}}, {{academy}}",
+    "openPortal": "Open Portal →",
+    "defaultName": "Abdullah",
+    "defaultCity": "Amman",
+    "defaultCountry": "Jordan",
+    "defaultSession": "Football with Coach Ali",
+    "defaultAcademy": "First Step Academy",
     "actions": {
       "languageTitle": "Language",
       "themeTitle": "Theme",
@@ -68,6 +140,13 @@
     }
   },
   "tabs": {
+    "home": "Home",
+    "discover": "Discover",
+    "book": "Book",
+    "portal": "Portal",
+    "profile": "Profile"
+  },
+  "nav": {
     "home": "Home",
     "discover": "Discover",
     "book": "Book",
@@ -123,6 +202,39 @@
     "shortEn": "EN",
     "shortAr": "AR"
   },
+  "discovery": {
+    "searchPlaceholder": "Search academy name, sport, or area"
+  },
+  "filters": {
+    "title": "Smart Filters",
+    "subtitle": "Fine-tune your discovery results",
+    "reset": "Reset",
+    "ageRange": "Age Range",
+    "sport": "Sport",
+    "registration": "Registration",
+    "registrationOpen": "Only open registration",
+    "monthlyFee": "Monthly Fee",
+    "distance": "Distance",
+    "apply": "Apply filters",
+    "showingResults": "Showing {{count}} results",
+    "onlyOpenRegistration": "Only show open registration",
+    "clearAll": "Clear all"
+  },
+  "sports": {
+    "football": "Football",
+    "swimming": "Swimming",
+    "basketball": "Basketball",
+    "tennis": "Tennis",
+    "martialArts": "Martial Arts",
+    "volleyball": "Volleyball",
+    "kens": "Kens"
+  },
+  "distance": {
+    "1km": "1km",
+    "5km": "5km",
+    "10km": "10km",
+    "25km": "25km"
+  },
   "academies": {
     "title": "Academy",
     "loading": "Loading",
@@ -159,7 +271,25 @@
       "subtitleOpen": "Submit your join request in under a minute.",
       "subtitleClosed": "Registration is closed — reach them directly.",
       "note": "Tip: You can also explore prices and location above before contacting."
-    }
+    },
+    "city": "City",
+    "filters": {
+      "open": "Filters",
+      "title": "Smart filters"
+    },
+    "joinNow": "Register now",
+    "map": {
+      "emptySub": "Try removing filters to see more results.",
+      "emptyTitle": "No academies on map",
+      "filtersSub": "Filters affect what appears on the map.",
+      "loadingSub": "Fetching academies for the map…",
+      "previewHint": "Open the full template or join directly.",
+      "subtitle": "Explore nearby academies and open the template in one tap.",
+      "title": "Academies map"
+    },
+    "sport": "Sport",
+    "unnamed": "Academy",
+    "view": "Details"
   },
   "welcome": {
     "title": "Welcome to SporHive",
@@ -190,294 +320,186 @@
   },
   "service": {
     "playgrounds": {
-      "common": {
-        "placeholder": "—",
-        "fromPrice": "From {{price}}",
-        "multiSport": "Multi-sport",
-        "playground": "Playground",
-        "venue": "Venue",
-        "academy": "Academy",
-        "locationPending": "Location pending",
-        "retry": "Retry",
-        "timeTbd": "TBD",
-        "errors": {
-          "generic": "Something went wrong. Please try again."
-        }
-      },
-      "nav": {
-        "explore": "Explore",
-        "bookings": "Bookings",
-        "offers": "Offers",
-        "profile": "Profile"
-      },
       "explore": {
-        "title": "Playgrounds",
-        "search": {
-          "label": "Search",
-          "placeholder": "Search by venue or location",
-          "accessibilityLabel": "Search venues"
-        },
-        "filters": {
-          "button": "Filters",
-          "applyAccessibility": "Apply filters",
-          "pickDate": "Pick date",
-          "dateSelected": "Date: {{date}}",
-          "players": "{{count}} players",
-          "offers": "Offers"
-        },
-        "activityFallback": "Activity",
-        "tabs": {
-          "all": "All",
-          "offers": "Offers",
-          "allAccessibility": "All venues",
-          "offersAccessibility": "Offers"
-        },
-        "errors": {
-          "title": "Unable to load",
-          "load": "Unable to load playgrounds right now."
-        },
-        "empty": {
-          "title": "No venues found",
-          "message": "Try adjusting filters or resetting your search.",
-          "action": "Reset filters"
-        },
+        "header": "Playgrounds",
+        "searchLabel": "Search",
+        "searchPlaceholder": "Search by venue or location",
+        "filters": "Filters",
+        "pickDate": "Pick date",
+        "players": "players",
+        "offers": "Offers",
+        "all": "All",
+        "noVenuesTitle": "No venues found",
+        "noVenuesMessage": "Try adjusting filters or resetting your search.",
+        "resetFilters": "Reset filters",
+        "errorTitle": "Unable to load",
+        "multiSport": "Multi-sport",
+        "fromPrice": "From {{price}}",
         "loading": "Loading playgrounds..."
       },
-      "auth": {
-        "headerTitle": "Playgrounds access",
-        "titles": {
-          "login": "Welcome back",
-          "register": "Create your SporHive account"
-        },
-        "subtitles": {
-          "login": "Sign in to continue your booking and manage reservations.",
-          "register": "Join and book venues faster with your profile."
-        },
-        "tabs": {
-          "signIn": "Sign in",
-          "signUp": "Sign up"
-        },
-        "fields": {
-          "phone": {
-            "label": "Phone number",
-            "placeholder": "+962 7XX XXX XXX",
-            "accessibilityLogin": "Login phone",
-            "accessibilityRegister": "Register phone",
-            "accessibilityReset": "Reset phone"
-          },
-          "password": {
-            "label": "Password",
-            "placeholder": "Enter your password",
-            "createPlaceholder": "Create a strong password",
-            "accessibilityLogin": "Login password",
-            "accessibilityRegister": "Register password"
-          },
-          "confirmPassword": {
-            "label": "Confirm password",
-            "placeholder": "Re-enter your password",
-            "accessibility": "Confirm password"
-          },
-          "firstName": {
-            "label": "First name",
-            "placeholder": "First name",
-            "accessibility": "First name"
-          },
-          "lastName": {
-            "label": "Last name",
-            "placeholder": "Last name",
-            "accessibility": "Last name"
-          },
-          "email": {
-            "label": "Email (optional)",
-            "placeholder": "name@example.com",
-            "accessibility": "Register email"
-          }
-        },
-        "hints": {
-          "phone": "Tip: include country code if needed (e.g., +962…)."
-        },
-        "actions": {
-          "rememberMe": "Remember me",
-          "forgotPassword": "Forgot password?",
-          "continueAccessibility": "Continue",
-          "signIn": "Sign in to continue",
-          "createAccount": "Create account"
-        },
-        "reset": {
-          "title": "Reset your password",
-          "sendCode": "Send reset code",
-          "sendCodeAccessibility": "Send reset code",
-          "codeLabel": "Reset code",
-          "codePlaceholder": "Code from SMS",
-          "codeAccessibility": "Reset code",
-          "newPasswordLabel": "New password",
-          "newPasswordPlaceholder": "New password",
-          "newPasswordAccessibility": "New password",
-          "confirmPasswordLabel": "Confirm password",
-          "confirmPasswordPlaceholder": "Confirm password",
-          "confirmPasswordAccessibility": "Confirm password",
-          "update": "Update password",
-          "updateAccessibility": "Update password",
-          "backToRequest": "Back to code request"
-        },
-        "validation": {
-          "phoneRequired": "Enter your phone number to continue.",
-          "phoneDigits": "Phone number must contain digits only.",
-          "phoneLength": "Phone number must be between 9 and 15 digits.",
-          "loginRequired": "Please enter your phone and password.",
-          "nameRequired": "Please enter your first and last name.",
-          "phoneRequiredRegister": "Please enter your phone number.",
-          "passwordLength": "Password must be at least 6 characters.",
-          "passwordMismatch": "Passwords do not match.",
-          "phoneRequiredReset": "Please enter your phone number.",
-          "resetFields": "Please fill all reset fields."
-        },
-        "errors": {
-          "invalidCredentials": "Invalid phone or password.",
-          "registerFailed": "Unable to create your account. Please try again."
-        },
-        "footerHint": "We’ll resume your booking after you sign in.",
-        "loading": "Checking your account..."
+      "discovery": {
+        "searchLabel": "Search playgrounds",
+        "searchPlaceholder": "Search by name or sport",
+        "specialOffersLabel": "Special offers",
+        "offersAny": "Any",
+        "offersOnly": "Only offers",
+        "activitiesLabel": "Activities",
+        "noFiltersYet": "No filters yet",
+        "pickTime": "Pick a time",
+        "review": "Review",
+        "reviewBookingAccessibility": "Review booking",
+        "closeBookingSheetAccessibility": "Close booking sheet",
+        "selectSlot": "Select a slot",
+        "slotsUnavailableTitle": "Slots unavailable",
+        "noSlotsTitle": "No slots found",
+        "noSlotsMessage": "Try another date or check back later.",
+        "noDurationsMessage": "No durations listed. Booking will use the default duration.",
+        "signInPrompt": "Sign in to your SporHive account to complete the booking.",
+        "paymentType": "Payment type"
       },
       "booking": {
-        "actions": {
-          "back": "Back",
-          "backAccessibility": "Go back",
-          "continue": "Continue",
-          "confirm": "Confirm booking",
-          "submitting": "Submitting..."
-        },
-        "stepCounter": "Step {{current}} of {{total}}",
         "steps": {
           "schedule": "Schedule",
           "players": "Players",
           "payment": "Payment",
           "review": "Review"
         },
-        "titles": {
-          "schedule": "Choose date, time & duration",
-          "players": "Number of players",
-          "payment": "Payment method",
-          "review": "Review & confirm"
-        },
-        "loading": "Preparing your booking...",
-        "errors": {
-          "title": "Booking issue",
-          "loadDraft": "Unable to load booking data.",
-          "loadDurations": "Unable to load durations.",
-          "loadSlots": "Unable to load slots.",
-          "completeSteps": "Please complete all booking steps.",
-          "submit": "Unable to complete booking.",
-          "slotUnavailable": "That time slot is no longer available. Please pick another slot."
+        "stepIndicator": "Step {{current}} of {{total}}",
+        "continue": "Continue",
+        "confirmBooking": "Confirm booking",
+        "total": "Total",
+        "chooseSchedule": "Choose date, time & duration",
+        "numberOfPlayers": "Number of players",
+        "paymentMethod": "Payment method",
+        "reviewConfirm": "Review & confirm",
+        "duration": "Duration",
+        "date": "Date",
+        "bookingDate": "Booking date",
+        "today": "Today",
+        "tomorrow": "Tomorrow",
+        "availableSlots": "Available time slots",
+        "selectDuration": "Select a duration",
+        "pickDateFirst": "Pick a date",
+        "noSlots": "No available slots",
+        "playersAllowed": "Allowed range: {{min}} - {{max}}",
+        "cash": "Cash",
+        "cliq": "CliQ",
+        "payOnDate": "Pay on booking date",
+        "payNow": "Pay now",
+        "uploadScreenshot": "Upload screenshot",
+        "bookingConfirmed": "Booking confirmed",
+        "bookingSuccess": "Your request has been submitted successfully.",
+        "bookingCode": "Booking code",
+        "viewBookings": "View bookings",
+        "done": "Done",
+        "actions": {
+          "back": "Back",
+          "confirm": "Confirm booking",
+          "continue": "Continue",
+          "done": "Done",
+          "submitting": "Submitting..."
         },
         "empty": {
-          "title": "Venue not found",
-          "message": "We couldn't find this venue. Please try again."
+          "action": "Back to explore",
+          "message": "This venue is currently unavailable for booking.",
+          "title": "Booking unavailable"
         },
-        "schedule": {
-          "duration": "Duration",
-          "noDurationsTitle": "No durations available",
-          "noDurationsMessage": "Please check again later or select another venue.",
-          "minutesLabel": "{{minutes}} min",
-          "mostPopular": "Most popular",
-          "priceOnRequest": "Price available on request",
-          "date": "Date",
-          "bookingDate": "Booking date",
-          "bookingDatePlaceholder": "YYYY-MM-DD",
-          "bookingDateAccessibility": "Booking date",
-          "today": "Today",
-          "tomorrow": "Tomorrow",
-          "selectDateAccessibility": "Select {{date}}",
-          "availableSlots": "Available time slots",
-          "selectDurationTitle": "Select a duration",
-          "selectDurationMessage": "Pick a duration to see available slots.",
-          "pickDateTitle": "Pick a date",
-          "pickDateMessage": "Select a date to see available time slots.",
-          "noSlotsTitle": "No slots",
-          "noSlotsMessage": "No available slots for this duration on the selected date.",
-          "loadingDurations": "Loading durations...",
-          "loadingSlots": "Loading time slots..."
+        "errors": {
+          "completeSteps": "Please complete all required booking steps.",
+          "invalidDuration": "Please select a valid duration.",
+          "loadDurations": "Unable to load available durations.",
+          "loadSlots": "Unable to load available slots.",
+          "loadVenue": "Unable to load venue details.",
+          "retry": "Try again",
+          "slotUnavailable": "This slot is no longer available. Please choose another time.",
+          "submit": "Could not submit booking. Please try again.",
+          "title": "Unable to continue"
+        },
+        "loading": "Loading booking details...",
+        "payment": {
+          "cash": "Cash",
+          "cashDescription": "Pay at venue",
+          "cashOnDateUnavailable": "Cash-on-date is unavailable.",
+          "cashSubtitle": "Choose when you will pay",
+          "cashTitle": "Cash payment",
+          "cliq": "CliQ",
+          "cliqDescription": "Upload transfer screenshot",
+          "cliqNameLabel": "Name",
+          "cliqNumberLabel": "Number",
+          "cliqTitle": "CliQ transfer",
+          "payNow": "Pay now",
+          "payOnDate": "Pay on booking date",
+          "replaceImage": "Replace screenshot",
+          "subtitle": "Choose a payment method",
+          "title": "Payment",
+          "uploadHint": "Upload a clear screenshot of your transfer",
+          "uploadRequired": "Please upload a payment screenshot to continue.",
+          "uploadScreenshot": "Upload screenshot"
         },
         "players": {
-          "title": "Players",
-          "label": "Players",
-          "allowedRange": "Allowed range: {{min}} - {{max}}",
-          "inputLabel": "Number of players",
-          "placeholder": "2",
           "accessibilityLabel": "Number of players",
-          "countLabel": "{{count}} players"
-        },
-        "payment": {
-          "title": "Payment method",
-          "subtitle": "Choose how you'd like to pay.",
-          "cash": "Cash",
-          "cliq": "CliQ",
-          "cashTitle": "Pay with cash",
-          "cashSubtitle": "Settle your payment at the academy.",
-          "payOnDate": "Pay on booking date",
-          "payNow": "Pay now",
-          "cashOnDateUnavailable": "Cash on date is not available for this academy.",
-          "cliqTitle": "CliQ transfer",
-          "cliqSubtitle": "Transfer to the academy and upload your screenshot.",
-          "cliqName": "CliQ name: {{name}}",
-          "cliqNumber": "CliQ number: {{number}}",
-          "uploadScreenshot": "Upload screenshot",
-          "uploadRequired": "Upload your CliQ screenshot to continue.",
-          "payOnDateSuffix": "(pay on date)",
-          "payNowSuffix": "(pay now)"
+          "allowedRange": "Allowed range: {{min}} - {{max}}",
+          "label": "players",
+          "placeholder": "e.g. 10",
+          "subtitle": "How many players?",
+          "title": "Players"
         },
         "review": {
-          "title": "Review & confirm",
+          "hint": "Review & confirm",
           "labels": {
-            "venue": "Venue",
-            "academy": "Academy",
             "date": "Date",
+            "payment": "Payment method",
+            "players": "Number of players",
             "time": "Time",
-            "duration": "Duration",
-            "players": "Players",
-            "payment": "Payment",
-            "price": "Price"
-          }
+            "venue": "Venue"
+          },
+          "subtitle": "Confirm your booking details",
+          "title": "Review"
+        },
+        "schedule": {
+          "availableSlots": "Available time slots",
+          "availableSlotsSubtitle": "Choose an available time slot",
+          "date": "Date",
+          "dateSubtitle": "Pick a day",
+          "duration": "Duration",
+          "durationSubtitle": "Choose the time length",
+          "loadingDurations": "Loading...",
+          "loadingSlots": "Loading...",
+          "minutesLabel": "{{minutes}} min",
+          "mostPopular": "Most popular",
+          "noDurationsMessage": "No durations available.",
+          "noDurationsTitle": "No durations",
+          "noSlotsMessage": "No available slots for this day.",
+          "noSlotsTitle": "No slots",
+          "priceOnRequest": "Price on request",
+          "selectDateFirst": "Select a date first.",
+          "selectDurationFirst": "Select a duration first.",
+          "today": "Today",
+          "tomorrow": "Tomorrow"
+        },
+        "stepCounter": "Step {{current}} of {{total}}",
+        "success": {
+          "goToBookings": "View bookings",
+          "overlayMessage": "Your request has been submitted successfully.",
+          "title": "Booking confirmed",
+          "toastMessage": "Booking submitted successfully.",
+          "toastTitle": "Booking confirmed"
         },
         "summary": {
           "total": "Total"
         },
-        "success": {
-          "title": "✅ Booking confirmed",
-          "message": "Your request has been submitted successfully.",
-          "codeLabel": "Booking code",
-          "viewBookings": "View bookings",
-          "done": "Done",
-          "toastTitle": "Booking confirmed",
-          "toastMessage": "Your booking request was sent."
+        "titles": {
+          "payment": "Payment",
+          "players": "Players",
+          "review": "Review",
+          "schedule": "Schedule"
         }
       },
       "bookings": {
         "title": "My bookings",
-        "errors": {
-          "title": "Unable to load",
-          "load": "Unable to load bookings.",
-          "unauthorizedTitle": "Session expired",
-          "unauthorizedMessage": "Please sign in again to view your bookings.",
-          "signInAction": "Sign in",
-          "retryAction": "Try again"
-        },
-        "empty": {
-          "authTitle": "Sign in required",
-          "authMessage": "Log in to view your playground bookings.",
-          "authAction": "Sign in",
-          "sessionTitle": "Session incomplete",
-          "sessionMessage": "We could not verify your session. Please retry or sign in again.",
-          "sessionActionRetry": "Retry",
-          "sessionActionSignIn": "Sign in again",
-          "title": "No bookings found",
-          "message": "Try another status filter or explore venues.",
-          "action": "Explore"
-        },
-        "filters": {
-          "labelWithCount": "{{label}} ({{count}})",
-          "accessibility": "Filter {{status}}"
-        },
+        "signInRequired": "Sign in required",
+        "signInMessage": "Log in to view your playground bookings.",
+        "signIn": "Sign in",
         "status": {
           "all": "All",
           "pending": "Pending",
@@ -486,171 +508,223 @@
           "cancelled": "Cancelled",
           "custom": "{{status}}"
         },
-        "labels": {
-          "dateTbd": "Date TBD",
-          "timeTbd": "Time TBD",
-          "dateTime": "{{date}} • {{time}}"
-        },
-        "payment": {
-          "tbd": "Payment TBD",
-          "cash": "Cash",
-          "cliq": "CliQ",
-          "unknown": "Payment: {{payment}}"
-        },
+        "noBookings": "No bookings found",
+        "noBookingsMessage": "Try another status filter or explore venues.",
+        "explore": "Explore",
+        "cancelTitle": "Cancel booking?",
+        "cancelMessage": "Please contact support or the venue to confirm any cancellation policy.",
+        "keepBooking": "Keep booking",
+        "gotIt": "Got it",
         "actions": {
-          "call": "Call",
+          "call": "Call venue",
           "callAccessibility": "Call venue",
+          "cancel": "Cancel booking",
+          "cancelAccessibility": "Cancel booking",
           "whatsapp": "WhatsApp",
-          "whatsappAccessibility": "WhatsApp venue",
-          "cancel": "Cancel",
-          "cancelAccessibility": "Cancel booking"
+          "whatsappAccessibility": "Message venue on WhatsApp"
         },
         "cancel": {
-          "title": "Cancel booking?",
-          "message": "Please contact support or the venue to confirm any cancellation policy.",
+          "confirm": "Got it",
           "keep": "Keep booking",
-          "confirm": "Got it"
+          "message": "Please contact support or the venue to confirm any cancellation policy.",
+          "title": "Cancel booking?"
         },
-        "loading": "Loading bookings..."
-      },
-      "ratingResolver": {
-        "title": "Rate your experience",
-        "loading": "Resolving rating link...",
-        "invalid": "This rating link is invalid or has expired.",
-        "actions": {
-          "continue": "Continue",
-          "continueAccessibility": "Continue to rating",
-          "back": "Back to explore",
-          "backAccessibility": "Back to explore",
-          "retry": "Retry",
-          "retryAccessibility": "Retry rating link"
+        "empty": {
+          "action": "Explore",
+          "authAction": "Sign in",
+          "authMessage": "Log in to view your playground bookings.",
+          "authTitle": "Sign in required",
+          "message": "Try another status filter or explore venues.",
+          "title": "No bookings found",
+          "sessionActionRetry": "Retry",
+          "sessionActionSignIn": "Sign in again",
+          "sessionMessage": "We could not verify your session. Please retry or sign in again.",
+          "sessionTitle": "Incomplete session"
+        },
+        "errors": {
+          "title": "Unable to load bookings",
+          "load": "Unable to load bookings.",
+          "retryAction": "Retry",
+          "signInAction": "Sign in",
+          "unauthorizedMessage": "Please sign in again to view bookings.",
+          "unauthorizedTitle": "Session expired"
+        },
+        "filters": {
+          "labelWithCount": "{{label}} ({{count}})",
+          "accessibility": "Filter {{status}}"
+        },
+        "labels": {
+          "dateTbd": "Date TBD",
+          "dateTime": "{{date}} at {{time}}",
+          "timeTbd": "Time TBD"
+        },
+        "loading": "Loading bookings...",
+        "payment": {
+          "cash": "Cash",
+          "cliq": "CliQ",
+          "tbd": "Payment TBD",
+          "unknown": "{{payment}}"
         }
       },
-      "rating": {
-        "title": "Rate your venue",
-        "subtitle": "Tell us about your experience.",
-        "overall": "Overall rating",
-        "criteria": {
-          "cleanliness": "Cleanliness",
-          "staffService": "Staff service",
-          "fieldQuality": "Field quality",
-          "bookingExperience": "Booking experience",
-          "valueForMoney": "Value for money",
-          "safetySecurity": "Safety & security"
+      "auth": {
+        "access": "Playgrounds access",
+        "welcomeBack": "Welcome back",
+        "createAccount": "Create your SporHive account",
+        "signIn": "Sign in",
+        "signUp": "Sign up",
+        "rememberMe": "Remember me",
+        "forgotPassword": "Forgot password?",
+        "resumeBooking": "We’ll resume your booking after you sign in.",
+        "resetPassword": "Reset your password",
+        "sendResetCode": "Send reset code",
+        "updatePassword": "Update password"
+      },
+      "cards": {
+        "checkPricing": "Check pricing",
+        "offer": "Offer",
+        "viewDetails": "View details"
+      },
+      "common": {
+        "academy": "Academy",
+        "errors": {
+          "generic": "Something went wrong. Please try again."
         },
-        "comment": {
-          "label": "Comment (optional)",
-          "placeholder": "Share a quick note",
-          "accessibility": "Rating comment"
+        "locationPending": "Location pending",
+        "multiSport": "Multi-sport",
+        "placeholder": "—",
+        "playground": "Playground",
+        "retry": "Retry",
+        "timeTbd": "Time TBD",
+        "fromPrice": "From {{price}}",
+        "venue": "Venue"
+      },
+      "filters": {
+        "active": "Active: {{filters}}",
+        "activity": "Activities",
+        "activityAccessibility": "Select activity: {{activity}}",
+        "activityFallback": "Activity",
+        "apply": "Apply",
+        "applyAccessibility": "Apply filters",
+        "bookingDate": "Booking date",
+        "clearDate": "Clear date",
+        "dateAccessibility": "Choose booking date",
+        "dateLabel": "Date",
+        "datePlaceholder": "Pick a date",
+        "decreasePlayers": "Decrease players",
+        "increasePlayers": "Increase players",
+        "loadingActivities": "Loading activities...",
+        "location": "Location",
+        "locationAccessibility": "Enter location",
+        "locationLabel": "Location",
+        "locationPlaceholder": "Area, district, or city",
+        "noActivities": "No activities available",
+        "none": "None",
+        "offers": "Offers",
+        "offersAll": "All offers",
+        "offersAllAccessibility": "Show all offers",
+        "offersSpecial": "Special offers only",
+        "offersSpecialAccessibility": "Show venues with special offers only",
+        "players": "Players",
+        "playersCount": "{{count}} players",
+        "reset": "Reset",
+        "resetAccessibility": "Reset filters",
+        "sort": {
+          "lowestPrice": "Lowest price",
+          "lowestPriceAccessibility": "Sort by lowest price",
+          "recommended": "Recommended",
+          "title": "Sort by",
+          "topRated": "Top rated",
+          "topRatedAccessibility": "Sort by top rated"
+        },
+        "title": "Filters",
+        "today": "Today",
+        "useCurrentArea": "Use current area",
+        "useCurrentAreaAccessibility": "Use my current location"
+      },
+      "rating": {
+        "accessibility": {
+          "setRating": "Set {{label}} to {{star}} stars"
         },
         "actions": {
+          "bookings": "My bookings",
+          "bookingsAccessibility": "Go to my bookings",
           "submit": "Submit rating",
-          "submitAccessibility": "Submit rating",
-          "bookings": "Go to bookings",
-          "bookingsAccessibility": "Go to bookings"
+          "submitAccessibility": "Submit rating"
         },
-        "accessibility": {
-          "setRating": "Set {{label}} rating to {{star}}"
+        "comment": {
+          "accessibility": "Add a comment",
+          "label": "Comment",
+          "placeholder": "Share your experience"
         },
         "errors": {
           "alreadyRated": "You have already rated this booking.",
-          "verify": "Unable to verify rating eligibility.",
           "overallRequired": "Please select an overall rating.",
-          "submit": "Unable to submit rating."
+          "submit": "Could not submit your rating. Please try again.",
+          "verify": "Could not verify your rating link."
         },
+        "loading": "Loading rating form...",
+        "overall": "Overall rating",
+        "subtitle": "Rate your playground booking experience",
         "success": {
-          "title": "Thank you!",
-          "message": "Your feedback helps improve the experience for everyone."
+          "message": "Thanks for your feedback.",
+          "title": "Rating submitted"
         },
-        "loading": "Checking rating eligibility..."
+        "title": "Rate booking",
+        "criteria": {
+          "bookingExperience": "Booking experience",
+          "cleanliness": "Cleanliness",
+          "fieldQuality": "Field quality",
+          "safetySecurity": "Safety & security",
+          "staffService": "Staff service",
+          "valueForMoney": "Value for money"
+        }
+      },
+      "ratingResolver": {
+        "actions": {
+          "back": "Back",
+          "backAccessibility": "Go back",
+          "continue": "Continue",
+          "continueAccessibility": "Continue to rating",
+          "retry": "Retry",
+          "retryAccessibility": "Retry link check"
+        },
+        "invalid": "This rating link is invalid or expired.",
+        "loading": "Checking your rating link...",
+        "title": "Rate booking"
       },
       "venue": {
-        "errors": {
-          "notFound": "Venue not found.",
-          "load": "Unable to load venue."
+        "academy": {
+          "defaultName": "Academy",
+          "specialOffer": "Special offer",
+          "title": "Academy"
         },
         "actions": {
           "getDirections": "Get directions",
-          "share": "Share venue"
-        },
-        "features": {
-          "title": "Features",
-          "bibs": "Bibs provided",
-          "water": "Water available",
-          "toilets": "Toilets",
-          "parking": "Parking",
-          "ac": "Air conditioned",
-          "indoor": "Indoor"
-        },
-        "academy": {
-          "title": "Academy",
-          "defaultName": "SporHive Academy",
-          "specialOffer": "Special offers available for this venue."
-        },
-        "durations": {
-          "title": "Available durations",
-          "empty": "Ask the venue for available durations."
+          "share": "Share"
         },
         "address": {
-          "title": "Address",
-          "empty": "Details available at booking."
+          "empty": "Address not available.",
+          "title": "Address"
         },
         "cta": {
-          "startingAt": "Starting at",
-          "ready": "Ready to book?",
-          "viewAvailability": "View availability",
           "book": "Book now",
-          "bookAccessibility": "Book this venue"
+          "bookAccessibility": "Book this venue now",
+          "ready": "Ready to book",
+          "startingAt": "Starting at",
+          "viewAvailability": "View availability"
+        },
+        "durations": {
+          "empty": "No durations available.",
+          "title": "Available durations"
+        },
+        "errors": {
+          "load": "Could not load venue details.",
+          "notFound": "Venue not found."
+        },
+        "features": {
+          "title": "Features"
         },
         "loading": "Loading venue details..."
-      },
-      "filters": {
-        "title": "Filters",
-        "active": "Active: {{filters}}",
-        "none": "No active filters",
-        "activity": "Activity",
-        "activityFallback": "Activity",
-        "loadingActivities": "Loading activities...",
-        "noActivities": "No activities available.",
-        "activityAccessibility": "Filter by {{activity}}",
-        "bookingDate": "Booking date",
-        "dateLabel": "Date",
-        "datePlaceholder": "YYYY-MM-DD",
-        "dateAccessibility": "Select booking date",
-        "today": "Today",
-        "clearDate": "Clear date",
-        "players": "Players",
-        "playersCount": "{{count}} players",
-        "decreasePlayers": "Decrease players",
-        "increasePlayers": "Increase players",
-        "location": "Location",
-        "locationLabel": "Location",
-        "locationPlaceholder": "City or area",
-        "locationAccessibility": "Filter by location",
-        "useCurrentArea": "Use current area",
-        "useCurrentAreaAccessibility": "Use current location",
-        "offers": "Offers",
-        "offersAll": "All",
-        "offersAllAccessibility": "Show all venues",
-        "offersSpecial": "Special offers",
-        "offersSpecialAccessibility": "Show special offers",
-        "sort": {
-          "title": "Sort by",
-          "recommended": "Recommended",
-          "topRated": "Top rated",
-          "topRatedAccessibility": "Sort by top rated",
-          "lowestPrice": "Lowest price",
-          "lowestPriceAccessibility": "Sort by lowest price"
-        },
-        "reset": "Reset",
-        "resetAccessibility": "Reset filters",
-        "apply": "Apply filters",
-        "applyAccessibility": "Apply filters"
-      },
-      "cards": {
-        "viewDetails": "View {{title}} details",
-        "offer": "Offer",
-        "checkPricing": "Check pricing"
       }
     },
     "academy": {
@@ -682,25 +756,22 @@
         "view": "View",
         "join": "Join"
       },
-    "discovery": {
-      "title": "Discover academies",
-      "subtitle": "Filter, compare, then join in a few taps.",
-      "view": {
-        "map": "Map",
-        "list": "List"
-      },
-      "results": "{{count}} academies",
-      "loadMore": "Load more",
-      "peek": {
-        "view": "View"
-      },
-      "loading": {
-        "title": "Finding academies",
-        "subtitle": "Curating the best matches for you…"
-      },
-      "map": {
-        "open": "Map"
-      },
+      "discovery": {
+        "title": "Discover academies",
+        "subtitle": "Filter, compare, then join in a few taps.",
+        "view": {
+          "map": "Map",
+          "list": "List"
+        },
+        "results": "{{count}} academies",
+        "loadMore": "Load more",
+        "peek": {
+          "view": "View"
+        },
+        "loading": {
+          "title": "Finding academies",
+          "subtitle": "Curating the best matches for you..."
+        },
         "filters": {
           "open": "Filters",
           "title": "Smart filters",
@@ -729,14 +800,18 @@
           "ageChip": "Age: {{age}}",
           "registrationEnabled": "Registration enabled",
           "proOnly": "PRO only",
+          "statusLabel": "Status",
           "sortLabel": "Sort by",
+          "clearAll": "Clear all",
           "reset": "Reset",
-          "apply": "Apply"
+          "apply": "Apply",
+          "applyWithCount": "Show {{count}} results"
         },
         "search": {
-          "placeholder": "Search academies…"
+          "placeholder": "Search academies..."
         },
         "sort": {
+          "title": "Sort academies",
           "recommended": "Recommended",
           "newest": "Newest",
           "nearest": "Nearest"
@@ -748,7 +823,53 @@
           "ages": "Ages",
           "registrationEnabled": "Registration enabled",
           "proOnly": "PRO only",
-          "sort": "Sort"
+          "sort": "Sort",
+          "clearAll": "Clear all"
+        },
+        "badges": {
+          "verified": "Verified",
+          "top": "Top",
+          "popular": "Popular"
+        },
+        "card": {
+          "details": "Details",
+          "compare": "Compare",
+          "compared": "Selected",
+          "distanceAway": "{{distance}} away",
+          "sportsMore": "+{{count}} more",
+          "nextSlot": "Next slot: {{slot}}",
+          "priceFrom": "From {{price}}",
+          "priceNotAvailable": "Price on request"
+        },
+        "compare": {
+          "title": "Compare academies",
+          "subtitle": "Compare key details before choosing.",
+          "action": "Compare ({{count}})",
+          "clear": "Clear",
+          "remove": "Remove",
+          "fieldLabel": "Field",
+          "emptyHint": "Select at least two academies to compare.",
+          "limitReached": "You can compare up to {{count}} academies.",
+          "fields": {
+            "rating": "Rating",
+            "location": "Location",
+            "sports": "Sports",
+            "ages": "Ages",
+            "fees": "Fees",
+            "registration": "Registration",
+            "facilities": "Facilities",
+            "distance": "Distance",
+            "level": "Level"
+          },
+          "values": {
+            "yes": "Yes",
+            "no": "No",
+            "pro": "PRO",
+            "standard": "Standard",
+            "open": "Open",
+            "closed": "Closed",
+            "unknown": "N/A"
+          }
         },
         "error": {
           "title": "Error",
@@ -764,52 +885,326 @@
           "title": "Nearest sorting",
           "granted": "Location enabled. Showing nearest results.",
           "prompt": "Enable location for better nearest results.",
-          "asking": "Requesting…",
+          "asking": "Requesting...",
           "enable": "Enable location"
-        }
-      },
-      "map": {
-        "title": "Academies map",
-        "subtitle": "Explore nearby academies and open the template in one tap.",
-        "filters": {
-          "open": "Filters",
-          "title": "Smart filters",
-          "subtitle": "Filters affect what appears on the map.",
-          "sport": {
-            "label": "Sport",
-            "placeholder": "e.g. Football"
+        },
+        "map": {
+          "open": "Map",
+          "title": "Academies map",
+          "subtitle": "Explore nearby academies and open the template in one tap.",
+          "filters": {
+            "open": "Filters",
+            "title": "Smart filters",
+            "subtitle": "Filters affect what appears on the map.",
+            "sport": {
+              "label": "Sport",
+              "placeholder": "e.g. Football"
+            },
+            "city": {
+              "label": "City",
+              "placeholder": "e.g. Amman"
+            },
+            "reset": "Reset",
+            "apply": "Apply"
           },
-          "city": {
-            "label": "City",
-            "placeholder": "e.g. Amman"
+          "loading": "Loading…",
+          "loadingSubtitle": "Fetching academies for the map…",
+          "error": {
+            "title": "Error",
+            "message": "Something went wrong",
+            "tryAgain": "Try again"
           },
-          "reset": "Reset",
-          "apply": "Apply"
+          "empty": {
+            "title": "No academies on map",
+            "subtitle": "Try removing filters to see more results.",
+            "reset": "Reset"
+          },
+          "preview": {
+            "hint": "Open the full template or join directly.",
+            "selected": "Selected on map",
+            "view": "View",
+            "join": "Join"
+          }
         },
-        "loading": "Loading…",
-        "loadingSubtitle": "Fetching academies for the map…",
-        "error": {
-          "title": "Error",
-          "message": "Something went wrong",
-          "tryAgain": "Try again"
+        "join": {
+          "error": {
+            "generic": "Something went wrong"
+          },
+          "errors": {
+            "fix": "Please fix the highlighted fields.",
+            "single": "error",
+            "plural": "errors",
+            "firstEngRequired": "First name (English) is required.",
+            "firstEngInvalid": "Use English letters only.",
+            "lastEngRequired": "Last name (English) is required.",
+            "lastEngInvalid": "Use English letters only.",
+            "firstArRequired": "First name (Arabic) is required.",
+            "firstArInvalid": "Use Arabic letters only.",
+            "lastArRequired": "Last name (Arabic) is required.",
+            "lastArInvalid": "Use Arabic letters only.",
+            "phone1Required": "Primary phone is required.",
+            "phoneInvalid": "Invalid phone number.",
+            "phone2Invalid": "Invalid secondary phone number.",
+            "dobRequired": "Date of birth is required.",
+            "dobInvalid": "Invalid date. Use YYYY-MM-DD.",
+            "dobMinAge": "Player must be 3 years old or more."
+          },
+          "toast": {
+            "disabled": "This academy is not accepting registrations on SporHive.",
+            "closed": "Registration is currently closed.",
+            "sent": "Request sent successfully!"
+          },
+          "badges": {
+            "closed": "Closed",
+            "contact": "Contact",
+            "secure": "Secure",
+            "open": "Open"
+          },
+          "loading": {
+            "title": "Loading…"
+          },
+          "notFound": {
+            "title": "Academy not found",
+            "subtitle": "This academy might be unavailable."
+          },
+          "actions": {
+            "browse": "Browse academies",
+            "viewAcademy": "View academy",
+            "findMore": "Discover more"
+          },
+          "success": {
+            "title": "Request received",
+            "subtitle": "We sent your request to",
+            "hint": "They will contact you soon via phone."
+          },
+          "title": "Join academy",
+          "subtitle": "A short form — sent directly to the academy.",
+          "steps": "Step 1 of 3 • Player details",
+          "sections": {
+            "player": {
+              "title": "Player identity",
+              "subtitle": "Names in English and Arabic"
+            },
+            "contact": {
+              "title": "Contact",
+              "subtitle": "Where the academy can reach you"
+            },
+            "details": {
+              "title": "Details",
+              "subtitle": "Birth date and notes"
+            },
+            "review": {
+              "title": "Review & submit",
+              "subtitle": "Confirm details before sending"
+            }
+          },
+          "form": {
+            "firstEng": "First name (English) *",
+            "middleEng": "Middle (English)",
+            "lastEng": "Last name (English) *",
+            "nameHint": "Use official spelling to avoid delays.",
+            "firstAr": "First name (Arabic) *",
+            "middleAr": "Middle (Arabic)",
+            "lastAr": "Last name (Arabic) *",
+            "arHint": "Write the name as it appears on official documents.",
+            "phone1": "Phone number *",
+            "phone2": "Secondary phone",
+            "phonePlaceholder": "+9627XXXXXXX",
+            "trust": "Your data is shared only with the academy for registration purposes.",
+            "dob": "Date of birth *",
+            "dobPlaceholder": "Tap to select",
+            "dobTitle": "Date of birth",
+            "notes": "Notes (optional)",
+            "notesPlaceholder": "Any special requirements or questions…"
+          },
+          "review": {
+            "nameEn": "Name (English)",
+            "nameAr": "Name (Arabic)",
+            "phone": "Phone",
+            "dob": "Date of birth",
+            "hint": "After you submit, the academy will review your request and contact you."
+          },
+          "sendingTo": "Sending to",
+          "sending": "Sending…",
+          "send": "Send request",
+          "closed": {
+            "title": "Registration closed",
+            "message": "This academy is not currently accepting applications."
+          },
+          "contact": {
+            "title": "Direct contact required",
+            "message": "Please contact the academy directly."
+          }
         },
-        "empty": {
-          "title": "No academies on map",
-          "subtitle": "Try removing filters to see more results.",
-          "reset": "Reset"
+        "template": {
+          "media": {
+            "empty": "No media available",
+            "itemFallback": "Media",
+            "filters": {
+              "all": "All",
+              "team": "Team",
+              "posters": "Posters"
+            },
+            "adsTitle": "Highlights & Ads",
+            "galleryTitle": "Gallery",
+            "preview": "Preview",
+            "noPreview": "No preview available"
+          },
+          "course": {
+            "defaultTitle": "Course",
+            "years": "years",
+            "coaches": "Coaches",
+            "schedule": "Schedule",
+            "unknownCoach": "Unknown"
+          },
+          "schedule": {
+            "days": {
+              "sunday": "Sunday",
+              "monday": "Monday",
+              "tuesday": "Tuesday",
+              "wednesday": "Wednesday",
+              "thursday": "Thursday",
+              "friday": "Friday",
+              "saturday": "Saturday"
+            }
+          },
+          "badges": {
+            "featured": "Featured",
+            "pro": "PRO",
+            "facilities": "Facilities"
+          },
+          "story": {
+            "defaultTitle": "Success Story",
+            "title": "Success Story",
+            "subtitle": "Real achievements",
+            "view": "View Full Story"
+          },
+          "shareMessage": "{{academyName}}\n\nCheck out this academy!\n{{mapUrl}}",
+          "nav": {
+            "about": "About",
+            "sports": "Sports",
+            "courses": "Courses",
+            "media": "Media",
+            "story": "Success",
+            "location": "Location",
+            "contact": "Contact"
+          },
+          "loading": {
+            "title": "Loading",
+            "subtitle": "Fetching academy details…"
+          },
+          "error": {
+            "title": "Something went wrong",
+            "retry": "Retry"
+          },
+          "status": {
+            "registrationOpen": "Registration Open",
+            "registrationClosed": "Registration Closed"
+          },
+          "feature": {
+            "ageRange": "Age Range",
+            "years": "years",
+            "sports": "Sports",
+            "sportSingle": "sport",
+            "sportPlural": "sports",
+            "startingFrom": "Starting from",
+            "perMonth": "/month",
+            "facilities": "Facilities",
+            "bookingAvailable": "Booking Available"
+          },
+          "sections": {
+            "about": {
+              "title": "About Academy",
+              "subtitle": "Our mission and vision"
+            },
+            "sports": {
+              "title": "Sports & Credentials",
+              "subtitle": "Professional training programs"
+            },
+            "courses": {
+              "title": "Courses & Programs",
+              "subtitle": "Structured training sessions"
+            },
+            "media": {
+              "title": "Media Gallery",
+              "subtitle": "Photos and videos"
+            },
+            "location": {
+              "title": "Location & Facilities",
+              "subtitle": "Find us easily"
+            },
+            "contact": {
+              "title": "Get in Touch",
+              "subtitle": "Reach out for more information"
+            }
+          },
+          "about": {
+            "founded": "Founded",
+            "visitWebsite": "Visit Website",
+            "languages": "Languages Spoken"
+          },
+          "sports": {
+            "offered": "Sports Offered"
+          },
+          "stats": {
+            "title": "Statistics",
+            "players": "Players",
+            "coaches": "Coaches",
+            "awards": "Awards",
+            "certificates": "Certificates",
+            "achievements": "Achievements"
+          },
+          "location": {
+            "navigate": "Navigate",
+            "addressEmpty": "Address not provided",
+            "facilitiesBooking": "Facilities booking available",
+            "getDirections": "Get Directions"
+          },
+          "contact": {
+            "registerNow": "Register Now",
+            "contactAcademy": "Contact Academy",
+            "call": "Call",
+            "email": "Email",
+            "morePhones": "(+{{count}} more)"
+          },
+          "cta": {
+            "joinNow": "Join Now",
+            "contact": "Contact"
+          }
         },
-        "preview": {
-          "hint": "Open the full template or join directly.",
-          "selected": "Selected on map",
-          "view": "View",
-          "join": "Join"
+        "placeholder": {
+          "title": "Academy profile",
+          "subtitle": "We will build this page next.",
+          "comingSoon": "Coming Soon",
+          "message": "Template page for",
+          "cta": "Discover academies"
         }
       },
       "join": {
+        "actions": {
+          "browse": "Browse academies",
+          "findMore": "Discover more",
+          "viewAcademy": "View academy"
+        },
+        "badges": {
+          "closed": "Closed",
+          "contact": "Contact",
+          "secure": "Secure",
+          "open": "Open"
+        },
+        "closed": {
+          "message": "This academy is not currently accepting applications.",
+          "title": "Registration closed"
+        },
+        "contact": {
+          "message": "Please contact the academy directly.",
+          "title": "Direct contact required"
+        },
         "error": {
           "generic": "Something went wrong"
         },
         "errors": {
+          "dobMinAge": "Player must be 3 years old or more.",
           "fix": "Please fix the highlighted fields.",
           "single": "error",
           "plural": "errors",
@@ -825,36 +1220,24 @@
           "phoneInvalid": "Invalid phone number.",
           "phone2Invalid": "Invalid secondary phone number.",
           "dobRequired": "Date of birth is required.",
-          "dobInvalid": "Invalid date. Use YYYY-MM-DD.",
-          "dobMinAge": "Player must be 3 years old or more."
-        },
-        "toast": {
-          "disabled": "This academy is not accepting registrations on SporHive.",
-          "closed": "Registration is currently closed.",
-          "sent": "Request sent successfully!"
-        },
-        "badges": {
-          "closed": "Closed",
-          "contact": "Contact",
-          "secure": "Secure",
-          "open": "Open"
+          "dobInvalid": "Invalid date. Use YYYY-MM-DD."
         },
         "loading": {
           "title": "Loading…"
         },
         "notFound": {
-          "title": "Academy not found",
-          "subtitle": "This academy might be unavailable."
-        },
-        "actions": {
-          "browse": "Browse academies",
-          "viewAcademy": "View academy",
-          "findMore": "Discover more"
+          "subtitle": "This academy might be unavailable.",
+          "title": "Academy not found"
         },
         "success": {
-          "title": "Request received",
+          "hint": "They will contact you soon via phone.",
           "subtitle": "We sent your request to",
-          "hint": "They will contact you soon via phone."
+          "title": "Request received"
+        },
+        "toast": {
+          "closed": "Registration is currently closed.",
+          "disabled": "This academy is not accepting registrations on SporHive.",
+          "sent": "Request sent successfully!"
         },
         "title": "Join academy",
         "subtitle": "A short form — sent directly to the academy.",
@@ -905,14 +1288,43 @@
         },
         "sendingTo": "Sending to",
         "sending": "Sending…",
-        "send": "Send request",
-        "closed": {
-          "title": "Registration closed",
-          "message": "This academy is not currently accepting applications."
+        "send": "Send request"
+      },
+      "map": {
+        "empty": {
+          "reset": "Reset",
+          "subtitle": "Try removing filters to see more results.",
+          "title": "No academies on map"
         },
-        "contact": {
-          "title": "Direct contact required",
-          "message": "Please contact the academy directly."
+        "error": {
+          "title": "Error",
+          "tryAgain": "Try again",
+          "message": "Something went wrong"
+        },
+        "loadingSubtitle": "Fetching academies for the map…",
+        "title": "Academies map",
+        "subtitle": "Explore nearby academies and open the template in one tap.",
+        "filters": {
+          "open": "Filters",
+          "title": "Smart filters",
+          "subtitle": "Filters affect what appears on the map.",
+          "sport": {
+            "label": "Sport",
+            "placeholder": "e.g. Football"
+          },
+          "city": {
+            "label": "City",
+            "placeholder": "e.g. Amman"
+          },
+          "reset": "Reset",
+          "apply": "Apply"
+        },
+        "loading": "Loading…",
+        "preview": {
+          "hint": "Open the full template or join directly.",
+          "selected": "Selected on map",
+          "view": "View",
+          "join": "Join"
         }
       },
       "template": {
@@ -1058,44 +1470,867 @@
         "message": "Template page for",
         "cta": "Discover academies"
       }
+    },
+    "portal": {
+      "errors": {
+        "overviewTitle": "Unable to load portal",
+        "overviewDescription": "We couldn’t load your portal data. Please try again.",
+        "sessionExpiredTitle": "Session expired",
+        "sessionExpiredDescription": "Please sign in again to access the player portal.",
+        "sessionExpiredAction": "Go to login",
+        "reAuthAction": "Re-authenticate",
+        "forbiddenTitle": "Access denied",
+        "forbiddenDescription": "We couldn’t verify your portal access. Please try again.",
+        "unauthorizedTitle": "Session expired",
+        "unauthorizedDescription": "Your session expired. Please sign in again to continue.",
+        "missing_sessionTitle": "Portal session needed",
+        "missing_sessionDescription": "Please sign in again to open the player portal.",
+        "not_playerTitle": "Player access required",
+        "not_playerDescription": "Switch to a player account to access the portal.",
+        "missing_academy_idTitle": "Academy not selected",
+        "missing_academy_idDescription": "Choose your academy and sign in again to access the portal.",
+        "missing_portal_accessTitle": "Portal session expired",
+        "missing_portal_accessDescription": "Your portal access needs to be refreshed. Please sign in again."
+      },
+      "access": {
+        "title": "Player portal",
+        "description": "The player portal is available only to player accounts.",
+        "action": "Back to services"
+      },
+      "common": {
+        "placeholder": "—",
+        "player": "Player",
+        "edit": "Edit",
+        "save": "Save",
+        "saving": "Saving...",
+        "cancel": "Cancel",
+        "back": "Back",
+        "retry": "Retry",
+        "loading": "Loading...",
+        "close": "Close",
+        "remove": "Remove",
+        "refresh": "Refresh"
+      },
+      "tabs": {
+        "home": "Home",
+        "profile": "Profile",
+        "renewals": "Renewals",
+        "more": "More"
+      },
+      "filters": {
+        "open": "Filters",
+        "title": "Filters",
+        "subtitle": "Refine results to what you need.",
+        "apply": "Apply",
+        "clear": "Clear",
+        "statusLabel": "Status",
+        "statusAll": "All",
+        "fromLabel": "From",
+        "toLabel": "To",
+        "datePlaceholder": "YYYY-MM-DD",
+        "results": "{{count}} results"
+      },
+      "home": {
+        "title": "Player Portal",
+        "subtitle": "Your personalised training hub",
+        "welcomeBack": "Welcome back",
+        "playerId": "Player ID: {{id}}",
+        "academy": "Your academy",
+        "registrationStatus": "Registration status",
+        "activePlayer": "Active player",
+        "nextPayment": "Next payment",
+        "sessionsRemainingShort": "Sessions left",
+        "ofSessions": "of {{total}} sessions",
+        "lastOrder": "Last order",
+        "sections": "Explore your portal",
+        "sectionsSubtitle": "Jump into a section to manage your journey.",
+        "registration": "Registration",
+        "trainingGroup": "Training group",
+        "courseLabel": "Course: {{course}}",
+        "credits": "Credits",
+        "nextExpiry": "Next expiry {{date}}",
+        "sessionsProgress": "Sessions progress",
+        "sessionsRemaining": "{{remaining}} of {{total}} sessions left",
+        "performanceScore": "Performance score",
+        "performanceFallback": "—",
+        "attendance": "Attendance",
+        "attendanceFallback": "—",
+        "upcomingPayments": "Upcoming payments",
+        "invoice": "Invoice",
+        "paymentDue": "Due {{date}} • {{status}}",
+        "soon": "soon",
+        "pending": "pending",
+        "noPendingInvoices": "No pending invoices yet.",
+        "open": "Open",
+        "quick": {
+          "profile": "Profile",
+          "renewals": "Renewals",
+          "freezes": "Freezes",
+          "payments": "Payments",
+          "uniforms": "Uniforms",
+          "performance": "Performance"
+        }
+      },
+      "schedule": {
+        "title": "Schedule",
+        "subtitle": "Attendance and upcoming sessions"
+      },
+      "more": {
+        "title": "More",
+        "subtitle": "Everything else in your portal",
+        "freezes": {
+          "title": "Freezes",
+          "subtitle": "Pause your subscription"
+        },
+        "performance": {
+          "title": "Performance",
+          "subtitle": "Coach ratings & insights"
+        },
+        "uniforms": {
+          "title": "Uniform store",
+          "subtitle": "Latest kits and gear"
+        },
+        "orders": {
+          "title": "My orders",
+          "subtitle": "Track deliveries"
+        },
+        "news": {
+          "title": "News",
+          "subtitle": "Academy updates"
+        },
+        "payments": {
+          "title": "Payments",
+          "subtitle": "Invoices and receipts"
+        }
+      },
+      "payments": {
+        "title": "Payments",
+        "subtitle": "Invoices, transactions, and receipts",
+        "currency": "JOD",
+        "filtersTitle": "Payment filters",
+        "filtersSubtitle": "Filter by status or date range.",
+        "errorTitle": "Unable to load payments",
+        "errorDescription": "We couldn’t load your payments. Try again.",
+        "emptyTitle": "No payments found",
+        "emptyDescription": "Adjust filters or check back later.",
+        "defaultTitle": "Payment",
+        "statusPaid": "Paid",
+        "statusUnpaid": "Unpaid",
+        "statusPending": "Pending",
+        "dueDate": "Due {{date}}",
+        "detailTitle": "Payment details",
+        "detailMissingTitle": "Payment not found",
+        "detailMissingDescription": "We couldn’t find this payment in your history.",
+        "amountLabel": "Amount",
+        "dueLabel": "Due date",
+        "paidOnLabel": "Paid on",
+        "invoiceLabel": "Invoice ID",
+        "invoiceDownload": "Download invoice",
+        "invoiceDownloading": "Preparing invoice…",
+        "invoiceReady": "Invoice ready",
+        "invoiceError": "Unable to download invoice",
+        "statusLabel": "Status: {{status}}",
+        "status": {
+          "paid": "Paid",
+          "pending": "Pending",
+          "due": "Due",
+          "unknown": "Unknown"
+        },
+        "notPaidToken": "Not paid",
+        "noDate": "No date",
+        "noDateSpecified": "No date specified",
+        "paidOn": "Paid on {{date}}",
+        "dueOn": "Due on {{date}}",
+        "method": "• {{method}}",
+        "type": {
+          "uniformPurchase": "Uniform purchase",
+          "fullPayment": "Full payment",
+          "installment": "Installment {{label}}",
+          "payment": "Payment"
+        },
+        "amount": "Amount:",
+        "invoice": "Invoice:",
+        "fees": {
+          "training": "Training: {{amount}}",
+          "uniform": "Uniform: {{amount}}",
+          "transport": "Transport: {{amount}}"
+        },
+        "empty": {
+          "title": "No payments yet",
+          "subtitle": "When you pay for subscriptions or orders, they’ll appear here.",
+          "error": "Failed to load payments: {{message}}"
+        },
+        "summary": {
+          "paid": "Paid",
+          "pending": "Pending",
+          "overdue": "Overdue"
+        },
+        "errorNote": "Note: {{message}}"
+      },
+      "orders": {
+        "title": "My Orders",
+        "subtitle": "Track your uniform purchases",
+        "error": "Could not load order history.",
+        "errorDescription": "We couldn’t load your orders. Try again.",
+        "filtersTitle": "Order filters",
+        "filtersSubtitle": "Filter orders by status.",
+        "defaultTitle": "Order",
+        "detailTitle": "Order details",
+        "detailMissingTitle": "Order not found",
+        "detailMissingDescription": "We couldn’t find this order in your history.",
+        "referenceLabel": "Reference",
+        "createdLabel": "Created at",
+        "totalLabel": "Total",
+        "itemsTitle": "Items",
+        "itemFallback": "Order item",
+        "statusLabel": "Status: {{status}}",
+        "summary": {
+          "total": "Total",
+          "pending": "Pending",
+          "collected": "Collected"
+        },
+        "errorTitle": "Unable to load orders",
+        "loading": "Loading your order history.",
+        "emptyTitle": "No orders yet",
+        "emptyDescription": "Once you order uniforms, they will appear here.",
+        "orderLabel": "Order #{{id}}",
+        "subtitleLeft": "{{type}} • Qty: {{qty}}",
+        "subtitleRight": "Size: {{size}}",
+        "ref": "Ref",
+        "player": "Player",
+        "nickname": "Nickname",
+        "viewDetails": "View details",
+        "oneSize": "One size",
+        "fullKit": "Full kit",
+        "status": {
+          "pending": "Pending",
+          "pendingPayment": "Pending payment",
+          "collected": "Collected",
+          "processing": "Processing",
+          "delivered": "Delivered",
+          "cancelled": "Cancelled",
+          "default": "Processing"
+        },
+        "details": {
+          "title": "Order details",
+          "item": "Item",
+          "uniformType": "Uniform type",
+          "size": "Size",
+          "quantity": "Quantity",
+          "player": "Player",
+          "playerNumber": "Player number",
+          "nickname": "Nickname",
+          "meta": "Order info",
+          "orderId": "Order ID",
+          "productId": "Product ID",
+          "variantId": "Variant ID",
+          "paymentRef": "Payment reference",
+          "createdAt": "Created at",
+          "updatedAt": "Updated at"
+        }
+      },
+      "news": {
+        "title": "News",
+        "subtitle": "Latest academy updates",
+        "errorTitle": "Unable to load news",
+        "error": "Could not load news updates.",
+        "imagesUnavailable": "News images are unavailable.",
+        "defaultTitle": "Academy update",
+        "defaultDescription": "Stay tuned for upcoming matches and announcements.",
+        "loadingTitle": "Loading news",
+        "loadingDescription": "Fetching the latest updates for you.",
+        "emptyTitle": "No news yet",
+        "emptyDescription": "News posts will appear here as soon as they are published."
+      },
+      "profile": {
+        "title": "Profile",
+        "subtitle": "Manage your player identity",
+        "sectionPlayer": "Player information",
+        "sectionRegistration": "Registration details",
+        "nameEn": "Name (English)",
+        "nameAr": "Name (Arabic)",
+        "phone": "Phone",
+        "phone2": "Phone 2",
+        "email": "Email",
+        "address": "Address",
+        "registrationType": "Registration type",
+        "group": "Training group",
+        "course": "Course",
+        "period": "Period",
+        "errorTitle": "Unable to load profile",
+        "errorDescription": "We couldn’t load your profile. Try again.",
+        "playerName": "Player name",
+        "academy": "Academy",
+        "playerId": "ID: {{id}}",
+        "contact": "Contact details",
+        "phone1": "Phone 1",
+        "dob": "Date of birth",
+        "heightWeight": "Height / Weight",
+        "heightWeightValue": "{{height}} cm • {{weight}} kg",
+        "noAddress": "No address saved yet.",
+        "noMap": "Google maps pin not added.",
+        "logout": "Logout",
+        "editTitle": "Edit profile",
+        "addPhoto": "Add photo",
+        "photoHint": "Tap to upload image",
+        "firstNameEn": "First name (EN)",
+        "middleNameEn": "Middle name (EN)",
+        "lastNameEn": "Last name (EN)",
+        "firstNameAr": "First name (AR)",
+        "middleNameAr": "Middle name (AR)",
+        "lastNameAr": "Last name (AR)",
+        "maps": "Google Maps",
+        "mapsLink": "Google Maps link",
+        "height": "Height (cm)",
+        "heightPlaceholder": "170",
+        "weight": "Weight (kg)",
+        "weightPlaceholder": "65",
+        "dobPlaceholder": "YYYY-MM-DD",
+        "save": "Save changes"
+      },
+      "login": {
+        "title": "Player Portal",
+        "subtitle": "Select your academy to unlock your player portal.",
+        "subtitleWithAcademy": "Signing in to {{academy}}",
+        "academyFallback": "Academy",
+        "academiesError": "Unable to load academies.",
+        "errors": {
+          "selectAcademy": "Please choose your academy.",
+          "enterCredentials": "Enter both your username and password.",
+          "loginFailed": "Login failed. Please try again."
+        },
+        "username": "Username",
+        "usernamePlaceholder": "Email or phone",
+        "password": "Password",
+        "passwordPlaceholder": "••••••••",
+        "success": "Welcome back! Preparing your portal…",
+        "forgotPassword": "Forgot password?",
+        "submit": "Enter Portal",
+        "academyPicker": {
+          "selectedLabel": "Selected academy",
+          "choose": "Choose an academy",
+          "helper": "Search or scroll to select the correct academy.",
+          "searchPlaceholder": "Search academy",
+          "loading": "Loading academies…",
+          "emptyTitle": "No academies found",
+          "emptyDescription": "Try another name or location."
+        }
+      },
+      "reset": {
+        "title": "Reset password",
+        "subtitle": "We’ll help you regain access",
+        "comingSoonTitle": "Password reset coming soon",
+        "comingSoonDescription": "We’re preparing a secure reset flow for the player portal.",
+        "backToLogin": "Back to login"
+      },
+      "freezes": {
+        "title": "Freezes",
+        "subtitle": "Pause your program without missing progress",
+        "currentStatus": "Current status",
+        "approved": "Approved",
+        "pending": "Pending",
+        "rejected": "Rejected",
+        "canceled": "Canceled",
+        "currentFreeze": "Current freeze",
+        "upcomingFreeze": "Upcoming freeze",
+        "lastFreeze": "Last freeze",
+        "period": "Period",
+        "processedBy": "Processed by",
+        "processedAt": "Processed at",
+        "remainingSnapshot": "Remaining sessions snapshot",
+        "reason": "Reason",
+        "notes": "Notes",
+        "requestTitle": "Request a freeze",
+        "requestSubtitle": "Select dates and give a quick reason.",
+        "startDate": "Start date",
+        "endDate": "End date",
+        "reasonPlaceholder": "Tell us why you need a pause",
+        "submit": "Submit request",
+        "emptyTitle": "No freezes yet",
+        "emptyDescription": "Your submitted freezes will appear here.",
+        "validation": "Select dates and add a reason.",
+        "success": "Freeze request submitted.",
+        "error": "Freeze request failed.",
+        "remainingSessions": "Remaining sessions",
+        "remainingSessionsInline": " • Remaining sessions: {{count}}",
+        "summaryLine": "Freeze summary: {{total}} • Approved: {{approved}} • Pending: {{pending}}{{remainingText}}",
+        "range": "{{start}} → {{end}}"
+      },
+      "performance": {
+        "title": "Performance",
+        "subtitle": "Ratings, feedback, and progress",
+        "overall": "Overall rating",
+        "basedOnSessions": "Based on {{count}} recent sessions",
+        "categories": "Rating categories",
+        "periods": "Period analytics",
+        "periodLabel": "Period {{index}}",
+        "periodRange": "{{start}} → {{end}}",
+        "ratingLabel": "Rating {{index}}",
+        "loadingTitle": "Loading performance",
+        "loadingDescription": "Fetching ratings and feedback from your coach.",
+        "emptyTitle": "Performance insights loading",
+        "emptyDescription": "Ratings will appear as soon as your coach publishes them.",
+        "errorTitle": "Unable to load performance",
+        "error": "Could not load performance data."
+      },
+      "renewals": {
+        "title": "Renewals",
+        "subtitle": "Continue your journey",
+        "detailTitle": "Renewal details",
+        "detailSummaryTitle": "Renewal status",
+        "detailSummarySubtitle": "Your current eligibility snapshot.",
+        "statusLabel": "Status",
+        "viewDetails": "View details",
+        "eligible": "Eligible",
+        "notEligible": "Not eligible",
+        "ends": "Ends",
+        "daysLeft": "Days left",
+        "current": "Current",
+        "scheduleSeparator": " • ",
+        "scheduleEmpty": "No schedule",
+        "courseLabel": "Course #{{id}}",
+        "courseRange": "{{start}} → {{end}} • {{sessions}} sessions",
+        "courseSessions": "{{sessions}} sessions",
+        "groupLabel": "Group #{{id}}",
+        "groupCapacity": "{{schedule}} • {{count}} spots",
+        "errors": {
+          "completeFields": "Please complete all required fields.",
+          "loadTitle": "Couldn't load renewals"
+        },
+        "actions": {
+          "retry": "Try again",
+          "back": "Back to dashboard",
+          "submit": "Submit renewal request",
+          "submitting": "Submitting..."
+        },
+        "submit": {
+          "successTitle": "Renewal request submitted!",
+          "successMessage": "The academy will review your request shortly.",
+          "errorTitle": "Submission failed",
+          "errorMessage": "Please try again."
+        },
+        "notAvailable": {
+          "title": "Renewal not available",
+          "subtitle": "Here's why you can't request a renewal right now",
+          "pendingTitle": "Pending request",
+          "pendingBody": "You already have a renewal request under review. Please wait for it to be processed.",
+          "activeTitle": "Active subscription",
+          "activeBody": "Renewal becomes available closer to your current subscription end date."
+        },
+        "request": {
+          "title": "Request renewal",
+          "subtitle": "Choose your course or group, then set your preferred schedule",
+          "courseLabel": "Select course (optional)",
+          "coursePlaceholder": "Choose a course...",
+          "groupLabel": "Select group (optional)",
+          "groupPlaceholder": "Choose a group...",
+          "scheduleTitle": "Group schedule",
+          "scheduleEmpty": "No schedule set",
+          "sessionsPerWeek": "Sessions per week: {{count}}",
+          "startDate": "Start date",
+          "endDate": "End date",
+          "selectDate": "Select date",
+          "sessionsLabel": "Number of sessions",
+          "sessionsUnit": "sessions",
+          "notesLabel": "Additional notes (optional)",
+          "notesPlaceholder": "Any special requests or notes for the academy...",
+          "disclaimer": "By submitting, you acknowledge that the academy will review your request. You'll be notified once it's processed."
+        },
+        "summary": {
+          "title": "Period summary",
+          "range": "{{start}} → {{end}}",
+          "sessionsDetail": "{{count}} sessions • {{perWeek}}/week"
+        },
+        "datePicker": {
+          "startTitle": "Select start date",
+          "endTitle": "Select end date",
+          "confirm": "Confirm date"
+        }
+      },
+      "uniforms": {
+        "title": "Uniform Store",
+        "subtitle": "Latest kits and merchandise",
+        "loadingTitle": "Loading catalog",
+        "loadingDescription": "Fetching the latest gear from your academy.",
+        "errorTitle": "Unable to load store",
+        "error": "Could not load the uniform store.",
+        "emptyTitle": "Store preparing",
+        "emptyDescription": "Uniform options will appear once the catalog is live.",
+        "kit": "Kit",
+        "defaultName": "Uniform pack",
+        "sizeRequired": "Please select a size.",
+        "priceMissing": "Price not available.",
+        "added": "Added to cart",
+        "validation": "Add items to your cart first.",
+        "success": "Uniform order placed.",
+        "priceNA": "Price unavailable",
+        "oneSizeItem": "One size fits all",
+        "availableSizes": "Available sizes",
+        "oneSize": "One size",
+        "sizeSeparator": " • ",
+        "viewDetails": "View",
+        "cartTitle": "Cart summary • {{count}}",
+        "emptyCartTitle": "Your cart is empty",
+        "emptyCartDesc": "Add uniforms from the catalog.",
+        "sizeLabel": "Size: {{size}} • {{price}} each",
+        "number": "Number",
+        "numberPlaceholder": "00",
+        "nickname": "Nickname",
+        "nicknamePlaceholder": "—",
+        "total": "Total",
+        "checkout": "Checkout",
+        "viewCart": "View",
+        "addToCart": "Add to cart",
+        "size": "Size"
+      }
+    },
+    "auth": {
+      "mode": {
+        "public": "Public",
+        "player": "Player"
+      },
+      "fields": {
+        "phone": "Mobile Number",
+        "password": "Password",
+        "confirmPassword": "Confirm Password",
+        "firstName": "First Name",
+        "lastName": "Last Name",
+        "academy": "Academy",
+        "username": "Username",
+        "newPassword": "New Password"
+      },
+      "placeholders": {
+        "phone": "+9627xxxxxxxx",
+        "password": "Enter your password",
+        "confirmPassword": "Re-enter your password",
+        "firstName": "First name",
+        "lastName": "Last name",
+        "username": "Enter your username"
+      },
+      "academy": {
+        "helper": "Select Academy",
+        "searchPlaceholder": "Search academies...",
+        "error": "Unable to load academies right now."
+      },
+      "errors": {
+        "generic": "Something went wrong. Please try again.",
+        "network": "You're offline. Check your connection and try again.",
+        "invalidCredentials": "Invalid credentials. Please try again.",
+        "deactivated": "This account is deactivated. Contact support.",
+        "invalidOtp": "Invalid or expired code."
+      },
+      "validation": {
+        "phoneRequired": "Phone number is required.",
+        "phoneInvalid": "Enter a valid phone number.",
+        "passwordRequired": "Password is required.",
+        "passwordLength": "Password must be at least 8 characters.",
+        "passwordMismatch": "Passwords do not match.",
+        "firstNameRequired": "First name is required.",
+        "lastNameRequired": "Last name is required.",
+        "academyRequired": "Please select an academy.",
+        "usernameRequired": "Username is required.",
+        "otpLength": "Enter the 6-digit code."
+      },
+      "login": {
+        "title": "Welcome Back",
+        "subtitle": "Sign in to continue your SporHive experience.",
+        "cta": "Sign In",
+        "ctaPlayer": "Sign In",
+        "forgotPassword": "Forgot password?",
+        "noAccount": "New to SporHive?",
+        "createAccount": "Create account",
+        "success": "Signed in successfully.",
+        "error": "Unable to sign in. Please try again."
+      },
+      "signup": {
+        "title": "Create Account",
+        "subtitle": "Join SporHive and track your game in minutes.",
+        "cta": "Sign Up",
+        "haveAccount": "Already have an account?",
+        "login": "Log in",
+        "success": "Account created. Please sign in.",
+        "error": "Unable to sign up. Please try again.",
+        "passwordHints": {
+          "length": "Use at least {{count}} characters",
+          "match": "Passwords match"
+        }
+      },
+      "reset": {
+        "title": "Reset Password",
+        "subtitle": "Let’s secure your account in a few quick steps.",
+        "back": "Back",
+        "sendCode": "Send code",
+        "otpHint": "Enter the 6-digit code sent to your phone.",
+        "verify": "Verify",
+        "resend": "Resend code",
+        "resendReady": "Didn’t get a code?",
+        "resendCountdown": "Resend available in {{seconds}}s",
+        "requestSuccess": "If your account exists, we sent a code.",
+        "requestError": "Unable to send code. Try again.",
+        "confirmError": "Invalid or expired code. Try again.",
+        "updatePassword": "Reset Password",
+        "publicSuccess": "Password updated successfully.",
+        "playerSuccess": "Password generated successfully.",
+        "publicFinalTitle": "Password reset successfully",
+        "publicFinalSubtitle": "You can now sign in with your new password.",
+        "playerFinalTitle": "Password ready",
+        "playerFinalSubtitle": "Save this password — you can change it later.",
+        "generatedPassword": "Generated password",
+        "generatedFallback": "••••••",
+        "saveHint": "Keep this password safe for your next login.",
+        "copy": "Copy",
+        "copied": "Password copied to clipboard.",
+        "copyUnsupported": "Copy is not available on this device.",
+        "reveal": "Reveal",
+        "hide": "Hide",
+        "backToLogin": "Proceed to login"
+      }
+    }
+  },
+  "academy": {
+    "details": {
+      "title": "Academy Details",
+      "errorTitle": "Could not load academy",
+      "error": "Something went wrong while loading academy details.",
+      "retry": "Retry",
+      "overview": "Overview",
+      "featureHighlights": "Feature highlights and quick details",
+      "location": "Location",
+      "distance": "Distance",
+      "distanceKm": "{{distance}} km away",
+      "rating": "Rating",
+      "openStatus": "Open status",
+      "registrationOpen": "Registration Open",
+      "registrationClosed": "Registration Closed",
+      "secure": "Secure",
+      "fees": "Fees",
+      "facilities": "Facilities",
+      "schedule": "Schedule",
+      "reviews": "Reviews",
+      "joinAcademy": "Join Academy",
+      "bookNow": "Book Now",
+      "map": "Map",
+      "images": "Images",
+      "similarAcademies": "Similar Academies",
+      "academiesSportsOffered": "Academies & Sports Offered",
+      "sportsOffered": "Sports offered",
+      "openRegistration": "Open registration",
+      "secureEncrypted": "Secure & encrypted",
+      "responseTime": "Academy usually responds within 24 hours",
+      "trainers": "Trainer info",
+      "playingFields": "Playing fields",
+      "courtImages": "Court images",
+      "contact": "Contact",
+      "call": "Call",
+      "email": "Email",
+      "share": "Share",
+      "favourite": "Favourite",
+      "favourited": "Favourited",
+      "aboutFallback": "No academy description provided yet.",
+      "website": "Visit website",
+      "galleryEmpty": "No images available yet.",
+      "reviewsEmpty": "No reviews yet",
+      "reviewsHint": "Ratings and reviews will appear here once published.",
+      "loadMoreReviews": "Load more reviews",
+      "openInMaps": "Open in maps",
+      "mapHint": "Tap to open full map",
+      "nextSession": "Next session",
+      "notAvailable": "Not available",
+      "priceOnRequest": "Price on request",
+      "facilitiesAvailable": "Facilities booking available",
+      "imagesGallery": "Images & Gallery",
+      "courseFallback": "Course",
+      "ageRange": "Age {{from}} - {{to}}",
+      "noCourses": "No courses published yet.",
+      "noSchedule": "No schedule available yet.",
+      "reviewer": "Player",
+      "reviewsCount": "{{count}} reviews",
+      "shareMessage": "Check out {{academy}} on SporHive. {{url}}",
+      "days": {
+        "sunday": "Sunday",
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday"
+      },
+      "courses": "Courses"
+    }
+  },
+  "auth": {
+    "academy": {
+      "error": "Unable to load academies right now.",
+      "helper": "Select Academy",
+      "searchPlaceholder": "Search academies..."
+    },
+    "errors": {
+      "deactivated": "This account is deactivated. Contact support.",
+      "invalidOtp": "Invalid or expired code.",
+      "network": "You're offline. Check your connection and try again.",
+      "generic": "Something went wrong. Please try again.",
+      "invalidCredentials": "Invalid credentials. Please try again."
+    },
+    "fields": {
+      "academy": "Academy",
+      "confirmPassword": "Confirm Password",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "newPassword": "New Password",
+      "password": "Password",
+      "phone": "Mobile Number",
+      "username": "Username"
+    },
+    "login": {
+      "createAccount": "Create account",
+      "cta": "Sign In",
+      "ctaPlayer": "Sign In",
+      "forgotPassword": "Forgot password?",
+      "noAccount": "New to SporHive?",
+      "subtitle": "Sign in to continue your SporHive experience.",
+      "success": "Signed in successfully.",
+      "title": "Welcome Back",
+      "error": "Unable to sign in. Please try again."
+    },
+    "logout": "Log out",
+    "mode": {
+      "player": "Player",
+      "public": "Public"
+    },
+    "placeholders": {
+      "confirmPassword": "Re-enter your password",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "password": "Enter your password",
+      "phone": "+9627xxxxxxxx",
+      "username": "Enter your username"
+    },
+    "reset": {
+      "back": "Back",
+      "backToLogin": "Proceed to login",
+      "copied": "Password copied to clipboard.",
+      "copy": "Copy",
+      "copyUnsupported": "Copy is not available on this device.",
+      "generatedFallback": "••••••",
+      "generatedPassword": "Generated password",
+      "hide": "Hide",
+      "invalidOtp": "Invalid or expired code. Try again.",
+      "otpHint": "Enter the 6-digit code sent to your phone.",
+      "otpVerified": "Code verified successfully.",
+      "playerFinalSubtitle": "Save this password — you can change it later.",
+      "playerFinalTitle": "Password ready",
+      "playerSuccess": "Password generated successfully.",
+      "publicFinalSubtitle": "You can now sign in with your new password.",
+      "publicFinalTitle": "Password reset successfully",
+      "publicSuccess": "Password updated successfully.",
+      "requestSuccess": "If your account exists, we sent a code.",
+      "resend": "Resend code",
+      "resendCountdown": "Resend available in {{seconds}}s",
+      "resendReady": "Didn’t get a code?",
+      "reveal": "Reveal",
+      "saveHint": "Keep this password safe for your next login.",
+      "sendCode": "Send code",
+      "subtitle": "Let’s secure your account in a few quick steps.",
+      "title": "Reset Password",
+      "updatePassword": "Reset Password",
+      "verify": "Verify",
+      "requestError": "Unable to send code. Try again.",
+      "confirmError": "Invalid or expired code. Try again."
+    },
+    "signup": {
+      "cta": "Sign Up",
+      "haveAccount": "Already have an account?",
+      "login": "Log in",
+      "passwordHints": {
+        "length": "Use at least {{count}} characters",
+        "match": "Passwords match"
+      },
+      "phoneExists": "This number is already registered. Please use another number or log in.",
+      "subtitle": "Join SporHive and track your game in minutes.",
+      "success": "Account created. Please sign in.",
+      "title": "Create Account",
+      "error": "Unable to sign up. Please try again."
+    },
+    "validation": {
+      "academyRequired": "Please select an academy.",
+      "firstNameRequired": "First name is required.",
+      "lastNameRequired": "Last name is required.",
+      "otpLength": "Enter the 6-digit code.",
+      "passwordLength": "Password must be at least 8 characters.",
+      "passwordMismatch": "Passwords do not match.",
+      "passwordRequired": "Password is required.",
+      "phoneInvalid": "Enter a valid phone number.",
+      "phoneRequired": "Phone number is required.",
+      "usernameRequired": "Username is required."
     }
   },
   "playgrounds": {
-    "explore": {
-      "header": "Playgrounds",
-      "searchLabel": "Search",
-      "searchPlaceholder": "Search by venue or location",
-      "filters": "Filters",
-      "pickDate": "Pick date",
-      "players": "players",
-      "offers": "Offers",
-      "all": "All",
-      "noVenuesTitle": "No venues found",
-      "noVenuesMessage": "Try adjusting filters or resetting your search.",
-      "resetFilters": "Reset filters",
-      "errorTitle": "Unable to load",
-      "multiSport": "Multi-sport",
-      "fromPrice": "From {{price}}"
+    "bookings": {
+      "title": "My bookings",
+      "filters": {
+        "labelWithCount": "{{label}} ({{count}})"
+      },
+      "payment": {
+        "unknown": "{{payment}}"
+      },
+      "signInRequired": "Sign in required",
+      "signInMessage": "Log in to view your playground bookings.",
+      "signIn": "Sign in",
+      "status": {
+        "all": "All",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled"
+      },
+      "noBookings": "No bookings found",
+      "noBookingsMessage": "Try another status filter or explore venues.",
+      "explore": "Explore",
+      "cancelTitle": "Cancel booking?",
+      "cancelMessage": "Please contact support or the venue to confirm any cancellation policy.",
+      "keepBooking": "Keep booking",
+      "gotIt": "Got it"
     },
     "discovery": {
-      "searchLabel": "Search playgrounds",
-      "searchPlaceholder": "Search by name or sport",
-      "specialOffersLabel": "Special offers",
+      "activitiesLabel": "Activities",
+      "closeBookingSheetAccessibility": "Close booking sheet",
+      "noDurationsMessage": "No durations listed. Booking will use the default duration.",
+      "noFiltersYet": "No filters yet",
+      "noSlotsMessage": "Try another date or check back later.",
+      "noSlotsTitle": "No slots found",
       "offersAny": "Any",
       "offersOnly": "Only offers",
-      "activitiesLabel": "Activities",
-      "noFiltersYet": "No filters yet",
+      "paymentType": "Payment type",
       "pickTime": "Pick a time",
       "review": "Review",
       "reviewBookingAccessibility": "Review booking",
-      "closeBookingSheetAccessibility": "Close booking sheet",
+      "searchLabel": "Search playgrounds",
+      "searchPlaceholder": "Search by name or sport",
       "selectSlot": "Select a slot",
-      "slotsUnavailableTitle": "Slots unavailable",
-      "noSlotsTitle": "No slots found",
-      "noSlotsMessage": "Try another date or check back later.",
-      "noDurationsMessage": "No durations listed. Booking will use the default duration.",
       "signInPrompt": "Sign in to your SporHive account to complete the booking.",
-      "paymentType": "Payment type"
+      "slotsUnavailableTitle": "Slots unavailable",
+      "specialOffersLabel": "Special offers"
+    },
+    "explore": {
+      "all": "All",
+      "errorTitle": "Unable to load",
+      "filters": "Filters",
+      "fromPrice": "From {{price}}",
+      "header": "Playgrounds",
+      "multiSport": "Multi-sport",
+      "noVenuesMessage": "Try adjusting filters or resetting your search.",
+      "noVenuesTitle": "No venues found",
+      "resetFilters": "Reset filters",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Search by venue or location",
+      "pickDate": "Pick date",
+      "players": "players",
+      "offers": "Offers"
+    },
+    "rating": {
+      "accessibility": {
+        "setRating": "Set {{label}} to {{star}} stars"
+      }
     },
     "booking": {
       "steps": {
@@ -1131,27 +2366,8 @@
       "bookingSuccess": "Your request has been submitted successfully.",
       "bookingCode": "Booking code",
       "viewBookings": "View bookings",
-      "done": "Done"
-    },
-    "bookings": {
-      "title": "My bookings",
-      "signInRequired": "Sign in required",
-      "signInMessage": "Log in to view your playground bookings.",
-      "signIn": "Sign in",
-      "status": {
-        "all": "All",
-        "pending": "Pending",
-        "approved": "Approved",
-        "rejected": "Rejected",
-        "cancelled": "Cancelled"
-      },
-      "noBookings": "No bookings found",
-      "noBookingsMessage": "Try another status filter or explore venues.",
-      "explore": "Explore",
-      "cancelTitle": "Cancel booking?",
-      "cancelMessage": "Please contact support or the venue to confirm any cancellation policy.",
-      "keepBooking": "Keep booking",
-      "gotIt": "Got it"
+      "done": "Done",
+      "stepCounter": "Step {{current}} of {{total}}"
     },
     "auth": {
       "access": "Playgrounds access",
@@ -1165,622 +2381,974 @@
       "resetPassword": "Reset your password",
       "sendResetCode": "Send reset code",
       "updatePassword": "Update password"
-    }
-  },
-  "portal": {
-    "errors": {
-      "overviewTitle": "Unable to load portal",
-      "overviewDescription": "We couldn’t load your portal data. Please try again.",
-      "sessionExpiredTitle": "Session expired",
-      "sessionExpiredDescription": "Please sign in again to access the player portal.",
-      "sessionExpiredAction": "Go to login",
-      "reAuthAction": "Re-authenticate",
-      "forbiddenTitle": "Access denied",
-      "forbiddenDescription": "We couldn’t verify your portal access. Please try again.",
-      "unauthorizedTitle": "Session expired",
-      "unauthorizedDescription": "Your session expired. Please sign in again to continue.",
-      "missing_sessionTitle": "Portal session needed",
-      "missing_sessionDescription": "Please sign in again to open the player portal.",
-      "not_playerTitle": "Player access required",
-      "not_playerDescription": "Switch to a player account to access the portal.",
-      "missing_academy_idTitle": "Academy not selected",
-      "missing_academy_idDescription": "Choose your academy and sign in again to access the portal.",
-      "missing_portal_accessTitle": "Portal session expired",
-      "missing_portal_accessDescription": "Your portal access needs to be refreshed. Please sign in again."
     },
-    "access": {
-      "title": "Player portal",
-      "description": "The player portal is available only to player accounts.",
-      "action": "Back to services"
-    },
-    "common": {
-      "placeholder": "—",
-      "player": "Player",
-      "edit": "Edit",
-      "save": "Save",
-      "saving": "Saving...",
-      "cancel": "Cancel",
-      "back": "Back",
-      "retry": "Retry",
-      "loading": "Loading...",
-      "close": "Close",
-      "remove": "Remove",
-      "refresh": "Refresh"
-    },
-    "tabs": {
-      "home": "Home",
-      "profile": "Profile",
-      "renewals": "Renewals",
-      "more": "More"
-    },
-    "filters": {
-      "open": "Filters",
-      "title": "Filters",
-      "subtitle": "Refine results to what you need.",
-      "apply": "Apply",
-      "clear": "Clear",
-      "statusLabel": "Status",
-      "statusAll": "All",
-      "fromLabel": "From",
-      "toLabel": "To",
-      "datePlaceholder": "YYYY-MM-DD",
-      "results": "{{count}} results"
-    },
-    "home": {
-      "title": "Player Portal",
-      "subtitle": "Your personalised training hub",
-      "welcomeBack": "Welcome back",
-      "playerId": "Player ID: {{id}}",
-      "academy": "Your academy",
-      "registrationStatus": "Registration status",
-      "activePlayer": "Active player",
-      "nextPayment": "Next payment",
-      "sessionsRemainingShort": "Sessions left",
-      "ofSessions": "of {{total}} sessions",
-      "lastOrder": "Last order",
-      "sections": "Explore your portal",
-      "sectionsSubtitle": "Jump into a section to manage your journey.",
-      "registration": "Registration",
-      "trainingGroup": "Training group",
-      "courseLabel": "Course: {{course}}",
-      "credits": "Credits",
-      "nextExpiry": "Next expiry {{date}}",
-      "sessionsProgress": "Sessions progress",
-      "sessionsRemaining": "{{remaining}} of {{total}} sessions left",
-      "performanceScore": "Performance score",
-      "performanceFallback": "—",
-      "attendance": "Attendance",
-      "attendanceFallback": "—",
-      "upcomingPayments": "Upcoming payments",
-      "invoice": "Invoice",
-      "paymentDue": "Due {{date}} • {{status}}",
-      "soon": "soon",
-      "pending": "pending",
-      "noPendingInvoices": "No pending invoices yet.",
-      "open": "Open",
-      "quick": {
-        "profile": "Profile",
-        "renewals": "Renewals",
-        "freezes": "Freezes",
-        "payments": "Payments",
-        "uniforms": "Uniforms",
-        "performance": "Performance"
-      }
-    },
-    "schedule": {
-      "title": "Schedule",
-      "subtitle": "Attendance and upcoming sessions"
-    },
-    "more": {
-      "title": "More",
-      "subtitle": "Everything else in your portal",
-      "freezes": {
-        "title": "Freezes",
-        "subtitle": "Pause your subscription"
+    "portal": {
+      "errors": {
+        "overviewTitle": "Unable to load portal",
+        "overviewDescription": "We couldn’t load your portal data. Please try again.",
+        "sessionExpiredTitle": "Session expired",
+        "sessionExpiredDescription": "Please sign in again to access the player portal.",
+        "sessionExpiredAction": "Go to login",
+        "reAuthAction": "Re-authenticate",
+        "forbiddenTitle": "Access denied",
+        "forbiddenDescription": "We couldn’t verify your portal access. Please try again.",
+        "unauthorizedTitle": "Session expired",
+        "unauthorizedDescription": "Your session expired. Please sign in again to continue.",
+        "missing_sessionTitle": "Portal session needed",
+        "missing_sessionDescription": "Please sign in again to open the player portal.",
+        "not_playerTitle": "Player access required",
+        "not_playerDescription": "Switch to a player account to access the portal.",
+        "missing_academy_idTitle": "Academy not selected",
+        "missing_academy_idDescription": "Choose your academy and sign in again to access the portal.",
+        "missing_portal_accessTitle": "Portal session expired",
+        "missing_portal_accessDescription": "Your portal access needs to be refreshed. Please sign in again."
       },
-      "performance": {
-        "title": "Performance",
-        "subtitle": "Coach ratings & insights"
+      "access": {
+        "title": "Player portal",
+        "description": "The player portal is available only to player accounts.",
+        "action": "Back to services"
       },
-      "uniforms": {
-        "title": "Uniform store",
-        "subtitle": "Latest kits and gear"
+      "common": {
+        "placeholder": "—",
+        "player": "Player",
+        "edit": "Edit",
+        "cancel": "Cancel",
+        "back": "Back",
+        "retry": "Retry",
+        "loading": "Loading...",
+        "close": "Close",
+        "remove": "Remove",
+        "refresh": "Refresh"
       },
-      "orders": {
-        "title": "My orders",
-        "subtitle": "Track deliveries"
+      "filters": {
+        "open": "Filters",
+        "title": "Filters",
+        "subtitle": "Refine results to what you need.",
+        "apply": "Apply",
+        "clear": "Clear",
+        "statusLabel": "Status",
+        "statusAll": "All",
+        "fromLabel": "From",
+        "toLabel": "To",
+        "datePlaceholder": "YYYY-MM-DD",
+        "results": "{{count}} results"
       },
-      "news": {
-        "title": "News",
-        "subtitle": "Academy updates"
+      "home": {
+        "title": "Player Portal",
+        "subtitle": "Your personalised training hub",
+        "welcomeBack": "Welcome back",
+        "playerId": "Player ID: {{id}}",
+        "academy": "Your academy",
+        "registrationStatus": "Registration status",
+        "activePlayer": "Active player",
+        "nextPayment": "Next payment",
+        "sessionsRemainingShort": "Sessions left",
+        "ofSessions": "of {{total}} sessions",
+        "lastOrder": "Last order",
+        "sections": "Explore your portal",
+        "sectionsSubtitle": "Jump into a section to manage your journey.",
+        "registration": "Registration",
+        "trainingGroup": "Training group",
+        "courseLabel": "Course: {{course}}",
+        "credits": "Credits",
+        "nextExpiry": "Next expiry {{date}}",
+        "sessionsProgress": "Sessions progress",
+        "sessionsRemaining": "{{remaining}} of {{total}} sessions left",
+        "performanceScore": "Performance score",
+        "performanceFallback": "—",
+        "attendance": "Attendance",
+        "attendanceFallback": "—",
+        "upcomingPayments": "Upcoming payments",
+        "invoice": "Invoice",
+        "paymentDue": "Due {{date}} • {{status}}",
+        "soon": "soon",
+        "pending": "pending",
+        "noPendingInvoices": "No pending invoices yet.",
+        "open": "Open",
+        "quick": {
+          "profile": "Profile",
+          "renewals": "Renewals",
+          "freezes": "Freezes",
+          "payments": "Payments",
+          "uniforms": "Uniforms",
+          "performance": "Performance"
+        }
+      },
+      "schedule": {
+        "title": "Schedule",
+        "subtitle": "Attendance and upcoming sessions"
+      },
+      "more": {
+        "title": "More",
+        "subtitle": "Everything else in your portal",
+        "freezes": {
+          "title": "Freezes",
+          "subtitle": "Pause your subscription"
+        },
+        "performance": {
+          "title": "Performance",
+          "subtitle": "Coach ratings & insights"
+        },
+        "uniforms": {
+          "title": "Uniform store",
+          "subtitle": "Latest kits and gear"
+        },
+        "orders": {
+          "title": "My orders",
+          "subtitle": "Track deliveries"
+        },
+        "news": {
+          "title": "News",
+          "subtitle": "Academy updates"
+        },
+        "payments": {
+          "title": "Payments",
+          "subtitle": "Invoices and receipts"
+        }
       },
       "payments": {
         "title": "Payments",
-        "subtitle": "Invoices and receipts"
-      }
-    },
-    "payments": {
-      "title": "Payments",
-      "subtitle": "Invoices, transactions, and receipts",
-      "currency": "JOD",
-      "filtersTitle": "Payment filters",
-      "filtersSubtitle": "Filter by status or date range.",
-      "errorTitle": "Unable to load payments",
-      "errorDescription": "We couldn’t load your payments. Try again.",
-      "emptyTitle": "No payments found",
-      "emptyDescription": "Adjust filters or check back later.",
-      "defaultTitle": "Payment",
-      "statusPaid": "Paid",
-      "statusUnpaid": "Unpaid",
-      "statusPending": "Pending",
-      "dueDate": "Due {{date}}",
-      "detailTitle": "Payment details",
-      "detailMissingTitle": "Payment not found",
-      "detailMissingDescription": "We couldn’t find this payment in your history.",
-      "amountLabel": "Amount",
-      "dueLabel": "Due date",
-      "paidOnLabel": "Paid on",
-      "invoiceLabel": "Invoice ID",
-      "invoiceDownload": "Download invoice",
-      "invoiceDownloading": "Preparing invoice…",
-      "invoiceReady": "Invoice ready",
-      "invoiceError": "Unable to download invoice",
-      "statusLabel": "Status: {{status}}",
-      "status": {
-        "paid": "Paid",
-        "pending": "Pending",
-        "due": "Due",
-        "unknown": "Unknown"
+        "subtitle": "Invoices, transactions, and receipts",
+        "currency": "JOD",
+        "filtersTitle": "Payment filters",
+        "filtersSubtitle": "Filter by status or date range.",
+        "errorTitle": "Unable to load payments",
+        "errorDescription": "We couldn’t load your payments. Try again.",
+        "emptyTitle": "No payments found",
+        "emptyDescription": "Adjust filters or check back later.",
+        "defaultTitle": "Payment",
+        "statusPaid": "Paid",
+        "statusUnpaid": "Unpaid",
+        "statusPending": "Pending",
+        "dueDate": "Due {{date}}",
+        "detailTitle": "Payment details",
+        "detailMissingTitle": "Payment not found",
+        "detailMissingDescription": "We couldn’t find this payment in your history.",
+        "amountLabel": "Amount",
+        "dueLabel": "Due date",
+        "paidOnLabel": "Paid on",
+        "invoiceLabel": "Invoice ID",
+        "invoiceDownload": "Download invoice",
+        "invoiceDownloading": "Preparing invoice…",
+        "invoiceReady": "Invoice ready",
+        "invoiceError": "Unable to download invoice",
+        "statusLabel": "Status: {{status}}",
+        "status": {
+          "paid": "Paid",
+          "pending": "Pending",
+          "due": "Due",
+          "unknown": "Unknown"
+        },
+        "notPaidToken": "Not paid",
+        "noDate": "No date",
+        "noDateSpecified": "No date specified",
+        "paidOn": "Paid on {{date}}",
+        "dueOn": "Due on {{date}}",
+        "method": "• {{method}}",
+        "type": {
+          "uniformPurchase": "Uniform purchase",
+          "fullPayment": "Full payment",
+          "installment": "Installment {{label}}",
+          "payment": "Payment"
+        },
+        "amount": "Amount:",
+        "invoice": "Invoice:",
+        "fees": {
+          "training": "Training: {{amount}}",
+          "uniform": "Uniform: {{amount}}",
+          "transport": "Transport: {{amount}}"
+        },
+        "empty": {
+          "title": "No payments yet",
+          "subtitle": "When you pay for subscriptions or orders, they’ll appear here.",
+          "error": "Failed to load payments: {{message}}"
+        },
+        "summary": {
+          "paid": "Paid",
+          "pending": "Pending",
+          "overdue": "Overdue"
+        },
+        "errorNote": "Note: {{message}}"
       },
-      "notPaidToken": "Not paid",
-      "noDate": "No date",
-      "noDateSpecified": "No date specified",
-      "paidOn": "Paid on {{date}}",
-      "dueOn": "Due on {{date}}",
-      "method": "• {{method}}",
-      "type": {
-        "uniformPurchase": "Uniform purchase",
-        "fullPayment": "Full payment",
-        "installment": "Installment {{label}}",
-        "payment": "Payment"
-      },
-      "amount": "Amount:",
-      "invoice": "Invoice:",
-      "fees": {
-        "training": "Training: {{amount}}",
-        "uniform": "Uniform: {{amount}}",
-        "transport": "Transport: {{amount}}"
-      },
-      "empty": {
-        "title": "No payments yet",
-        "subtitle": "When you pay for subscriptions or orders, they’ll appear here.",
-        "error": "Failed to load payments: {{message}}"
-      },
-      "summary": {
-        "paid": "Paid",
-        "pending": "Pending",
-        "overdue": "Overdue"
-      },
-      "errorNote": "Note: {{message}}"
-    },
-    "orders": {
-      "title": "My Orders",
-      "subtitle": "Track your uniform purchases",
-      "error": "Could not load order history.",
-      "errorDescription": "We couldn’t load your orders. Try again.",
-      "filtersTitle": "Order filters",
-      "filtersSubtitle": "Filter orders by status.",
-      "defaultTitle": "Order",
-      "detailTitle": "Order details",
-      "detailMissingTitle": "Order not found",
-      "detailMissingDescription": "We couldn’t find this order in your history.",
-      "referenceLabel": "Reference",
-      "createdLabel": "Created at",
-      "totalLabel": "Total",
-      "itemsTitle": "Items",
-      "itemFallback": "Order item",
-      "statusLabel": "Status: {{status}}",
-      "summary": {
-        "total": "Total",
-        "pending": "Pending",
-        "collected": "Collected"
-      },
-      "errorTitle": "Unable to load orders",
-      "loading": "Loading your order history.",
-      "emptyTitle": "No orders yet",
-      "emptyDescription": "Once you order uniforms, they will appear here.",
-      "orderLabel": "Order #{{id}}",
-      "subtitleLeft": "{{type}} • Qty: {{qty}}",
-      "subtitleRight": "Size: {{size}}",
-      "ref": "Ref",
-      "player": "Player",
-      "nickname": "Nickname",
-      "viewDetails": "View details",
-      "oneSize": "One size",
-      "fullKit": "Full kit",
-      "status": {
-        "pending": "Pending",
-        "pendingPayment": "Pending payment",
-        "collected": "Collected",
-        "processing": "Processing",
-        "delivered": "Delivered",
-        "cancelled": "Cancelled",
-        "default": "Processing"
-      },
-      "details": {
-        "title": "Order details",
-        "item": "Item",
-        "uniformType": "Uniform type",
-        "size": "Size",
-        "quantity": "Quantity",
+      "orders": {
+        "title": "My Orders",
+        "subtitle": "Track your uniform purchases",
+        "error": "Could not load order history.",
+        "errorDescription": "We couldn’t load your orders. Try again.",
+        "filtersTitle": "Order filters",
+        "filtersSubtitle": "Filter orders by status.",
+        "defaultTitle": "Order",
+        "detailTitle": "Order details",
+        "detailMissingTitle": "Order not found",
+        "detailMissingDescription": "We couldn’t find this order in your history.",
+        "referenceLabel": "Reference",
+        "createdLabel": "Created at",
+        "totalLabel": "Total",
+        "itemsTitle": "Items",
+        "itemFallback": "Order item",
+        "statusLabel": "Status: {{status}}",
+        "summary": {
+          "total": "Total",
+          "pending": "Pending",
+          "collected": "Collected"
+        },
+        "errorTitle": "Unable to load orders",
+        "loading": "Loading your order history.",
+        "emptyTitle": "No orders yet",
+        "emptyDescription": "Once you order uniforms, they will appear here.",
+        "orderLabel": "Order #{{id}}",
+        "subtitleLeft": "{{type}} • Qty: {{qty}}",
+        "subtitleRight": "Size: {{size}}",
+        "ref": "Ref",
         "player": "Player",
-        "playerNumber": "Player number",
         "nickname": "Nickname",
-        "meta": "Order info",
-        "orderId": "Order ID",
-        "productId": "Product ID",
-        "variantId": "Variant ID",
-        "paymentRef": "Payment reference",
-        "createdAt": "Created at",
-        "updatedAt": "Updated at"
+        "viewDetails": "View details",
+        "oneSize": "One size",
+        "fullKit": "Full kit",
+        "status": {
+          "pending": "Pending",
+          "pendingPayment": "Pending payment",
+          "collected": "Collected",
+          "processing": "Processing",
+          "delivered": "Delivered",
+          "cancelled": "Cancelled",
+          "default": "Processing"
+        },
+        "details": {
+          "title": "Order details",
+          "item": "Item",
+          "uniformType": "Uniform type",
+          "size": "Size",
+          "quantity": "Quantity",
+          "player": "Player",
+          "playerNumber": "Player number",
+          "nickname": "Nickname",
+          "meta": "Order info",
+          "orderId": "Order ID",
+          "productId": "Product ID",
+          "variantId": "Variant ID",
+          "paymentRef": "Payment reference",
+          "createdAt": "Created at",
+          "updatedAt": "Updated at"
+        }
+      },
+      "news": {
+        "title": "News",
+        "subtitle": "Latest academy updates",
+        "errorTitle": "Unable to load news",
+        "error": "Could not load news updates.",
+        "defaultTitle": "Academy update",
+        "defaultDescription": "Stay tuned for upcoming matches and announcements.",
+        "loadingTitle": "Loading news",
+        "loadingDescription": "Fetching the latest updates for you.",
+        "emptyTitle": "No news yet",
+        "emptyDescription": "News posts will appear here as soon as they are published."
+      },
+      "profile": {
+        "title": "Profile",
+        "subtitle": "Manage your player identity",
+        "sectionPlayer": "Player information",
+        "sectionRegistration": "Registration details",
+        "nameEn": "Name (English)",
+        "nameAr": "Name (Arabic)",
+        "phone": "Phone",
+        "phone2": "Phone 2",
+        "email": "Email",
+        "registrationType": "Registration type",
+        "group": "Training group",
+        "course": "Course",
+        "period": "Period",
+        "errorTitle": "Unable to load profile",
+        "errorDescription": "We couldn’t load your profile. Try again.",
+        "playerName": "Player name",
+        "academy": "Academy",
+        "playerId": "ID: {{id}}",
+        "contact": "Contact details",
+        "phone1": "Phone 1",
+        "dob": "Date of birth",
+        "heightWeight": "Height / Weight",
+        "heightWeightValue": "{{height}} cm • {{weight}} kg",
+        "noAddress": "No address saved yet.",
+        "noMap": "Google maps pin not added.",
+        "logout": "Logout",
+        "editTitle": "Edit profile",
+        "addPhoto": "Add photo",
+        "photoHint": "Tap to upload image",
+        "firstNameEn": "First name (EN)",
+        "middleNameEn": "Middle name (EN)",
+        "lastNameEn": "Last name (EN)",
+        "firstNameAr": "First name (AR)",
+        "middleNameAr": "Middle name (AR)",
+        "lastNameAr": "Last name (AR)",
+        "maps": "Google Maps",
+        "mapsLink": "Google Maps link",
+        "height": "Height (cm)",
+        "heightPlaceholder": "170",
+        "weight": "Weight (kg)",
+        "weightPlaceholder": "65",
+        "dobPlaceholder": "YYYY-MM-DD",
+        "save": "Save changes"
+      },
+      "login": {
+        "title": "Player Portal",
+        "subtitle": "Select your academy to unlock your player portal.",
+        "subtitleWithAcademy": "Signing in to {{academy}}",
+        "academyFallback": "Academy",
+        "academiesError": "Unable to load academies.",
+        "errors": {
+          "selectAcademy": "Please choose your academy.",
+          "enterCredentials": "Enter both your username and password.",
+          "loginFailed": "Login failed. Please try again."
+        },
+        "username": "Username",
+        "usernamePlaceholder": "Email or phone",
+        "password": "Password",
+        "passwordPlaceholder": "••••••••",
+        "success": "Welcome back! Preparing your portal…",
+        "forgotPassword": "Forgot password?",
+        "submit": "Enter Portal",
+        "academyPicker": {
+          "selectedLabel": "Selected academy",
+          "choose": "Choose an academy",
+          "helper": "Search or scroll to select the correct academy.",
+          "searchPlaceholder": "Search academy",
+          "loading": "Loading academies…",
+          "emptyTitle": "No academies found",
+          "emptyDescription": "Try another name or location."
+        }
+      },
+      "reset": {
+        "title": "Reset password",
+        "subtitle": "We’ll help you regain access",
+        "comingSoonTitle": "Password reset coming soon",
+        "comingSoonDescription": "We’re preparing a secure reset flow for the player portal.",
+        "backToLogin": "Back to login"
+      },
+      "freezes": {
+        "title": "Freezes",
+        "subtitle": "Pause your program without missing progress",
+        "currentStatus": "Current status",
+        "approved": "Approved",
+        "pending": "Pending",
+        "rejected": "Rejected",
+        "canceled": "Canceled",
+        "currentFreeze": "Current freeze",
+        "upcomingFreeze": "Upcoming freeze",
+        "lastFreeze": "Last freeze",
+        "period": "Period",
+        "processedBy": "Processed by",
+        "processedAt": "Processed at",
+        "remainingSnapshot": "Remaining sessions snapshot",
+        "reason": "Reason",
+        "notes": "Notes",
+        "requestTitle": "Request a freeze",
+        "requestSubtitle": "Select dates and give a quick reason.",
+        "startDate": "Start date",
+        "endDate": "End date",
+        "reasonPlaceholder": "Tell us why you need a pause",
+        "submit": "Submit request",
+        "emptyTitle": "No freezes yet",
+        "emptyDescription": "Your submitted freezes will appear here.",
+        "validation": "Select dates and add a reason.",
+        "success": "Freeze request submitted.",
+        "error": "Freeze request failed.",
+        "remainingSessions": "Remaining sessions",
+        "remainingSessionsInline": " • Remaining sessions: {{count}}",
+        "summaryLine": "Freeze summary: {{total}} • Approved: {{approved}} • Pending: {{pending}}{{remainingText}}",
+        "range": "{{start}} → {{end}}"
+      },
+      "performance": {
+        "title": "Performance",
+        "subtitle": "Ratings, feedback, and progress",
+        "overall": "Overall rating",
+        "basedOnSessions": "Based on {{count}} recent sessions",
+        "categories": "Rating categories",
+        "periods": "Period analytics",
+        "periodLabel": "Period {{index}}",
+        "periodRange": "{{start}} → {{end}}",
+        "ratingLabel": "Rating {{index}}",
+        "loadingTitle": "Loading performance",
+        "loadingDescription": "Fetching ratings and feedback from your coach.",
+        "emptyTitle": "Performance insights loading",
+        "emptyDescription": "Ratings will appear as soon as your coach publishes them.",
+        "errorTitle": "Unable to load performance",
+        "error": "Could not load performance data."
+      },
+      "renewals": {
+        "title": "Renewals",
+        "subtitle": "Continue your journey",
+        "detailTitle": "Renewal details",
+        "detailSummaryTitle": "Renewal status",
+        "detailSummarySubtitle": "Your current eligibility snapshot.",
+        "statusLabel": "Status",
+        "viewDetails": "View details",
+        "eligible": "Eligible",
+        "notEligible": "Not eligible",
+        "ends": "Ends",
+        "daysLeft": "Days left",
+        "current": "Current",
+        "scheduleSeparator": " • ",
+        "scheduleEmpty": "No schedule",
+        "courseLabel": "Course #{{id}}",
+        "courseRange": "{{start}} → {{end}} • {{sessions}} sessions",
+        "courseSessions": "{{sessions}} sessions",
+        "groupLabel": "Group #{{id}}",
+        "groupCapacity": "{{schedule}} • {{count}} spots",
+        "errors": {
+          "completeFields": "Please complete all required fields.",
+          "loadTitle": "Couldn't load renewals"
+        },
+        "actions": {
+          "retry": "Try again",
+          "back": "Back to dashboard",
+          "submit": "Submit renewal request",
+          "submitting": "Submitting..."
+        },
+        "submit": {
+          "successTitle": "Renewal request submitted!",
+          "successMessage": "The academy will review your request shortly.",
+          "errorTitle": "Submission failed",
+          "errorMessage": "Please try again."
+        },
+        "notAvailable": {
+          "title": "Renewal not available",
+          "subtitle": "Here's why you can't request a renewal right now",
+          "pendingTitle": "Pending request",
+          "pendingBody": "You already have a renewal request under review. Please wait for it to be processed.",
+          "activeTitle": "Active subscription",
+          "activeBody": "Renewal becomes available closer to your current subscription end date."
+        },
+        "request": {
+          "title": "Request renewal",
+          "subtitle": "Choose your course or group, then set your preferred schedule",
+          "courseLabel": "Select course (optional)",
+          "coursePlaceholder": "Choose a course...",
+          "groupLabel": "Select group (optional)",
+          "groupPlaceholder": "Choose a group...",
+          "scheduleTitle": "Group schedule",
+          "scheduleEmpty": "No schedule set",
+          "sessionsPerWeek": "Sessions per week: {{count}}",
+          "startDate": "Start date",
+          "endDate": "End date",
+          "selectDate": "Select date",
+          "sessionsLabel": "Number of sessions",
+          "sessionsUnit": "sessions",
+          "notesLabel": "Additional notes (optional)",
+          "notesPlaceholder": "Any special requests or notes for the academy...",
+          "disclaimer": "By submitting, you acknowledge that the academy will review your request. You'll be notified once it's processed."
+        },
+        "summary": {
+          "title": "Period summary",
+          "range": "{{start}} → {{end}}",
+          "sessionsDetail": "{{count}} sessions • {{perWeek}}/week"
+        },
+        "datePicker": {
+          "startTitle": "Select start date",
+          "endTitle": "Select end date",
+          "confirm": "Confirm date"
+        }
+      },
+      "uniforms": {
+        "title": "Uniform Store",
+        "subtitle": "Latest kits and merchandise",
+        "loadingTitle": "Loading catalog",
+        "loadingDescription": "Fetching the latest gear from your academy.",
+        "errorTitle": "Unable to load store",
+        "error": "Could not load the uniform store.",
+        "emptyTitle": "Store preparing",
+        "emptyDescription": "Uniform options will appear once the catalog is live.",
+        "kit": "Kit",
+        "defaultName": "Uniform pack",
+        "sizeRequired": "Please select a size.",
+        "priceMissing": "Price not available.",
+        "added": "Added to cart",
+        "validation": "Add items to your cart first.",
+        "success": "Uniform order placed.",
+        "priceNA": "Price unavailable",
+        "oneSizeItem": "One size fits all",
+        "availableSizes": "Available sizes",
+        "oneSize": "One size",
+        "sizeSeparator": " • ",
+        "viewDetails": "View",
+        "cartTitle": "Cart summary • {{count}}",
+        "emptyCartTitle": "Your cart is empty",
+        "emptyCartDesc": "Add uniforms from the catalog.",
+        "sizeLabel": "Size: {{size}} • {{price}} each",
+        "number": "Number",
+        "numberPlaceholder": "00",
+        "nickname": "Nickname",
+        "nicknamePlaceholder": "—",
+        "total": "Total",
+        "checkout": "Checkout",
+        "viewCart": "View",
+        "addToCart": "Add to cart",
+        "size": "Size"
       }
+    }
+  },
+  "portal": {
+    "access": {
+      "action": "Back to services",
+      "description": "The player portal is available only to player accounts.",
+      "title": "Player portal"
     },
-    "news": {
-      "title": "News",
-      "subtitle": "Latest academy updates",
-      "errorTitle": "Unable to load news",
-      "error": "Could not load news updates.",
-      "imagesUnavailable": "News images are unavailable.",
-      "defaultTitle": "Academy update",
-      "defaultDescription": "Stay tuned for upcoming matches and announcements.",
-      "loadingTitle": "Loading news",
-      "loadingDescription": "Fetching the latest updates for you.",
-      "emptyTitle": "No news yet",
-      "emptyDescription": "News posts will appear here as soon as they are published."
+    "common": {
+      "back": "Back",
+      "cancel": "Cancel",
+      "close": "Close",
+      "edit": "Edit",
+      "placeholder": "—",
+      "remove": "Remove",
+      "retry": "Retry",
+      "save": "Save",
+      "saving": "Saving...",
+      "somethingWentWrong": "Something went wrong.",
+      "player": "Player",
+      "loading": "Loading...",
+      "refresh": "Refresh"
     },
-    "profile": {
-      "title": "Profile",
-      "subtitle": "Manage your player identity",
-      "sectionPlayer": "Player information",
-      "sectionRegistration": "Registration details",
-      "nameEn": "Name (English)",
-      "nameAr": "Name (Arabic)",
-      "phone": "Phone",
-      "phone2": "Secondary phone",
-      "email": "Email",
-      "address": "Address",
-      "registrationType": "Registration type",
-      "group": "Training group",
-      "course": "Course",
-      "period": "Period",
-      "errorTitle": "Unable to load profile",
-      "errorDescription": "We couldn’t load your profile. Try again.",
-      "playerName": "Player name",
-      "academy": "Academy",
-      "playerId": "ID: {{id}}",
-      "contact": "Contact details",
-      "phone1": "Phone 1",
-      "phone2": "Phone 2",
-      "dob": "Date of birth",
-      "heightWeight": "Height / Weight",
-      "heightWeightValue": "{{height}} cm • {{weight}} kg",
-      "noAddress": "No address saved yet.",
-      "noMap": "Google maps pin not added.",
-      "logout": "Logout",
-      "editTitle": "Edit profile",
-      "addPhoto": "Add photo",
-      "photoHint": "Tap to upload image",
-      "firstNameEn": "First name (EN)",
-      "middleNameEn": "Middle name (EN)",
-      "lastNameEn": "Last name (EN)",
-      "firstNameAr": "First name (AR)",
-      "middleNameAr": "Middle name (AR)",
-      "lastNameAr": "Last name (AR)",
-      "maps": "Google Maps",
-      "mapsLink": "Google Maps link",
-      "height": "Height (cm)",
-      "heightPlaceholder": "170",
-      "weight": "Weight (kg)",
-      "weightPlaceholder": "65",
-      "dobPlaceholder": "YYYY-MM-DD",
-      "save": "Save changes"
+    "errors": {
+      "forbidden": "You do not have access to do this.",
+      "forbiddenDescription": "We couldn’t verify your portal access. Please try again.",
+      "forbiddenTitle": "Access denied",
+      "overviewDescription": "We couldn’t load your portal data. Please try again.",
+      "overviewTitle": "Unable to load portal",
+      "reAuthAction": "Re-authenticate",
+      "sessionExpiredTitle": "Session expired"
+    },
+    "filters": {
+      "apply": "Apply",
+      "clear": "Clear",
+      "datePlaceholder": "YYYY-MM-DD",
+      "fromLabel": "From",
+      "open": "Filters",
+      "results": "{{count}} results",
+      "statusAll": "All",
+      "statusLabel": "Status",
+      "subtitle": "Refine results to what you need.",
+      "title": "Filters",
+      "toLabel": "To"
+    },
+    "forbidden": {
+      "description": "Please sign in with a player account to access the portal.",
+      "title": "Player access required"
+    },
+    "freezes": {
+      "approved": "Approved",
+      "canceled": "Canceled",
+      "confirmTitle": "Request a freeze",
+      "confirmWarning": "Select dates and add a reason.",
+      "currentStatus": "Current status",
+      "emptyDescription": "Your submitted freezes will appear here.",
+      "emptyTitle": "No freezes yet",
+      "endDate": "End date",
+      "error": "Freeze request failed.",
+      "pending": "Pending",
+      "reason": "Reason",
+      "reasonPlaceholder": "Tell us why you need a pause",
+      "rejected": "Rejected",
+      "requestSubtitle": "Select dates and give a quick reason.",
+      "requestTitle": "Request a freeze",
+      "startDate": "Start date",
+      "submit": "Submit request",
+      "subtitle": "Pause your program without missing progress",
+      "success": "Freeze request submitted.",
+      "title": "Freezes",
+      "validation": "Select dates and add a reason.",
+      "currentFreeze": "Current freeze",
+      "upcomingFreeze": "Upcoming freeze",
+      "available": "Available freezes:",
+      "summary": "Manage freeze requests with ease."
+    },
+    "home": {
+      "academy": "Your academy",
+      "activePlayer": "Active player",
+      "subtitle": "Your personalised training hub",
+      "title": "Player Portal",
+      "welcomeBack": "Welcome back"
     },
     "login": {
+      "academyFallback": "Academy",
+      "academyPicker": {
+        "choose": "Choose an academy",
+        "emptyDescription": "Try another name or location.",
+        "emptyTitle": "No academies found",
+        "helper": "Search or scroll to select the correct academy.",
+        "loading": "Loading academies…",
+        "searchPlaceholder": "Search academy",
+        "selectedLabel": "Selected academy"
+      },
       "title": "Player Portal",
       "subtitle": "Select your academy to unlock your player portal.",
-      "subtitleWithAcademy": "Signing in to {{academy}}",
-      "academyFallback": "Academy",
-      "academiesError": "Unable to load academies.",
-      "errors": {
-        "selectAcademy": "Please choose your academy.",
-        "enterCredentials": "Enter both your username and password.",
-        "loginFailed": "Login failed. Please try again."
-      },
       "username": "Username",
       "usernamePlaceholder": "Email or phone",
       "password": "Password",
       "passwordPlaceholder": "••••••••",
-      "success": "Welcome back! Preparing your portal…",
       "forgotPassword": "Forgot password?",
-      "submit": "Enter Portal",
-      "academyPicker": {
-        "selectedLabel": "Selected academy",
-        "choose": "Choose an academy",
-        "helper": "Search or scroll to select the correct academy.",
-        "searchPlaceholder": "Search academy",
-        "loading": "Loading academies…",
-        "emptyTitle": "No academies found",
-        "emptyDescription": "Try another name or location."
+      "error": {
+        "enterPassword": "Please enter password",
+        "enterUsername": "Please enter username",
+        "invalidCredentials": "Username or password is incorrect",
+        "selectAcademy": "Please select your academy"
+      },
+      "noAcademies": "No academies available",
+      "noResults": "No academies found",
+      "searchAcademies": "Search academies...",
+      "selectAcademy": "Choose academy",
+      "selectAcademyPlaceholder": "Tap to choose your academy",
+      "signIn": "Sign in"
+    },
+    "more": {
+      "freezes": {
+        "subtitle": "Pause your subscription",
+        "title": "Freezes"
+      },
+      "news": {
+        "subtitle": "Academy updates",
+        "title": "News"
+      },
+      "orders": {
+        "subtitle": "Track deliveries",
+        "title": "My orders"
+      },
+      "payments": {
+        "subtitle": "Invoices and receipts",
+        "title": "Payments"
+      },
+      "performance": {
+        "title": "Performance"
+      },
+      "subtitle": "Everything else in your portal",
+      "title": "More",
+      "uniforms": {
+        "subtitle": "Latest kits and gear",
+        "title": "Uniform store"
       }
     },
-    "reset": {
-      "title": "Reset password",
-      "subtitle": "We’ll help you regain access",
-      "comingSoonTitle": "Password reset coming soon",
-      "comingSoonDescription": "We’re preparing a secure reset flow for the player portal.",
-      "backToLogin": "Back to login"
+    "news": {
+      "defaultDescription": "Stay tuned for upcoming matches and announcements.",
+      "defaultTitle": "Academy update",
+      "emptyDescription": "News posts will appear here as soon as they are published.",
+      "emptyTitle": "No news yet",
+      "error": "Could not load news updates.",
+      "errorTitle": "Unable to load news",
+      "imagesUnavailable": "News images are unavailable.",
+      "subtitle": "Latest academy updates",
+      "title": "News",
+      "loadingTitle": "Loading news",
+      "loadingDescription": "Fetching the latest updates for you."
     },
-    "freezes": {
-      "title": "Freezes",
-      "subtitle": "Pause your program without missing progress",
-      "currentStatus": "Current status",
-      "approved": "Approved",
-      "pending": "Pending",
-      "rejected": "Rejected",
-      "canceled": "Canceled",
-      "currentFreeze": "Current freeze",
-      "upcomingFreeze": "Upcoming freeze",
-      "lastFreeze": "Last freeze",
-      "period": "Period",
-      "processedBy": "Processed by",
-      "processedAt": "Processed at",
-      "remainingSnapshot": "Remaining sessions snapshot",
-      "reason": "Reason",
-      "notes": "Notes",
-      "requestTitle": "Request a freeze",
-      "requestSubtitle": "Select dates and give a quick reason.",
-      "startDate": "Start date",
-      "endDate": "End date",
-      "reasonPlaceholder": "Tell us why you need a pause",
-      "submit": "Submit request",
-      "emptyTitle": "No freezes yet",
-      "emptyDescription": "Your submitted freezes will appear here.",
-      "validation": "Select dates and add a reason.",
-      "success": "Freeze request submitted.",
-      "error": "Freeze request failed.",
-      "remainingSessions": "Remaining sessions",
-      "remainingSessionsInline": " • Remaining sessions: {{count}}",
-      "summaryLine": "Freeze summary: {{total}} • Approved: {{approved}} • Pending: {{pending}}{{remainingText}}",
-      "range": "{{start}} → {{end}}"
+    "orders": {
+      "createdLabel": "Created at",
+      "defaultTitle": "Order",
+      "detailMissingDescription": "We couldn’t find this order in your history.",
+      "detailMissingTitle": "Order not found",
+      "detailTitle": "Order details",
+      "emptyDescription": "Once you order uniforms, they will appear here.",
+      "emptyTitle": "No orders yet",
+      "errorDescription": "We couldn’t load your orders. Try again.",
+      "errorTitle": "Unable to load orders",
+      "filtersSubtitle": "Filter orders by status.",
+      "filtersTitle": "Order filters",
+      "itemFallback": "Order item",
+      "itemsTitle": "Items",
+      "referenceLabel": "Reference",
+      "status": {
+        "cancelled": "Cancelled",
+        "collected": "Collected",
+        "delivered": "Delivered",
+        "pending": "Pending",
+        "processing": "Processing"
+      },
+      "subtitle": "Track your uniform purchases",
+      "title": "My Orders",
+      "totalLabel": "Total",
+      "viewOrder": "View order",
+      "loading": "Loading your order history.",
+      "error": "Could not load order history.",
+      "order": "Order",
+      "reorder": "Reorder",
+      "reorderError": "Reorder failed.",
+      "reorderSuccess": "Reorder submitted.",
+      "reorderUnavailable": "No items available to reorder.",
+      "statusDefault": "Processing"
+    },
+    "payments": {
+      "amountLabel": "Amount",
+      "defaultTitle": "Payment",
+      "detailMissingDescription": "We couldn’t find this payment in your history.",
+      "detailMissingTitle": "Payment not found",
+      "detailTitle": "Payment details",
+      "dueDate": "Due {{date}}",
+      "dueLabel": "Due date",
+      "emptyTitle": "No payments found",
+      "errorDescription": "We couldn’t load your payments. Try again.",
+      "errorTitle": "Unable to load payments",
+      "filtersSubtitle": "Filter by status or date range.",
+      "filtersTitle": "Payment filters",
+      "invoiceDownload": "Download invoice",
+      "invoiceDownloading": "Preparing invoice…",
+      "invoiceError": "Unable to download invoice",
+      "invoiceLabel": "Invoice ID",
+      "invoiceReady": "Invoice ready",
+      "paidOnLabel": "Paid on",
+      "statusPaid": "Paid",
+      "statusUnpaid": "Unpaid",
+      "subtitle": "Invoices, transactions, and receipts",
+      "title": "Payments"
     },
     "performance": {
-      "title": "Performance",
+      "emptyDescription": "Ratings will appear as soon as your coach publishes them.",
+      "emptyTitle": "Performance insights loading",
+      "error": "Could not load performance data.",
+      "errorTitle": "Unable to load performance",
+      "periodLabel": "Period {{index}}",
+      "ratingLabel": "Rating {{index}}",
       "subtitle": "Ratings, feedback, and progress",
+      "title": "Performance",
       "overall": "Overall rating",
-      "basedOnSessions": "Based on {{count}} recent sessions",
       "categories": "Rating categories",
       "periods": "Period analytics",
-      "periodLabel": "Period {{index}}",
-      "periodRange": "{{start}} → {{end}}",
-      "ratingLabel": "Rating {{index}}",
       "loadingTitle": "Loading performance",
       "loadingDescription": "Fetching ratings and feedback from your coach.",
-      "emptyTitle": "Performance insights loading",
-      "emptyDescription": "Ratings will appear as soon as your coach publishes them.",
-      "errorTitle": "Unable to load performance",
-      "error": "Could not load performance data."
+      "basedOn": "Based on",
+      "period": "Period",
+      "sessions": "Recent sessions"
+    },
+    "profile": {
+      "address": "Address",
+      "course": "Course",
+      "dob": "Date of birth",
+      "dobPlaceholder": "YYYY-MM-DD",
+      "email": "Email",
+      "errorDescription": "We couldn’t load your profile. Try again.",
+      "errorTitle": "Unable to load profile",
+      "firstNameAr": "First name (AR)",
+      "firstNameEn": "First name (EN)",
+      "group": "Training group",
+      "height": "Height (cm)",
+      "heightPlaceholder": "170",
+      "lastNameAr": "Last name (AR)",
+      "lastNameEn": "Last name (EN)",
+      "maps": "Google Maps",
+      "mapsLink": "Google Maps link",
+      "middleNameAr": "Middle name (AR)",
+      "middleNameEn": "Middle name (EN)",
+      "nameAr": "Name (Arabic)",
+      "nameEn": "Name (English)",
+      "period": "Period",
+      "phone": "Phone",
+      "phone1": "Phone 1",
+      "phone2": "Phone 2",
+      "registrationType": "Registration type",
+      "sectionPlayer": "Player information",
+      "sectionRegistration": "Registration details",
+      "subtitle": "Manage your player identity",
+      "title": "Profile",
+      "updateBadRequest": "Please check the entered values.",
+      "updateSuccess": "Profile updated successfully",
+      "weight": "Weight (kg)",
+      "weightPlaceholder": "65",
+      "playerName": "Player name",
+      "academy": "Academy",
+      "playerId": "ID: {{id}}",
+      "contact": "Contact details",
+      "heightWeight": "Height / Weight",
+      "noAddress": "No address saved yet.",
+      "noMap": "Google maps pin not added.",
+      "editTitle": "Edit profile",
+      "addPhoto": "Add photo",
+      "photoHint": "Tap to upload image",
+      "save": "Save changes",
+      "logout": "Logout"
     },
     "renewals": {
-      "title": "Renewals",
-      "subtitle": "Continue your journey",
-      "detailTitle": "Renewal details",
-      "detailSummaryTitle": "Renewal status",
-      "detailSummarySubtitle": "Your current eligibility snapshot.",
-      "statusLabel": "Status",
-      "viewDetails": "View details",
-      "eligible": "Eligible",
-      "notEligible": "Not eligible",
-      "ends": "Ends",
-      "daysLeft": "Days left",
-      "current": "Current",
-      "scheduleSeparator": " • ",
-      "scheduleEmpty": "No schedule",
+      "actions": {
+        "back": "Back to dashboard",
+        "retry": "Try again",
+        "submit": "Submit renewal request",
+        "submitting": "Submitting..."
+      },
       "courseLabel": "Course #{{id}}",
       "courseRange": "{{start}} → {{end}} • {{sessions}} sessions",
       "courseSessions": "{{sessions}} sessions",
-      "groupLabel": "Group #{{id}}",
-      "groupCapacity": "{{schedule}} • {{count}} spots",
+      "current": "Current",
+      "datePicker": {
+        "confirm": "Confirm date",
+        "endTitle": "Select end date",
+        "startTitle": "Select start date"
+      },
+      "daysLeft": "Days left",
+      "detailTitle": "Renewal details",
+      "eligible": "Eligible",
+      "ends": "Ends",
       "errors": {
         "completeFields": "Please complete all required fields.",
         "loadTitle": "Couldn't load renewals"
       },
-      "actions": {
-        "retry": "Try again",
-        "back": "Back to dashboard",
-        "submit": "Submit renewal request",
-        "submitting": "Submitting..."
-      },
-      "submit": {
-        "successTitle": "Renewal request submitted!",
-        "successMessage": "The academy will review your request shortly.",
-        "errorTitle": "Submission failed",
-        "errorMessage": "Please try again."
-      },
+      "groupCapacity": "{{schedule}} • {{count}} spots",
+      "groupLabel": "Group #{{id}}",
       "notAvailable": {
-        "title": "Renewal not available",
-        "subtitle": "Here's why you can't request a renewal right now",
-        "pendingTitle": "Pending request",
-        "pendingBody": "You already have a renewal request under review. Please wait for it to be processed.",
+        "activeBody": "Renewal becomes available closer to your current subscription end date.",
         "activeTitle": "Active subscription",
-        "activeBody": "Renewal becomes available closer to your current subscription end date."
+        "pendingBody": "You already have a renewal request under review. Please wait for it to be processed.",
+        "pendingTitle": "Pending request",
+        "subtitle": "Here's why you can't request a renewal right now",
+        "title": "Renewal not available"
       },
+      "notEligible": "Not eligible",
       "request": {
-        "title": "Request renewal",
-        "subtitle": "Choose your course or group, then set your preferred schedule",
         "courseLabel": "Select course (optional)",
         "coursePlaceholder": "Choose a course...",
+        "disclaimer": "By submitting, you acknowledge that the academy will review your request. You'll be notified once it's processed.",
+        "endDate": "End date",
         "groupLabel": "Select group (optional)",
         "groupPlaceholder": "Choose a group...",
-        "scheduleTitle": "Group schedule",
-        "scheduleEmpty": "No schedule set",
-        "sessionsPerWeek": "Sessions per week: {{count}}",
-        "startDate": "Start date",
-        "endDate": "End date",
-        "selectDate": "Select date",
-        "sessionsLabel": "Number of sessions",
-        "sessionsUnit": "sessions",
         "notesLabel": "Additional notes (optional)",
         "notesPlaceholder": "Any special requests or notes for the academy...",
-        "disclaimer": "By submitting, you acknowledge that the academy will review your request. You'll be notified once it's processed."
+        "scheduleEmpty": "No schedule set",
+        "scheduleTitle": "Group schedule",
+        "selectDate": "Select date",
+        "sessionsLabel": "Number of sessions",
+        "sessionsPerWeek": "Sessions per week: {{count}}",
+        "sessionsUnit": "sessions",
+        "startDate": "Start date",
+        "subtitle": "Choose your course or group, then set your preferred schedule",
+        "title": "Request renewal"
       },
+      "scheduleEmpty": "No schedule",
+      "scheduleSeparator": " • ",
+      "submit": {
+        "confirmTitle": "Confirm renewal request",
+        "confirmWarning": "Please review all details before submitting your renewal request.",
+        "errorMessage": "Please try again.",
+        "errorTitle": "Submission failed",
+        "successMessage": "The academy will review your request shortly.",
+        "successTitle": "Renewal request submitted!"
+      },
+      "subtitle": "Continue your journey",
       "summary": {
-        "title": "Period summary",
         "range": "{{start}} → {{end}}",
-        "sessionsDetail": "{{count}} sessions • {{perWeek}}/week"
+        "sessionsDetail": "{{count}} sessions • {{perWeek}}/week",
+        "title": "Period summary"
       },
-      "datePicker": {
-        "startTitle": "Select start date",
-        "endTitle": "Select end date",
-        "confirm": "Confirm date"
-      }
+      "title": "Renewals",
+      "viewDetails": "View details"
     },
     "uniforms": {
-      "title": "Uniform Store",
-      "subtitle": "Latest kits and merchandise",
-      "loadingTitle": "Loading catalog",
-      "loadingDescription": "Fetching the latest gear from your academy.",
-      "errorTitle": "Unable to load store",
-      "error": "Could not load the uniform store.",
-      "emptyTitle": "Store preparing",
-      "emptyDescription": "Uniform options will appear once the catalog is live.",
-      "kit": "Kit",
-      "defaultName": "Uniform pack",
-      "sizeRequired": "Please select a size.",
-      "priceMissing": "Price not available.",
+      "addToCart": "Add to cart",
       "added": "Added to cart",
-      "validation": "Add items to your cart first.",
-      "success": "Uniform order placed.",
-      "priceNA": "Price unavailable",
-      "oneSizeItem": "One size fits all",
       "availableSizes": "Available sizes",
-      "oneSize": "One size",
-      "sizeSeparator": " • ",
-      "viewDetails": "View",
       "cartTitle": "Cart summary • {{count}}",
-      "emptyCartTitle": "Your cart is empty",
+      "checkout": "Checkout",
+      "defaultName": "Uniform pack",
       "emptyCartDesc": "Add uniforms from the catalog.",
-      "sizeLabel": "Size: {{size}} • {{price}} each",
-      "number": "Number",
-      "numberPlaceholder": "00",
+      "emptyCartTitle": "Your cart is empty",
+      "emptyDescription": "Uniform options will appear once the catalog is live.",
+      "emptyTitle": "Store preparing",
+      "error": "Could not load the uniform store.",
+      "errorTitle": "Unable to load store",
+      "kit": "Kit",
       "nickname": "Nickname",
       "nicknamePlaceholder": "—",
+      "number": "Number",
+      "numberPlaceholder": "00",
+      "oneSize": "One size",
+      "oneSizeItem": "One size fits all",
+      "priceMissing": "Price not available.",
+      "priceNA": "Price unavailable",
+      "selectSize": "Please select a size before adding to cart.",
+      "size": "Size",
+      "sizeLabel": "Size: {{size}} • {{price}} each",
+      "sizeRequired": "Please select a size.",
+      "sizeSeparator": " • ",
+      "subtitle": "Latest kits and merchandise",
+      "success": "Uniform order placed.",
+      "title": "Uniform Store",
       "total": "Total",
-      "checkout": "Checkout",
+      "validation": "Add items to your cart first.",
       "viewCart": "View",
-      "addToCart": "Add to cart",
-      "size": "Size"
-    }
-  },
-  "auth": {
-    "mode": {
-      "public": "Public",
-      "player": "Player"
-    },
-    "fields": {
-      "phone": "Mobile Number",
-      "password": "Password",
-      "confirmPassword": "Confirm Password",
-      "firstName": "First Name",
-      "lastName": "Last Name",
-      "academy": "Academy",
-      "username": "Username",
-      "newPassword": "New Password"
-    },
-    "placeholders": {
-      "phone": "+9627xxxxxxxx",
-      "password": "Enter your password",
-      "confirmPassword": "Re-enter your password",
-      "firstName": "First name",
-      "lastName": "Last name",
-      "username": "Enter your username"
-    },
-    "academy": {
-      "helper": "Select Academy",
-      "searchPlaceholder": "Search academies...",
-      "error": "Unable to load academies right now."
-    },
-    "errors": {
-      "generic": "Something went wrong. Please try again.",
-      "network": "You're offline. Check your connection and try again.",
-      "invalidCredentials": "Invalid credentials. Please try again.",
-      "deactivated": "This account is deactivated. Contact support.",
-      "invalidOtp": "Invalid or expired code."
-    },
-    "validation": {
-      "phoneRequired": "Phone number is required.",
-      "phoneInvalid": "Enter a valid phone number.",
-      "passwordRequired": "Password is required.",
-      "passwordLength": "Password must be at least 8 characters.",
-      "passwordMismatch": "Passwords do not match.",
-      "firstNameRequired": "First name is required.",
-      "lastNameRequired": "Last name is required.",
-      "academyRequired": "Please select an academy.",
-      "usernameRequired": "Username is required.",
-      "otpLength": "Enter the 6-digit code."
-    },
-    "login": {
-      "title": "Welcome Back",
-      "subtitle": "Sign in to continue your SporHive experience.",
-      "cta": "Sign In",
-      "ctaPlayer": "Sign In",
-      "forgotPassword": "Forgot password?",
-      "noAccount": "New to SporHive?",
-      "createAccount": "Create account",
-      "success": "Signed in successfully.",
-      "error": "Unable to sign in. Please try again."
-    },
-    "signup": {
-      "title": "Create Account",
-      "subtitle": "Join SporHive and track your game in minutes.",
-      "cta": "Sign Up",
-      "haveAccount": "Already have an account?",
-      "login": "Log in",
-      "success": "Account created. Please sign in.",
-      "error": "Unable to sign up. Please try again.",
-      "passwordHints": {
-        "length": "Use at least {{count}} characters",
-        "match": "Passwords match"
-      }
+      "viewDetails": "View",
+      "loadingTitle": "Loading catalog",
+      "loadingDescription": "Fetching the latest gear from your academy.",
+      "cartItems": "Item ready",
+      "defaultDescription": "High-quality, lightweight training uniform.",
+      "quantity": "Quantity",
+      "quantityPlaceholder": "1",
+      "sizePlaceholder": "S / M / L"
     },
     "reset": {
-      "title": "Reset Password",
-      "subtitle": "Let’s secure your account in a few quick steps.",
-      "back": "Back",
-      "sendCode": "Send code",
-      "otpHint": "Enter the 6-digit code sent to your phone.",
-      "verify": "Verify",
-      "resend": "Resend code",
-      "resendReady": "Didn’t get a code?",
-      "resendCountdown": "Resend available in {{seconds}}s",
-      "requestSuccess": "If your account exists, we sent a code.",
-      "requestError": "Unable to send code. Try again.",
-      "confirmError": "Invalid or expired code. Try again.",
-      "updatePassword": "Reset Password",
-      "publicSuccess": "Password updated successfully.",
-      "playerSuccess": "Password generated successfully.",
-      "publicFinalTitle": "Password reset successfully",
-      "publicFinalSubtitle": "You can now sign in with your new password.",
-      "playerFinalTitle": "Password ready",
-      "playerFinalSubtitle": "Save this password — you can change it later.",
-      "generatedPassword": "Generated password",
-      "generatedFallback": "••••••",
-      "saveHint": "Keep this password safe for your next login.",
-      "copy": "Copy",
-      "copied": "Password copied to clipboard.",
-      "copyUnsupported": "Copy is not available on this device.",
-      "reveal": "Reveal",
-      "hide": "Hide",
-      "backToLogin": "Proceed to login"
+      "title": "Reset password",
+      "backToLogin": "Back to login",
+      "cancel": "Cancel",
+      "error": {
+        "enterPhone": "Please enter phone number",
+        "enterUsername": "Please enter username",
+        "requestFailed": "Reset password request failed"
+      },
+      "instructionsText": "Enter your username and registered phone number. We will send a reset code.",
+      "instructionsTitle": "Forgot your password?",
+      "phoneNumber": "Phone number",
+      "phonePlaceholder": "Enter your registered phone number",
+      "sendCode": "Send reset code",
+      "successText": "We sent password reset instructions to your registered phone number.",
+      "successTitle": "Check your phone",
+      "username": "Username",
+      "usernamePlaceholder": "Enter username"
+    },
+    "tabs": {
+      "dashboard": "Dashboard",
+      "training": "Training",
+      "health": "Health",
+      "payments": "Payments",
+      "history": "History",
+      "store": "Store",
+      "feedback": "Feedback",
+      "personal": "Personal"
+    },
+    "actions": {
+      "feedback": "Feedback",
+      "freeze": "Request freeze",
+      "payments": "Payments",
+      "profile": "Personal info",
+      "renew": "Request renewal",
+      "uniforms": "Uniform store"
+    },
+    "dashboard": {
+      "actions": "Actions",
+      "hello": "Hello",
+      "kpis": "Quick status",
+      "noNotices": "No notices right now",
+      "notices": "Notices",
+      "openTraining": "Open training details",
+      "subtitle": "Your progress and requests in one place",
+      "training": "My training"
+    },
+    "error": {
+      "title": "Unable to load portal"
+    },
+    "freeze": {
+      "active": "Active",
+      "none": "None",
+      "scheduled": "Scheduled"
+    },
+    "kpi": {
+      "credits": "Credits",
+      "freeze": "Freeze",
+      "sessions": "Sessions",
+      "subscription": "Subscription"
+    },
+    "notices": {
+      "creditExpiry": "Credits expiring",
+      "freezeScheduled": "Freeze scheduled",
+      "paymentDue": "Payment due"
+    },
+    "training": {
+      "course": "Course",
+      "dates": "Dates",
+      "group": "Group",
+      "level": "Level",
+      "session": "Session"
     }
   }
 }

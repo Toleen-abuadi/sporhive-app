@@ -1,89 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { academyDiscoveryApi, academyDiscoveryFilters, ACADEMY_DISCOVERY_PAGE_SIZE } from '../api/academyDiscovery.api';
+import {
+  academyDiscoveryApi,
+  academyDiscoveryFilters,
+  ACADEMY_DISCOVERY_PAGE_SIZE,
+} from '../api/academyDiscovery.api';
 import { getAcademyDiscoveryState, setAcademyDiscoveryState } from './storage';
-
-const DEFAULT_FILTERS = {
-  age: null,
-  registrationEnabled: false,
-  proOnly: false,
-  sort: 'recommended',
-};
-
-const toNumberOrNull = (value) => {
-  if (value === null || value === undefined || value === '') return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-};
-
-const normalizeText = (value) =>
-  String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
-
-const normalizeFilters = (filters = {}) => ({
-  age: toNumberOrNull(filters.age),
-  registrationEnabled: !!filters.registrationEnabled,
-  proOnly: !!filters.proOnly,
-  sort: typeof filters.sort === 'string' && filters.sort ? filters.sort : DEFAULT_FILTERS.sort,
-});
-
-const normalizeAcademy = (item) => item?.academy || item || null;
-
-const isInRange = (value, from, to) => {
-  const min = Math.min(from, to);
-  const max = Math.max(from, to);
-  return value >= min && value <= max;
-};
-
-const matchesQuery = (item, normalizedQuery) => {
-  if (!normalizedQuery) return true;
-  const academy = normalizeAcademy(item);
-  const names = [
-    academy?.name_en,
-    academy?.name_ar,
-    academy?.name,
-    item?.name_en,
-    item?.name_ar,
-    item?.name,
-  ];
-  return names.some((name) => normalizeText(name).includes(normalizedQuery));
-};
-
-const matchesAge = (item, selectedAge) => {
-  if (selectedAge == null) return true;
-  const academy = normalizeAcademy(item);
-
-  const academyFrom = toNumberOrNull(academy?.ages_from);
-  const academyTo = toNumberOrNull(academy?.ages_to);
-  if (academyFrom != null && academyTo != null) {
-    return isInRange(selectedAge, academyFrom, academyTo);
-  }
-
-  const courses = Array.isArray(item?.courses)
-    ? item.courses
-    : Array.isArray(academy?.courses)
-      ? academy.courses
-      : [];
-  return courses.some((course) => {
-    const courseFrom = toNumberOrNull(course?.age_from ?? course?.ages_from);
-    const courseTo = toNumberOrNull(course?.age_to ?? course?.ages_to);
-    if (courseFrom == null || courseTo == null) return false;
-    return isInRange(selectedAge, courseFrom, courseTo);
-  });
-};
-
-const applyClientFilters = (items, { query, filters } = {}) => {
-  const normalizedQuery = normalizeText(query || '');
-  const selectedAge = toNumberOrNull(filters?.age);
-  return (Array.isArray(items) ? items : []).filter(
-    (item) => matchesQuery(item, normalizedQuery) && matchesAge(item, selectedAge)
-  );
-};
+import {
+  applyDiscoveryFilters,
+  DEFAULT_DISCOVERY_FILTERS,
+  DEFAULT_DISCOVERY_SORT,
+  normalizeDiscoveryFilters,
+  normalizeDiscoverySort,
+} from './discoveryFilters';
 
 const INITIAL_STATE = {
-  filters: { ...DEFAULT_FILTERS },
+  filters: { ...DEFAULT_DISCOVERY_FILTERS },
+  sort: DEFAULT_DISCOVERY_SORT,
   filtersLoaded: false,
   query: '',
   viewMode: 'list',
@@ -138,9 +70,15 @@ const setDetailsState = (slug, patch) => {
   emit();
 };
 
+const applyCurrentClientFilters = ({ rawAcademies, rawMapAcademies, query, filters, sort }) => ({
+  academies: applyDiscoveryFilters(rawAcademies, { query, filters, sort }),
+  mapAcademies: applyDiscoveryFilters(rawMapAcademies, { query, filters, sort }),
+});
+
 const persistState = async () => {
   const payload = {
     filters: discoveryState.filters,
+    sort: discoveryState.sort,
     query: discoveryState.query,
     viewMode: discoveryState.viewMode,
   };
@@ -155,57 +93,101 @@ export const academyDiscoveryStore = {
   },
   async hydrateSavedFilters() {
     const stored = await getAcademyDiscoveryState();
-    if (stored) {
-      const filters = normalizeFilters(stored.filters || {});
-      const query = stored.query || '';
-      setState({
-        filters,
-        query,
-        viewMode: stored.viewMode || 'list',
-        academies: applyClientFilters(discoveryState.rawAcademies, { query, filters }),
-        mapAcademies: applyClientFilters(discoveryState.rawMapAcademies, { query, filters }),
-        filtersLoaded: true,
-      });
+    if (!stored) {
+      setState({ filtersLoaded: true });
       return;
     }
-    setState({ filtersLoaded: true });
+
+    const rawStoredFilters = stored.filters || {};
+    const nextFilters = normalizeDiscoveryFilters(rawStoredFilters);
+    const nextSort = normalizeDiscoverySort(stored.sort ?? rawStoredFilters.sort);
+    const nextQuery = stored.query || '';
+
+    const nextClientData = applyCurrentClientFilters({
+      rawAcademies: discoveryState.rawAcademies,
+      rawMapAcademies: discoveryState.rawMapAcademies,
+      query: nextQuery,
+      filters: nextFilters,
+      sort: nextSort,
+    });
+
+    setState({
+      filters: nextFilters,
+      sort: nextSort,
+      query: nextQuery,
+      viewMode: stored.viewMode || 'list',
+      ...nextClientData,
+      filtersLoaded: true,
+    });
   },
   setQuery(query) {
     const nextQuery = query ?? '';
+    const nextClientData = applyCurrentClientFilters({
+      rawAcademies: discoveryState.rawAcademies,
+      rawMapAcademies: discoveryState.rawMapAcademies,
+      query: nextQuery,
+      filters: discoveryState.filters,
+      sort: discoveryState.sort,
+    });
+
     setState({
       query: nextQuery,
-      academies: applyClientFilters(discoveryState.rawAcademies, {
-        query: nextQuery,
-        filters: discoveryState.filters,
-      }),
-      mapAcademies: applyClientFilters(discoveryState.rawMapAcademies, {
-        query: nextQuery,
-        filters: discoveryState.filters,
-      }),
+      ...nextClientData,
     });
   },
-  setFilters(partial) {
-    const nextFilters = normalizeFilters({ ...discoveryState.filters, ...(partial || {}) });
+  setFilters(partialOrValue) {
+    const merged =
+      typeof partialOrValue === 'function'
+        ? partialOrValue(discoveryState.filters)
+        : { ...discoveryState.filters, ...(partialOrValue || {}) };
+
+    const nextFilters = normalizeDiscoveryFilters(merged);
+    const nextClientData = applyCurrentClientFilters({
+      rawAcademies: discoveryState.rawAcademies,
+      rawMapAcademies: discoveryState.rawMapAcademies,
+      query: discoveryState.query,
+      filters: nextFilters,
+      sort: discoveryState.sort,
+    });
+
     setState({
       filters: nextFilters,
-      academies: applyClientFilters(discoveryState.rawAcademies, {
-        query: discoveryState.query,
-        filters: nextFilters,
-      }),
-      mapAcademies: applyClientFilters(discoveryState.rawMapAcademies, {
-        query: discoveryState.query,
-        filters: nextFilters,
-      }),
+      ...nextClientData,
+    });
+  },
+  setSort(sort) {
+    const nextSort = normalizeDiscoverySort(sort);
+    const nextClientData = applyCurrentClientFilters({
+      rawAcademies: discoveryState.rawAcademies,
+      rawMapAcademies: discoveryState.rawMapAcademies,
+      query: discoveryState.query,
+      filters: discoveryState.filters,
+      sort: nextSort,
+    });
+
+    setState({
+      sort: nextSort,
+      ...nextClientData,
     });
   },
   async clearFilters() {
-    const filters = { ...DEFAULT_FILTERS };
-    const query = '';
+    const nextFilters = { ...DEFAULT_DISCOVERY_FILTERS };
+    const nextSort = DEFAULT_DISCOVERY_SORT;
+    const nextQuery = '';
+
+    const nextClientData = applyCurrentClientFilters({
+      rawAcademies: discoveryState.rawAcademies,
+      rawMapAcademies: discoveryState.rawMapAcademies,
+      query: nextQuery,
+      filters: nextFilters,
+      sort: nextSort,
+    });
+
     setState({
-      filters,
-      query,
-      academies: applyClientFilters(discoveryState.rawAcademies, { query, filters }),
-      mapAcademies: applyClientFilters(discoveryState.rawMapAcademies, { query, filters }),
+      filters: nextFilters,
+      sort: nextSort,
+      query: nextQuery,
+      ...nextClientData,
     });
     await persistState();
   },
@@ -228,6 +210,7 @@ export const academyDiscoveryStore = {
       setState({ locationStatus: 'error' });
       return;
     }
+
     setState({ locationStatus: 'asking' });
     global.navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -244,8 +227,9 @@ export const academyDiscoveryStore = {
   },
   async fetchAcademies({ page = 1, append = false, query } = {}) {
     const effectiveQuery = query ?? discoveryState.query;
-    const isFirst = page === 1 && !append;
-    if (isFirst) {
+    const isFirstPage = page === 1 && !append;
+
+    if (isFirstPage) {
       setState({ listLoading: true, listError: null, page: 1, hasMore: true });
     } else {
       setState({ loadingMore: true, listError: null });
@@ -254,29 +238,36 @@ export const academyDiscoveryStore = {
     try {
       const res = await academyDiscoveryApi.listAcademies({
         filters: discoveryState.filters,
+        sort: discoveryState.sort,
         query: effectiveQuery,
         page,
         pageSize: ACADEMY_DISCOVERY_PAGE_SIZE,
         coords: discoveryState.coords,
       });
-      const items = Array.isArray(res?.items) ? res.items : [];
-      const rawAcademies = append ? [...discoveryState.rawAcademies, ...items] : items;
-      const filteredAcademies = applyClientFilters(rawAcademies, {
+
+      const pageItems = Array.isArray(res?.items) ? res.items : [];
+      const rawAcademies = append ? [...discoveryState.rawAcademies, ...pageItems] : pageItems;
+
+      const academies = applyDiscoveryFilters(rawAcademies, {
         query: effectiveQuery,
         filters: discoveryState.filters,
+        sort: discoveryState.sort,
       });
-      const hasMore = items.length >= ACADEMY_DISCOVERY_PAGE_SIZE;
+
+      const hasMore = pageItems.length >= ACADEMY_DISCOVERY_PAGE_SIZE;
+
       setState({
         rawAcademies,
-        academies: filteredAcademies,
+        academies,
         listLoading: false,
         loadingMore: false,
         listError: null,
         hasMore,
         page,
       });
+
       await persistState();
-      return { success: true, data: items };
+      return { success: true, data: pageItems };
     } catch (error) {
       setState({
         listLoading: false,
@@ -289,27 +280,36 @@ export const academyDiscoveryStore = {
   async fetchMapAcademies({ query } = {}) {
     const effectiveQuery = query ?? discoveryState.query;
     setState({ mapLoading: true, mapError: null });
+
     try {
       const res = await academyDiscoveryApi.listMapAcademies({
         filters: discoveryState.filters,
+        sort: discoveryState.sort,
         query: effectiveQuery,
         coords: discoveryState.coords,
       });
-      const items = Array.isArray(res?.items) ? res.items : [];
-      const filteredMapAcademies = applyClientFilters(items, {
+
+      const rawMapItems = Array.isArray(res?.items) ? res.items : [];
+      const mapAcademies = applyDiscoveryFilters(rawMapItems, {
         query: effectiveQuery,
         filters: discoveryState.filters,
+        sort: discoveryState.sort,
       });
+
       setState({
-        rawMapAcademies: items,
-        mapAcademies: filteredMapAcademies,
+        rawMapAcademies: rawMapItems,
+        mapAcademies,
         mapLoading: false,
         mapError: null,
       });
+
       await persistState();
-      return { success: true, data: items };
+      return { success: true, data: rawMapItems };
     } catch (error) {
-      setState({ mapLoading: false, mapError: error?.message || 'Unable to load map.' });
+      setState({
+        mapLoading: false,
+        mapError: error?.message || 'Unable to load map.',
+      });
       return { success: false, error };
     }
   },
@@ -328,10 +328,12 @@ export const academyDiscoveryStore = {
   },
   async fetchDetails(slug) {
     if (!slug) return { success: false, error: new Error('Missing academy slug') };
+
     const cached = discoveryState.detailsBySlug[slug];
     if (cached) {
       return { success: true, data: cached, cached: true };
     }
+
     setDetailsState(slug, { loading: true, error: null });
     try {
       const data = await academyDiscoveryApi.getAcademyDetails(slug);
@@ -368,6 +370,7 @@ export function useAcademyDiscoveryActions() {
       hydrateSavedFilters: academyDiscoveryStore.hydrateSavedFilters,
       setQuery: academyDiscoveryStore.setQuery,
       setFilters: academyDiscoveryStore.setFilters,
+      setSort: academyDiscoveryStore.setSort,
       clearFilters: academyDiscoveryStore.clearFilters,
       setViewMode: academyDiscoveryStore.setViewMode,
       setSelectedAcademy: academyDiscoveryStore.setSelectedAcademy,
@@ -381,3 +384,4 @@ export function useAcademyDiscoveryActions() {
     []
   );
 }
+
