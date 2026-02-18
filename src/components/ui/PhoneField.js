@@ -78,12 +78,6 @@ export function PhoneField({
     if (nextNN !== undefined && nextNN !== nationalNumber) setNationalNumber(nextNN);
   }, [value.countryCode, value.nationalNumber, countryCode, nationalNumber, value]);
 
-
-  const e164 = useMemo(
-    () => normalizePhoneE164(countryCode, nationalNumber),
-    [countryCode, nationalNumber]
-  );
-
   const computed = useMemo(() => {
     const rawDigits = digitsOnly(nationalNumber);
     const isEmpty = rawDigits.length === 0;

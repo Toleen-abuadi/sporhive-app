@@ -28,22 +28,46 @@ const statusStep = (status) => {
 };
 
 export function PortalOrderDetailScreen() {
-  const { orderId } = useLocalSearchParams();
+  const params = useLocalSearchParams();
   const router = useRouter();
-  const { goBack } = useSmartBack({ fallbackRoute: '/portal/home' });
+  const { goBack } = useSmartBack({ fallbackRoute: '/portal/my-orders' });
   const { colors } = useTheme();
   const { t } = useI18n();
   const { orders } = usePlayerPortalStore((state) => ({ orders: state.orders }));
   const actions = usePlayerPortalActions();
+  const resolvedOrderId = useMemo(() => {
+    const raw = params?.orderId ?? params?.id;
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    return typeof value === 'string' ? value.trim() : value ? String(value).trim() : '';
+  }, [params]);
+  const hasOrderId = Boolean(resolvedOrderId);
 
   useEffect(() => {
+    if (!hasOrderId) return;
     if (!orders || orders.length === 0) actions.fetchOrders();
-  }, [actions, orders]);
+  }, [actions, hasOrderId, orders]);
 
   const order = useMemo(() => {
-    const target = Array.isArray(orderId) ? orderId[0] : orderId;
-    return (orders || []).find((item) => String(item?.id || item?.reference) === String(target));
-  }, [orderId, orders]);
+    return (orders || []).find(
+      (item) => String(item?.id || item?.reference) === String(resolvedOrderId),
+    );
+  }, [orders, resolvedOrderId]);
+
+  if (!hasOrderId) {
+    return (
+      <AppScreen safe>
+        <AppHeader title={t('portal.orders.detailTitle')} onBackPress={goBack} />
+        <EmptyState
+          title={t('errors.missingParamsTitle')}
+          message={t('errors.missingParamsMessage')}
+          actionLabel={t('common.goBack')}
+          onAction={goBack}
+          secondaryActionLabel={t('common.goHome')}
+          onSecondaryAction={() => router.push('/portal/my-orders')}
+        />
+      </AppScreen>
+    );
+  }
 
   if (!order) {
     return (
@@ -60,7 +84,7 @@ export function PortalOrderDetailScreen() {
   return (
     <PortalAccessGate titleOverride={t('portal.orders.detailTitle')}>
       <AppScreen safe scroll>
-        <AppHeader title={t('portal.orders.detailTitle')} />
+        <AppHeader title={t('portal.orders.detailTitle')} onBackPress={goBack} />
         <PortalActionBanner title="Order status" description={inProgress ? 'Your order is in progress. We will notify you when ready.' : 'This order is complete. Review items and payment details below.'} actionLabel="Back to orders" onAction={() => router.push('/portal/my-orders')} />
 
         <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 

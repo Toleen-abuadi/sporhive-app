@@ -29,7 +29,9 @@ export function PortalMyOrdersScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const { ensurePortalReauthOnce } = useAuth();
+  const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
+  const didReauthRedirectRef = useRef(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { orders, ordersLoading, ordersError, filters } = usePlayerPortalStore((state) => ({
     orders: state.orders,
@@ -40,6 +42,8 @@ export function PortalMyOrdersScreen() {
   const actions = usePlayerPortalActions();
 
   useEffect(() => {
+    if (didFetchRef.current) return;
+    didFetchRef.current = true;
     actions.hydrateFilters?.('orders');
     actions.fetchOrders?.();
   }, [actions]);
@@ -55,7 +59,7 @@ export function PortalMyOrdersScreen() {
   const activeOrder = inProgress[0] || null;
   const load = useCallback(() => actions.fetchOrders?.(), [actions]);
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current) return;
+    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
     reauthHandledRef.current = true;
     const res = await ensurePortalReauthOnce?.();
     if (res?.success) {
@@ -63,6 +67,7 @@ export function PortalMyOrdersScreen() {
       load();
       return;
     }
+    didReauthRedirectRef.current = true;
     router.replace('/(auth)/login?mode=player');
   }, [ensurePortalReauthOnce, load, router]);
 

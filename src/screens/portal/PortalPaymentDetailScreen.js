@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AppScreen } from '../../components/ui/AppScreen';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { Card } from '../../components/ui/Card';
@@ -31,23 +31,48 @@ const stepIndexForStatus = (status) => {
 };
 
 export function PortalPaymentDetailScreen() {
-  const { invoiceId } = useLocalSearchParams();
-  const { goBack } = useSmartBack({ fallbackRoute: '/portal/home' });
+  const params = useLocalSearchParams();
+  const router = useRouter();
+  const { goBack } = useSmartBack({ fallbackRoute: '/portal/payments' });
   const { colors } = useTheme();
   const { t } = useI18n();
   const toast = useToast();
   const { payments } = usePlayerPortalStore((state) => ({ payments: state.payments }));
   const actions = usePlayerPortalActions();
   const [downloading, setDownloading] = useState(false);
+  const resolvedInvoiceId = useMemo(() => {
+    const raw = params?.invoiceId ?? params?.id;
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    return typeof value === 'string' ? value.trim() : value ? String(value).trim() : '';
+  }, [params]);
+  const hasInvoiceId = Boolean(resolvedInvoiceId);
 
   useEffect(() => {
+    if (!hasInvoiceId) return;
     if (!payments || payments.length === 0) actions.fetchPayments();
-  }, [actions, payments]);
+  }, [actions, hasInvoiceId, payments]);
 
   const payment = useMemo(() => {
-    const target = Array.isArray(invoiceId) ? invoiceId[0] : invoiceId;
-    return (payments || []).find((item) => String(item?.invoiceId || item?.id) === String(target));
-  }, [invoiceId, payments]);
+    return (payments || []).find(
+      (item) => String(item?.invoiceId || item?.id) === String(resolvedInvoiceId),
+    );
+  }, [payments, resolvedInvoiceId]);
+
+  if (!hasInvoiceId) {
+    return (
+      <AppScreen safe>
+        <AppHeader title={t('portal.payments.detailTitle')} onBackPress={goBack} />
+        <EmptyState
+          title={t('errors.missingParamsTitle')}
+          message={t('errors.missingParamsMessage')}
+          actionLabel={t('common.goBack')}
+          onAction={goBack}
+          secondaryActionLabel={t('common.goHome')}
+          onSecondaryAction={() => router.push('/portal/payments')}
+        />
+      </AppScreen>
+    );
+  }
 
   if (!payment) {
     return (
@@ -76,7 +101,7 @@ export function PortalPaymentDetailScreen() {
   return (
     <PortalAccessGate titleOverride={t('portal.payments.detailTitle')}>
       <AppScreen safe scroll>
-        <AppHeader title={t('portal.payments.detailTitle')} />
+        <AppHeader title={t('portal.payments.detailTitle')} onBackPress={goBack} />
 
         <PortalInfoAccordion
           title="What happens if unpaid?"

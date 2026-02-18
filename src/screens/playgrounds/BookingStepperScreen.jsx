@@ -33,7 +33,7 @@ export function BookingWizardScreen() {
   const styles = useMemo(() => makeWizardStyles(colors), [colors]);
   const { t } = useTranslation();
   const router = useRouter();
-  const { goBack } = useSmartBack();
+  const { goBack } = useSmartBack({ fallbackRoute: '/playgrounds/explore' });
   const toast = useToast();
   const { session } = useAuth();
 
@@ -44,6 +44,7 @@ export function BookingWizardScreen() {
     const raw = routeParams?.venueId ?? routeParams?.venue_id ?? routeParams?.id;
     return normalizeRouterParam(raw);
   }, [routeParams]);
+  const hasVenueId = Boolean(venueId);
 
   const { bookingDraft, durationsLoading } = usePlaygroundsStore((s) => ({
     bookingDraft: s.bookingDraft,
@@ -145,10 +146,11 @@ export function BookingWizardScreen() {
 
   // -------- effects
   useEffect(() => {
+    if (!hasVenueId) return;
     hydrate();
     loadVenue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hasVenueId]);
 
   useEffect(() => {
     if (venue?.id) loadDurations();
@@ -462,12 +464,27 @@ export function BookingWizardScreen() {
   ]);
 
   const goToMyBookings = useCallback(() => {
-  // replace so user doesn’t come back to a stale wizard
-  router.replace('/playgrounds/bookings');
-}, [router]);
+    // replace so user doesn’t come back to a stale wizard
+    router.replace('/playgrounds/bookings');
+  }, [router]);
 
 
   // -------- render
+  if (!hasVenueId) {
+    return (
+      <AppScreen safe>
+        <EmptyState
+          title={t('errors.missingParamsTitle')}
+          message={t('errors.missingParamsMessage')}
+          actionLabel={t('common.goBack')}
+          onAction={goBack}
+          secondaryActionLabel={t('common.goHome')}
+          onSecondaryAction={() => router.push('/playgrounds/explore')}
+        />
+      </AppScreen>
+    );
+  }
+
   if (loading) {
     return (
       <AppScreen safe>

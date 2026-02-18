@@ -466,7 +466,9 @@ export function PortalRenewalsScreen() {
   const toast = useToast();
   const { t, locale, isRTL } = useTranslation();
   const { ensurePortalReauthOnce } = useAuth();
+  const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
+  const didReauthRedirectRef = useRef(false);
   const placeholder = t('portal.common.placeholder');
   const scheduleSeparator = t('portal.renewals.scheduleSeparator');
 
@@ -596,6 +598,8 @@ export function PortalRenewalsScreen() {
   }, [actions]);
 
   useEffect(() => {
+    if (didFetchRef.current) return;
+    didFetchRef.current = true;
     fetchAll();
   }, [fetchAll]);
 
@@ -782,7 +786,7 @@ export function PortalRenewalsScreen() {
   const combinedError = fatalError || overviewError || renewalsError;
 
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current) return;
+    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
     reauthHandledRef.current = true;
     const res = await ensurePortalReauthOnce?.();
     if (res?.success) {
@@ -791,6 +795,7 @@ export function PortalRenewalsScreen() {
       fetchAll();
       return;
     }
+    didReauthRedirectRef.current = true;
     router.replace('/(auth)/login?mode=player');
   }, [ensurePortalReauthOnce, fetchAll, router]);
 

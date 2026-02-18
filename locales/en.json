@@ -7,6 +7,7 @@
     "edit": "Edit",
     "back": "Back",
     "goBack": "Go back",
+    "goHome": "Go home",
     "next": "Next",
     "done": "Done",
     "loading": "Loading...",
@@ -22,6 +23,9 @@
     "apply": "Apply filters",
     "reset": "Reset",
     "search": "Search"
+  },
+  "accessibility": {
+    "backButton": "Go back"
   },
   "join": {
     "title": "Join {{academy}}",
@@ -63,6 +67,8 @@
     "notFoundMessage": "This screen doesn't exist.",
     "notFoundAction": "Go to home screen!",
     "couldNotSaveChoice": "We couldn't save your choice. Please try again.",
+    "missingParamsTitle": "Missing information",
+    "missingParamsMessage": "This link is missing required information. Please go back and try again.",
     "notifications": {
       "deviceRequired": "Must use physical device for push notifications.",
       "permissionDenied": "Permission not granted to get push token for push notifications.",

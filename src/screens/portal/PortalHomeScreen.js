@@ -39,6 +39,7 @@ export function PortalHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const refreshingRef = useRef(false);
   const reauthHandledRef = useRef(false);
+  const didReauthRedirectRef = useRef(false);
   const placeholder = t('portal.common.placeholder');
   const sessionValidation = authLoading ? { ok: true } : validatePortalSession(session);
 
@@ -82,7 +83,7 @@ export function PortalHomeScreen() {
   }, [actions.fetchOverview]);
 
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current) return;
+    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
     reauthHandledRef.current = true;
     const res = await ensurePortalReauthOnce?.();
     if (res?.success) {
@@ -90,6 +91,7 @@ export function PortalHomeScreen() {
       onRefresh();
       return;
     }
+    didReauthRedirectRef.current = true;
     router.replace('/(auth)/login?mode=player');
   }, [ensurePortalReauthOnce, onRefresh, router]);
 

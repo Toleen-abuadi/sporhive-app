@@ -25,7 +25,9 @@ export function PortalPerformanceScreen() {
   const { t, isRTL } = useTranslation();
   const router = useRouter();
   const { ensurePortalReauthOnce } = useAuth();
+  const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
+  const didReauthRedirectRef = useRef(false);
   const placeholder = t('portal.common.placeholder');
   const { overview } = usePortalOverview();
 
@@ -66,10 +68,14 @@ export function PortalPerformanceScreen() {
     }
   }, [t, tryoutId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (didFetchRef.current) return;
+    didFetchRef.current = true;
+    load();
+  }, [load]);
 
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current) return;
+    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
     reauthHandledRef.current = true;
     const res = await ensurePortalReauthOnce?.();
     if (res?.success) {
@@ -77,6 +83,7 @@ export function PortalPerformanceScreen() {
       load();
       return;
     }
+    didReauthRedirectRef.current = true;
     router.replace('/(auth)/login?mode=player');
   }, [ensurePortalReauthOnce, load, router]);
 

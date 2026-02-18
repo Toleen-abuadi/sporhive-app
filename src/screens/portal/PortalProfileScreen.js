@@ -45,7 +45,9 @@ export function PortalProfileScreen() {
   const actions = usePlayerPortalActions();
   const toast = useToast();
   const { ensurePortalReauthOnce } = useAuth();
+  const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
+  const didReauthRedirectRef = useRef(false);
 
   const {
     profile,
@@ -153,12 +155,14 @@ export function PortalProfileScreen() {
   }, [profile, phoneNumbers]);
 
   useEffect(() => {
+    if (didFetchRef.current) return;
+    didFetchRef.current = true;
     actions.fetchProfile();
   }, [actions]);
 
   const load = useCallback(() => actions.fetchProfile(), [actions]);
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current) return;
+    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
     reauthHandledRef.current = true;
     const res = await ensurePortalReauthOnce?.();
     if (res?.success) {
@@ -166,6 +170,7 @@ export function PortalProfileScreen() {
       load();
       return;
     }
+    didReauthRedirectRef.current = true;
     router.replace('/(auth)/login?mode=player');
   }, [ensurePortalReauthOnce, load, router]);
 

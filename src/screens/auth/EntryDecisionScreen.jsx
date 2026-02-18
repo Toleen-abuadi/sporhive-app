@@ -236,7 +236,7 @@ export function EntryDecisionScreen() {
           setEntryMode(mode),
           setWelcomeSeen(true),
         ]);
-        router.replace(`/(auth)/login?mode=${mode}&lockMode=1`);
+        router.push(`/(auth)/login?mode=${mode}&lockMode=1`);
       } catch (error) {
         if (__DEV__) {
           console.warn('[entry] failed to persist mode selection', {

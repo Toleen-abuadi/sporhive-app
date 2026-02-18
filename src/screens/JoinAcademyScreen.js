@@ -276,7 +276,7 @@ function ReviewLine({ label, value, theme }) {
 
 export function JoinAcademyScreen({ slug: slugProp }) {
   const router = useRouter();
-  const { goBack } = useSmartBack();
+  const { goBack } = useSmartBack({ fallbackRoute: '/(app)/services' });
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
 
@@ -721,7 +721,7 @@ export function JoinAcademyScreen({ slug: slugProp }) {
     return (
       <Screen safe scroll={false} style={ad.screen(theme)}>
         <View style={styles.stateContainer}>
-          <BackButton color={theme.text.primary} />
+          <BackButton color={theme.text.primary} onPress={goBack} />
           <Card
             style={[
               styles.stateCard,
@@ -822,7 +822,7 @@ export function JoinAcademyScreen({ slug: slugProp }) {
       <Screen safe scroll={false} style={ad.screen(theme)}>
         <View style={styles.simpleHeaderWrap}>
           <View style={[styles.simpleHeaderRow, isRTL && styles.rowReverse]}>
-            <BackButton color={theme.text.primary} />
+            <BackButton color={theme.text.primary} onPress={goBack} />
             <View style={[styles.simpleHeaderMeta, isRTL && styles.rowReverse]}>
               <View
                 style={[

@@ -9,7 +9,7 @@ import { useSmartBack } from '../../navigation/useSmartBack';
 export function BackButton({
   label,
   color,
-  size = 20,
+  size = 24,
   style,
   onPress,
   fallbackRoute,
@@ -19,7 +19,8 @@ export function BackButton({
   const isNavigatingRef = useRef(false);
   const { goBack } = useSmartBack({ fallbackRoute });
 
-  const resolvedLabel = label || t('common.back', 'Back');
+  const resolvedLabel =
+    label || t('accessibility.backButton', t('common.back', 'Back'));
   const iconName = useMemo(() => {
     const rtl = typeof isRTL === 'boolean' ? isRTL : I18nManager.isRTL;
     return rtl ? 'chevron-right' : 'chevron-left';

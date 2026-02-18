@@ -7,6 +7,7 @@
     "edit": "تعديل",
     "back": "رجوع",
     "goBack": "العودة للخلف",
+    "goHome": "العودة للرئيسية",
     "next": "التالي",
     "done": "تم",
     "loading": "جاري التحميل...",
@@ -22,6 +23,9 @@
     "apply": "تطبيق الفلاتر",
     "reset": "إعادة ضبط",
     "search": "بحث"
+  },
+  "accessibility": {
+    "backButton": "زر الرجوع"
   },
   "join": {
     "title": "انضم إلى {{academy}}",
@@ -63,6 +67,8 @@
     "notFoundMessage": "هذه الشاشة غير موجودة.",
     "notFoundAction": "اذهب إلى الشاشة الرئيسية!",
     "couldNotSaveChoice": "تعذر حفظ اختيارك. حاول مرة أخرى.",
+    "missingParamsTitle": "بيانات غير مكتملة",
+    "missingParamsMessage": "هذا الرابط ينقصه بعض البيانات المطلوبة. يرجى الرجوع والمحاولة مرة أخرى.",
     "notifications": {
       "deviceRequired": "يجب استخدام جهاز فعلي لتفعيل إشعارات الدفع.",
       "permissionDenied": "لم يتم منح الإذن للحصول على رمز الإشعارات.",

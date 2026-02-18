@@ -32,7 +32,9 @@ export function PortalRenewalDetailScreen() {
   const { t } = useI18n();
   const router = useRouter();
   const { ensurePortalReauthOnce } = useAuth();
+  const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
+  const didReauthRedirectRef = useRef(false);
   const { overview, overviewLoading, overviewError, renewals, renewalsError } = usePlayerPortalStore((state) => ({
     overview: state.overview,
     overviewLoading: state.overviewLoading,
@@ -46,6 +48,8 @@ export function PortalRenewalDetailScreen() {
 
   useEffect(() => {
     if (!overview && (overviewLoading || overviewError)) return;
+    if (didFetchRef.current) return;
+    didFetchRef.current = true;
 
     const load = async () => {
       if (!overview) {
@@ -73,7 +77,7 @@ export function PortalRenewalDetailScreen() {
   }, [fetchOverview, fetchRenewals, overview, renewals]);
 
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current) return;
+    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
     reauthHandledRef.current = true;
     const res = await ensurePortalReauthOnce?.();
     if (res?.success) {
@@ -81,6 +85,7 @@ export function PortalRenewalDetailScreen() {
       load();
       return;
     }
+    didReauthRedirectRef.current = true;
     router.replace('/(auth)/login?mode=player');
   }, [ensurePortalReauthOnce, load, router]);
 

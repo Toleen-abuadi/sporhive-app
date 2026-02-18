@@ -43,7 +43,9 @@ export function PortalPaymentsScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const { ensurePortalReauthOnce } = useAuth();
+  const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
+  const didReauthRedirectRef = useRef(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { payments, paymentsLoading, paymentsError, filters } = usePlayerPortalStore((state) => ({
     payments: state.payments,
@@ -54,6 +56,8 @@ export function PortalPaymentsScreen() {
   const actions = usePlayerPortalActions();
 
   useEffect(() => {
+    if (didFetchRef.current) return;
+    didFetchRef.current = true;
     actions.hydrateFilters();
     actions.fetchPayments();
   }, [actions]);
@@ -85,7 +89,7 @@ export function PortalPaymentsScreen() {
 
   const load = useCallback(() => actions.fetchPayments(), [actions]);
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current) return;
+    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
     reauthHandledRef.current = true;
     const res = await ensurePortalReauthOnce?.();
     if (res?.success) {
@@ -93,6 +97,7 @@ export function PortalPaymentsScreen() {
       load();
       return;
     }
+    didReauthRedirectRef.current = true;
     router.replace('/(auth)/login?mode=player');
   }, [ensurePortalReauthOnce, load, router]);
 

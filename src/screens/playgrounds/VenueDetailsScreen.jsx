@@ -17,6 +17,7 @@ import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Chip } from '../../components/ui/Chip';
 import { IconButton } from '../../components/ui/IconButton';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { API_BASE_URL } from '../../services/api/client';
 import {
@@ -24,6 +25,7 @@ import {
   usePlaygroundsStore,
 } from '../../services/playgrounds/playgrounds.store';
 import { borderRadius, shadows, spacing } from '../../theme/tokens';
+import { useSmartBack } from '../../navigation/useSmartBack';
 
 function getVenueImages(venue) {
   const images = venue.images || venue.venue_images || [];
@@ -81,7 +83,14 @@ export function VenueDetailsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { venueId } = useLocalSearchParams();
+  const { goBack } = useSmartBack({ fallbackRoute: '/playgrounds/explore' });
   const [heroWidth, setHeroWidth] = useState(0);
+
+  const resolvedVenueId = useMemo(() => {
+    const raw = Array.isArray(venueId) ? venueId[0] : venueId;
+    return typeof raw === 'string' ? raw.trim() : raw ? String(raw).trim() : '';
+  }, [venueId]);
+  const hasVenueId = Boolean(resolvedVenueId);
 
   const [venue, setVenue] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -104,7 +113,7 @@ export function VenueDetailsScreen() {
     setLoading(true);
     setError('');
     try {
-      const res = await getVenueDetails(venueId);
+      const res = await getVenueDetails(resolvedVenueId);
       if (res?.success && res.data) {
         setVenue(res.data);
       } else {
@@ -132,12 +141,13 @@ export function VenueDetailsScreen() {
     getVenueDurations,
     listActivities,
     t,
-    venueId,
+    resolvedVenueId,
   ]);
 
   useEffect(() => {
+    if (!hasVenueId) return;
     loadVenue();
-  }, [loadVenue]);
+  }, [hasVenueId, loadVenue]);
 
   const location = venue
     ? [venue.city, venue.country].filter(Boolean).join(', ')
@@ -171,6 +181,26 @@ export function VenueDetailsScreen() {
     venue?.academy_profile?.country ||
     venue?.location_text;
 
+  if (!hasVenueId) {
+    return (
+      <AppScreen safe>
+        <AppHeader
+          title={t('service.playgrounds.common.playground')}
+          onBackPress={goBack}
+          fallbackRoute="/playgrounds/explore"
+        />
+        <EmptyState
+          title={t('errors.missingParamsTitle')}
+          message={t('errors.missingParamsMessage')}
+          actionLabel={t('common.goBack')}
+          onAction={goBack}
+          secondaryActionLabel={t('common.goHome')}
+          onSecondaryAction={() => router.push('/playgrounds/explore')}
+        />
+      </AppScreen>
+    );
+  }
+
   return (
     <AppScreen paddingHorizontal={0} paddingTop={0} paddingBottom={0}>
       <AppHeader
@@ -180,6 +210,8 @@ export function VenueDetailsScreen() {
           t('service.playgrounds.common.playground')
         }
         subtitle={location || undefined}
+        onBackPress={goBack}
+        fallbackRoute="/playgrounds/explore"
         variant="transparent"
         right={
           <IconButton

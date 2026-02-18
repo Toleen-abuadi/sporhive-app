@@ -55,6 +55,7 @@ import { Chip } from '../components/ui/Chip';
 import { ErrorState } from '../components/ui/ErrorState';
 import { SmartImage } from '../components/ui/SmartImage';
 import { Skeleton } from '../components/ui/Skeleton';
+import { useSmartBack } from '../navigation/useSmartBack';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -553,6 +554,7 @@ const HeroSection = memo(function HeroSection({
   registrationOpen,
   secureEnabled,
   onShare,
+  onBack,
   heroTranslateY,
   heroScale,
   insetsTop,
@@ -585,7 +587,11 @@ const HeroSection = memo(function HeroSection({
 
       <View style={[styles.heroOverlay, { paddingTop: insetsTop + spacing.sm }]}>
         <View style={[styles.heroTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <BackButton color={colors.white} style={[styles.heroTopIcon, { backgroundColor: alphaHex(colors.black, '66') }]} />
+          <BackButton
+            color={colors.white}
+            style={[styles.heroTopIcon, { backgroundColor: alphaHex(colors.black, '66') }]}
+            onPress={onBack}
+          />
           <Pressable
             onPress={onShare}
             style={({ pressed }) => [
@@ -709,6 +715,7 @@ const AcademyDetailsSkeleton = memo(function AcademyDetailsSkeleton() {
 
 export function AcademyTemplateScreen({ slug }) {
   const router = useRouter();
+  const { goBack } = useSmartBack({ fallbackRoute: '/(app)/services' });
   const insets = useSafeAreaInsets();
   const { t, language } = useI18n();
   const locale = language || 'en';
@@ -1184,7 +1191,7 @@ export function AcademyTemplateScreen({ slug }) {
     return (
       <Screen safe>
         <View style={styles.fallbackHeader}>
-          <BackButton />
+          <BackButton onPress={goBack} />
         </View>
         <ErrorState
           title={t('academy.details.errorTitle')}
@@ -1200,7 +1207,7 @@ export function AcademyTemplateScreen({ slug }) {
     return (
       <Screen safe style={{ backgroundColor: colors.background }}>
         <View style={styles.fallbackHeader}>
-          <BackButton />
+          <BackButton onPress={goBack} />
         </View>
         <AcademyDetailsSkeleton />
       </Screen>
@@ -1211,7 +1218,7 @@ export function AcademyTemplateScreen({ slug }) {
     return (
       <Screen safe>
         <View style={styles.fallbackHeader}>
-          <BackButton />
+          <BackButton onPress={goBack} />
         </View>
         <ErrorState
           title={t('academy.details.errorTitle')}
@@ -1238,7 +1245,7 @@ export function AcademyTemplateScreen({ slug }) {
       >
         <BlurView intensity={80} style={StyleSheet.absoluteFill} />
         <View style={[styles.topBarRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <BackButton color={colors.textPrimary} style={styles.topBarBack} />
+          <BackButton color={colors.textPrimary} style={styles.topBarBack} onPress={goBack} />
           <View style={styles.topBarTitleWrap}>
             <Text variant="body" weight="bold" numberOfLines={1} style={{ color: colors.textPrimary }}>
               {academyName}
@@ -1282,6 +1289,7 @@ export function AcademyTemplateScreen({ slug }) {
           registrationOpen={registrationOpen}
           secureEnabled={secureEnabled}
           onShare={onShare}
+          onBack={goBack}
           heroTranslateY={heroTranslateY}
           heroScale={heroScale}
           insetsTop={insets.top}

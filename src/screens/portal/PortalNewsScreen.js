@@ -1,5 +1,5 @@
 // Portal News Screen: academy updates and announcements.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, FlatList, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -35,6 +35,8 @@ export function PortalNewsScreen() {
   const { colors } = useTheme();
   const { t, isRTL } = useTranslation();
   const { ensurePortalReauthOnce } = useAuth();
+  const didFetchRef = useRef(false);
+  const didReauthRedirectRef = useRef(false);
 
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -181,8 +183,21 @@ export function PortalNewsScreen() {
   }, [resolveNewsImageUrl, t]);
 
   useEffect(() => {
+    if (didFetchRef.current) return;
+    didFetchRef.current = true;
     loadNews();
   }, [loadNews]);
+
+  const handleReauthRequired = useCallback(async () => {
+    if (didReauthRedirectRef.current) return;
+    const res = await ensurePortalReauthOnce?.();
+    if (res?.success) {
+      loadNews();
+      return;
+    }
+    didReauthRedirectRef.current = true;
+    router.replace('/(auth)/login?mode=player');
+  }, [ensurePortalReauthOnce, loadNews, router]);
 
 
   const importantNews = useMemo(() => news.filter((item) => item?.is_important || item?.pinned || Number(item?.priority || 0) > 0), [news]);
@@ -246,14 +261,7 @@ export function PortalNewsScreen() {
       titleOverride={t('portal.news.title')}
       error={error}
       onRetry={loadNews}
-      onReauthRequired={async () => {
-        const res = await ensurePortalReauthOnce?.();
-        if (res?.success) {
-          loadNews();
-        } else {
-          router.replace('/(auth)/login?mode=player');
-        }
-      }}
+      onReauthRequired={handleReauthRequired}
     >
     <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
       <PortalHeader

@@ -62,7 +62,9 @@ export function PortalUniformStoreScreen() {
   const { t, isRTL } = useTranslation();
   const placeholder = t('portal.common.placeholder');
   const { ensurePortalReauthOnce } = useAuth();
+  const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
+  const didReauthRedirectRef = useRef(false);
 
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -116,7 +118,7 @@ export function PortalUniformStoreScreen() {
   }, [t]);
 
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current) return;
+    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
     reauthHandledRef.current = true;
     const res = await ensurePortalReauthOnce?.();
     if (res?.success) {
@@ -124,10 +126,13 @@ export function PortalUniformStoreScreen() {
       loadCatalog();
       return;
     }
+    didReauthRedirectRef.current = true;
     router.replace('/(auth)/login?mode=player');
   }, [ensurePortalReauthOnce, loadCatalog, router]);
 
   useEffect(() => {
+    if (didFetchRef.current) return;
+    didFetchRef.current = true;
     loadCatalog();
   }, [loadCatalog]);
 
