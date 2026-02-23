@@ -562,6 +562,7 @@ const HeroSection = memo(function HeroSection({
   const { t } = useI18n();
   const { colors } = useTheme();
   const isRTL = I18nManager.isRTL;
+  const safeTopInset = Math.max(0, insetsTop);
 
   return (
     <View style={styles.heroShell}>
@@ -585,7 +586,7 @@ const HeroSection = memo(function HeroSection({
         />
       </Animated.View>
 
-      <View style={[styles.heroOverlay, { paddingTop: insetsTop + spacing.sm }]}>
+      <View style={[styles.heroOverlay, { paddingTop: safeTopInset + spacing.sm }]}>
         <View style={[styles.heroTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <BackButton
             color={colors.white}

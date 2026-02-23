@@ -5,10 +5,12 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useTranslation } from '../../services/i18n/i18n';
 import { Screen } from '../../components/ui/Screen';
@@ -31,6 +33,14 @@ export function SignupScreen() {
   const { t, isRTL } = useTranslation();
   const router = useRouter();
   const toast = useToast();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+
+  const isCompactNameLayout = width < 360;
+  const formContainerWidth =
+    width >= 768 ? Math.min(720, Math.floor(width * 0.72)) : '100%';
+  const subtitleMaxWidth =
+    width >= 768 ? Math.min(640, Math.floor(width * 0.62)) : Math.floor(width * 0.85);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -113,7 +123,11 @@ export function SignupScreen() {
   };
 
   return (
-    <Screen scroll contentContainerStyle={styles.scroll} safe>
+    <Screen
+      scroll
+      contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + spacing.md }]}
+      safe
+    >
       <LinearGradient
         colors={isDark ? [colors.background, colors.surface] : [colors.surface, colors.background]}
         style={styles.background}
@@ -122,21 +136,25 @@ export function SignupScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.container}
         >
-          <View style={styles.header}>
+          <View style={[styles.header, { width: formContainerWidth }]}>
             <View style={[styles.logoWrap, { backgroundColor: colors.accentOrange + '15' }]}>
               <Image source={logoSource} style={styles.logo} resizeMode="contain" />
             </View>
             <Text variant="h2" weight="bold" style={styles.title}>
               {t('auth.signup.title')}
             </Text>
-            <Text variant="body" color={colors.textSecondary} style={[styles.subtitle, { textAlign: 'center' }]}>
+            <Text
+              variant="body"
+              color={colors.textSecondary}
+              style={[styles.subtitle, { textAlign: 'center', maxWidth: subtitleMaxWidth }]}
+            >
               {t('auth.signup.subtitle')}
             </Text>
           </View>
 
-          <AuthCard style={styles.card}>
+          <AuthCard style={[styles.card, { width: formContainerWidth }]}>
             {/* ✅ Overflow-safe: wrap on small screens */}
-            <View style={styles.row}>
+            <View style={isCompactNameLayout ? styles.rowStack : styles.row}>
               <Input
                 label={t('auth.fields.firstName')}
                 placeholder={t('auth.placeholders.firstName')}
@@ -144,7 +162,7 @@ export function SignupScreen() {
                 onChangeText={setFirstName}
                 leftIcon="user"
                 error={errors.firstName}
-                style={styles.half}
+                style={[styles.half, isCompactNameLayout && styles.fullField]}
               />
               <Input
                 label={t('auth.fields.lastName')}
@@ -153,7 +171,7 @@ export function SignupScreen() {
                 onChangeText={setLastName}
                 leftIcon="user"
                 error={errors.lastName}
-                style={styles.half}
+                style={[styles.half, isCompactNameLayout && styles.fullField]}
               />
             </View>
 
@@ -228,7 +246,7 @@ const styles = StyleSheet.create({
   },
   background: { flex: 1 },
   container: { flex: 1, gap: spacing.lg, width: '100%' },
-  header: { alignItems: 'center', gap: spacing.sm },
+  header: { alignItems: 'center', gap: spacing.sm, alignSelf: 'center' },
   logoWrap: {
     width: 72,
     height: 72,
@@ -239,18 +257,23 @@ const styles = StyleSheet.create({
   },
   logo: { width: 48, height: 48 },
   title: { textAlign: 'center' },
-  subtitle: { maxWidth: 320 },
-  card: { marginTop: spacing.md },
+  subtitle: {},
+  card: { marginTop: spacing.md, alignSelf: 'center' },
 
   // ✅ Wrap to prevent overflow
   row: {
     flexDirection: 'row',
     gap: spacing.md,
-    flexWrap: 'wrap',
+  },
+  rowStack: {
+    flexDirection: 'column',
+    gap: spacing.sm,
   },
   half: {
     flex: 1,
-    minWidth: 160,
+  },
+  fullField: {
+    width: '100%',
   },
 
   hints: { marginTop: spacing.sm, gap: spacing.xs },

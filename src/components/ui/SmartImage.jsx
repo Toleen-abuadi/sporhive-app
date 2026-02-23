@@ -1,7 +1,10 @@
-import React, { memo, useEffect, useMemo, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
+import { ImageOff } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Skeleton } from './Skeleton';
+
+const LOAD_TIMEOUT_MS = 12000;
 
 const resolveSource = (source) => {
   if (!source) return null;
@@ -42,6 +45,8 @@ export const SmartImage = memo(function SmartImage({
   const { colors, isDark } = useTheme();
   const [isLoading, setIsLoading] = useState(Boolean(resolveSource(source)));
   const [hasError, setHasError] = useState(false);
+  const [showFallback, setShowFallback] = useState(false);
+  const loadTimeoutRef = useRef(null);
 
   const resolvedSource = useMemo(() => resolveSource(source), [source]);
   const resolvedFallback = useMemo(() => resolveSource(fallbackSource), [fallbackSource]);
@@ -49,22 +54,47 @@ export const SmartImage = memo(function SmartImage({
 
   useEffect(() => {
     setHasError(false);
-    setIsLoading(Boolean(resolveSource(source)));
-  }, [source]);
+    setShowFallback(false);
+    setIsLoading(Boolean(resolvedSource));
+  }, [resolvedSource]);
+
+  useEffect(() => {
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+    if (!isLoading) return undefined;
+
+    loadTimeoutRef.current = setTimeout(() => {
+      setShowFallback(true);
+      setIsLoading(false);
+    }, LOAD_TIMEOUT_MS);
+
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+    };
+  }, [isLoading, activeSource]);
 
   const handleLoadStart = () => {
+    setShowFallback(false);
     setIsLoading(true);
   };
 
   const handleLoadEnd = () => {
+    setShowFallback(false);
     setIsLoading(false);
   };
 
   const handleError = () => {
     if (!hasError && resolvedFallback) {
       setHasError(true);
+      setShowFallback(false);
       return;
     }
+    setShowFallback(true);
     setIsLoading(false);
   };
 
@@ -90,7 +120,7 @@ export const SmartImage = memo(function SmartImage({
           onError={handleError}
         />
       ) : null}
-      {isLoading ? (
+      {isLoading && !showFallback ? (
         <View style={styles.loaderLayer} pointerEvents="none">
           {showSkeleton ? (
             <Skeleton
@@ -104,6 +134,11 @@ export const SmartImage = memo(function SmartImage({
           {showLoader ? <ActivityIndicator size="small" color={colors.accentOrange} /> : null}
         </View>
       ) : null}
+      {showFallback ? (
+        <View style={[styles.fallbackLayer, { backgroundColor: placeholderColor || colors.surface }]}>
+          <ImageOff size={18} color={colors.textMuted || colors.textSecondary} />
+        </View>
+      ) : null}
     </View>
   );
 });
@@ -113,6 +148,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   loaderLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fallbackLayer: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',

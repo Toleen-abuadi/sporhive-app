@@ -4,12 +4,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
-  View,
   TouchableOpacity,
-  Dimensions,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useTranslation } from '../../services/i18n/i18n';
 import { Screen } from '../../components/ui/Screen';
@@ -30,7 +31,6 @@ import {
   sanitizeRedirectTo,
 } from '../../utils/navigation/sanitizeRedirectTo';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const logoSource = require('../../../assets/images/logo.png');
 
 const MODES = {
@@ -44,6 +44,13 @@ export function LoginScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const toast = useToast();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+
+  const formContainerWidth =
+    width >= 768 ? Math.min(720, Math.floor(width * 0.72)) : '100%';
+  const subtitleMaxWidth =
+    width >= 768 ? Math.min(640, Math.floor(width * 0.62)) : Math.floor(width * 0.85);
 
   const {
     loginPublic,
@@ -225,7 +232,11 @@ export function LoginScreen() {
   };
 
   return (
-    <Screen scroll contentContainerStyle={styles.scroll} safe>
+    <Screen
+      scroll
+      contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + spacing.md }]}
+      safe
+    >
       <LinearGradient
         colors={isDark ? [colors.background, colors.surface] : [colors.surface, colors.background]}
         style={styles.background}
@@ -235,19 +246,23 @@ export function LoginScreen() {
           style={styles.container}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
         >
-          <View style={styles.header}>
+          <View style={[styles.header, { width: formContainerWidth }]}>
             <View style={[styles.logoWrap, { backgroundColor: colors.accentOrange + '15' }]}>
               <Image source={logoSource} style={styles.logo} resizeMode="contain" />
             </View>
             <Text variant="h1" weight="bold" style={styles.title}>
               {t('auth.login.title')}
             </Text>
-            <Text variant="bodyLarge" color={colors.textSecondary} style={styles.subtitle}>
+            <Text
+              variant="bodyLarge"
+              color={colors.textSecondary}
+              style={[styles.subtitle, { maxWidth: subtitleMaxWidth }]}
+            >
               {t('auth.login.subtitle')}
             </Text>
           </View>
 
-          <AuthCard style={styles.card}>
+          <AuthCard style={[styles.card, { width: formContainerWidth }]}>
             {/* ✅ prevents SegmentedToggle overflow & keeps it inside card */}
             {lockMode ? (
               <View
@@ -474,6 +489,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: spacing.lg,
+    alignSelf: 'center',
   },
 
   logoWrap: {
@@ -489,14 +505,13 @@ const styles = StyleSheet.create({
   title: { textAlign: 'center', marginBottom: spacing.xs },
   subtitle: {
     textAlign: 'center',
-    maxWidth: SCREEN_WIDTH * 0.85,
     lineHeight: 24,
   },
 
   card: {
     width: '100%',
     padding: spacing.lg,
-    alignSelf: 'stretch',
+    alignSelf: 'center',
   },
 
   /* ✅ Toggle: clipped + no overflow */

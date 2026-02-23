@@ -4,11 +4,13 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useTranslation } from '../../services/i18n/i18n';
 import { Screen } from '../../components/ui/Screen';
@@ -37,7 +39,13 @@ export function ResetPasswordScreen() {
   const { goBack } = useSmartBack();
   const toast = useToast();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { lastSelectedAcademyId, setLastSelectedAcademyId } = useAuth();
+
+  const isCompactToggle = width < 360;
+  const formContainerWidth =
+    width >= 768 ? Math.min(720, Math.floor(width * 0.72)) : '100%';
 
   const [step, setStep] = useState(STEPS.IDENTIFY);
   const [mode, setMode] = useState(params?.mode === 'player' ? MODES.PLAYER : MODES.PUBLIC);
@@ -279,7 +287,11 @@ export function ResetPasswordScreen() {
         .join('');
 
   return (
-    <Screen scroll contentContainerStyle={styles.scroll} safe>
+    <Screen
+      scroll
+      contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + spacing.md }]}
+      safe
+    >
       <LinearGradient
         colors={isDark ? [colors.background, colors.surface] : [colors.surface, colors.background]}
         style={styles.background}
@@ -288,7 +300,7 @@ export function ResetPasswordScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.container}
         >
-          <View style={styles.header}>
+          <View style={[styles.header, { width: formContainerWidth }]}>
             <Pressable
               onPress={goBack}
               style={[styles.backRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
@@ -311,7 +323,7 @@ export function ResetPasswordScreen() {
             </Text>
           </View>
 
-          <AuthCard>
+          <AuthCard style={{ width: formContainerWidth, alignSelf: 'center' }}>
             <View style={styles.stepper}>
               {[1, 2, 3].map((num) => {
                 const active = step >= num;
@@ -338,7 +350,37 @@ export function ResetPasswordScreen() {
 
             {step === STEPS.IDENTIFY && (
               <View style={styles.form}>
-                <SegmentedToggle value={mode} onChange={handleModeChange} options={toggleOptions} />
+                {isCompactToggle ? (
+                  <View style={styles.modeStack}>
+                    {toggleOptions.map((option) => {
+                      const isActive = option.value === mode;
+                      return (
+                        <Pressable
+                          key={option.value}
+                          onPress={() => handleModeChange(option.value)}
+                          style={[
+                            styles.modeStackItem,
+                            {
+                              borderColor: colors.border,
+                              backgroundColor: isActive ? colors.accentOrange : colors.surface,
+                            },
+                          ]}
+                        >
+                          <Text
+                            variant="bodySmall"
+                            weight={isActive ? 'bold' : 'semibold'}
+                            color={isActive ? colors.white : colors.textSecondary}
+                            numberOfLines={1}
+                          >
+                            {option.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <SegmentedToggle value={mode} onChange={handleModeChange} options={toggleOptions} />
+                )}
 
                 {mode === MODES.PLAYER ? (
                   <>
@@ -524,7 +566,7 @@ const styles = StyleSheet.create({
   },
   background: { flex: 1 },
   container: { flex: 1, gap: spacing.lg, width: '100%' },
-  header: { alignItems: 'center', gap: spacing.sm },
+  header: { alignItems: 'center', gap: spacing.sm, alignSelf: 'center' },
   backRow: { alignSelf: 'flex-start', alignItems: 'center', gap: spacing.xs },
 
   stepper: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
@@ -533,6 +575,16 @@ const styles = StyleSheet.create({
   stepLine: { flex: 1, height: 2, marginHorizontal: spacing.xs },
 
   form: { gap: spacing.sm },
+  modeStack: { gap: spacing.sm },
+  modeStackItem: {
+    width: '100%',
+    borderWidth: 1,
+    borderRadius: borderRadius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   centered: { textAlign: 'center' },
 

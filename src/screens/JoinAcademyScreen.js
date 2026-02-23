@@ -57,6 +57,8 @@ import { useSmartBack } from '../navigation/useSmartBack';
 
 const TOTAL_STEPS = 3;
 const MIN_AGE = 3;
+const CTA_BAR_HEIGHT = 72;
+const STEP_HEADER_HEIGHT = 96;
 
 const STEP_ONE_FIELDS = [
   'first_eng_name',
@@ -217,7 +219,7 @@ function SectionCard({ theme, title, subtitle, right, children }) {
             {title}
           </Text>
           {subtitle ? (
-            <Text variant="caption" style={{ color: theme.text.secondary, marginTop: 4 }}>
+            <Text variant="caption" style={{ color: theme.text.secondary, marginTop: spacing.xs }}>
               {subtitle}
             </Text>
           ) : null}
@@ -445,7 +447,7 @@ export function JoinAcademyScreen({ slug: slugProp }) {
     (field) => {
       const y = fieldPositions.current[field];
       if (typeof y === 'number') {
-        scrollRef.current?.scrollTo({ y: Math.max(0, y - 18), animated: true });
+        scrollRef.current?.scrollTo({ y: Math.max(0, y - STEP_HEADER_HEIGHT), animated: true });
       }
     },
     []
@@ -706,8 +708,8 @@ export function JoinAcademyScreen({ slug: slugProp }) {
       ? submitting || !reviewValidation.isValid
       : submitting || !currentStepValidation.isValid;
 
-  const footerBottomPadding = Math.max(insets.bottom, spacing.md);
-  const scrollBottomPadding = 124 + footerBottomPadding;
+  const footerBottomPadding = insets.bottom;
+  const scrollBottomPadding = CTA_BAR_HEIGHT + footerBottomPadding + spacing['3xl'];
 
   if (loading) {
     return (
@@ -749,7 +751,7 @@ export function JoinAcademyScreen({ slug: slugProp }) {
             </Text>
             <Text
               variant="bodySmall"
-              style={{ color: theme.text.secondary, textAlign: 'center', marginTop: 6 }}
+              style={{ color: theme.text.secondary, textAlign: 'center', marginTop: spacing.xs }}
             >
               {loadError || t('service.academy.join.notFound.subtitle')}
             </Text>
@@ -794,7 +796,7 @@ export function JoinAcademyScreen({ slug: slugProp }) {
             </Text>
             <Text
               variant="body"
-              style={{ color: theme.text.secondary, textAlign: 'center', marginTop: 8 }}
+              style={{ color: theme.text.secondary, textAlign: 'center', marginTop: spacing.sm }}
             >
               {t('service.academy.join.success.subtitle')} {academyName}. {t('service.academy.join.success.hint')}
             </Text>
@@ -920,8 +922,8 @@ export function JoinAcademyScreen({ slug: slugProp }) {
   return (
     <Screen safe scroll={false} style={ad.screen(theme)}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={CTA_BAR_HEIGHT}
         style={{ flex: 1 }}
       >
         <View style={{ flex: 1 }}>
@@ -1407,7 +1409,7 @@ const styles = StyleSheet.create({
   headerAvatar: {
     width: 42,
     height: 42,
-    borderRadius: 14,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1439,7 +1441,7 @@ const styles = StyleSheet.create({
 
   sectionCard: {
     borderWidth: 1,
-    borderRadius: 20,
+    borderRadius: borderRadius.lg,
   },
   sectionHeader: {
     paddingHorizontal: spacing.lg,
@@ -1503,7 +1505,7 @@ const styles = StyleSheet.create({
     right: 8,
     width: 34,
     height: 34,
-    borderRadius: 10,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1514,7 +1516,7 @@ const styles = StyleSheet.create({
   },
   reviewCard: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: borderRadius.lg,
     padding: spacing.md,
     gap: spacing.xs,
   },
@@ -1537,7 +1539,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   reviewLine: {
-    gap: 2,
+    gap: spacing.xs,
   },
 
   trustStack: {
@@ -1556,7 +1558,8 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   footerCard: {
-    borderRadius: 22,
+    minHeight: CTA_BAR_HEIGHT,
+    borderRadius: borderRadius.xl,
     borderWidth: 1,
     padding: spacing.sm,
   },
@@ -1575,7 +1578,7 @@ const styles = StyleSheet.create({
   },
   dobSheet: {
     borderWidth: 1,
-    borderRadius: 22,
+    borderRadius: borderRadius.xl,
     padding: spacing.lg,
   },
   dobActions: {
@@ -1592,14 +1595,14 @@ const styles = StyleSheet.create({
   },
   stateCard: {
     borderWidth: 1,
-    borderRadius: 22,
+    borderRadius: borderRadius.xl,
     alignItems: 'center',
     gap: spacing.sm,
   },
   stateIcon: {
     width: 64,
     height: 64,
-    borderRadius: 20,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1639,7 +1642,7 @@ const styles = StyleSheet.create({
   contactOnlyCard: {
     marginTop: spacing.md,
     borderWidth: 1,
-    borderRadius: 20,
+    borderRadius: borderRadius.lg,
     padding: spacing.lg,
     gap: spacing.md,
   },
@@ -1648,7 +1651,7 @@ const styles = StyleSheet.create({
   },
   contactAction: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     flexDirection: 'row',
