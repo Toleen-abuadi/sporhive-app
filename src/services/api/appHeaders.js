@@ -30,10 +30,14 @@ export const resolveAppToken = async () => {
  * Nothing else should manually assemble:
  *   Authorization: 'Bearer ' + token
  */
-export async function getAppAuthHeaders() {
+export async function getAppAuthHeaders(options = {}) {
+  const { allowMissingToken = false } = options;
   const token = await resolveAppToken();
 
   if (!token) {
+    if (allowMissingToken) {
+      return {};
+    }
     const err = new Error('Missing app/public token');
     err.code = 'APP_TOKEN_MISSING';
     err.kind = 'AUTH_REQUIRED';

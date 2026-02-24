@@ -18,8 +18,15 @@ const wrapApi = async (fn, label = 'Auth API failed') => {
     const data = await fn();
     return { success: true, data: normalizeAuthPayload(data) };
   } catch (error) {
-    if (__DEV__) {
-      console.warn(label, error);
+    if (__DEV__ || true) { // temporarily true for preview
+      console.warn('[authApi] ' + label, {
+        message: error?.message,
+        kind: error?.kind,
+        status: error?.status || error?.response?.status,
+        url: error?.config?.url,
+        baseURL: error?.config?.baseURL,
+        data: error?.response?.data,
+      });
     }
     return { success: false, error };
   }
@@ -27,6 +34,14 @@ const wrapApi = async (fn, label = 'Auth API failed') => {
 
 export const authApi = {
   login(payload) {
+    if (__DEV__ || true) {
+      console.info('[authApi] login payload', {
+        login_as: payload?.login_as,
+        academy_id: payload?.academy_id,
+        username: payload?.username,
+        hasPassword: Boolean(payload?.player_password || payload?.password),
+      });
+    }
     return wrapApi(() => apiClient.post('/app-auth/login', payload), 'Login failed');
   },
   registerPublic(payload) {

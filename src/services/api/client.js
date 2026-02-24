@@ -111,6 +111,54 @@ const appendParams = (url, params) => {
   return url.includes('?') ? `${url}&${qs}` : `${url}?${qs}`;
 };
 
+const DEBUG_API = !__DEV__ || true;
+// ✅ For preview APK, __DEV__ is often false.
+// Set true temporarily, then revert to `__DEV__`.
+
+const redact = (value) => {
+  if (value == null) return value;
+  if (typeof value !== 'string') return value;
+  if (value.length <= 6) return '***';
+  return `${value.slice(0, 3)}***${value.slice(-2)}`;
+};
+
+const sanitizeForLog = (obj) => {
+  if (!obj || typeof obj !== 'object') return obj;
+  try {
+    const copy = JSON.parse(JSON.stringify(obj));
+    const SENSITIVE_KEYS = [
+      'password',
+      'player_password',
+      'current_password',
+      'new_password',
+      'token',
+      'access',
+      'refresh',
+      'access_token',
+      'academy_access',
+      'authorization',
+    ];
+    const walk = (x) => {
+      if (!x || typeof x !== 'object') return;
+      Object.keys(x).forEach((k) => {
+        const v = x[k];
+        if (SENSITIVE_KEYS.includes(String(k).toLowerCase())) {
+          x[k] = typeof v === 'string' ? redact(v) : '***';
+          return;
+        }
+        if (typeof v === 'object') walk(v);
+      });
+    };
+    walk(copy);
+    return copy;
+  } catch {
+    return { note: 'failed to sanitize log payload' };
+  }
+};
+
+const nowMs = () => (global?.performance?.now ? performance.now() : Date.now());
+
+
 const buildBody = (method, data, headers) => {
   if (method === 'GET' || method === 'HEAD') return undefined;
   if (data == null) return undefined;
@@ -196,10 +244,10 @@ const clearPortalSessionOnAuthFailure = async (status, scope) => {
         : Promise.resolve(),
       storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
       typeof storage.removeAuthToken === 'function'
-        ? storage.removeAuthToken().catch(() => {})
+        ? storage.removeAuthToken().catch(() => { })
         : Promise.resolve(),
     ]);
-    if (__DEV__) {
+    if (DEBUG_API) {
       console.warn('[apiClient] cleared portal session after auth failure', { status });
     }
   } catch (error) {
@@ -226,20 +274,34 @@ const apiRequest = async (config = {}) => {
   if (scope === 'portal') {
     const portalHeaders = await getPortalAuthHeaders(nextConfig.portal || {});
     Object.assign(headers, portalHeaders);
+  } else if (scope === 'auth') {
+    const appHeaders = await getAppAuthHeaders({ allowMissingToken: true });
+    Object.assign(headers, appHeaders);
   } else if (scope === 'app') {
     const appHeaders = await getAppAuthHeaders();
     Object.assign(headers, appHeaders);
   }
 
-  if (scope === 'portal' || scope === 'app') {
+  if (scope === 'portal' || scope === 'app' || scope === 'auth') {
     const language = await readLanguage();
     if (language && !hasHeader(headers, 'Accept-Language')) {
       headers['Accept-Language'] = language;
     }
   }
 
-  if (__DEV__) {
-    console.info('API request', { method, url, scope });
+  const startedAt = nowMs();
+
+  if (DEBUG_API) {
+    console.info('[apiClient] request', {
+      method,
+      scope,
+      path,
+      url,
+      baseURL,
+      headers: sanitizeForLog(headers),
+      params: sanitizeForLog(nextConfig.params),
+      data: sanitizeForLog(nextConfig.data),
+    });
   }
 
   const body = buildBody(method, nextConfig.data, headers);
@@ -272,6 +334,20 @@ const apiRequest = async (config = {}) => {
 
   const payload = await parseResponseBody(response, nextConfig.responseType);
 
+  if (DEBUG_API) {
+    const tookMs = Math.round(nowMs() - startedAt);
+    console.info('[apiClient] response', {
+      method,
+      scope,
+      path,
+      url,
+      status: response.status,
+      ok: response.ok,
+      tookMs,
+      payload: typeof payload === 'string' ? payload.slice(0, 500) : sanitizeForLog(payload),
+    });
+  }
+
   if (!response.ok) {
     const message =
       (payload && typeof payload === 'object' && (payload.message || payload.error || payload.detail)) ||
@@ -286,7 +362,7 @@ const apiRequest = async (config = {}) => {
     if (scope === 'portal') {
       if (response.status === 401) kind = 'PORTAL_REAUTH_REQUIRED';
       if (response.status === 403) kind = 'PORTAL_FORBIDDEN';
-   } else if (response.status === 401 || response.status === 403) {
+    } else if (response.status === 401 || response.status === 403) {
       // Preserve existing app behavior (single reauth kind) outside portal.
       kind = 'REAUTH_REQUIRED';
     }
