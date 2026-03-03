@@ -2,11 +2,18 @@ import { storage, APP_STORAGE_KEYS, PORTAL_KEYS } from '../storage/storage';
 import { getPortalAcademyId, getPortalPlayerId, validatePortalSession } from '../auth/portalSession';
 import { normalizePortalOverview, normalizeUniformOrders } from '../portal/portal.normalize';
 import { assertTryOutId, getTryOutIdFromPortalSession, isValidTryOutId } from '../portal/portal.tryout';
+import { runPortalReauthOnce } from '../auth/auth.store';
 import { API_BASE_URL_V1 } from '../../config/env';
 import { apiClient } from './client';
 import { resolvePortalAcademyId } from './portalHeaders';
 
 const API_BASE_URL = API_BASE_URL_V1;
+const DEBUG_PORTAL_PIPELINE = true;
+
+const logPortalPipeline = (event, payload = {}) => {
+  if (!DEBUG_PORTAL_PIPELINE) return;
+  console.info(`[playerPortalApi] ${event}`, payload);
+};
 
 // ---------- Shared helpers ----------
 
@@ -45,6 +52,7 @@ const resolveTryOutId = async (override, { require = false } = {}) => {
 };
 
 const normalizePortalError = (error, fallbackKind = 'PORTAL_ERROR') => {
+  const explicitKind = error?.kind || error?.code || null;
   const status =
     error?.response?.status ||
     error?.status ||
@@ -57,6 +65,8 @@ const normalizePortalError = (error, fallbackKind = 'PORTAL_ERROR') => {
     kind = 'PORTAL_REAUTH_REQUIRED';
   } else if (status === 403) {
     kind = 'PORTAL_FORBIDDEN';
+  } else if (explicitKind) {
+    kind = explicitKind;
   } else {
     kind = fallbackKind;
   }
@@ -66,16 +76,83 @@ const normalizePortalError = (error, fallbackKind = 'PORTAL_ERROR') => {
   return normalized;
 };
 
-const ensureSession = async (sessionOverride) => {
-  const session = sessionOverride || (await readAuthSession());
-  const validation = validatePortalSession(session);
+const shouldAttemptPortalReauth = (error) => {
+  const status =
+    error?.response?.status ||
+    error?.status ||
+    error?.statusCode ||
+    error?.meta?.status ||
+    null;
+  const kind = error?.kind || error?.code || null;
 
-  if (!validation.ok) {
-    const error = new Error('PORTAL_SESSION_INVALID');
-    error.code = 'PORTAL_SESSION_INVALID';
-    error.kind = 'PORTAL_SESSION_INVALID';
-    error.reason = validation.reason;
+  if (status === 401) return true;
+  if (kind === 'PORTAL_REAUTH_REQUIRED' || kind === 'PORTAL_SESSION_INVALID') return true;
+  if (kind === 'PORTAL_ACADEMY_REQUIRED' || kind === 'PORTAL_ACADEMY_MISSING') return true;
+  if (kind === 'PORTAL_TOKEN_MISSING' || kind === 'PORTAL_AUTH_REQUIRED') return true;
+  if (kind === 'APP_TOKEN_MISSING' || kind === 'REAUTH_REQUIRED') return true;
+  return false;
+};
+
+const createPortalSessionInvalidError = (validation, session) => {
+  const error = new Error('PORTAL_SESSION_INVALID');
+  error.code = 'PORTAL_SESSION_INVALID';
+  error.kind = 'PORTAL_SESSION_INVALID';
+  error.reason = validation.reason;
+  error.context = {
+    loginAs: session?.login_as || session?.user?.type || null,
+    academyId: getPortalAcademyId(session),
+    playerId: getPortalPlayerId(session),
+    hasToken: Boolean(session?.token),
+  };
+  return error;
+};
+
+const ensureSession = async (sessionOverride, options = {}) => {
+  const source = options?.source || 'portal';
+  let session = sessionOverride || (await readAuthSession());
+  let portalSession = await readPortalSession();
+  let validation = validatePortalSession(session, { portalSession });
+
+  if (validation.ok) {
+    return session;
+  }
+
+  const missingBeforeThrow = {
+    source,
+    reason: validation.reason,
+    academyId: getPortalAcademyId(session),
+    playerId: getPortalPlayerId(session),
+    loginAs: session?.login_as || session?.user?.type || null,
+    hasToken: Boolean(session?.token),
+    isExpired: validation.reason === 'expired',
+  };
+  logPortalPipeline('ensureSession:invalid', missingBeforeThrow);
+
+  if (options?.allowReauth === false) {
+    throw createPortalSessionInvalidError(validation, session);
+  }
+
+  const reauthResult = await runPortalReauthOnce({
+    source: `ensureSession:${source}`,
+    reason: validation.reason,
+  });
+  logPortalPipeline('ensureSession:reauthResult', {
+    source,
+    success: reauthResult?.success === true,
+    reason: reauthResult?.reason || null,
+  });
+
+  if (!reauthResult?.success) {
+    const error = createPortalSessionInvalidError(validation, session);
+    error.reauthReason = reauthResult?.reason || 'reauth_failed';
     throw error;
+  }
+
+  session = sessionOverride || (await readAuthSession());
+  portalSession = await readPortalSession();
+  validation = validatePortalSession(session, { portalSession });
+  if (!validation.ok) {
+    throw createPortalSessionInvalidError(validation, session);
   }
 
   return session;
@@ -83,9 +160,53 @@ const ensureSession = async (sessionOverride) => {
 
 // ---------- Portal request helper (uses shared apiClient) ----------
 
+const executePortalRequestWithRetry = async (requestFactory, meta = {}) => {
+  const label = meta?.label || 'portal-request';
+  try {
+    return await requestFactory({ refreshAttempted: false, retried: false });
+  } catch (error) {
+    if (!shouldAttemptPortalReauth(error)) {
+      throw error;
+    }
+
+    logPortalPipeline('request:reauthNeeded', {
+      label,
+      kind: error?.kind || error?.code || null,
+      status: error?.status || error?.response?.status || null,
+    });
+
+    const reauthResult = await runPortalReauthOnce({
+      source: `request:${label}`,
+      reason: error?.kind || error?.code || error?.status || 'portal_request_failed',
+    });
+
+    if (!reauthResult?.success) {
+      logPortalPipeline('request:reauthFailed', {
+        label,
+        reason: reauthResult?.reason || null,
+      });
+      const normalized = normalizePortalError(error);
+      normalized.reauthReason = reauthResult?.reason || 'reauth_failed';
+      throw normalized;
+    }
+
+    logPortalPipeline('request:retryingOnce', { label });
+    return requestFactory({ refreshAttempted: true, retried: true });
+  }
+};
+
 const portalPost = (path, body, options = {}) => {
   const { portal, ...rest } = options || {};
-  return apiClient.post(path, body != null ? body : {}, { ...rest, portal });
+  return executePortalRequestWithRetry(
+    ({ refreshAttempted, retried }) =>
+      apiClient.post(path, body != null ? body : {}, {
+        ...rest,
+        portal,
+        _portalRefreshAttempted: Boolean(refreshAttempted),
+        _portalRetried: Boolean(retried),
+      }),
+    { label: `POST:${path}` }
+  );
 };
 
 /**
@@ -95,7 +216,17 @@ const portalPost = (path, body, options = {}) => {
  */
 const portalGet = (path, params, options = {}) => {
   const { portal, ...rest } = options || {};
-  return apiClient.get(path, { ...rest, params: params != null ? params : {}, portal });
+  return executePortalRequestWithRetry(
+    ({ refreshAttempted, retried }) =>
+      apiClient.get(path, {
+        ...rest,
+        params: params != null ? params : {},
+        portal,
+        _portalRefreshAttempted: Boolean(refreshAttempted),
+        _portalRetried: Boolean(retried),
+      }),
+    { label: `GET:${path}` }
+  );
 };
 
 // ---------- Payload helpers ----------
@@ -109,12 +240,29 @@ const portalGet = (path, params, options = {}) => {
  * If requireTryOut = true and we can't resolve it, we throw a clean JS error.
  */
 const withAcademyPayload = async (payload = {}, options = {}) => {
-  const academyId = await resolvePortalAcademyId(options);
+  let academyId = await resolvePortalAcademyId(options);
+  if (!academyId) {
+    logPortalPipeline('withAcademyPayload:missingAcademyId', {
+      optionsAcademyId: options?.academyId ?? null,
+      hasPayloadAcademy: Boolean(payload?.academy_id || payload?.customer_id),
+    });
+
+    const reauthResult = await runPortalReauthOnce({
+      source: 'withAcademyPayload',
+      reason: 'missing_academy_id',
+    });
+
+    if (reauthResult?.success) {
+      academyId = await resolvePortalAcademyId(options);
+    }
+  }
+
   if (!academyId) {
     const error = new Error('Portal academy id required');
     error.kind = 'PORTAL_ACADEMY_REQUIRED';
     throw error;
   }
+
   const body = { ...(payload || {}) };
 
   if (academyId) {
@@ -154,31 +302,21 @@ export const playerPortalApi = {
    * Raw overview (kept for backward-compat with older callers).
    */
   async getOverviewRaw(sessionOverride) {
-    const session = sessionOverride || (await readAuthSession());
-    const validation = validatePortalSession(session);
-
-    if (!validation.ok) {
-      const error = new Error('PORTAL_SESSION_INVALID');
-      error.code = 'PORTAL_SESSION_INVALID';
-      error.kind = 'PORTAL_SESSION_INVALID';
-      error.reason = validation.reason;
-      return { success: false, error };
-    }
-
-    const academyId = getPortalAcademyId(session);
-    const playerId = getPortalPlayerId(session);
-
-    const payload = {};
-    if (academyId) {
-      payload.academy_id = Number(academyId);
-      payload.customer_id = Number(academyId);
-    }
-    if (playerId) {
-      payload.player_id = playerId;
-      payload.external_player_id = playerId;
-    }
-
     try {
+      const session = await ensureSession(sessionOverride, { source: 'getOverviewRaw' });
+      const academyId = getPortalAcademyId(session);
+      const playerId = getPortalPlayerId(session);
+
+      const payload = {};
+      if (academyId) {
+        payload.academy_id = Number(academyId);
+        payload.customer_id = Number(academyId);
+      }
+      if (playerId) {
+        payload.player_id = playerId;
+        payload.external_player_id = playerId;
+      }
+
       const portal = academyId ? { academyId } : undefined;
       if (__DEV__) console.trace('[TRACE] overview network request fired');
       const data = await portalPost('/player-portal-external-proxy/player-profile/overview', payload, { portal });
@@ -193,7 +331,7 @@ export const playerPortalApi = {
    */
   async getOverview(sessionOverride) {
     try {
-      const session = await ensureSession(sessionOverride);
+      const session = await ensureSession(sessionOverride, { source: 'getOverview' });
 
       const academyId = getPortalAcademyId(session);
       const playerId = getPortalPlayerId(session);
@@ -241,7 +379,7 @@ export const playerPortalApi = {
 
   async listOrders(sessionOverride, payload = {}) {
     try {
-      const session = await ensureSession(sessionOverride);
+      const session = await ensureSession(sessionOverride, { source: 'listOrders' });
 
       const playerId = getPortalPlayerId(session);
       const { body, portal } = await withAcademyPayload(
@@ -258,7 +396,7 @@ export const playerPortalApi = {
 
   async listRenewals(sessionOverride, payload = {}) {
     try {
-      const session = await ensureSession(sessionOverride);
+      const session = await ensureSession(sessionOverride, { source: 'listRenewals' });
 
       const playerId = getPortalPlayerId(session);
       const { body, portal } = await withAcademyPayload(
@@ -275,7 +413,7 @@ export const playerPortalApi = {
 
   async submitRenewal(sessionOverride, payload = {}) {
     try {
-      const session = await ensureSession(sessionOverride);
+      const session = await ensureSession(sessionOverride, { source: 'submitRenewal' });
 
       const playerId = getPortalPlayerId(session);
       const { body, portal } = await withAcademyPayload(
@@ -292,7 +430,7 @@ export const playerPortalApi = {
 
   async printInvoice(sessionOverride, payload = {}) {
     try {
-      const session = await ensureSession(sessionOverride);
+      const session = await ensureSession(sessionOverride, { source: 'printInvoice' });
 
       const playerId = getPortalPlayerId(session);
       const { body, portal } = await withAcademyPayload(
@@ -372,7 +510,7 @@ export const portalApi = {
 
   async updateProfile(payload = {}, options = {}) {
     return wrapApi(async () => {
-      const session = await ensureSession(options?.sessionOverride);
+      const session = await ensureSession(options?.sessionOverride, { source: 'updateProfile' });
       const playerId = getPortalPlayerId(session);
 
       const withPlayer = {

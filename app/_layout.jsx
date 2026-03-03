@@ -21,7 +21,7 @@ import {
   ThemeProvider as AppThemeProvider,
   useTheme,
 } from '../src/theme/ThemeProvider';
-import { I18nProvider, useTranslation } from '../src/services/i18n/i18n';
+import { I18nProvider, useI18n, useTranslation } from '../src/services/i18n/i18n';
 import { ToastHost } from '../src/components/ui/ToastHost';
 import { AppBottomNav } from '../src/components/navigation/AppBottomNav';
 import { PortalModalsProvider } from '../src/services/portal/portal.modals';
@@ -100,6 +100,26 @@ function NavThemeBridge({ children }) {
   };
 
   return <ThemeProvider value={navTheme}>{children}</ThemeProvider>;
+}
+
+function I18nReadyGate({ children }) {
+  const { isLoading } = useI18n();
+  const { colors } = useTheme();
+
+  if (!isLoading) return children;
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.background,
+      }}
+    >
+      <ActivityIndicator size="large" color={colors.accentOrange} />
+    </View>
+  );
 }
 
 function AuthGate({ children, onReady }) {
@@ -659,19 +679,21 @@ export default function RootLayout() {
   return (
     <AppThemeProvider>
       <I18nProvider>
-        <AuthProvider>
-          <PortalModalsProvider>
-            <ToastHost>
-              <NavThemeBridge>
-                <AuthGate onReady={hideSplash}>
-                  <Stack screenOptions={{ headerShown: false }} />
-                  <AppBottomNav />
-                  <StatusBar style="auto" />
-                </AuthGate>
-              </NavThemeBridge>
-            </ToastHost>
-          </PortalModalsProvider>
-        </AuthProvider>
+        <I18nReadyGate>
+          <AuthProvider>
+            <PortalModalsProvider>
+              <ToastHost>
+                <NavThemeBridge>
+                  <AuthGate onReady={hideSplash}>
+                    <Stack screenOptions={{ headerShown: false }} />
+                    <AppBottomNav />
+                    <StatusBar style="auto" />
+                  </AuthGate>
+                </NavThemeBridge>
+              </ToastHost>
+            </PortalModalsProvider>
+          </AuthProvider>
+        </I18nReadyGate>
       </I18nProvider>
     </AppThemeProvider>
   );

@@ -1,6 +1,6 @@
 import React from 'react';
-import { PlaygroundsDiscoveryScreen } from '../../src/screens/PlaygroundsDiscoveryScreen';
+import { PlaygroundsMapScreen } from '../../src/screens/playgrounds/PlaygroundsMapScreen';
 
 export default function PlaygroundsIndex() {
-  return <PlaygroundsDiscoveryScreen />;
+  return <PlaygroundsMapScreen />;
 }

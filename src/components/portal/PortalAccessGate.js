@@ -45,12 +45,20 @@ export function PortalAccessGate({
     handledReauthRef.current = true;
 
     if (__DEV__) {
-      console.trace('[TRACE] PortalAccessGate triggering onReauthRequired');
+      console.trace('[TRACE] PortalAccessGate triggering onReauthRequired', {
+        kind: error?.kind || error?.code || null,
+        status: error?.status || error?.response?.status || null,
+        reason: error?.reason || null,
+      });
     }
 
     // IMPORTANT: side-effects must not run during render
-    onReauthRequired?.(error);
-  }, [error, onReauthRequired]);
+    if (typeof onReauthRequired === 'function') {
+      onReauthRequired(error);
+      return;
+    }
+    onRetry?.();
+  }, [error, onReauthRequired, onRetry]);
 
   if (isLoading) {
     return null;

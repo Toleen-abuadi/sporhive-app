@@ -22,7 +22,21 @@
     "notFound": "غير موجود",
     "apply": "تطبيق الفلاتر",
     "reset": "إعادة ضبط",
-    "search": "بحث"
+    "search": "بحث",
+    "errors": {
+      "network": "لا يوجد اتصال بالإنترنت. تحقق من الاتصال ثم حاول مرة أخرى.",
+      "generic": "حدث خطأ ما. حاول مرة أخرى."
+    }
+  },
+  "profile": {
+    "errors": {
+      "englishOnly": "استخدم أحرف إنجليزية فقط.",
+      "arabicOnly": "استخدم أحرف عربية فقط.",
+      "minAge": "يجب أن يكون عمر اللاعب {{age}} سنوات على الأقل."
+    },
+    "messages": {
+      "updated": "تم تحديث الملف الشخصي بنجاح."
+    }
   },
   "venueDetails": {
     "title": "\u062a\u0641\u0627\u0635\u064a\u0644 \u0627\u0644\u0645\u0644\u0639\u0628",
@@ -107,7 +121,7 @@
     "greeting": "{{timeOfDay}} الخير، {{name}} 👋",
     "timeOfDay": {
       "morning": "صباح",
-      "afternoon": "بعد الظهر",
+      "afternoon": "مساء",
       "evening": "مساء"
     },
     "location": "{{city}}، {{country}}",
@@ -344,8 +358,15 @@
       "close": "إغلاق",
       "remove": "إزالة",
       "refresh": "تحديث",
-      "somethingWentWrong": "Something went wrong."
-    },
+      "somethingWentWrong": "حدث خطأ ما."
+    ,
+      "actionRequired": "إجراء مطلوب",
+      "timeline": {
+        "created": "تم الإنشاء",
+        "pending": "قيد الانتظار",
+        "approved": "موافق عليه",
+        "completed": "مكتمل"
+      }},
     "tabs": {
       "dashboard": "الرئيسية",
       "training": "التدريب",
@@ -382,7 +403,31 @@
       "confirmWarning": "اختر التواريخ وأضف سبباً.",
       "pending": "قيد الانتظار",
       "rejected": "مرفوض"
-    },
+    ,
+      "loadingTitle": "جارٍ تحميل التجميد",
+      "loadingDescription": "نقوم بجلب سجل وحالة التجميد.",
+      "errorTitle": "تعذر تحميل التجميد",
+      "errorTryAgain": "تعذر تحميل بيانات التجميد. حاول مرة أخرى.",
+      "currentFreezeRange": "التجميد الحالي: {{start}} إلى {{end}}",
+      "upcomingFreezeRange": "التجميد القادم: {{start}} إلى {{end}}",
+      "confirmDescription": "يرجى مراجعة تواريخ وسبب التجميد قبل الإرسال.",
+      "acknowledge": "أؤكد أن تفاصيل التجميد صحيحة.",
+      "info": {
+        "title": "كيف يعمل التجميد",
+        "summary": "طلبات التجميد توقف الجلسات بعد موافقة الأكاديمية.",
+        "bullet1": "اختر تاريخ بداية ونهاية صالحين.",
+        "bullet2": "يبقى الطلب قيد الانتظار حتى موافقة الأكاديمية.",
+        "bullet3": "يمكنك متابعة أحدث حالة طلب التجميد من هنا."
+      },
+      "action": {
+        "description": "قدّم طلب تجميد إذا احتجت إلى إيقاف التدريب مؤقتًا.",
+        "label": "طلب تجميد"
+      },
+      "policy": {
+        "one": "يجب أن تتطابق تواريخ التجميد مع فترة التوقف المطلوبة.",
+        "two": "تقوم الأكاديمية بمراجعة أهلية طلب التجميد.",
+        "three": "يتم تحديث الجلسات المتبقية بعد الموافقة."
+      }},
     "performance": {
       "title": "الأداء",
       "subtitle": "التقييمات والملاحظات والتقدم",
@@ -400,7 +445,20 @@
       "error": "تعذر تحميل بيانات الأداء.",
       "periodLabel": "الفترة {{index}}",
       "ratingLabel": "تقييم {{index}}"
-    },
+    ,
+      "missingTryOut": "بيانات الأداء غير متاحة. يرجى تحديث جلسة البوابة.",
+      "introTitle": "ماذا يعني هذا",
+      "introDescription": "يعرض الأداء تطور تدريبك مع مرور الوقت.",
+      "trendsTitle": "الاتجاهات",
+      "trendsDescription": "كل شريط يقارن آخر تقييم لكل فئة.",
+      "periodNarrativeTitle": "سرد الفترات",
+      "periodScore": "اللاعب {{player}} / المدرب {{coach}}",
+      "highlights": {
+        "title": "أبرز النقاط",
+        "overallScore": "التقييم العام",
+        "recentRatings": "أحدث التقييمات",
+        "trackedPeriods": "الفترات المتتبعة"
+      }},
     "uniforms": {
       "title": "متجر الزي",
       "subtitle": "أحدث الأطقم والملابس",
@@ -435,14 +493,29 @@
       "oneSizeItem": "مقاس واحد يناسب الجميع",
       "priceMissing": "السعر غير متوفر.",
       "priceNA": "السعر غير متاح",
-      "selectSize": "Please select a size before adding to cart.",
+      "selectSize": "يرجى اختيار المقاس قبل الإضافة إلى السلة.",
       "sizeLabel": "المقاس: {{size}} • {{price}} لكل قطعة",
       "sizeRequired": "يرجى اختيار المقاس.",
       "sizeSeparator": " • ",
       "total": "الإجمالي",
       "viewCart": "عرض السلة",
       "viewDetails": "عرض"
-    },
+    ,
+      "startHereTitle": "ابدأ من هنا",
+      "startHereDescription": "اختر العناصر المطلوبة أولًا ثم أضف العناصر الاختيارية.",
+      "sections": {
+        "required": "إلزامي",
+        "recommended": "موصى به",
+        "optional": "اختياري"
+      },
+      "sectionHints": {
+        "required": "عناصر مطلوبة من الأكاديمية.",
+        "recommended": "عناصر مقترحة للتدريب المنتظم.",
+        "optional": "عناصر إضافية يمكنك طلبها عند الحاجة."
+      },
+      "validationPrinting": "\u064a\u0631\u062c\u0649 \u0625\u062f\u062e\u0627\u0644 \u0631\u0642\u0645 \u0627\u0644\u0644\u0627\u0639\u0628 \u0642\u0628\u0644 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0639\u0646\u0627\u0635\u0631 \u0627\u0644\u0645\u0637\u0628\u0648\u0639\u0629.",
+      "playerNumberRequired": "\u0631\u0642\u0645 \u0627\u0644\u0644\u0627\u0639\u0628 \u0645\u0637\u0644\u0648\u0628.",
+      "outOfStock": "\u0647\u0630\u0627 \u0627\u0644\u0639\u0646\u0635\u0631 \u063a\u064a\u0631 \u0645\u062a\u0648\u0641\u0631 \u062d\u0627\u0644\u064a\u064b\u0627."},
     "orders": {
       "title": "طلباتي",
       "subtitle": "تتبع مشتريات الزي",
@@ -477,7 +550,27 @@
       "referenceLabel": "المرجع",
       "totalLabel": "الإجمالي",
       "viewOrder": "عرض الطلب"
-    },
+    ,
+      "sections": {
+        "inProgress": "إجراء مطلوب",
+        "past": "سجل الطلبات"
+      },
+      "info": {
+        "title": "معلومات الطلبات",
+        "summary": "تابع الطلبات النشطة والمكتملة بسهولة.",
+        "bullet1": "استخدم الفلاتر للوصول السريع إلى الطلبات الحالية أو السابقة.",
+        "bullet2": "افتح أي طلب لمراجعة الحالة وتفاصيل التسليم."
+      },
+      "actionInProgress": "الطلب {{id}} يحتاج إجراء منك.",
+      "lastUpdated": "آخر تحديث: {{date}}",
+      "statusTitle": "حالة الطلب",
+      "statusDescriptionInProgress": "طلبك ما زال قيد المعالجة.",
+      "statusDescriptionCompleted": "تم إكمال طلبك.",
+      "backToOrders": "العودة إلى الطلبات",
+      "statusTracking": "تتبع الحالة",
+      "summaryTitle": "ملخص الطلب",
+      "deliveryNextStep": "الخطوة التالية للتسليم",
+      "awaitingDispatch": "بانتظار الشحن"},
     "news": {
       "title": "الأخبار",
       "subtitle": "آخر تحديثات الأكاديمية",
@@ -490,7 +583,12 @@
       "errorTitle": "تعذر تحميل الأخبار",
       "error": "تعذر تحميل تحديثات الأخبار.",
       "imagesUnavailable": "صور الأخبار غير متاحة."
-    },
+    ,
+      "startHereTitle": "ابدأ من هنا",
+      "startHereDescription": "تظهر التحديثات المهمة أولًا. افتح كل بطاقة للتفاصيل والوسائط.",
+      "important": "مهم",
+      "allUpdates": "كل التحديثات",
+      "sourceFallback": "سبور هايف"},
     "profile": {
       "title": "الملف الشخصي",
       "subtitle": "إدارة هوية اللاعب",
@@ -535,9 +633,18 @@
       "registrationType": "نوع التسجيل",
       "sectionPlayer": "معلومات اللاعب",
       "sectionRegistration": "بيانات التسجيل",
-      "updateBadRequest": "Please check the entered values.",
-      "updateSuccess": "Profile updated successfully"
-    },
+      "updateBadRequest": "يرجى التحقق من القيم المدخلة.",
+      "updateSuccess": "تم تحديث الملف الشخصي بنجاح"
+    ,
+      "setupTitle": "إعداد الملف الشخصي",
+      "setupDescription": "أكمل بيانات ملفك الشخصي للحفاظ على معلوماتك محدثة.",
+      "editContact": "معلومات التواصل",
+      "editPlayerInfo": "بيانات اللاعب",
+      "validation": {
+        "firstNameRequired": "الاسم الأول مطلوب.",
+        "lastNameRequired": "اسم العائلة مطلوب.",
+        "emailInvalid": "يرجى إدخال بريد إلكتروني صحيح."
+      }},
     "login": {
       "title": "بوابة اللاعب",
       "subtitle": "سجّل الدخول للوصول إلى لوحة التحكم",
@@ -633,7 +740,7 @@
       "title": "تعذر تحميل البوابة"
     },
     "errors": {
-      "forbidden": "You do not have access to do this.",
+      "forbidden": "ليس لديك صلاحية لتنفيذ هذا الإجراء.",
       "forbiddenDescription": "لم نتمكن من التحقق من صلاحيات بوابة اللاعب. حاول مرة أخرى.",
       "forbiddenTitle": "تعذر التحقق من الصلاحيات",
       "overviewDescription": "لم نتمكن من تحميل بيانات البوابة. حاول مرة أخرى.",
@@ -664,7 +771,29 @@
       "subtitle": "مركز تدريبك الشخصي",
       "title": "بوابة اللاعب",
       "welcomeBack": "مرحبًا بعودتك"
-    },
+    ,
+      "startHereTitle": "ابدأ من هنا",
+      "startHereDescription": "استخدم الإجراءات السريعة لإدارة المدفوعات والتجديدات والطلبات والملف الشخصي.",
+      "readyTitle": "كل شيء على ما يرام",
+      "readyDescription": "لا توجد إجراءات عاجلة مطلوبة حاليًا.",
+      "quickActions": "إجراءات سريعة",
+      "topCount": "الأهم {{count}}",
+      "upcomingDueSoon": "القادم",
+      "nextPaymentDue": "الدفعة القادمة مستحقة في {{date}}.",
+      "registrationEnds": "ينتهي التسجيل في {{date}}.",
+      "review": "مراجعة",
+      "recentUpdates": "آخر التحديثات",
+      "latestPayment": "آخر دفعة",
+      "latestOrder": "آخر طلب",
+      "sessionsRemaining": "الجلسات المتبقية",
+      "action": {
+        "paymentDue": "الدفعة مستحقة في {{date}}.",
+        "payNow": "ادفع الآن",
+        "renewalRecommended": "يُنصح بالتجديد خلال {{days}} يومًا.",
+        "renewNow": "جدّد الآن",
+        "pendingFreeze": "لديك طلب تجميد قيد الانتظار.",
+        "viewFreeze": "عرض التجميد"
+      }},
     "more": {
       "freezes": {
         "subtitle": "إيقاف الاشتراك مؤقتًا",
@@ -691,7 +820,47 @@
         "subtitle": "أحدث الأطقم والمستلزمات",
         "title": "متجر الزي"
       }
-    },
+    ,
+      "startHereTitle": "ابدأ من هنا",
+      "startHereDescription": "اعثر على الدعم والصفحات القانونية وأدوات الحساب في مكان واحد.",
+      "sections": {
+        "account": {
+          "title": "الحساب",
+          "subtitle": "الملف الشخصي والمدفوعات والتجميد"
+        },
+        "support": {
+          "title": "الدعم",
+          "subtitle": "الأداء وتحديثات الأكاديمية"
+        },
+        "about": {
+          "title": "المتجر والطلبات",
+          "subtitle": "كتالوج الزي وتتبع الطلبات"
+        },
+        "legal": {
+          "title": "القانونية",
+          "subtitle": "الخصوصية والشروط"
+        },
+        "settings": {
+          "title": "الإعدادات",
+          "subtitle": "تفضيلات البوابة"
+        }
+      },
+      "legal": {
+        "privacyTitle": "سياسة الخصوصية",
+        "privacySubtitle": "كيف يتم التعامل مع بياناتك",
+        "termsTitle": "شروط الخدمة",
+        "termsSubtitle": "قواعد استخدام البوابة"
+      },
+      "settings": {
+        "portalSettingsTitle": "إعدادات البوابة",
+        "portalSettingsSubtitle": "الإشعارات واللغة والتفضيلات"
+      },
+      "performance": {
+        "title": "الأداء",
+        "subtitle": "التقييمات والتقدم"
+      },
+      "destructiveTitle": "إجراءات حساسة",
+      "signOutSubtitle": "تسجيل الخروج من حساب بوابة اللاعب"},
     "payments": {
       "amountLabel": "المبلغ",
       "defaultTitle": "دفعة",
@@ -715,7 +884,32 @@
       "statusUnpaid": "غير مدفوع",
       "subtitle": "الفواتير والمعاملات والإيصالات",
       "title": "المدفوعات"
-    },
+    ,
+      "sections": {
+        "unpaidAction": "إجراء مطلوب",
+        "dueSoon": "مستحق قريبًا",
+        "paid": "مدفوع"
+      },
+      "info": {
+        "title": "معلومات الدفع",
+        "bullet1": "راجع الفواتير قبل تاريخ الاستحقاق.",
+        "bullet2": "استخدم الفلاتر للعثور على المدفوع وغير المدفوع.",
+        "bullet3": "افتح أي دفعة لعرض التفاصيل الكاملة وبيانات الإيصال."
+      },
+      "actionBannerDescription": "الدفعة مستحقة في {{date}}.",
+      "actionBannerLabel": "عرض الدفعة",
+      "emptyDescription": "لا توجد لديك سجلات مدفوعات بعد.",
+      "detailInfo": {
+        "title": "إيصال الدفع",
+        "bullet1": "تحقق من المبلغ وتاريخ الاستحقاق والحالة.",
+        "bullet2": "نزّل الفاتورة عند توفرها.",
+        "bullet3": "تواصل مع الدعم إذا بدت تفاصيل الدفع غير صحيحة."
+      },
+      "resolveBefore": "يرجى تسوية هذه الدفعة قبل {{date}}.",
+      "statusNextStep": "الحالة والخطوة التالية",
+      "whatYouCanDoTitle": "ما الذي يمكنك فعله الآن",
+      "whatYouCanDoUnpaid": "أكمل الدفع وارفع إثبات الدفع إذا كان مطلوبًا.",
+      "whatYouCanDoPaid": "احتفظ بهذا الإيصال للرجوع إليه لاحقًا."},
     "renewals": {
       "actions": {
         "back": "العودة للوحة التحكم",
@@ -788,7 +982,51 @@
       },
       "title": "التجديدات",
       "viewDetails": "عرض التفاصيل"
-    }
+    ,
+      "missingTryOut": "بيانات التجديد غير متاحة. يرجى تحديث جلسة البوابة.",
+      "groups": {
+        "title": "مجموعات التجديد",
+        "actionNeeded": "إجراء مطلوب",
+        "active": "نشط",
+        "expired": "منتهي",
+        "upcoming": "قادم"
+      },
+      "info": {
+        "title": "معلومات التجديد",
+        "bullet1": "تحقق من الأهلية قبل إرسال طلب التجديد.",
+        "bullet2": "اختر التواريخ وعدد الجلسات المناسب.",
+        "bullet3": "تقوم الأكاديمية بمراجعة الطلب والموافقة عليه."
+      },
+      "actionBanner": {
+        "description": "ينتهي اشتراكك الحالي في {{date}}.",
+        "label": "فتح التجديدات"
+      },
+      "detailInfo": {
+        "title": "تفاصيل التجديد",
+        "bullet1": "راجع الأهلية الحالية وتاريخ الانتهاء.",
+        "bullet2": "قارن بين خيارات الدورة والمجموعة المتاحة.",
+        "bullet3": "أرسل الطلب بعد تأكيد جميع التفاصيل."
+      },
+      "statusNextStep": "الحالة والخطوة التالية",
+      "whatYouCanDoTitle": "ما الذي يمكنك فعله الآن",
+      "whatYouCanDoAction": "قدّم طلب التجديد من هذه الصفحة.",
+      "whatYouCanDoNoAction": "لا يلزم أي إجراء الآن.",
+      "openOptions": "عرض الخيارات",
+      "submit": {
+        "confirmTitle": "تأكيد طلب التجديد",
+        "confirmDescription": "يرجى تأكيد تفاصيل التجديد قبل الإرسال.",
+        "confirmWarning": "يرجى مراجعة جميع التفاصيل قبل إرسال طلب التجديد.",
+        "acknowledge": "أؤكد أن تفاصيل التجديد صحيحة.",
+        "policy": {
+          "one": "تتم مراجعة طلبات التجديد المقدمة من الأكاديمية.",
+          "two": "قد يتم تعديل التواريخ المطلوبة حسب التوفر.",
+          "three": "سيتم إشعارك فور معالجة الطلب."
+        },
+        "errorMessage": "يرجى المحاولة مرة أخرى.",
+        "errorTitle": "فشل الإرسال",
+        "successMessage": "ستراجع الأكاديمية طلبك قريبًا.",
+        "successTitle": "تم إرسال طلب التجديد!"
+      }}
   },
   "welcome": {
     "title": "مرحبًا بك في سبور هايف",
@@ -2515,7 +2753,7 @@
       "errors": {
         "generic": "حدث خطأ ما. حاول مرة أخرى.",
         "network": "لا يوجد اتصال بالإنترنت. تحقق من الاتصال ثم حاول.",
-        "invalidCredentials": "بيانات الدخول غير صحيحة.",
+        "invalidCredentials": "اسم المستخدم أو كلمة المرور غير صحيحة.",
         "deactivated": "هذا الحساب متوقف. تواصل مع الدعم.",
         "invalidOtp": "الرمز غير صالح أو منتهي."
       },
@@ -3262,7 +3500,7 @@
     "errors": {
       "generic": "حدث خطأ ما. حاول مرة أخرى.",
       "network": "لا يوجد اتصال بالإنترنت. تحقق من الاتصال ثم حاول.",
-      "invalidCredentials": "بيانات الدخول غير صحيحة.",
+      "invalidCredentials": "اسم المستخدم أو كلمة المرور غير صحيحة.",
       "deactivated": "هذا الحساب متوقف. تواصل مع الدعم.",
       "invalidOtp": "الرمز غير صالح أو منتهي."
     },
@@ -3410,6 +3648,22 @@
         "saturday": "السبت"
       },
       "courses": "الدورات"
+    }
+  },
+  "payment": {
+    "receipt": {
+      "downloadSuccess": "\u062a\u0645 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0625\u064a\u0635\u0627\u0644 \u0628\u0646\u062c\u0627\u062d.",
+      "downloadFailed": "\u062a\u0639\u0630\u0651\u0631 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0625\u064a\u0635\u0627\u0644. \u062d\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062e\u0631\u0649."
+    },
+    "subType": {
+      "additional_uniform": "\u0632\u064a \u0625\u0636\u0627\u0641\u064a",
+      "renewal": "\u062a\u062c\u062f\u064a\u062f \u0627\u0644\u0627\u0634\u062a\u0631\u0627\u0643",
+      "new": "\u062a\u0633\u062c\u064a\u0644 \u062c\u062f\u064a\u062f"
+    },
+    "type": {
+      "full": "\u0643\u0627\u0645\u0644",
+      "installment": "\u0623\u0642\u0633\u0627\u0637",
+      "unknown": "\u062f\u0641\u0639\u0629"
     }
   }
 }

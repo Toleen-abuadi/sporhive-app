@@ -9,6 +9,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { useI18n } from '../../services/i18n/i18n';
 import { makeADTheme } from '../../theme/academyDiscovery.styles';
 import { API_BASE_URL } from '../../services/api/client';
+import { formatDistanceLabel } from '../../utils/distance';
 
 const toAbsoluteUrlMaybe = (url, base) => {
   if (!url) return null;
@@ -35,6 +36,8 @@ export function MapPeekCard({ academy, onView }) {
     const city = academy.city || academy.location || '';
     const rating = academy.rating || academy.rating_avg || academy.ratingAvg || null;
     const ratingCount = academy.rating_count || academy.ratingCount || null;
+    const distanceKm = academy.distance_km ?? academy.distanceKm ?? null;
+    const distanceLabel = formatDistanceLabel(distanceKm);
 
     const cover =
       toAbsoluteUrlMaybe(academy.cover_url, API_BASE_URL) ||
@@ -49,6 +52,7 @@ export function MapPeekCard({ academy, onView }) {
       city,
       rating,
       ratingCount,
+      distanceLabel,
       cover,
       logo,
     };
@@ -84,6 +88,14 @@ export function MapPeekCard({ academy, onView }) {
               <Star size={14} color={theme.accent.orange} />
               <Text variant="caption" color={theme.text.secondary}>
                 {' '}{vm.rating}{vm.ratingCount ? ` (${vm.ratingCount})` : ''}
+              </Text>
+            </View>
+          ) : null}
+          {vm.distanceLabel ? (
+            <View style={styles.metaRow}>
+              <MapPin size={14} color={theme.text.muted} />
+              <Text variant="caption" color={theme.text.secondary}>
+                {' '}{vm.distanceLabel}
               </Text>
             </View>
           ) : null}

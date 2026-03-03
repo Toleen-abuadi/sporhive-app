@@ -19,10 +19,10 @@ const INITIAL_STATE = {
   user: null,
   userType: null,
 
-  // ✅ single source of truth token (public + player)
+  // âœ… single source of truth token (public + player)
   token: null,
 
-  // ✅ portal should use SAME token
+  // âœ… portal should use SAME token
   portalAccessToken: null,
 
   lastSelectedAcademyId: null,
@@ -32,7 +32,7 @@ const INITIAL_STATE = {
 const AuthContext = createContext(null);
 
 /**
- * ✅ SINGLE TOKEN POLICY
+ * âœ… SINGLE TOKEN POLICY
  * - We always extract the main token and store it in `token`.
  * - We set `portalAccessToken = token` (so portal requests use the same token).
  */
@@ -43,7 +43,7 @@ const extractToken = (data) =>
   data?.accessToken ||
   data?.tokens?.access ||
   data?.tokens?.access_token ||
-  data?.portal_tokens?.access || // 👈 common in your backend swagger
+  data?.portal_tokens?.access || // ðŸ‘ˆ common in your backend swagger
   data?.portal_tokens?.access_token ||
   null;
 
@@ -108,7 +108,7 @@ const buildSession = ({ loginAs, user, token, academyId, username }) => {
     login_as: loginAs,
     user: normalizedUser,
 
-    // ✅ store the one token
+    // âœ… store the one token
     token: token || null,
   };
 
@@ -123,26 +123,52 @@ const buildSession = ({ loginAs, user, token, academyId, username }) => {
 const tokenPreview = (token) => {
   if (!token) return null;
   const s = String(token);
-  return s.length > 18 ? s.slice(0, 18) + "…" : s;
+  return s.length > 18 ? s.slice(0, 18) + "â€¦" : s;
 };
 
+const DEBUG_PORTAL_REAUTH = true;
+const portalReauthBridge = { handler: null };
+
+const normalizePortalReauthResult = (result) => {
+  if (result?.success) {
+    return { success: true, session: result?.session || null, reason: result?.reason || "ok" };
+  }
+  return {
+    success: false,
+    reason: result?.reason || result?.code || result?.kind || "portal_reauth_failed",
+    session: result?.session || null,
+  };
+};
+
+export const runPortalReauthOnce = async (meta = {}) => {
+  if (typeof portalReauthBridge.handler === "function") {
+    return portalReauthBridge.handler(meta);
+  }
+
+  if (DEBUG_PORTAL_REAUTH) {
+    console.info("[auth.store] runPortalReauthOnce fallback (provider unavailable)", meta);
+  }
+
+  const result = await refreshPortalSessionIfNeeded();
+  return normalizePortalReauthResult(result);
+};
 export function AuthProvider({ children }) {
   const [state, setState] = useState(INITIAL_STATE);
 
-  // ✅ one mount flag only (no duplicates)
+  // âœ… one mount flag only (no duplicates)
   const mountedRef = useRef(false);
 
-  // ✅ hydration single-flight (prevents double restore in React 18 dev)
+  // âœ… hydration single-flight (prevents double restore in React 18 dev)
   const hydratePromiseRef = useRef(null);
 
-  // ✅ portal reauth single-flight
+  // âœ… portal reauth single-flight
   const portalReauthInFlightRef = useRef(null);
 
-  // ✅ prevent redundant restore right after a successful login
+  // âœ… prevent redundant restore right after a successful login
   // (helps with dev fast-refresh/layout reruns)
   const skipNextHydrateRef = useRef(false);
 
-  // ✅ IMPORTANT: keep ONLY one mount/unmount effect
+  // âœ… IMPORTANT: keep ONLY one mount/unmount effect
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -159,7 +185,7 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  // ✅ safe state update helper
+  // âœ… safe state update helper
   const safeSetState = useCallback((updater) => {
     if (!mountedRef.current) return;
     setState(updater);
@@ -186,17 +212,17 @@ export function AuthProvider({ children }) {
 
     await storage.setItem(APP_STORAGE_KEYS.AUTH_SESSION, safeSession);
 
-    // ✅ persist single auth token
+    // âœ… persist single auth token
     if (token != null) {
       await storage.setAuthToken(token);
     }
   }, []);
 
   const restoreSession = useCallback(() => {
-    // ✅ Single-flight: if hydration already running, return the same promise
+    // âœ… Single-flight: if hydration already running, return the same promise
     if (hydratePromiseRef.current) return hydratePromiseRef.current;
 
-    // ✅ If we *just* logged in and the layout re-renders, skip redundant hydration once
+    // âœ… If we *just* logged in and the layout re-renders, skip redundant hydration once
     if (skipNextHydrateRef.current) {
       if (__DEV__) console.log("[auth] restoreSession skipped (post-login guard)");
       skipNextHydrateRef.current = false;
@@ -467,7 +493,7 @@ export function AuthProvider({ children }) {
           await storage.clearTenantState();
         }
 
-        // ✅ persist single token
+        // âœ… persist single token
         try {
           await persistSession(session, token);
         } catch (error) {
@@ -482,10 +508,10 @@ export function AuthProvider({ children }) {
           await setLastSelectedAcademyId(academyId);
         }
 
-        // ✅ portal uses SAME token
+        // âœ… portal uses SAME token
         const portalAccessToken = token || null;
 
-        // ✅ prevent redundant restoreSession firing right after login due to rerenders
+        // âœ… prevent redundant restoreSession firing right after login due to rerenders
         skipNextHydrateRef.current = true;
 
         safeSetState((prev) => ({
@@ -497,7 +523,7 @@ export function AuthProvider({ children }) {
           userType: loginAs,
           token,
           portalAccessToken,
-          // keep last selected academy id when logging public (don’t wipe it)
+          // keep last selected academy id when logging public (donâ€™t wipe it)
           lastSelectedAcademyId:
             loginAs === "player" ? Number(academyId) : prev.lastSelectedAcademyId,
         }));
@@ -524,36 +550,12 @@ export function AuthProvider({ children }) {
    * Keep this for compatibility, but portal auth should not depend on it anymore.
    * If it refreshes successfully, we keep session in sync.
    */
-  const refreshPortalIfNeeded = useCallback(async () => {
-    const result = await refreshPortalSessionIfNeeded();
-    if (result?.success && result.session) {
-      // ✅ even if session refresh provides a portal token, portal should still use main token
-      safeSetState((prev) => ({
-        ...prev,
-        session: result.session,
-        portalAccessToken: prev.token || result.session?.token || null,
-      }));
+  const logout = useCallback(async (options = {}) => {
+    if (__DEV__ && !options?.skipLog) {
+      console.log("[auth.logout] clearing auth + tenant storage", {
+        reason: options?.reason || null,
+      });
     }
-    return result;
-  }, [safeSetState]);
-
-  // ✅ Single-flight portal reauth
-  const ensurePortalReauthOnce = useCallback(async () => {
-    if (portalReauthInFlightRef.current) return portalReauthInFlightRef.current;
-
-    portalReauthInFlightRef.current = (async () => {
-      try {
-        return await refreshPortalIfNeeded();
-      } finally {
-        portalReauthInFlightRef.current = null;
-      }
-    })();
-
-    return portalReauthInFlightRef.current;
-  }, [refreshPortalIfNeeded]);
-
-  const logout = useCallback(async () => {
-    if (__DEV__) console.log("[auth.logout] clearing auth + tenant storage");
 
     await Promise.all([
       storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
@@ -567,7 +569,84 @@ export function AuthProvider({ children }) {
     safeSetState({ ...INITIAL_STATE, isLoading: false });
   }, [safeSetState]);
 
-  // ✅ explicit logins required by your screens
+  const refreshPortalIfNeeded = useCallback(async () => {
+    const result = await refreshPortalSessionIfNeeded();
+    if (result?.success && result.session) {
+      safeSetState((prev) => ({
+        ...prev,
+        session: result.session,
+        portalAccessToken: prev.token || result.session?.token || null,
+        user: result.session?.user || prev.user,
+        userType: result.session?.login_as || prev.userType,
+      }));
+    }
+    return normalizePortalReauthResult(result);
+  }, [safeSetState]);
+
+  const ensurePortalReauthOnce = useCallback(async (meta = {}) => {
+    if (portalReauthInFlightRef.current) {
+      if (DEBUG_PORTAL_REAUTH) {
+        console.info("[auth.store] ensurePortalReauthOnce lock reused", meta);
+      }
+      return portalReauthInFlightRef.current;
+    }
+
+    if (DEBUG_PORTAL_REAUTH) {
+      console.info("[auth.store] ensurePortalReauthOnce lock engaged", meta);
+    }
+
+    portalReauthInFlightRef.current = (async () => {
+      try {
+        const result = await refreshPortalIfNeeded();
+        if (DEBUG_PORTAL_REAUTH) {
+          console.info("[auth.store] ensurePortalReauthOnce result", {
+            success: result?.success === true,
+            reason: result?.reason || null,
+          });
+        }
+
+        if (!result?.success) {
+          await logout({
+            reason: `portal_reauth_failed:${result?.reason || "unknown"}`,
+            skipLog: false,
+          });
+        }
+        return result;
+      } catch (error) {
+        const normalized = {
+          success: false,
+          reason: error?.reason || error?.code || error?.kind || error?.message || "portal_reauth_exception",
+          session: null,
+        };
+
+        if (DEBUG_PORTAL_REAUTH) {
+          console.warn("[auth.store] ensurePortalReauthOnce failure", {
+            reason: normalized.reason,
+          });
+        }
+        await logout({
+          reason: `portal_reauth_exception:${normalized.reason}`,
+          skipLog: false,
+        });
+        return normalized;
+      } finally {
+        portalReauthInFlightRef.current = null;
+      }
+    })();
+
+    return portalReauthInFlightRef.current;
+  }, [logout, refreshPortalIfNeeded]);
+
+  useEffect(() => {
+    portalReauthBridge.handler = ensurePortalReauthOnce;
+    return () => {
+      if (portalReauthBridge.handler === ensurePortalReauthOnce) {
+        portalReauthBridge.handler = null;
+      }
+    };
+  }, [ensurePortalReauthOnce]);
+
+  // âœ… explicit logins required by your screens
   const loginPublic = useCallback(
     ({ phone, password }) => login({ loginAs: "public", phone, password }),
     [login]
@@ -612,3 +691,4 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
   return ctx;
 }
+

@@ -7,7 +7,12 @@ export const isPortalReauthError = (error) => {
     error?.meta?.status ||
     null;
   const kind = error?.kind || error?.code || null;
-  return kind === 'PORTAL_REAUTH_REQUIRED' || status === 401;
+  return (
+    kind === 'PORTAL_REAUTH_REQUIRED' ||
+    kind === 'PORTAL_SESSION_INVALID' ||
+    kind === 'PORTAL_ACADEMY_REQUIRED' ||
+    status === 401
+  );
 };
 
 export const isPortalForbiddenError = (error) => {

@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, StyleSheet, TouchableOpacity, FlatList, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import ImageViewing from 'react-native-image-viewing';
 import dayjs from 'dayjs';
 
 import { useTheme } from '../../theme/ThemeProvider';
@@ -21,6 +20,7 @@ import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
 import { storage, PORTAL_KEYS } from '../../services/storage/storage';
 import { useAuth } from '../../services/auth/auth.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
+import { ImageViewer } from '../../components/portal/ImageViewer';
 
 function safeJsonParse(value) {
   try {
@@ -268,7 +268,10 @@ export function PortalNewsScreen() {
         title={t('portal.news.title')}
         subtitle={t('portal.news.subtitle')}
       />
-      <PortalActionBanner title="Start here" description="Important updates appear first. Open each card for details and media." />
+      <PortalActionBanner
+        title={t('portal.news.startHereTitle')}
+        description={t('portal.news.startHereDescription')}
+      />
 
       {!!error ? (
         <PortalEmptyState
@@ -279,15 +282,15 @@ export function PortalNewsScreen() {
         />
       ) : news?.length ? (
         <View style={styles.list}>
-          {importantNews.length ? <Text variant="bodySmall" weight="bold" color={colors.textPrimary}>Important</Text> : null}
+          {importantNews.length ? <Text variant="bodySmall" weight="bold" color={colors.textPrimary}>{t('portal.news.important')}</Text> : null}
           {importantNews.map((item) => {
             const createdAt = item?.created_at ? dayjs(item.created_at).format('MMM D, YYYY • h:mm A') : null;
-            const source = item?.source || item?.academy_name || 'SporHive';
+            const source = item?.source || item?.academy_name || t('portal.news.sourceFallback');
             return (
               <TouchableOpacity key={`imp-${String(item?.id)}`} activeOpacity={0.9}>
                 <PortalCard style={styles.card}>
                   <Text variant="body" weight="semibold" color={colors.textPrimary}>{item?.title || t('portal.news.defaultTitle')}</Text>
-                  <Text variant="caption" weight="bold" color={colors.error}>Important</Text>
+                  <Text variant="caption" weight="bold" color={colors.error}>{t('portal.news.important')}</Text>
                   <Text variant="caption" color={colors.textMuted} style={styles.meta}>{`${createdAt || t('portal.common.placeholder')} • ${source}`}</Text>
                   {renderImagesRow({ item })}
                   <Text numberOfLines={3} variant="bodySmall" color={colors.textSecondary} style={styles.subtitle}>{item?.description || t('portal.news.defaultDescription')}</Text>
@@ -296,10 +299,10 @@ export function PortalNewsScreen() {
             );
           })}
 
-          {regularNews.length ? <Text variant="bodySmall" weight="bold" color={colors.textPrimary}>All updates</Text> : null}
+          {regularNews.length ? <Text variant="bodySmall" weight="bold" color={colors.textPrimary}>{t('portal.news.allUpdates')}</Text> : null}
           {regularNews.map((item) => {
             const createdAt = item?.created_at ? dayjs(item.created_at).format('MMM D, YYYY • h:mm A') : null;
-            const source = item?.source || item?.academy_name || 'SporHive';
+            const source = item?.source || item?.academy_name || t('portal.news.sourceFallback');
             return (
               <TouchableOpacity key={`all-${String(item?.id)}`} activeOpacity={0.9}>
                 <PortalCard style={styles.card}>
@@ -316,11 +319,11 @@ export function PortalNewsScreen() {
         <PortalEmptyState
           icon="volume-2"
           title={t('portal.news.emptyTitle')}
-          description={t('portal.news.emptyDescription') || 'No updates yet.'}
+          description={t('portal.news.emptyDescription')}
         />
       )}
 
-      <ImageViewing
+      <ImageViewer
         images={viewerImages}
         imageIndex={viewerIndex}
         visible={viewerOpen}

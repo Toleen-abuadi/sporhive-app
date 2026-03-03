@@ -100,20 +100,20 @@ export function PortalRenewalDetailScreen() {
         <AppHeader title={t('portal.renewals.detailTitle')} />
 
         <PortalInfoAccordion
-          title="What is renewal?"
+          title={t('portal.renewals.detailInfo.title')}
           summary={getGlossaryHelp('renewal')}
           bullets={[
-            'Renewal extends your training registration.',
-            'If renewal is pending, wait for approval notification.',
-            'If ineligible, check your current plan end date and contact academy.',
+            t('portal.renewals.detailInfo.bullet1'),
+            t('portal.renewals.detailInfo.bullet2'),
+            t('portal.renewals.detailInfo.bullet3'),
           ]}
         />
 
         {needsAction ? (
           <PortalActionBanner
-            title="Action Required"
-            description={`Renewal recommended before ${eligibility?.end_date || overview?.registration?.endDate || t('portal.common.placeholder')}`}
-            actionLabel="Renew now"
+            title={t('portal.common.actionRequired')}
+            description={t('portal.renewals.actionBanner.description', { date: eligibility?.end_date || overview?.registration?.endDate || t('portal.common.placeholder') })}
+            actionLabel={t('portal.renewals.actionBanner.label')}
             onAction={() => router.push('/portal/renewals')}
           />
         ) : null}
@@ -121,7 +121,7 @@ export function PortalRenewalDetailScreen() {
         {missingTryOut ? (
           <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
             <Text variant="body" weight="bold" color={colors.textPrimary}>{t('portal.errors.sessionExpiredTitle')}</Text>
-            <Text variant="bodySmall" color={colors.textSecondary}>Missing try_out (tryOutId is null). Please refresh portal session.</Text>
+            <Text variant="bodySmall" color={colors.textSecondary}>{t('portal.renewals.missingTryOut')}</Text>
             <View style={styles.missingActions}>
               <Button variant="secondary" onPress={load}>{t('portal.common.retry')}</Button>
             </View>
@@ -129,18 +129,18 @@ export function PortalRenewalDetailScreen() {
         ) : (
           <>
             <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
-              <Text variant="body" weight="bold" color={colors.textPrimary}>STATUS & NEXT STEP</Text>
+              <Text variant="body" weight="bold" color={colors.textPrimary}>{t('portal.renewals.statusNextStep')}</Text>
               <PortalStatusBadge label={statusMeta.label} severity={statusMeta.severity} />
               <Text variant="caption" color={colors.textSecondary}>{statusMeta.shortHelp}</Text>
-              <PortalTimeline steps={['Created', 'Pending', 'Approved', 'Completed']} activeIndex={renewalStepIndex(eligibility)} />
+              <PortalTimeline steps={[t('portal.common.timeline.created'), t('portal.common.timeline.pending'), t('portal.common.timeline.approved'), t('portal.common.timeline.completed')]} activeIndex={renewalStepIndex(eligibility)} />
               <View style={styles.row}><Text variant="caption" color={colors.textMuted}>{t('portal.renewals.ends')}</Text><Text variant="bodySmall" color={colors.textPrimary}>{eligibility?.end_date || overview?.registration?.endDate || t('portal.common.placeholder')}</Text></View>
               <View style={styles.row}><Text variant="caption" color={colors.textMuted}>{t('portal.renewals.daysLeft')}</Text><Text variant="bodySmall" color={colors.textPrimary}>{eligibility?.days_left ?? t('portal.common.placeholder')}</Text></View>
             </Card>
 
             <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
-              <Text variant="body" weight="bold" color={colors.textPrimary}>What you can do now</Text>
-              <Text variant="caption" color={colors.textSecondary}>{needsAction ? 'Complete renewal request now to avoid interruption.' : 'No action needed right now. Keep tracking your end date.'}</Text>
-              <Button onPress={() => router.push('/portal/renewals')}>{needsAction ? 'Renew now' : 'Open renewal options'}</Button>
+              <Text variant="body" weight="bold" color={colors.textPrimary}>{t('portal.renewals.whatYouCanDoTitle')}</Text>
+              <Text variant="caption" color={colors.textSecondary}>{needsAction ? t('portal.renewals.whatYouCanDoAction') : t('portal.renewals.whatYouCanDoNoAction')}</Text>
+              <Button onPress={() => router.push('/portal/renewals')}>{needsAction ? t('portal.renewals.actionBanner.label') : t('portal.renewals.openOptions')}</Button>
             </Card>
           </>
         )}

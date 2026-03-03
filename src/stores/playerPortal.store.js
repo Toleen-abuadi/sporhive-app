@@ -26,20 +26,26 @@ const INITIAL_STATE = {
   overview: null,
   overviewLoading: false,
   overviewError: null,
+  overviewLoadedOnce: false,
 
   profile: null,
   profileLoading: false,
   profileError: null,
   updatingProfile: false,
   profileUpdateError: null,
+  profileLoadedOnce: false,
 
   payments: [],
   paymentsLoading: false,
   paymentsError: null,
+  paymentsLoadedOnce: false,
 
   orders: [],
   ordersLoading: false,
   ordersError: null,
+  ordersLoadedOnce: false,
+
+  storeLoadedOnce: false,
 
   renewals: [],
   renewalsLoading: false,
@@ -257,7 +263,12 @@ export const playerPortalStore = {
       }
 
       if (res?.success) {
-        setState({ overview: res.data, overviewLoading: false, overviewError: null });
+        setState({
+          overview: res.data,
+          overviewLoading: false,
+          overviewError: null,
+          overviewLoadedOnce: true,
+        });
 
         // ✅ IMPORTANT: persist tryOutId best-effort, never break the overview flow
         try {
@@ -286,7 +297,12 @@ export const playerPortalStore = {
     const res = await playerPortalApi.getProfile();
 
     if (res.success) {
-      setState({ profile: res.data, profileLoading: false, profileError: null });
+      setState({
+        profile: res.data,
+        profileLoading: false,
+        profileError: null,
+        profileLoadedOnce: true,
+      });
       return { success: true, data: res.data };
     }
 
@@ -332,7 +348,12 @@ export const playerPortalStore = {
     const res = await playerPortalApi.listPayments();
 
     if (res.success) {
-      setState({ payments: res.data || [], paymentsLoading: false, paymentsError: null });
+      setState({
+        payments: res.data || [],
+        paymentsLoading: false,
+        paymentsError: null,
+        paymentsLoadedOnce: true,
+      });
       return { success: true, data: res.data };
     }
 
@@ -346,7 +367,12 @@ export const playerPortalStore = {
     const res = await playerPortalApi.listOrders(null, payload);
 
     if (res.success) {
-      setState({ orders: res.data || [], ordersLoading: false, ordersError: null });
+      setState({
+        orders: res.data || [],
+        ordersLoading: false,
+        ordersError: null,
+        ordersLoadedOnce: true,
+      });
       return { success: true, data: res.data };
     }
 
@@ -385,6 +411,10 @@ export const playerPortalStore = {
 
   async printInvoice(payload = {}) {
     return playerPortalApi.printInvoice(null, payload);
+  },
+
+  markStoreLoadedOnce(value = true) {
+    setState({ storeLoadedOnce: Boolean(value) });
   },
 
   // ---- Selectors ----
@@ -440,6 +470,7 @@ export function usePlayerPortalActions() {
       fetchRenewals: playerPortalStore.fetchRenewals,
       submitRenewal: playerPortalStore.submitRenewal,
       printInvoice: playerPortalStore.printInvoice,
+      markStoreLoadedOnce: playerPortalStore.markStoreLoadedOnce,
       selectFilteredPayments: playerPortalStore.selectFilteredPayments,
       selectFilteredOrders: playerPortalStore.selectFilteredOrders,
 

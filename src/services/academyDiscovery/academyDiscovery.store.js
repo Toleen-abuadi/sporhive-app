@@ -12,6 +12,7 @@ import {
   normalizeDiscoveryFilters,
   normalizeDiscoverySort,
 } from './discoveryFilters';
+import { requestCurrentLocation } from '../location/location';
 
 const INITIAL_STATE = {
   filters: { ...DEFAULT_DISCOVERY_FILTERS },
@@ -206,24 +207,22 @@ export const academyDiscoveryStore = {
     setState({ locationStatus: status || 'idle' });
   },
   async requestLocation() {
-    if (!global?.navigator?.geolocation?.getCurrentPosition) {
-      setState({ locationStatus: 'error' });
-      return;
+    setState({ locationStatus: 'asking' });
+    const result = await requestCurrentLocation();
+
+    if (result?.ok && result?.coords) {
+      setState({
+        coords: result.coords,
+        locationStatus: 'granted',
+      });
+      return { success: true, coords: result.coords };
     }
 
-    setState({ locationStatus: 'asking' });
-    global.navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setState({
-          coords: { lat: pos.coords.latitude, lng: pos.coords.longitude },
-          locationStatus: 'granted',
-        });
-      },
-      () => {
-        setState({ locationStatus: 'denied' });
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60_000 }
-    );
+    setState({
+      locationStatus: result?.status || 'error',
+    });
+
+    return { success: false, error: result?.error || 'Location unavailable' };
   },
   async fetchAcademies({ page = 1, append = false, query } = {}) {
     const effectiveQuery = query ?? discoveryState.query;

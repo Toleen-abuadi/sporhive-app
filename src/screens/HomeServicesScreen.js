@@ -30,41 +30,17 @@ import { playgroundsApi } from '../services/playgrounds/playgrounds.api';
 import { API_BASE_URL } from '../services/api/client';
 import { normalizeApiError } from '../services/api/normalizeApiError';
 import { borderRadius, shadow, spacing } from '../theme/tokens';
+import { normalizeImageUrl, pickVenueImage } from '../utils/images';
 
 const logoSource = require('../../assets/images/logo.png');
-
-const FALLBACK_FEATURE_IMAGE =
-  'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1000&q=80';
-const FALLBACK_TRENDING_IMAGE =
-  'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=900&q=80';
 
 const PLACEHOLDER_SLOTS_LEFT = 6;
 const PLACEHOLDER_PLAYERS_BOOKED = 120;
 const PLACEHOLDER_WEEKLY_BOOKINGS = 2134;
 const DISTANCE_FALLBACKS = [1.2, 2.4, 0.8, 3.1, 1.6, 2.2, 4.0];
 
-const normalizeImageUrl = (uri) => {
-  if (!uri || typeof uri !== 'string') return null;
-  if (uri.startsWith('http')) return uri;
-  const normalized = uri.startsWith('/') ? uri : `/${uri}`;
-  return `${API_BASE_URL}${normalized}`;
-};
-
 const resolveVenueImage = (venue) => {
-  const images = Array.isArray(venue?.images)
-    ? venue.images
-    : Array.isArray(venue?.venue_images)
-      ? venue.venue_images
-      : [];
-
-  const urlFromArray = images
-    .map((img) => img?.url || img?.path || img?.image || img?.filename || '')
-    .find(Boolean);
-
-  if (urlFromArray) return normalizeImageUrl(urlFromArray);
-  if (venue?.image) return normalizeImageUrl(venue.image);
-  if (venue?.academy_profile?.hero_image) return normalizeImageUrl(venue.academy_profile.hero_image);
-  return null;
+  return pickVenueImage(venue, API_BASE_URL);
 };
 
 const resolveVenueLogo = (venue) => {
@@ -74,7 +50,7 @@ const resolveVenueLogo = (venue) => {
     venue?.academy_profile?.logo ||
     venue?.academy_profile?.image ||
     null;
-  return normalizeImageUrl(candidate) || candidate || null;
+  return normalizeImageUrl(candidate, API_BASE_URL) || candidate || null;
 };
 
 const toNumeric = (value) => {
@@ -199,7 +175,7 @@ function HeroHeader({
         >
           {avatarImage ? (
             <SmartImage
-              source={normalizeImageUrl(avatarImage) || avatarImage}
+              source={normalizeImageUrl(avatarImage, API_BASE_URL) || avatarImage}
               fallbackSource={logoSource}
               style={styles.avatarImage}
               borderRadius={20}
@@ -284,13 +260,28 @@ function FeatureBookingCard({ colors, imageSource, isRTL, onPress, slotsText, t 
           </Button>
         </View>
 
-        <SmartImage
-          source={imageSource}
-          fallbackSource={logoSource}
-          style={styles.featureImageWrap}
-          borderRadius={borderRadius.md}
-          accessibilityLabel={t('home.bookPlaygroundNow')}
-        />
+        {imageSource ? (
+          <SmartImage
+            source={imageSource}
+            fallbackSource={logoSource}
+            style={styles.featureImageWrap}
+            borderRadius={borderRadius.md}
+            accessibilityLabel={t('home.bookPlaygroundNow')}
+          />
+        ) : (
+          <View
+            style={[
+              styles.featureImageWrap,
+              styles.imageFallbackBox,
+              {
+                borderRadius: borderRadius.md,
+                backgroundColor: colors.surfaceElevated || colors.surface,
+              },
+            ]}
+          >
+            <Icon name="image" size={22} color={colors.textMuted} />
+          </View>
+        )}
       </View>
     </Card>
   );
@@ -367,7 +358,7 @@ function QuickAccessGrid({ colors, isRTL, items, subtitle, t }) {
 }
 
 function TrendingVenueTile({ colors, index, isRTL, item, onPress, t }) {
-  const imageUrl = resolveVenueImage(item) || FALLBACK_TRENDING_IMAGE;
+  const imageUrl = resolveVenueImage(item);
   const logoUrl = resolveVenueLogo(item) || logoSource;
   const title = item?.name || item?.title || t('services.trending.fallback');
   const rating = resolveRating(item).toFixed(1);
@@ -384,15 +375,28 @@ function TrendingVenueTile({ colors, index, isRTL, item, onPress, t }) {
           borderColor: colors.border,
         },
       ]}
-    >
+      >
       <View style={styles.trendingImageWrap}>
-        <SmartImage
-          source={imageUrl}
-          fallbackSource={logoSource}
-          style={StyleSheet.absoluteFillObject}
-          borderRadius={borderRadius.lg}
-          accessibilityLabel={title}
-        />
+        {imageUrl ? (
+          <SmartImage
+            source={imageUrl}
+            fallbackSource={logoSource}
+            style={StyleSheet.absoluteFillObject}
+            borderRadius={borderRadius.lg}
+            accessibilityLabel={title}
+          />
+        ) : (
+          <View
+            style={[
+              styles.imageFallbackFill,
+              {
+                backgroundColor: colors.surfaceElevated || colors.surface,
+              },
+            ]}
+          >
+            <Icon name="image" size={22} color={colors.textMuted} />
+          </View>
+        )}
 
         <View
           style={[
@@ -645,7 +649,7 @@ export function HomeServicesScreen() {
   const heroHeight = useMemo(() => Math.min(320, Math.max(272, width * 0.72)), [width]);
 
   const featureImageSource = useMemo(
-    () => resolveVenueImage(trending?.[0]) || FALLBACK_FEATURE_IMAGE,
+    () => resolveVenueImage(trending?.[0]),
     [trending]
   );
 
@@ -857,6 +861,7 @@ export function HomeServicesScreen() {
         <View
           style={[
             styles.confirmCard,
+            isRTL && styles.confirmCardRtl,
             {
               backgroundColor: colors.surface,
               borderColor: colors.border,
@@ -864,10 +869,14 @@ export function HomeServicesScreen() {
             },
           ]}
         >
-          <Text variant="h4" weight="bold">
+          <Text variant="h4" weight="bold" style={[styles.confirmTitle, isRTL && styles.confirmTitleRtl]}>
             {t('services.settings.logoutTitle')}
           </Text>
-          <Text variant="bodySmall" color={colors.textSecondary} style={styles.confirmText}>
+          <Text
+            variant="bodySmall"
+            color={colors.textSecondary}
+            style={[styles.confirmText, isRTL ? styles.confirmTextRtl : styles.confirmTextLtr]}
+          >
             {t('services.settings.logoutMessage')}
           </Text>
           <View style={[styles.confirmActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -1028,6 +1037,15 @@ const styles = StyleSheet.create({
   featureImageWrap: {
     width: 126,
     minHeight: 130,
+  },
+  imageFallbackBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageFallbackFill: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   sectionWrap: {
@@ -1213,8 +1231,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: spacing.sm,
   },
+  confirmCardRtl: {
+    direction: 'rtl',
+  },
+  confirmTitle: {
+    textAlign: 'left',
+  },
+  confirmTitleRtl: {
+    textAlign: 'right',
+  },
   confirmText: {
     marginBottom: spacing.sm,
+  },
+  confirmTextLtr: {
+    textAlign: 'left',
+  },
+  confirmTextRtl: {
+    textAlign: 'right',
   },
   confirmActions: {
     gap: spacing.sm,

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { I18nManager, Pressable, StyleSheet, View } from 'react-native';
 import { usePathname, useRouter, useSegments } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -40,6 +40,7 @@ export function AppBottomNav() {
   const { colors, isDark } = useTheme();
   const { t, isRTL } = useTranslation();
   const { userType } = useAuth();
+  const resolvedRTL = isRTL || I18nManager.isRTL;
 
   const isVisible = useMemo(
     () => isBottomNavRoute({ segments, pathname }),
@@ -63,8 +64,8 @@ export function AppBottomNav() {
   );
 
   const orderedTabs = useMemo(
-    () => (isRTL ? [...tabs].reverse() : tabs),
-    [isRTL, tabs],
+    () => (resolvedRTL ? [...tabs].reverse() : tabs),
+    [resolvedRTL, tabs],
   );
 
   if (!isVisible) return null;
@@ -84,7 +85,7 @@ export function AppBottomNav() {
           colors={[`${colors.surface}F8`, `${colors.surface}EE`]}
           style={[styles.inner, { borderColor: colors.border }]}
         >
-          <View style={[styles.row, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View style={[styles.row, { flexDirection: resolvedRTL ? 'row-reverse' : 'row' }]}>
             {orderedTabs.map((tab) => {
               const isActive = activeKey === tab.key;
               const route = TAB_ROUTES[tab.key];

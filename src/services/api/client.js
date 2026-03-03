@@ -188,6 +188,21 @@ const buildBody = (method, data, headers) => {
 const parseResponseBody = async (res, responseType) => {
   if (res.status === 204 || res.status === 205) return null;
 
+  const contentType = (res.headers.get('content-type') || '').toLowerCase();
+  const isJson = contentType.includes('application/json');
+
+  // ✅ IMPORTANT:
+  // If caller expects binary but server returned an error, parse JSON/text
+  // so we can see validation errors instead of "{}".
+  if (responseType === 'arraybuffer' && !res.ok) {
+    try {
+      if (isJson) return await res.json();
+      return await res.text();
+    } catch {
+      return null;
+    }
+  }
+
   if (responseType === 'arraybuffer') {
     try {
       return await res.arrayBuffer();
@@ -195,9 +210,6 @@ const parseResponseBody = async (res, responseType) => {
       return null;
     }
   }
-
-  const contentType = res.headers.get('content-type') || '';
-  const isJson = contentType.includes('application/json');
 
   if (isJson) {
     try {
@@ -233,9 +245,19 @@ const createApiError = (message, status, payload, config, kind) => {
   return error;
 };
 
-const clearPortalSessionOnAuthFailure = async (status, scope) => {
+const clearPortalSessionOnAuthFailure = async ({ status, scope, refreshAttempted, retried }) => {
   if (scope !== 'portal') return;
-  if (status !== 401 && status !== 403) return;
+  if (status !== 401) return;
+  if (!refreshAttempted || !retried) {
+    if (DEBUG_API) {
+      console.info('[apiClient] skipped portal session clear (reauth pipeline has not exhausted retry)', {
+        status,
+        refreshAttempted: Boolean(refreshAttempted),
+        retried: Boolean(retried),
+      });
+    }
+    return;
+  }
 
   try {
     await Promise.all([
@@ -248,7 +270,11 @@ const clearPortalSessionOnAuthFailure = async (status, scope) => {
         : Promise.resolve(),
     ]);
     if (DEBUG_API) {
-      console.warn('[apiClient] cleared portal session after auth failure', { status });
+      console.warn('[apiClient] cleared portal session after failed reauth retry', {
+        status,
+        refreshAttempted: Boolean(refreshAttempted),
+        retried: Boolean(retried),
+      });
     }
   } catch (error) {
     if (__DEV__) {
@@ -265,6 +291,8 @@ const apiRequest = async (config = {}) => {
   const method = String(nextConfig.method || 'GET').toUpperCase();
   const path = resolveRequestPath(nextConfig);
   const scope = classifyEndpoint(path);
+  const portalRefreshAttempted = Boolean(nextConfig._portalRefreshAttempted);
+  const portalRetried = Boolean(nextConfig._portalRetried);
   const baseURL = nextConfig.baseURL || API_BASE_URL;
   const url = appendParams(resolveRequestUrl(nextConfig), nextConfig.params);
 
@@ -280,6 +308,15 @@ const apiRequest = async (config = {}) => {
   } else if (scope === 'app') {
     const appHeaders = await getAppAuthHeaders();
     Object.assign(headers, appHeaders);
+  }
+
+  if (!hasHeader(headers, 'Accept')) {
+    headers['Accept'] = 'application/json, application/pdf;q=0.9, */*;q=0.8';
+  }
+
+  // If responseType is arraybuffer, do NOT narrow Accept to PDF-only (that causes 406 on DRF endpoints).
+  if (nextConfig.responseType === 'arraybuffer') {
+    headers['Accept'] = 'application/json, application/pdf;q=0.9, */*;q=0.8';
   }
 
   if (scope === 'portal' || scope === 'app' || scope === 'auth') {
@@ -298,6 +335,8 @@ const apiRequest = async (config = {}) => {
       path,
       url,
       baseURL,
+      portalRefreshAttempted,
+      portalRetried,
       headers: sanitizeForLog(headers),
       params: sanitizeForLog(nextConfig.params),
       data: sanitizeForLog(nextConfig.data),
@@ -344,6 +383,8 @@ const apiRequest = async (config = {}) => {
       status: response.status,
       ok: response.ok,
       tookMs,
+      portalRefreshAttempted,
+      portalRetried,
       payload: typeof payload === 'string' ? payload.slice(0, 500) : sanitizeForLog(payload),
     });
   }
@@ -364,10 +405,17 @@ const apiRequest = async (config = {}) => {
       if (response.status === 403) kind = 'PORTAL_FORBIDDEN';
     } else if (response.status === 401 || response.status === 403) {
       // Preserve existing app behavior (single reauth kind) outside portal.
-      kind = 'REAUTH_REQUIRED';
+      if (scope !== 'auth') {
+        kind = 'REAUTH_REQUIRED';
+      }
     }
 
-    await clearPortalSessionOnAuthFailure(response.status, scope);
+    await clearPortalSessionOnAuthFailure({
+      status: response.status,
+      scope,
+      refreshAttempted: portalRefreshAttempted,
+      retried: portalRetried,
+    });
 
     throw createApiError(message, response.status, payload, {
       url: nextConfig?.url ?? null,

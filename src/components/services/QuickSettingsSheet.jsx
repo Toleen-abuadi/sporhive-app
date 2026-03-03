@@ -31,7 +31,7 @@ export function QuickSettingsSheet({
   return (
     <BottomSheetModal visible={visible} onClose={onClose}>
       <View style={[styles.header, isRTL && styles.headerRtl]}>
-        <Text variant="h4" weight="bold">
+        <Text variant="h4" weight="bold" style={isRTL ? styles.headerTitleRtl : styles.headerTitleLtr}>
           {t('services.settings.title')}
         </Text>
         <Button variant="ghost" size="small" onPress={onClose}>
@@ -51,6 +51,7 @@ export function QuickSettingsSheet({
           value={language}
           onChange={changeLanguage}
           options={languageOptions}
+          isRTL={isRTL}
         />
       </View>
 
@@ -66,6 +67,7 @@ export function QuickSettingsSheet({
           value={themePreference}
           onChange={setThemePreference}
           options={themeOptions}
+          isRTL={isRTL}
         />
       </View>
 
@@ -103,6 +105,12 @@ const styles = StyleSheet.create({
   },
   headerRtl: {
     flexDirection: 'row-reverse',
+  },
+  headerTitleLtr: {
+    textAlign: 'left',
+  },
+  headerTitleRtl: {
+    textAlign: 'right',
   },
   section: {
     gap: spacing.sm,

@@ -47,7 +47,7 @@ import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
+import { ThemedLoader } from '../../components/ui/ThemedLoader';
 
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalCard } from '../../components/portal/PortalCard';
@@ -784,6 +784,9 @@ export function PortalRenewalsScreen() {
     isMissingTryOutError(overviewError) ||
     isMissingTryOutError(renewalsError);
   const combinedError = fatalError || overviewError || renewalsError;
+  const renewalLoadErrorSubtitle = missingTryOut
+    ? t('portal.renewals.missingTryOut')
+    : t('portal.common.somethingWentWrong');
 
   const handleReauthRequired = useCallback(async () => {
     if (reauthHandledRef.current || didReauthRedirectRef.current) return;
@@ -807,7 +810,7 @@ export function PortalRenewalsScreen() {
           subtitle={t('portal.renewals.subtitle')}
           right={HeaderRight}
         />
-        <SporHiveLoader />
+        <ThemedLoader />
       </Screen>
     );
   }
@@ -825,7 +828,7 @@ export function PortalRenewalsScreen() {
             {t('portal.errors.sessionExpiredTitle')}
           </Text>
           <Text variant="bodySmall" color={colors.textSecondary} style={{ marginTop: 8 }}>
-            Missing try_out (tryOutId is null). Please refresh portal session.
+            {t('portal.renewals.missingTryOut')}
           </Text>
           <View style={styles.missingActions}>
             <Button variant="secondary" onPress={fetchAll}>
@@ -849,7 +852,7 @@ export function PortalRenewalsScreen() {
           <PortalEmptyState
             icon={AlertCircle}
             title={t('portal.renewals.errors.loadTitle')}
-            subtitle={(fatalError?.message || fatalError) || overviewError?.message || renewalsError?.message}
+            subtitle={renewalLoadErrorSubtitle}
             actionLabel={t('portal.renewals.actions.retry')}
             onAction={() => {
               setRefreshing(true);
@@ -864,10 +867,10 @@ export function PortalRenewalsScreen() {
   const eligible = !!eligibility?.eligible;
   const daysLeft = Number(topSummary?.daysLeft ?? eligibility?.days_left ?? 0);
   const renewalGroups = [
-    { key: 'action', title: 'Action needed', count: !eligible || (Number.isFinite(daysLeft) && daysLeft <= 14) ? 1 : 0 },
-    { key: 'active', title: 'Active', count: eligible && (!Number.isFinite(daysLeft) || daysLeft > 14) ? 1 : 0 },
-    { key: 'expired', title: 'Expired', count: Number.isFinite(daysLeft) && daysLeft < 0 ? 1 : 0 },
-    { key: 'upcoming', title: 'Upcoming', count: Number.isFinite(daysLeft) && daysLeft > 30 ? 1 : 0 },
+    { key: 'action', title: t('portal.renewals.groups.actionNeeded'), count: !eligible || (Number.isFinite(daysLeft) && daysLeft <= 14) ? 1 : 0 },
+    { key: 'active', title: t('portal.renewals.groups.active'), count: eligible && (!Number.isFinite(daysLeft) || daysLeft > 14) ? 1 : 0 },
+    { key: 'expired', title: t('portal.renewals.groups.expired'), count: Number.isFinite(daysLeft) && daysLeft < 0 ? 1 : 0 },
+    { key: 'upcoming', title: t('portal.renewals.groups.upcoming'), count: Number.isFinite(daysLeft) && daysLeft > 30 ? 1 : 0 },
   ].filter((g) => g.count > 0);
 
   return (
@@ -878,14 +881,14 @@ export function PortalRenewalsScreen() {
           subtitle={t('portal.renewals.subtitle')}
           right={HeaderRight}
         />
-        <PortalInfoAccordion title="What is renewal?" summary={getGlossaryHelp('renewal')} bullets={[
-          'Renewal extends your registration to continue training.',
-          'If action is needed, submit before your plan ends.',
-          'If renewal is pending, academy will review and confirm next steps.',
+        <PortalInfoAccordion title={t('portal.renewals.info.title')} summary={getGlossaryHelp('renewal')} bullets={[
+          t('portal.renewals.info.bullet1'),
+          t('portal.renewals.info.bullet2'),
+          t('portal.renewals.info.bullet3'),
         ]} />
 
         {(!eligible || (Number.isFinite(daysLeft) && daysLeft <= 14)) ? (
-          <PortalActionBanner title="Action Required" description={`Renewal recommended before ${topSummary.end || placeholder}`} actionLabel="Renew now" onAction={() => router.push('/portal/renewals/details')} />
+          <PortalActionBanner title={t('portal.common.actionRequired')} description={t('portal.renewals.actionBanner.description', { date: topSummary.end || placeholder })} actionLabel={t('portal.renewals.actionBanner.label')} onAction={() => router.push('/portal/renewals/details')} />
         ) : null}
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -907,7 +910,7 @@ export function PortalRenewalsScreen() {
               <GradientCard style={styles.summaryCard}>
                 <View style={styles.summaryHeader}>
                   <View style={{ flex: 1, gap: 4 }}>
-                    <Text style={[styles.playerName, { color: colors.textPrimary }]}>{topSummary.fullName || 'Player'}</Text>
+                    <Text style={[styles.playerName, { color: colors.textPrimary }]}>{topSummary.fullName || t('portal.common.player')}</Text>
                     {!!topSummary.academyName && (
                       <Text style={[styles.academyName, { color: colors.textSecondary }]}>
                         {topSummary.academyName}
@@ -958,7 +961,7 @@ export function PortalRenewalsScreen() {
 
             <AnimatedCard delay={140} style={{ marginTop: 16 }}>
               <GradientCard style={styles.gradientCard}>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Renewal groups</Text>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('portal.renewals.groups.title')}</Text>
                 <View style={{ gap: 8, marginTop: 10 }}>
                   {renewalGroups.map((group) => (
                     <View key={group.key} style={[styles.groupRow, { borderColor: alpha(colors.border, '40') }]}>
@@ -1194,11 +1197,11 @@ export function PortalRenewalsScreen() {
           </Modal>
         )}
       </Screen>
-      <PortalConfirmSheet visible={confirmOpen} title={t('portal.renewals.submit.confirmTitle')} description="Please review policy before submitting your renewal request." policyPoints={[
-        'Renewal request is reviewed by academy before activation.',
-        'Dates, sessions, and group assignment may change after review.',
-        'You may be contacted for additional confirmation details.',
-      ]} requireAcknowledge acknowledgeLabel="I understand renewal policy and want to continue" warning={t('portal.renewals.submit.confirmWarning')} confirmLabel={t('portal.renewals.actions.submit')} cancelLabel={t('portal.common.cancel')} onCancel={() => setConfirmOpen(false)} onConfirm={() => { setConfirmOpen(false); submit(); }} />
+      <PortalConfirmSheet visible={confirmOpen} title={t('portal.renewals.submit.confirmTitle')} description={t('portal.renewals.submit.confirmDescription')} policyPoints={[
+        t('portal.renewals.submit.policy.one'),
+        t('portal.renewals.submit.policy.two'),
+        t('portal.renewals.submit.policy.three'),
+      ]} requireAcknowledge acknowledgeLabel={t('portal.renewals.submit.acknowledge')} warning={t('portal.renewals.submit.confirmWarning')} confirmLabel={t('portal.renewals.actions.submit')} cancelLabel={t('portal.common.cancel')} onCancel={() => setConfirmOpen(false)} onConfirm={() => { setConfirmOpen(false); submit(); }} />
     </PortalAccessGate>
   );
 }

@@ -1,14 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { ArrowUpDown, SlidersHorizontal, X } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,6 +31,7 @@ import { MapPeekCard } from '../components/discovery/MapPeekCard';
 import { AcademyCardSkeleton } from '../components/discovery/AcademyCardSkeleton';
 import { CompareBar } from '../components/discovery/CompareBar';
 import { CompareModal } from '../components/discovery/CompareModal';
+import { LeafletMap } from '../components/LeafletMap';
 
 import {
   useAcademyDiscoveryActions,
@@ -45,6 +44,8 @@ import {
 } from '../services/academyDiscovery/discoveryFilters';
 import { makeADTheme } from '../theme/academyDiscovery.styles';
 import { API_BASE_URL } from '../services/api/client';
+import { distanceKm } from '../utils/distance';
+import { DEFAULT_MAP_CENTER, averageCenter, normalizeLatLng } from '../utils/map';
 
 const TAB_BAR_GUARD_SPACE = 72;
 
@@ -58,6 +59,16 @@ function useDebouncedValue(value, delay = 400) {
 }
 
 const normalizeAcademy = (item) => item?.academy || item || null;
+const toNumberOrNull = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const resolveAcademyPosition = (academy) =>
+  normalizeLatLng({
+    lat: academy?.lat ?? academy?.latitude,
+    lng: academy?.lng ?? academy?.longitude,
+  });
 
 const toAbsoluteUrlMaybe = (url, base) => {
   if (!url) return null;
@@ -200,6 +211,7 @@ export function AcademyDiscoveryScreen({ initialView = 'list' }) {
     hasMore,
     filtersLoaded,
     selectedAcademy,
+    coords,
     locationStatus,
   } = useAcademyDiscoveryStore((state) => state);
 
@@ -214,11 +226,54 @@ export function AcademyDiscoveryScreen({ initialView = 'list' }) {
   const debouncedQuery = useDebouncedValue(query, 400);
 
   const mapMarkers = useMemo(
-    () =>
-      mapAcademies
+    () => {
+      return mapAcademies
         .map((item) => normalizeAcademy(item))
-        .filter((academy) => academy?.slug && academy?.lat != null && academy?.lng != null),
-    [mapAcademies]
+        .map((academy) => {
+          const position = resolveAcademyPosition(academy);
+          if (!academy?.slug || !position) return null;
+
+          const backendDistance = toNumberOrNull(
+            academy?.distance_km ?? academy?.distanceKm
+          );
+          const fallbackDistance = distanceKm(coords, position);
+          const resolvedDistance = backendDistance ?? fallbackDistance ?? null;
+
+          return {
+            ...academy,
+            position,
+            distance_km: resolvedDistance,
+            distanceKm: resolvedDistance,
+          };
+        })
+        .filter(Boolean);
+    },
+    [coords, mapAcademies]
+  );
+
+  const mapCenter = useMemo(() => {
+    const points = mapMarkers.map((academy) => academy.position).filter(Boolean);
+    const fallback = normalizeLatLng(coords) || DEFAULT_MAP_CENTER;
+    return averageCenter(points, fallback);
+  }, [coords, mapMarkers]);
+
+  const leafletMarkers = useMemo(
+    () =>
+      mapMarkers.map((academy) => ({
+        id: academy.slug,
+        position: academy.position,
+        title: academy.name_en || academy.name_ar || academy.name || '',
+        description: academy.city || '',
+      })),
+    [mapMarkers]
+  );
+
+  const onMapMarkerPress = useCallback(
+    (id) => {
+      const selected = mapMarkers.find((academy) => String(academy.slug) === String(id));
+      if (selected) actions.setSelectedAcademy(selected);
+    },
+    [actions, mapMarkers]
   );
 
   useEffect(() => {
@@ -240,10 +295,10 @@ export function AcademyDiscoveryScreen({ initialView = 'list' }) {
   }, [actions, debouncedQuery, filters, filtersLoaded, sort, viewMode]);
 
   useEffect(() => {
-    if (sort === 'nearest' && locationStatus === 'idle') {
+    if ((sort === 'nearest' || viewMode === 'map') && locationStatus === 'idle') {
       actions.requestLocation();
     }
-  }, [actions, locationStatus, sort]);
+  }, [actions, locationStatus, sort, viewMode]);
 
   useEffect(() => {
     if (viewMode !== 'map') actions.setSelectedAcademy(null);
@@ -625,27 +680,13 @@ export function AcademyDiscoveryScreen({ initialView = 'list' }) {
         renderListState()
       ) : (
         <View style={{ flex: 1 }}>
-          <MapView
-            style={StyleSheet.absoluteFill}
-            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-            initialRegion={{
-              latitude: mapMarkers[0]?.lat ? Number(mapMarkers[0].lat) : 31.9539,
-              longitude: mapMarkers[0]?.lng ? Number(mapMarkers[0].lng) : 35.9106,
-              latitudeDelta: 0.25,
-              longitudeDelta: 0.25,
-            }}
-            showsUserLocation={false}
-          >
-            {mapMarkers.map((academy) => (
-              <Marker
-                key={academy.slug}
-                coordinate={{ latitude: Number(academy.lat), longitude: Number(academy.lng) }}
-                title={academy.name_en || academy.name_ar || academy.name}
-                description={academy.city}
-                onPress={() => actions.setSelectedAcademy(academy)}
-              />
-            ))}
-          </MapView>
+          <LeafletMap
+            markers={leafletMarkers}
+            center={mapCenter}
+            userLocation={coords}
+            onMarkerPress={onMapMarkerPress}
+            zoom={12}
+          />
 
           {mapLoading ? (
             <View
@@ -703,6 +744,32 @@ export function AcademyDiscoveryScreen({ initialView = 'list' }) {
                 actionLabel={t('service.academy.map.empty.reset')}
                 onAction={() => actions.clearFilters()}
               />
+            </View>
+          ) : null}
+
+          {(locationStatus === 'denied' ||
+            locationStatus === 'blocked' ||
+            locationStatus === 'unavailable') &&
+          !mapLoading &&
+          !mapError ? (
+            <View
+              style={[
+                styles.locationState,
+                {
+                  top: theme.space.lg,
+                  left: theme.space.lg,
+                  right: theme.space.lg,
+                  borderColor: theme.hairline,
+                  backgroundColor: theme.surface2,
+                },
+              ]}
+            >
+              <Text variant="caption" color={theme.text.secondary}>
+                {t(
+                  'service.academy.map.location.denied',
+                  'Location permission is unavailable. Using the default map center.'
+                )}
+              </Text>
             </View>
           ) : null}
 
@@ -838,6 +905,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 16,
     padding: 12,
+  },
+  locationState: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
   },
   peekWrap: {
     position: 'absolute',

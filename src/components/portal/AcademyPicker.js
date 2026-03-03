@@ -5,7 +5,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { borderRadius, spacing } from '../../theme/tokens';
 import { Input } from '../ui/Input';
 import { Text } from '../ui/Text';
-import { SporHiveLoader } from '../ui/SporHiveLoader';
+import { ThemedLoader } from '../ui/ThemedLoader';
 import { PortalListItem } from './PortalListItem';
 import { PortalEmptyState } from './PortalEmptyState';
 import { useTranslation } from '../../services/i18n/i18n';
@@ -58,11 +58,7 @@ export function AcademyPicker({
 
       {loading ? (
         <View style={[styles.loadingCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-          <SporHiveLoader
-            size={64}
-            fullScreen={false}
-            label={t('portal.login.academyPicker.loading')}
-          />
+          <ThemedLoader mode="inline" label={t('portal.login.academyPicker.loading')} />
         </View>
       ) : error ? (
         <View style={[styles.loadingCard, { borderColor: colors.error, backgroundColor: colors.error + '12' }]}>

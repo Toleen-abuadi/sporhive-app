@@ -95,27 +95,27 @@ export function PortalFreezesScreen() {
       <PortalHeader title={t('portal.freezes.title')} subtitle={t('portal.freezes.subtitle')} />
 
       <PortalInfoAccordion
-        title="What is a freeze?"
-        summary="A freeze temporarily pauses your registration while preserving remaining sessions."
+        title={t('portal.freezes.info.title')}
+        summary={t('portal.freezes.info.summary')}
         bullets={[
-          'Use freeze when you cannot attend for a short period.',
-          'Eligibility depends on active status, policy, and remaining sessions.',
-          'After request, academy reviews and confirms the effective dates.',
+          t('portal.freezes.info.bullet1'),
+          t('portal.freezes.info.bullet2'),
+          t('portal.freezes.info.bullet3'),
         ]}
       />
 
       {canRequestFreeze ? (
         <PortalActionBanner
-          title="Action Required"
-          description="Need a temporary break? Request your freeze before your next attendance cycle."
-          actionLabel="Request Freeze"
+          title={t('portal.common.actionRequired')}
+          description={t('portal.freezes.action.description')}
+          actionLabel={t('portal.freezes.action.label')}
           onAction={() => setConfirmOpen(true)}
         />
       ) : null}
 
-      {loading && !overview ? <PortalEmptyState title="Loading freeze details" description="Please wait while we load your freeze status." /> : null}
+      {loading && !overview ? <PortalEmptyState title={t('portal.freezes.loadingTitle')} description={t('portal.freezes.loadingDescription')} /> : null}
 
-      {error && !overview ? <PortalErrorState title="Could not load freeze status" message={error?.message || 'Try again to continue.'} onRetry={() => refresh?.()} retryLabel={t('portal.common.retry')} /> : null}
+      {error && !overview ? <PortalErrorState title={t('portal.freezes.errorTitle')} message={error?.message || t('portal.freezes.errorTryAgain')} onRetry={() => refresh?.()} retryLabel={t('portal.common.retry')} /> : null}
 
       {overview ? (
         <>
@@ -127,8 +127,8 @@ export function PortalFreezesScreen() {
               <CountPill label={t('portal.freezes.rejected')} value={freezeCounts?.rejected} tone="danger" colors={colors} />
               <CountPill label={t('portal.freezes.canceled')} value={freezeCounts?.canceled} tone="neutral" colors={colors} />
             </View>
-            {currentFreeze ? <Text variant="bodySmall" color={colors.textPrimary}>{`Current freeze: ${String(currentFreeze?.start_date || '').slice(0, 10)} → ${String(currentFreeze?.end_date || '').slice(0, 10)}`}</Text> : null}
-            {upcomingFreeze ? <Text variant="bodySmall" color={colors.textPrimary}>{`Upcoming freeze: ${String(upcomingFreeze?.start_date || '').slice(0, 10)} → ${String(upcomingFreeze?.end_date || '').slice(0, 10)}`}</Text> : null}
+            {currentFreeze ? <Text variant="bodySmall" color={colors.textPrimary}>{t('portal.freezes.currentFreezeRange', { start: String(currentFreeze?.start_date || '').slice(0, 10), end: String(currentFreeze?.end_date || '').slice(0, 10) })}</Text> : null}
+            {upcomingFreeze ? <Text variant="bodySmall" color={colors.textPrimary}>{t('portal.freezes.upcomingFreezeRange', { start: String(upcomingFreeze?.start_date || '').slice(0, 10), end: String(upcomingFreeze?.end_date || '').slice(0, 10) })}</Text> : null}
           </PortalCard>
 
           <PortalCard style={styles.card}>
@@ -153,14 +153,14 @@ export function PortalFreezesScreen() {
       <PortalConfirmSheet
         visible={confirmOpen}
         title={t('portal.freezes.confirmTitle')}
-        description="Please confirm your freeze request before submission."
+        description={t('portal.freezes.confirmDescription')}
         policyPoints={[
-          'Freeze dates are subject to academy approval.',
-          'Sessions are paused only for approved freeze duration.',
-          'You may need to contact support if dates must change after approval.',
+          t('portal.freezes.policy.one'),
+          t('portal.freezes.policy.two'),
+          t('portal.freezes.policy.three'),
         ]}
         requireAcknowledge
-        acknowledgeLabel="I understand freeze policy and want to proceed"
+        acknowledgeLabel={t('portal.freezes.acknowledge')}
         warning={t('portal.freezes.confirmWarning')}
         confirmLabel={t('portal.freezes.submit')}
         cancelLabel={t('portal.common.cancel')}

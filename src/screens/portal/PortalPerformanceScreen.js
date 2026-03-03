@@ -41,7 +41,7 @@ export function PortalPerformanceScreen() {
 
   const load = useCallback(async () => {
     if (!isValidTryOutId(tryoutId)) {
-      setError('Missing try_out (tryOutId is null). Please refresh portal session.');
+      setError(t('portal.performance.missingTryOut'));
       return;
     }
 
@@ -97,9 +97,9 @@ export function PortalPerformanceScreen() {
   })), [ratingTypes, summary, t]);
 
   const highlights = [
-    { label: 'Overall score', value: summary ? String(overallScore) : placeholder },
-    { label: 'Recent ratings', value: summary ? String(recentRatings.length) : placeholder },
-    { label: 'Tracked periods', value: String(periods.length || 0) },
+    { label: t('portal.performance.highlights.overallScore'), value: summary ? String(overallScore) : placeholder },
+    { label: t('portal.performance.highlights.recentRatings'), value: summary ? String(recentRatings.length) : placeholder },
+    { label: t('portal.performance.highlights.trackedPeriods'), value: String(periods.length || 0) },
   ];
 
   if (loading && !summary && periods.length === 0 && ratingTypes.length === 0 && !error) return <Screen><SporHiveLoader /></Screen>;
@@ -110,12 +110,12 @@ export function PortalPerformanceScreen() {
         <PortalHeader title={t('portal.performance.title')} subtitle={t('portal.performance.subtitle')} />
 
         <PortalCard style={styles.card}>
-          <Text variant="body" weight="semibold" color={colors.textPrimary}>What this means</Text>
-          <Text variant="bodySmall" color={colors.textSecondary}>Performance shows how your training has progressed over time. Use highlights for a quick check, then review trends for deeper context.</Text>
+          <Text variant="body" weight="semibold" color={colors.textPrimary}>{t('portal.performance.introTitle')}</Text>
+          <Text variant="bodySmall" color={colors.textSecondary}>{t('portal.performance.introDescription')}</Text>
         </PortalCard>
 
         <PortalCard style={styles.card}>
-          <Text variant="body" weight="semibold" color={colors.textPrimary}>Highlights</Text>
+          <Text variant="body" weight="semibold" color={colors.textPrimary}>{t('portal.performance.highlights.title')}</Text>
           <View style={styles.highlightRow}>
             {highlights.map((item) => (
               <View key={item.label} style={[styles.highlightTile, { borderColor: colors.border }]}> 
@@ -128,8 +128,8 @@ export function PortalPerformanceScreen() {
 
         {typeMetrics.length ? (
           <PortalCard style={styles.card}>
-            <Text variant="body" weight="semibold" color={colors.textPrimary}>Trends</Text>
-            <Text variant="caption" color={colors.textMuted}>Each bar compares the latest rating level by category.</Text>
+            <Text variant="body" weight="semibold" color={colors.textPrimary}>{t('portal.performance.trendsTitle')}</Text>
+            <Text variant="caption" color={colors.textMuted}>{t('portal.performance.trendsDescription')}</Text>
             <View style={styles.metricStack}>
               {typeMetrics.map((metric) => (
                 <View key={metric.key} style={styles.metricItem}>
@@ -143,14 +143,16 @@ export function PortalPerformanceScreen() {
 
         {periods.length ? (
           <PortalCard style={styles.card}>
-            <Text variant="body" weight="semibold" color={colors.textPrimary}>Period narrative</Text>
+            <Text variant="body" weight="semibold" color={colors.textPrimary}>{t('portal.performance.periodNarrativeTitle')}</Text>
             {periods.map((period, index) => (
               <View key={period?.id ?? index} style={[styles.periodRow, { borderBottomColor: colors.border }]}> 
                 <View style={{ flex: 1 }}>
                   <Text variant="bodySmall" color={colors.textPrimary}>{period?.label || period?.date || t('portal.performance.periodLabel', { index: index + 1 })}</Text>
                   <Text variant="caption" color={colors.textMuted}>{(period?.from || period?.start || placeholder)} → {(period?.to || period?.end || placeholder)}</Text>
                 </View>
-                <Text variant="caption" weight="semibold" color={colors.textSecondary}>Player {period?.score ?? 0} / Coach {period?.coach_score ?? 0}</Text>
+                <Text variant="caption" weight="semibold" color={colors.textSecondary}>
+                  {t('portal.performance.periodScore', { player: period?.score ?? 0, coach: period?.coach_score ?? 0 })}
+                </Text>
               </View>
             ))}
           </PortalCard>

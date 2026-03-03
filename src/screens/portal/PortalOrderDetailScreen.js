@@ -85,12 +85,17 @@ export function PortalOrderDetailScreen() {
     <PortalAccessGate titleOverride={t('portal.orders.detailTitle')}>
       <AppScreen safe scroll>
         <AppHeader title={t('portal.orders.detailTitle')} onBackPress={goBack} />
-        <PortalActionBanner title="Order status" description={inProgress ? 'Your order is in progress. We will notify you when ready.' : 'This order is complete. Review items and payment details below.'} actionLabel="Back to orders" onAction={() => router.push('/portal/my-orders')} />
+        <PortalActionBanner
+          title={t('portal.orders.statusTitle')}
+          description={inProgress ? t('portal.orders.statusDescriptionInProgress') : t('portal.orders.statusDescriptionCompleted')}
+          actionLabel={t('portal.orders.backToOrders')}
+          onAction={() => router.push('/portal/my-orders')}
+        />
 
         <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
-          <PortalSection title={order?.title || t('portal.orders.defaultTitle')} subtitle="Status & tracking" infoText={getGlossaryHelp('orderStatus')} />
+          <PortalSection title={order?.title || t('portal.orders.defaultTitle')} subtitle={t('portal.orders.statusTracking')} infoText={getGlossaryHelp('orderStatus')} />
           <PortalStatusBadge label={statusMeta.label} severity={statusMeta.severity} />
-          <PortalTimeline steps={['Created', 'Pending', 'Approved', 'Completed']} activeIndex={statusStep(order?.status || order?.state)} />
+          <PortalTimeline steps={[t('portal.common.timeline.created'), t('portal.common.timeline.pending'), t('portal.common.timeline.approved'), t('portal.common.timeline.completed')]} activeIndex={statusStep(order?.status || order?.state)} />
           <View style={styles.row}><Text variant="caption" color={colors.textMuted}>{t('portal.orders.referenceLabel')}</Text><Text variant="bodySmall" color={colors.textPrimary}>{order?.reference || order?.id || t('portal.common.placeholder')}</Text></View>
           <View style={styles.row}><Text variant="caption" color={colors.textMuted}>{t('portal.orders.createdLabel')}</Text><Text variant="bodySmall" color={colors.textPrimary}>{order?.created_at || t('portal.common.placeholder')}</Text></View>
         </Card>
@@ -108,9 +113,9 @@ export function PortalOrderDetailScreen() {
         ) : null}
 
         <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
-          <Text variant="body" weight="bold" color={colors.textPrimary}>Payment & delivery summary</Text>
+          <Text variant="body" weight="bold" color={colors.textPrimary}>{t('portal.orders.summaryTitle')}</Text>
           <View style={styles.row}><Text variant="caption" color={colors.textMuted}>{t('portal.orders.totalLabel')}</Text><Text variant="bodySmall" color={colors.textPrimary}>{order?.total || order?.amount || t('portal.common.placeholder')}</Text></View>
-          <View style={styles.row}><Text variant="caption" color={colors.textMuted}>Delivery / next step</Text><Text variant="bodySmall" color={colors.textPrimary}>{order?.delivery_method || order?.delivery || (inProgress ? 'Awaiting dispatch/collection update' : t('portal.common.placeholder'))}</Text></View>
+          <View style={styles.row}><Text variant="caption" color={colors.textMuted}>{t('portal.orders.deliveryNextStep')}</Text><Text variant="bodySmall" color={colors.textPrimary}>{order?.delivery_method || order?.delivery || (inProgress ? t('portal.orders.awaitingDispatch') : t('portal.common.placeholder'))}</Text></View>
         </Card>
       </AppScreen>
     </PortalAccessGate>

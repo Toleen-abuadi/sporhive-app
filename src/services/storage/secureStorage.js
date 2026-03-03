@@ -114,9 +114,15 @@ export const secureStorage = {
 
     try {
       if (hasSecureStore) {
-        const raw = await SecureStore.getItemAsync(resolvedKey);
-        const parsed = parseStoredValue(raw);
-        if (parsed != null) return parsed;
+        try {
+          const raw = await SecureStore.getItemAsync(resolvedKey);
+          const parsed = parseStoredValue(raw);
+          if (parsed != null) return parsed;
+        } catch (error) {
+          // Some runtimes expose the JS API but miss native methods.
+          // Fall back to durable storage instead of failing auth/session flows.
+          logSecureStorageError('getItem(secure)', resolvedKey, error);
+        }
       }
 
       const fallbackAdapter = resolveFallbackAdapter();
@@ -144,13 +150,18 @@ export const secureStorage = {
 
     try {
       if (hasSecureStore) {
-        await SecureStore.setItemAsync(resolvedKey, serialized);
+        try {
+          await SecureStore.setItemAsync(resolvedKey, serialized);
 
-        // Keep durable backup in AsyncStorage when available.
-        if (hasAsyncStorage) {
-          await AsyncStorage.setItem(resolvedKey, serialized);
+          // Keep durable backup in AsyncStorage when available.
+          if (hasAsyncStorage) {
+            await AsyncStorage.setItem(resolvedKey, serialized);
+          }
+          return;
+        } catch (error) {
+          // Continue to fallback adapter.
+          logSecureStorageError('setItem(secure)', resolvedKey, error);
         }
-        return;
       }
 
       const fallbackAdapter = resolveFallbackAdapter();
@@ -178,12 +189,17 @@ export const secureStorage = {
 
     try {
       if (hasSecureStore) {
-        await SecureStore.deleteItemAsync(resolvedKey);
+        try {
+          await SecureStore.deleteItemAsync(resolvedKey);
 
-        if (hasAsyncStorage) {
-          await AsyncStorage.removeItem(resolvedKey);
+          if (hasAsyncStorage) {
+            await AsyncStorage.removeItem(resolvedKey);
+          }
+          return;
+        } catch (error) {
+          // Continue to fallback adapter.
+          logSecureStorageError('removeItem(secure)', resolvedKey, error);
         }
-        return;
       }
 
       const fallbackAdapter = resolveFallbackAdapter();
@@ -206,4 +222,3 @@ export const secureStorage = {
     await Promise.all(keys.map((key) => secureStorage.removeItem(key)));
   },
 };
-

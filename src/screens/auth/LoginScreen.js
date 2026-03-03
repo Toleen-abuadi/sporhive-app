@@ -24,7 +24,7 @@ import { SegmentedToggle } from '../../components/auth/SegmentedToggle';
 import { AcademyPicker } from '../../components/auth/AcademyPicker';
 import { authApi } from '../../services/auth/auth.api';
 import { useAuth } from '../../services/auth/auth.store';
-import { resolveAuthErrorMessage } from '../../services/auth/auth.errors';
+import { normalizeApiError } from '../../utils/normalizeApiError';
 import { borderRadius, spacing } from '../../theme/tokens';
 import {
   DEFAULT_POST_LOGIN_ROUTE,
@@ -160,7 +160,7 @@ export function LoginScreen() {
     };
   }, [mode, resolveAcademy, t]);
 
-  const errorMessage = submitError ? resolveAuthErrorMessage(submitError, t) : '';
+  const errorMessage = submitError ? normalizeApiError(submitError, t, { flow: 'login' }) : '';
 
   const onSelectAcademy = (item) => {
     setAcademy(item);
@@ -201,7 +201,7 @@ export function LoginScreen() {
         router.replace(safeRedirect || DEFAULT_POST_LOGIN_ROUTE);
       } else {
         setSubmitError(res.error);
-        toast.error(resolveAuthErrorMessage(res.error, t, 'auth.login.error'));
+        toast.error(normalizeApiError(res.error, t, { flow: 'login' }));
       }
       return;
     }
@@ -227,7 +227,7 @@ export function LoginScreen() {
       router.replace(safeRedirect || DEFAULT_POST_LOGIN_ROUTE);
     } else {
       setSubmitError(res.error);
-      toast.error(resolveAuthErrorMessage(res.error, t, 'auth.login.error'));
+      toast.error(normalizeApiError(res.error, t, { flow: 'login' }));
     }
   };
 

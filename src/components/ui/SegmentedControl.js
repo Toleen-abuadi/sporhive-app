@@ -4,11 +4,21 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { Text } from './Text';
 import { spacing, borderRadius, fontSize } from '../../theme/tokens';
 
-export function SegmentedControl({ value, onChange, options, style }) {
+export function SegmentedControl({ value, onChange, options, style, isRTL = false }) {
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.wrap, { backgroundColor: colors.surface, borderColor: colors.border }, style]}>
+    <View
+      style={[
+        styles.wrap,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+          flexDirection: isRTL ? 'row-reverse' : 'row',
+        },
+        style,
+      ]}
+    >
       {options.map((opt) => {
         const active = value === opt.value;
         return (
@@ -25,7 +35,7 @@ export function SegmentedControl({ value, onChange, options, style }) {
             ]}
           >
             <View style={styles.itemInner}>
-              {opt.icon ? <View style={{ marginRight: spacing.xs }}>{opt.icon(active, colors)}</View> : null}
+              {opt.icon ? <View style={isRTL ? styles.iconRtl : styles.iconLtr}>{opt.icon(active, colors)}</View> : null}
               <Text
                 variant="caption"
                 weight={active ? 'bold' : 'semibold'}
@@ -43,7 +53,6 @@ export function SegmentedControl({ value, onChange, options, style }) {
 
 const styles = StyleSheet.create({
   wrap: {
-    flexDirection: 'row',
     padding: 4,
     borderRadius: borderRadius.xl,
     borderWidth: 1,
@@ -59,5 +68,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconLtr: {
+    marginRight: spacing.xs,
+  },
+  iconRtl: {
+    marginLeft: spacing.xs,
   },
 });

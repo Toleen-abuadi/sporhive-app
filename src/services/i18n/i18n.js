@@ -55,7 +55,7 @@ initI18n();
 
 export function I18nProvider({ children }) {
   const [language, setLanguage] = useState(DEFAULT_LANGUAGE);
-  const [isRTL, setIsRTL] = useState(false);
+  const [isRTL, setIsRTL] = useState(() => I18nManager.isRTL);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -82,16 +82,16 @@ export function I18nProvider({ children }) {
       const savedLanguage = await storage.getItem(APP_STORAGE_KEYS.LANGUAGE);
       const normalized = typeof savedLanguage === 'string' ? savedLanguage.toLowerCase() : null;
       const nextLanguage = SUPPORTED_LANGUAGES.has(normalized) ? normalized : DEFAULT_LANGUAGE;
+      applyRTL(nextLanguage);
       await i18n.changeLanguage(nextLanguage);
       setLanguage(nextLanguage);
-      applyRTL(nextLanguage);
     } catch (error) {
       if (__DEV__) {
         console.warn('Error loading language:', error);
       }
+      applyRTL(DEFAULT_LANGUAGE);
       await i18n.changeLanguage(DEFAULT_LANGUAGE);
       setLanguage(DEFAULT_LANGUAGE);
-      applyRTL(DEFAULT_LANGUAGE);
     } finally {
       setIsLoading(false);
     }
@@ -135,7 +135,7 @@ export function useI18n() {
   if (!context) {
     throw new Error('useI18n must be used within an I18nProvider');
   }
-  return { ...context, t };
+  return { ...context, isRTL: context.isRTL || I18nManager.isRTL, t };
 }
 
 export function useTranslation() {
@@ -146,7 +146,7 @@ export function useTranslation() {
   }
   return {
     t,
-    isRTL: context.isRTL,
+    isRTL: context.isRTL || I18nManager.isRTL,
     locale: i18nInstance.language,
     i18n: {
       language: i18nInstance.language,

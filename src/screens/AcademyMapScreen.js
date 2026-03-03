@@ -1,12 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
 import { endpoints } from '../services/api/endpoints';
-import { API_BASE_URL } from '../services/api/client';
 import { useSmartBack } from '../navigation/useSmartBack';
 
 import { Screen } from '../components/ui/Screen';
@@ -19,28 +17,29 @@ import { Input } from '../components/ui/Input';
 import { Divider } from '../components/ui/Divider';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ErrorState } from '../components/ui/ErrorState';
+import { LeafletMap } from '../components/LeafletMap';
 
 import { MapPin, X, Filter } from 'lucide-react-native';
-import { spacing, borderRadius } from '../theme/tokens';
+import { borderRadius, spacing } from '../theme/tokens';
+import { useUserLocation } from '../hooks/useUserLocation';
+import { distanceKm, formatDistanceLabel } from '../utils/distance';
+import { DEFAULT_MAP_CENTER, averageCenter, normalizeLatLng } from '../utils/map';
 
-function safeText(v) {
-  if (v === null || v === undefined) return '';
-  return String(v).trim();
+function safeText(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
 }
 
-function toAbsoluteUrlMaybe(url, base) {
-  if (!url) return null;
-  const s = String(url);
-  if (s.startsWith('http://') || s.startsWith('https://')) return s;
-  if (!base) return s;
-  return `${base.replace(/\/$/, '')}/${s.replace(/^\//, '')}`;
-}
+const toNumberOrNull = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
-function academyImageUrl(base, slug, kind) {
-  if (!base || !slug) return null;
-  // NOTE: your Template screen uses this same path pattern
-  return `${base.replace(/\/$/, '')}/public/academies/image/${encodeURIComponent(slug)}/${kind}`;
-}
+const resolveAcademyPosition = (academy) =>
+  normalizeLatLng({
+    lat: academy?.lat ?? academy?.latitude,
+    lng: academy?.lng ?? academy?.longitude,
+  });
 
 export function AcademyMapScreen() {
   const router = useRouter();
@@ -48,29 +47,20 @@ export function AcademyMapScreen() {
   const { colors, isDark } = useTheme();
   const { t } = useI18n();
 
-  const mapRef = useRef(null);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [items, setItems] = useState([]);
 
-  // Filters (backend map endpoint supports sport/city) :contentReference[oaicite:5]{index=5}
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sport, setSport] = useState('');
   const [city, setCity] = useState('');
 
-  const [selected, setSelected] = useState(null); // selected academy marker
+  const [selected, setSelected] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  const initialRegion = useMemo(() => {
-    // Default: Amman-ish (safe fallback)
-    return {
-      latitude: 31.9539,
-      longitude: 35.9106,
-      latitudeDelta: 0.25,
-      longitudeDelta: 0.25,
-    };
-  }, []);
+  const { userLocation, locationStatus, requestLocation } = useUserLocation({
+    autoRequest: true,
+  });
 
   const fetchMap = useCallback(async () => {
     setError('');
@@ -80,25 +70,11 @@ export function AcademyMapScreen() {
         sport: sport || '',
         city: city || '',
       });
+
       const list = Array.isArray(res?.data) ? res.data : [];
       setItems(list);
-
-      // Auto fit markers (nice pro touch)
-      const points = list
-        .map((x) => x?.academy || x)
-        .filter((a) => a?.lat != null && a?.lng != null);
-
-      if (points.length >= 2 && mapRef.current?.fitToCoordinates) {
-        const coords = points.map((a) => ({ latitude: Number(a.lat), longitude: Number(a.lng) }));
-        setTimeout(() => {
-          mapRef.current?.fitToCoordinates(coords, {
-            edgePadding: { top: 90, right: 60, bottom: 260, left: 60 },
-            animated: true,
-          });
-        }, 250);
-      }
-    } catch (e) {
-      setError(e?.message || t('common.error', 'Something went wrong'));
+    } catch (requestError) {
+      setError(requestError?.message || t('common.error', 'Something went wrong'));
     } finally {
       setLoading(false);
     }
@@ -108,16 +84,68 @@ export function AcademyMapScreen() {
     fetchMap();
   }, [fetchMap]);
 
-  const normalizedAcademies = useMemo(() => {
-    return items
-      .map((x) => x?.academy || x)
-      .filter((a) => a?.slug && a?.lat != null && a?.lng != null);
-  }, [items]);
+  const normalizedAcademies = useMemo(
+    () =>
+      items
+        .map((item) => item?.academy || item)
+        .filter(Boolean),
+    [items]
+  );
+
+  const mapAcademies = useMemo(() => {
+    return normalizedAcademies
+      .map((academy) => {
+        const position = resolveAcademyPosition(academy);
+        if (!academy?.slug || !position) return null;
+
+        const backendDistance = toNumberOrNull(
+          academy?.distance_km ?? academy?.distanceKm
+        );
+        const fallbackDistance = distanceKm(userLocation, position);
+        const resolvedDistance = backendDistance ?? fallbackDistance ?? null;
+
+        return {
+          ...academy,
+          position,
+          distance_km: resolvedDistance,
+          distanceKm: resolvedDistance,
+        };
+      })
+      .filter(Boolean);
+  }, [normalizedAcademies, userLocation]);
+
+  const mapMarkers = useMemo(
+    () =>
+      mapAcademies.map((academy) => ({
+        id: academy.slug,
+        position: academy.position,
+        title: safeText(academy.name_en || academy.name_ar || academy.name),
+        description: safeText(academy.city),
+      })),
+    [mapAcademies]
+  );
+
+  const mapCenter = useMemo(() => {
+    const points = mapAcademies.map((academy) => academy.position).filter(Boolean);
+    const fallback = normalizeLatLng(userLocation) || DEFAULT_MAP_CENTER;
+    return averageCenter(points, fallback);
+  }, [mapAcademies, userLocation]);
 
   const onSelect = useCallback((academy) => {
     setSelected(academy);
     setPreviewOpen(true);
   }, []);
+
+  const onMapMarkerPress = useCallback(
+    (markerId) => {
+      const academy = mapAcademies.find(
+        (entry) => String(entry.slug) === String(markerId)
+      );
+      if (!academy) return;
+      onSelect(academy);
+    },
+    [mapAcademies, onSelect]
+  );
 
   const onViewTemplate = useCallback(() => {
     const slug = selected?.slug;
@@ -133,28 +161,27 @@ export function AcademyMapScreen() {
     router.push(`/academies/${slug}/join`);
   }, [router, selected]);
 
-  const coverUri = useMemo(() => {
-    if (!selected?.slug) return null;
-    return (
-      toAbsoluteUrlMaybe(selected?.cover_url, API_BASE_URL) ||
-      academyImageUrl(API_BASE_URL, selected.slug, 'cover')
-    );
-  }, [selected]);
+  const selectedDistanceLabel = useMemo(() => {
+    if (!selected) return '';
+    const backendDistance = toNumberOrNull(selected?.distance_km ?? selected?.distanceKm);
+    const fallbackDistance = distanceKm(userLocation, selected?.position);
+    return formatDistanceLabel(backendDistance ?? fallbackDistance);
+  }, [selected, userLocation]);
 
-  const logoUri = useMemo(() => {
-    if (!selected?.slug) return null;
-    return (
-      toAbsoluteUrlMaybe(selected?.logo_url, API_BASE_URL) ||
-      academyImageUrl(API_BASE_URL, selected.slug, 'logo')
-    );
-  }, [selected]);
+  const showLocationWarning =
+    locationStatus === 'denied' ||
+    locationStatus === 'blocked' ||
+    locationStatus === 'unavailable';
 
   return (
     <Screen safe scroll={false} style={{ backgroundColor: colors.background }}>
       <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
         <AppHeader
           title={t('academies.map.title', 'Academies map')}
-          subtitle={t('academies.map.subtitle', 'Explore nearby academies and open the template in one tap.')}
+          subtitle={t(
+            'academies.map.subtitle',
+            'Explore nearby academies and open the template in one tap.'
+          )}
           onBackPress={goBack}
           rightAction={{
             icon: <Filter size={20} color={colors.textPrimary} />,
@@ -165,32 +192,41 @@ export function AcademyMapScreen() {
       </View>
 
       <View style={styles.mapWrap}>
-        <MapView
-          ref={mapRef}
-          style={StyleSheet.absoluteFill}
-          initialRegion={initialRegion}
-          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-          showsUserLocation={false}
-          showsMyLocationButton={false}
-        >
-          {normalizedAcademies.map((a) => (
-            <Marker
-              key={a.slug}
-              coordinate={{ latitude: Number(a.lat), longitude: Number(a.lng) }}
-              title={safeText(a.name_en || a.name_ar || a.name)}
-              description={safeText(a.city)}
-              onPress={() => onSelect(a)}
-            />
-          ))}
-        </MapView>
+        <LeafletMap
+          markers={mapMarkers}
+          center={mapCenter}
+          userLocation={userLocation}
+          onMarkerPress={onMapMarkerPress}
+          zoom={12}
+        />
 
-        {/* Loading / Empty / Error overlays */}
         {loading ? (
-          <View style={[styles.overlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.22)' }]}>
-            <Card style={[styles.overlayCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-              <Text weight="bold">{t('common.loading', 'Loading')}…</Text>
-              <Text variant="caption" color={colors.textSecondary} style={{ marginTop: 6 }}>
-                {t('academies.map.loadingSub', 'Fetching academies for the map…')}
+          <View
+            style={[
+              styles.overlay,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(0,0,0,0.22)'
+                  : 'rgba(255,255,255,0.22)',
+              },
+            ]}
+          >
+            <Card
+              style={[
+                styles.overlayCard,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text weight="bold">{t('common.loading', 'Loading')}...</Text>
+              <Text
+                variant="caption"
+                color={colors.textSecondary}
+                style={{ marginTop: 6 }}
+              >
+                {t('academies.map.loadingSub', 'Fetching academies for the map...')}
               </Text>
             </Card>
           </View>
@@ -205,12 +241,15 @@ export function AcademyMapScreen() {
               />
             </View>
           </View>
-        ) : normalizedAcademies.length === 0 ? (
+        ) : mapAcademies.length === 0 ? (
           <View style={styles.overlay}>
             <View style={{ paddingHorizontal: spacing.lg, width: '100%' }}>
               <EmptyState
                 title={t('academies.map.emptyTitle', 'No academies on map')}
-                message={t('academies.map.emptySub', 'Try removing filters to see more results.')}
+                message={t(
+                  'academies.map.emptySub',
+                  'Try removing filters to see more results.'
+                )}
                 actionLabel={t('common.reset', 'Reset')}
                 onAction={() => {
                   setSport('');
@@ -221,9 +260,30 @@ export function AcademyMapScreen() {
             </View>
           </View>
         ) : null}
+
+        {showLocationWarning && !loading && !error ? (
+          <View
+            style={[
+              styles.locationBanner,
+              {
+                borderColor: colors.border,
+                backgroundColor: colors.surfaceElevated,
+              },
+            ]}
+          >
+            <Text variant="caption" color={colors.textSecondary} style={{ flex: 1 }}>
+              {t(
+                'academies.map.locationDenied',
+                'Location permission is unavailable. Using the default map center.'
+              )}
+            </Text>
+            <Button variant="ghost" size="small" onPress={requestLocation}>
+              {t('common.retry', 'Retry')}
+            </Button>
+          </View>
+        ) : null}
       </View>
 
-      {/* Filters sheet */}
       <BottomSheetModal visible={filtersOpen} onClose={() => setFiltersOpen(false)}>
         <View style={styles.sheetHeader}>
           <View style={{ flex: 1 }}>
@@ -235,14 +295,28 @@ export function AcademyMapScreen() {
             </Text>
           </View>
 
-          <Button variant="ghost" onPress={() => setFiltersOpen(false)} style={{ paddingHorizontal: 10 }}>
+          <Button
+            variant="ghost"
+            onPress={() => setFiltersOpen(false)}
+            style={{ paddingHorizontal: 10 }}
+          >
             <X size={18} color={colors.textPrimary} />
           </Button>
         </View>
 
         <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
-          <Input label={t('academies.sport', 'Sport')} value={sport} onChangeText={setSport} placeholder="e.g. Football" />
-          <Input label={t('academies.city', 'City')} value={city} onChangeText={setCity} placeholder="e.g. Amman" />
+          <Input
+            label={t('academies.sport', 'Sport')}
+            value={sport}
+            onChangeText={setSport}
+            placeholder="e.g. Football"
+          />
+          <Input
+            label={t('academies.city', 'City')}
+            value={city}
+            onChangeText={setCity}
+            placeholder="e.g. Amman"
+          />
 
           <Divider />
 
@@ -255,7 +329,11 @@ export function AcademyMapScreen() {
                 setCity('');
               }}
             >
-              <Text variant="caption" weight="bold" style={{ color: colors.textPrimary }}>
+              <Text
+                variant="caption"
+                weight="bold"
+                style={{ color: colors.textPrimary }}
+              >
                 {t('common.reset', 'Reset')}
               </Text>
             </Button>
@@ -275,7 +353,6 @@ export function AcademyMapScreen() {
         </View>
       </BottomSheetModal>
 
-      {/* Preview sheet */}
       <BottomSheetModal visible={previewOpen} onClose={() => setPreviewOpen(false)}>
         <View style={{ gap: spacing.md }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
@@ -286,32 +363,60 @@ export function AcademyMapScreen() {
                 borderRadius: 14,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: isDark ? 'rgba(255,165,0,0.12)' : 'rgba(255,165,0,0.10)',
+                backgroundColor: isDark
+                  ? 'rgba(255,165,0,0.12)'
+                  : 'rgba(255,165,0,0.10)',
               }}
             >
               <MapPin size={18} color={colors.accentOrange} />
             </View>
             <View style={{ flex: 1 }}>
               <Text variant="h4" weight="bold" numberOfLines={1}>
-                {safeText(selected?.name_en || selected?.name_ar || selected?.name) || t('academies.unnamed', 'Academy')}
+                {safeText(selected?.name_en || selected?.name_ar || selected?.name) ||
+                  t('academies.unnamed', 'Academy')}
               </Text>
               <Text variant="caption" color={colors.textSecondary} numberOfLines={1}>
-                {safeText(selected?.city)} {safeText(selected?.address) ? `• ${safeText(selected.address)}` : ''}
+                {safeText(selected?.city)}
+                {safeText(selected?.address) ? ` | ${safeText(selected.address)}` : ''}
+                {selectedDistanceLabel ? ` | ${selectedDistanceLabel}` : ''}
               </Text>
             </View>
-            <Button variant="ghost" onPress={() => setPreviewOpen(false)} style={{ paddingHorizontal: 10 }}>
+            <Button
+              variant="ghost"
+              onPress={() => setPreviewOpen(false)}
+              style={{ paddingHorizontal: 10 }}
+            >
               <X size={18} color={colors.textPrimary} />
             </Button>
           </View>
 
-          <Card style={{ borderRadius: borderRadius.xl, borderColor: colors.border, backgroundColor: colors.surfaceElevated }}>
+          <Card
+            style={{
+              borderRadius: borderRadius.xl,
+              borderColor: colors.border,
+              backgroundColor: colors.surfaceElevated,
+            }}
+          >
             <View style={{ padding: spacing.lg, gap: spacing.sm }}>
               <Text variant="caption" color={colors.textSecondary}>
-                {t('academies.map.previewHint', 'Open the full template or join directly.')}
+                {t(
+                  'academies.map.previewHint',
+                  'Open the full template or join directly.'
+                )}
               </Text>
-              <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  gap: spacing.md,
+                  marginTop: spacing.sm,
+                }}
+              >
                 <Button variant="secondary" style={{ flex: 1 }} onPress={onViewTemplate}>
-                  <Text variant="caption" weight="bold" style={{ color: colors.textPrimary }}>
+                  <Text
+                    variant="caption"
+                    weight="bold"
+                    style={{ color: colors.textPrimary }}
+                  >
                     {t('academies.view', 'View')}
                   </Text>
                 </Button>
@@ -323,9 +428,6 @@ export function AcademyMapScreen() {
               </View>
             </View>
           </Card>
-
-          {/* Hidden: we already computed coverUri/logoUri for future (if you want to show thumbnail) */}
-          {/* You can later add a compact image tile using coverUri/logoUri */}
         </View>
       </BottomSheetModal>
     </Screen>
@@ -347,9 +449,23 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     width: '86%',
   },
+  locationBanner: {
+    position: 'absolute',
+    top: spacing.lg,
+    left: spacing.lg,
+    right: spacing.lg,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
   },
 });
+

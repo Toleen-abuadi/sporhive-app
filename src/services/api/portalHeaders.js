@@ -1,6 +1,15 @@
 import { storage, APP_STORAGE_KEYS, PORTAL_KEYS } from '../storage/storage';
-import { getPortalAcademyId } from '../auth/portalSession';
+import { getPortalAcademyId, getPortalPlayerId } from '../auth/portalSession';
 import { resolveAppToken } from './appHeaders';
+
+const DEBUG_PORTAL_HEADERS = true;
+
+const maskToken = (token) => {
+  if (!token) return null;
+  const value = String(token);
+  if (value.length <= 8) return '***';
+  return `${value.slice(0, 4)}***${value.slice(-3)}`;
+};
 
 const readAuthSession = async () => {
   const session = await storage.getItem(APP_STORAGE_KEYS.AUTH_SESSION);
@@ -58,8 +67,15 @@ export const isPortalError = (err) =>
  * - X-Customer-Id
  */
 export const getPortalAuthHeaders = async (options = {}) => {
+  const session = options.session || (await readAuthSession());
   const token = await resolveAppToken();
   if (!token) {
+    if (DEBUG_PORTAL_HEADERS) {
+      console.warn('[portalHeaders] token missing', {
+        hasSession: Boolean(session),
+        loginAs: session?.login_as || session?.user?.type || null,
+      });
+    }
     // NOTE: this uses the app token resolver (single-token policy).
     throw createPortalError('Missing app token', {
       code: 'PORTAL_TOKEN_MISSING',
@@ -67,22 +83,48 @@ export const getPortalAuthHeaders = async (options = {}) => {
     });
   }
 
-  const academyId = await resolvePortalAcademyId(options);
+  const academyId = await resolvePortalAcademyId({ ...options, session });
+  const playerId = getPortalPlayerId(session);
+  const loginAs = session?.login_as || session?.user?.type || 'player';
+
   if (!Number.isInteger(academyId) || academyId <= 0) {
-    if (__DEV__) console.warn('[portalHeaders] Missing academyId; options:', options);
+    if (DEBUG_PORTAL_HEADERS) {
+      console.warn('[portalHeaders] Missing academyId', {
+        academyId,
+        playerId: playerId ?? null,
+        loginAs,
+        tokenPreview: maskToken(token),
+        optionsAcademyId: options?.academyId ?? null,
+      });
+    }
     const err = createPortalError('Missing portal academy id', {
       code: 'PORTAL_ACADEMY_MISSING',
       kind: 'PORTAL_ACADEMY_REQUIRED',
     });
-    if (__DEV__) {
-      console.log('[portalHeaders] academyId:', academyId);
-    }
     throw err;
   }
 
-  return {
+  const headers = {
     Authorization: `Bearer ${token}`,
     'X-Academy-Id': String(academyId),
     'X-Customer-Id': String(academyId),
   };
+
+  if (playerId != null) {
+    headers['X-Player-Id'] = String(playerId);
+  }
+  if (loginAs) {
+    headers['X-Login-As'] = String(loginAs);
+  }
+
+  if (DEBUG_PORTAL_HEADERS) {
+    console.info('[portalHeaders] resolved', {
+      academyId,
+      playerId: playerId ?? null,
+      loginAs,
+      tokenPreview: maskToken(token),
+    });
+  }
+
+  return headers;
 };

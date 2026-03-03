@@ -16,16 +16,17 @@ import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
+import { ThemedLoader } from '../../components/ui/ThemedLoader';
 import { PortalHeader } from '../../components/portal/PortalHeader';
 import { PortalEmptyState } from '../../components/portal/PortalEmptyState';
 import { portalApi } from '../../services/api/playerPortalApi';
 import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
-import { useAuth } from '../../services/auth/auth.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { spacing } from '../../theme/tokens';
 import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
+import { usePortalReady } from '../../hooks/usePortalReady';
+import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 
 const alphaHex = (hex, alpha = '1A') => {
   if (!hex) return hex;
@@ -47,6 +48,50 @@ const clampInt = (n, min, max) => {
 
 const safeArray = (v) => (Array.isArray(v) ? v : []);
 
+const STOCK_NUMBER_KEYS = [
+  'stock',
+  'stocks',
+  'available_stock',
+  'availableStock',
+  'available_quantity',
+  'availableQuantity',
+  'available_qty',
+  'availableQty',
+  'quantity',
+  'qty',
+  'inventory',
+  'inventory_count',
+  'inventoryCount',
+];
+
+const STOCK_BOOLEAN_KEYS = ['in_stock', 'inStock', 'is_in_stock', 'isInStock', 'available', 'is_available', 'isAvailable'];
+
+const resolveStockValue = (product, variant) => {
+  const sources = [variant, product];
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue;
+
+    for (const key of STOCK_NUMBER_KEYS) {
+      const raw = source?.[key];
+      if (raw == null || raw === '') continue;
+      const n = Number(raw);
+      if (Number.isFinite(n)) return n;
+    }
+
+    for (const key of STOCK_BOOLEAN_KEYS) {
+      const raw = source?.[key];
+      if (typeof raw === 'boolean') return raw ? 1 : 0;
+    }
+  }
+
+  return null;
+};
+
+const isOutOfStock = (product, variant) => {
+  const stock = resolveStockValue(product, variant);
+  return stock != null && stock <= 0;
+};
+
 const formatMoney = (value, currency = '') => {
   // Keep it simple (no Intl to avoid locale pitfalls in RN)
   const n = Number(value);
@@ -61,7 +106,11 @@ export function PortalUniformStoreScreen() {
   const toast = useToast();
   const { t, isRTL } = useTranslation();
   const placeholder = t('portal.common.placeholder');
-  const { ensurePortalReauthOnce } = useAuth();
+  const { ready: portalReady, ensure: ensurePortalReady } = usePortalReady();
+  const portalActions = usePlayerPortalActions();
+  const { storeLoadedOnce } = usePlayerPortalStore((state) => ({
+    storeLoadedOnce: state.storeLoadedOnce,
+  }));
   const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
   const didReauthRedirectRef = useRef(false);
@@ -84,13 +133,22 @@ export function PortalUniformStoreScreen() {
     const recommended = items.filter((x) => !required.includes(x) && (x?.is_recommended || String(x?.type || '').toLowerCase().includes('recommended')));
     const optional = items.filter((x) => !required.includes(x) && !recommended.includes(x));
     return [
-      { key: 'required', title: 'Required items', data: required },
-      { key: 'recommended', title: 'Recommended', data: recommended },
-      { key: 'optional', title: 'Optional', data: optional },
+      { key: 'required', title: t('portal.uniforms.sections.required'), data: required },
+      { key: 'recommended', title: t('portal.uniforms.sections.recommended'), data: recommended },
+      { key: 'optional', title: t('portal.uniforms.sections.optional'), data: optional },
     ].filter((x) => x.data.length);
-  }, [catalog]);
+  }, [catalog, t]);
 
   const loadCatalog = useCallback(async () => {
+    const sessionReady = await ensurePortalReady({ source: 'uniform_store_load' });
+    if (!sessionReady?.ready) {
+      const sessionError = new Error('PORTAL_SESSION_INVALID');
+      sessionError.kind = 'PORTAL_SESSION_INVALID';
+      sessionError.reason = sessionReady?.reason || 'portal_not_ready';
+      setError(sessionError);
+      return { success: false, reason: sessionReady?.reason || 'portal_not_ready' };
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -107,6 +165,7 @@ export function PortalUniformStoreScreen() {
                   [];
 
         setCatalog(safeArray(list));
+        portalActions.markStoreLoadedOnce?.(true);
       } else {
         setError(res?.error || new Error(t('portal.uniforms.error')));
       }
@@ -115,26 +174,27 @@ export function PortalUniformStoreScreen() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [ensurePortalReady, portalActions, t]);
 
   const handleReauthRequired = useCallback(async () => {
     if (reauthHandledRef.current || didReauthRedirectRef.current) return;
     reauthHandledRef.current = true;
-    const res = await ensurePortalReauthOnce?.();
-    if (res?.success) {
+    const res = await ensurePortalReady({ source: 'uniform_store_gate_reauth', force: true });
+    if (res?.ready) {
       reauthHandledRef.current = false;
       loadCatalog();
       return;
     }
     didReauthRedirectRef.current = true;
     router.replace('/(auth)/login?mode=player');
-  }, [ensurePortalReauthOnce, loadCatalog, router]);
+  }, [ensurePortalReady, loadCatalog, router]);
 
   useEffect(() => {
+    if (!portalReady) return;
     if (didFetchRef.current) return;
     didFetchRef.current = true;
     loadCatalog();
-  }, [loadCatalog]);
+  }, [loadCatalog, portalReady]);
 
   const getDisplayName = useCallback(
     (item) => {
@@ -231,6 +291,13 @@ export function PortalUniformStoreScreen() {
     }
 
     const v = selectedVariant || null;
+    if (isOutOfStock(product, v)) {
+      const outOfStockMessage = t('portal.uniforms.outOfStock');
+      setCartValidationError(outOfStockMessage);
+      toast.warning(outOfStockMessage);
+      return;
+    }
+
     const variantId = v?.id || `no-variant-${product.id}`;
     const sizeLabel = v?.size || '';
     const unitPrice = Number.isFinite(Number(v?.price)) ? Number(v.price) : Number(product?.price);
@@ -255,6 +322,7 @@ export function PortalUniformStoreScreen() {
       nickname: existing?.nickname || '',
     });
 
+    setCartValidationError('');
     toast.success(t('portal.uniforms.added'));
   }, [findCartLine, getDisplayName, getVariants, t, toast, upsertCartLine]);
 
@@ -265,9 +333,9 @@ export function PortalUniformStoreScreen() {
       return;
     }
 
-    const invalidPrinting = cart.find((x) => x.needPrinting && (!String(x.number || '').trim() || !String(x.nickname || '').trim()));
+    const invalidPrinting = cart.find((x) => x.needPrinting && !String(x.number || '').trim());
     if (invalidPrinting) {
-      setCartValidationError('Please enter jersey number and nickname for required printing items.');
+      setCartValidationError(t('portal.uniforms.playerNumberRequired'));
       return;
     }
     setCartValidationError('');
@@ -283,7 +351,7 @@ export function PortalUniformStoreScreen() {
     const basePayload = {
       uniform_details,
       uniform_player_number: printingLine?.number ? Number(printingLine.number) : null,
-      uniform_nickname: printingLine?.nickname || null,
+      uniform_nickname: String(printingLine?.nickname || '').trim() || null,
     };
 
     try {
@@ -295,10 +363,10 @@ export function PortalUniformStoreScreen() {
         setCartOpen(false);
         setActiveProduct(null);
       } else {
-        toast.error(res?.error?.message || t('portal.uniforms.error'));
+        toast.error(t('portal.uniforms.error'));
       }
-    } catch (error) {
-      toast.error(error?.message || t('portal.uniforms.error'));
+    } catch (_error) {
+      toast.error(t('portal.uniforms.error'));
     }
   }, [cart, t, toast]);
 
@@ -347,14 +415,14 @@ export function PortalUniformStoreScreen() {
             </View>
           )}
 
-          <View style={[styles.pricePill, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
-            <Text variant="caption" weight="semibold" color={colors.textPrimary}>
-              {priceLabel}
-            </Text>
-          </View>
+        <View style={[styles.pricePill, isRTL && styles.pricePillRtl, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
+          <Text variant="caption" weight="semibold" color={colors.textPrimary}>
+            {priceLabel}
+          </Text>
         </View>
+      </View>
 
-        <View style={styles.tileBody}>
+        <View style={[styles.tileBody, isRTL && styles.alignEnd]}>
           <Text numberOfLines={2} variant="body" weight="semibold" color={colors.textPrimary}>
             {name}
           </Text>
@@ -377,7 +445,7 @@ export function PortalUniformStoreScreen() {
         </View>
       </TouchableOpacity>
     );
-  }, [colors, getDisplayImage, getDisplayName, getVariants, getPriceRange, t]);
+  }, [colors, getDisplayImage, getDisplayName, getVariants, getPriceRange, isRTL, t]);
 
   // ---------- Product Detail "Bottom Sheet" ----------
   const ProductSheet = useMemo(() => {
@@ -405,11 +473,13 @@ export function PortalUniformStoreScreen() {
         hasOneSizeVariants={hasOneSizeVariants}
         minPrice={min}
         maxPrice={max}
+        isRTL={isRTL}
+        isOutOfStock={(variant) => isOutOfStock(product, variant)}
         onClose={() => setActiveProduct(null)}
         onAdd={(variant) => addToCartFromProduct(product, variant)}
       />
     );
-  }, [activeProduct, addToCartFromProduct, colors, getDisplayImage, getDisplayName, getPriceRange, getVariants, t]);
+  }, [activeProduct, addToCartFromProduct, colors, getDisplayImage, getDisplayName, getPriceRange, getVariants, isRTL, t]);
 
   // ---------- Cart Sheet ----------
   const CartSheet = useMemo(() => (
@@ -420,8 +490,8 @@ export function PortalUniformStoreScreen() {
       onRequestClose={() => setCartOpen(false)}
     >
       <Pressable style={[styles.modalBackdrop, { backgroundColor: alphaHex(colors.black, '8C') }]} onPress={() => setCartOpen(false)} />
-      <View style={[styles.cartSheet, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
-        <View style={styles.sheetHeader}>
+      <View style={[styles.cartSheet, isRTL && styles.rtl, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
+        <View style={[styles.sheetHeader, isRTL && styles.rowReverse]}>
           <Text variant="body" weight="semibold" color={colors.textPrimary}>
             {t('portal.uniforms.cartTitle', { count: cartCount })}
           </Text>
@@ -450,8 +520,8 @@ export function PortalUniformStoreScreen() {
                 : item.size || placeholder;
                 
               return (
-                <View style={[styles.cartLine, { borderColor: colors.border }]}>
-                  <View style={{ flex: 1 }}>
+                <View style={[styles.cartLine, isRTL && styles.rowReverse, { borderColor: colors.border }]}>
+                  <View style={[styles.cartLineContent, isRTL && styles.alignEnd]}>
                     <Text variant="bodySmall" weight="semibold" color={colors.textPrimary} numberOfLines={1}>
                       {item.name}
                     </Text>
@@ -461,7 +531,7 @@ export function PortalUniformStoreScreen() {
                   </View>
 
                   {/* Quantity stepper (quality as numbers - +) */}
-                  <View style={styles.stepper}>
+                  <View style={[styles.stepper, isRTL && styles.rowReverse]}>
                     <TouchableOpacity
                       onPress={() => setLineQty(item.productId, item.variantId, (item.quantity || 1) - 1)}
                       style={[styles.stepBtn, { borderColor: colors.border }]}
@@ -493,7 +563,7 @@ export function PortalUniformStoreScreen() {
                   {/* Printing fields - only show if this item needs printing */}
                   {item.needPrinting ? (
                     <View style={{ marginTop: spacing.sm, width: '100%' }}>
-                      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                      <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', gap: spacing.sm }}>
                         <View style={{ flex: 1 }}>
                           <Input
                             label={t('portal.uniforms.number')}
@@ -525,7 +595,7 @@ export function PortalUniformStoreScreen() {
         )}
 
         {/* Checkout area */}
-        <View style={[styles.cartFooter, { borderColor: colors.border, backgroundColor: colors.surfaceElevated || colors.surface }]}>
+        <View style={[styles.cartFooter, isRTL && styles.rowReverse, { borderColor: colors.border, backgroundColor: colors.surfaceElevated || colors.surface }]}>
           <View>
             <Text variant="caption" color={colors.textMuted}>
               {t('portal.uniforms.total')}
@@ -535,8 +605,16 @@ export function PortalUniformStoreScreen() {
             </Text>
           </View>
 
-          <View style={{ alignItems: 'flex-end' }}>
-            {cartValidationError ? <Text variant="caption" color={colors.error} style={{ marginBottom: 4 }}>{cartValidationError}</Text> : null}
+          <View style={{ alignItems: isRTL ? 'flex-start' : 'flex-end' }}>
+            {cartValidationError ? (
+              <Text
+                variant="caption"
+                color={colors.error}
+                style={[styles.cartValidationError, { textAlign: isRTL ? 'right' : 'left' }]}
+              >
+                {cartValidationError}
+              </Text>
+            ) : null}
             <Button onPress={checkout} disabled={!cart.length}>
               {t('portal.uniforms.checkout')}
             </Button>
@@ -544,13 +622,13 @@ export function PortalUniformStoreScreen() {
         </View>
       </View>
     </Modal>
-  ), [cart, cartCount, cartOpen, cartTotal, cartValidationError, checkout, colors, placeholder, removeCartLine, setLineQty, t, upsertCartLine]);
+  ), [cart, cartCount, cartOpen, cartTotal, cartValidationError, checkout, colors, isRTL, placeholder, removeCartLine, setLineQty, t, upsertCartLine]);
 
   // ---------- Main ----------
-  if (loading && catalog.length === 0 && !error) {
+  if (((!portalReady && !storeLoadedOnce) || (loading && !storeLoadedOnce)) && !error) {
     return (
       <Screen>
-        <SporHiveLoader />
+        <ThemedLoader />
       </Screen>
     );
   }
@@ -562,29 +640,34 @@ export function PortalUniformStoreScreen() {
         title={t('portal.uniforms.title')}
         subtitle={t('portal.uniforms.subtitle')}
       />
-      <PortalActionBanner title="Start here" description="Required kits come first. Select size clearly before adding to cart." />
+      <PortalActionBanner title={t('portal.uniforms.startHereTitle')} description={t('portal.uniforms.startHereDescription')} />
 
       {error ? (
         <PortalEmptyState
           icon="alert-triangle"
           title={t('portal.uniforms.errorTitle')}
-          description={error?.message || t('portal.uniforms.error')}
+          description={t('portal.uniforms.error')}
           action={<Button variant="secondary" onPress={loadCatalog}>{t('portal.common.retry')}</Button>}
         />
-      ) : catalog.length === 0 && !loading ? (
+      ) : storeLoadedOnce && catalog.length === 0 && !loading ? (
         <PortalEmptyState
           icon="shopping-bag"
           title={t('portal.uniforms.emptyTitle')}
           description={t('portal.uniforms.emptyDescription')}
         />
       ) : (
-        <View style={styles.grid}>
-          {catalogSections.map((section) => (
-            <View key={section.key} style={{ marginBottom: spacing.md }}>
-              <View style={styles.sectionRow}>
-                <View>
+        <FlatList
+          data={catalogSections}
+          keyExtractor={(section) => section.key}
+          style={styles.catalogList}
+          contentContainerStyle={styles.grid}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item: section }) => (
+            <View style={{ marginBottom: spacing.md }}>
+              <View style={[styles.sectionRow, isRTL && styles.rowReverse]}>
+                <View style={isRTL && styles.alignEnd}>
                   <Text variant="bodySmall" weight="bold" color={colors.textPrimary}>{section.title}</Text>
-                  <Text variant="caption" color={colors.textMuted}>{section.key === 'required' ? 'Must be purchased for current season.' : section.key === 'recommended' ? 'Suggested by your academy.' : 'Add only if you need extras.'}</Text>
+                  <Text variant="caption" color={colors.textMuted}>{section.key === 'required' ? t('portal.uniforms.sectionHints.required') : section.key === 'recommended' ? t('portal.uniforms.sectionHints.recommended') : t('portal.uniforms.sectionHints.optional')}</Text>
                 </View>
                 <Text variant="caption" color={colors.textMuted}>{section.data.length}</Text>
               </View>
@@ -592,34 +675,30 @@ export function PortalUniformStoreScreen() {
                 data={section.data}
                 keyExtractor={(item, index) => `${section.key}-${String(item?.id ?? index)}`}
                 numColumns={2}
-                columnWrapperStyle={{ gap: spacing.md }}
+                columnWrapperStyle={{ gap: spacing.md, flexDirection: isRTL ? 'row-reverse' : 'row' }}
                 scrollEnabled={false}
                 renderItem={({ item }) => <ProductCard item={item} />}
               />
             </View>
-          ))}
-        </View>
+          )}
+        />
       )}
 
       {/* Sticky Cart Bar (famous app feel) */}
       <View style={[styles.cartBar, { backgroundColor: colors.surfaceElevated || colors.surface, borderColor: colors.border }]}>
-        <TouchableOpacity
-          onPress={() => setCartOpen(true)}
-          activeOpacity={0.9}
-          style={[styles.cartBarBtn, { backgroundColor: colors.accentOrange }]}
-        >
-          <View style={{ flex: 1 }}>
-            <Text variant="caption" color={colors.black} weight="semibold">
+        <View style={[styles.cartBarContent, isRTL && styles.rowReverse]}>
+          <View style={[styles.cartSummary, isRTL && styles.alignEnd]}>
+            <Text variant="caption" color={colors.textSecondary} weight="semibold">
               {t('portal.uniforms.cartTitle', { count: cartCount })}
             </Text>
-            <Text variant="bodySmall" color={colors.black} weight="semibold">
+            <Text variant="bodySmall" color={colors.textPrimary} weight="semibold">
               {formatMoney(cartTotal)}
             </Text>
           </View>
-          <Text variant="bodySmall" color={colors.black} weight="semibold">
+          <Button onPress={() => setCartOpen(true)} style={styles.viewCartButton}>
             {t('portal.uniforms.viewCart')}
-          </Text>
-        </TouchableOpacity>
+          </Button>
+        </View>
       </View>
 
       {ProductSheet}
@@ -640,6 +719,8 @@ function ProductDetailsModal({
   hasOneSizeVariants = false,
   minPrice,
   maxPrice,
+  isRTL,
+  isOutOfStock,
   onClose,
   onAdd,
 }) {
@@ -665,12 +746,17 @@ function ProductDetailsModal({
     return formatMoney(minPrice);
   }, [maxPrice, minPrice, selectedVariant, t]);
 
+  const selectedOutOfStock = useMemo(
+    () => (typeof isOutOfStock === 'function' ? !!isOutOfStock(selectedVariant || null) : false),
+    [isOutOfStock, selectedVariant]
+  );
+
   return (
     <Modal visible={!!product} animationType="slide" transparent onRequestClose={onClose}>
       <Pressable style={[styles.modalBackdrop, { backgroundColor: alphaHex(colors.black, '8C') }]} onPress={onClose} />
 
-      <View style={[styles.sheet, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
-        <View style={styles.sheetHeader}>
+      <View style={[styles.sheet, isRTL && styles.rtl, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
+        <View style={[styles.sheetHeader, isRTL && styles.rowReverse]}>
           <Text variant="body" weight="semibold" color={colors.textPrimary} numberOfLines={1}>
             {name}
           </Text>
@@ -688,7 +774,7 @@ function ProductDetailsModal({
             </View>
           )}
 
-          <View style={[styles.heroPrice, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
+          <View style={[styles.heroPrice, isRTL && styles.heroPriceRtl, { backgroundColor: colors.surfaceElevated || colors.surface }]}>
             <Text variant="bodySmall" weight="semibold" color={colors.textPrimary}>
               {priceLabel}
             </Text>
@@ -696,7 +782,7 @@ function ProductDetailsModal({
         </View>
 
         {!!product?.description ? (
-          <Text variant="bodySmall" color={colors.textSecondary} style={{ marginTop: spacing.sm }}>
+          <Text variant="bodySmall" color={colors.textSecondary} style={{ marginTop: spacing.sm, textAlign: isRTL ? 'right' : 'left' }}>
             {product.description}
           </Text>
         ) : null}
@@ -710,7 +796,7 @@ function ProductDetailsModal({
                 : t('portal.uniforms.size')}
             </Text>
 
-            <View style={styles.chipsRow}>
+            <View style={[styles.chipsRow, isRTL && styles.rowReverse]}>
               {variants.map((v) => {
                 const active = v.id === selectedVariantId;
                 // Display "One Size" instead of "__one_size__"
@@ -742,14 +828,19 @@ function ProductDetailsModal({
 
         <View style={{ marginTop: spacing.lg }}>
           {selectionError ? <Text variant="caption" color={colors.error} style={{ marginBottom: spacing.xs }}>{selectionError}</Text> : null}
+          {selectedOutOfStock ? (
+            <Text variant="caption" color={colors.error} style={{ marginBottom: spacing.xs }}>
+              {t('portal.uniforms.outOfStock')}
+            </Text>
+          ) : null}
           <Button onPress={() => {
             if (variants?.length && !selectedVariant) {
-              setSelectionError(t('portal.uniforms.selectSize') || 'Please select a size before adding to cart.');
+              setSelectionError(t('portal.uniforms.selectSize'));
               return;
             }
             setSelectionError('');
             onAdd(selectedVariant);
-          }}>
+          }} disabled={selectedOutOfStock}>
             {t('portal.uniforms.addToCart')}
           </Button>
         </View>
@@ -761,6 +852,12 @@ function ProductDetailsModal({
 }
 
 const styles = StyleSheet.create({
+  rowReverse: {
+    flexDirection: 'row-reverse',
+  },
+  alignEnd: {
+    alignItems: 'flex-end',
+  },
   screen: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
@@ -771,6 +868,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: 140,
     gap: spacing.md,
+  },
+  catalogList: {
+    flex: 1,
   },
 
   tile: {
@@ -800,8 +900,19 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
   },
+  pricePillRtl: {
+    left: undefined,
+    right: spacing.sm,
+  },
   tileBody: {
     padding: spacing.md,
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
   },
   detailsBtn: {
     marginTop: spacing.sm,
@@ -821,13 +932,16 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: spacing.sm,
   },
-  cartBarBtn: {
-    borderRadius: 14,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+  cartBarContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
+  },
+  cartSummary: {
+    flex: 1,
+  },
+  viewCartButton: {
+    minWidth: 132,
   },
 
   // Modal + sheets
@@ -887,6 +1001,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
   },
+  heroPriceRtl: {
+    right: undefined,
+    left: spacing.sm,
+  },
 
   chipsRow: {
     flexDirection: 'row',
@@ -911,6 +1029,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     alignItems: 'center',
   },
+  cartLineContent: {
+    flex: 1,
+  },
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -927,6 +1048,10 @@ const styles = StyleSheet.create({
   removeBtn: {
     paddingVertical: 6,
     paddingHorizontal: 8,
+  },
+  cartValidationError: {
+    marginBottom: 4,
+    maxWidth: 220,
   },
   cartFooter: {
     position: 'absolute',

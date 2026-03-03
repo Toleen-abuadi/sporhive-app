@@ -1,6 +1,7 @@
 // src/screens/portal/PortalProfileScreen.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 
 import { useTheme } from '../../theme/ThemeProvider';
@@ -13,14 +14,16 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
+import { IconButton } from '../../components/ui/IconButton';
 
 import { useI18n } from '../../services/i18n/i18n';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
-import { useAuth } from '../../services/auth/auth.store';
 import { isPortalForbiddenError } from '../../services/portal/portal.errors';
 import { spacing } from '../../theme/tokens';
 import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
 import { useToast } from '../../components/ui/ToastHost';
+import { normalizeApiError } from '../../utils/normalizeApiError';
+import { usePortalReady } from '../../hooks/usePortalReady';
 
 function safeStr(v) {
   return typeof v === 'string' ? v : v == null ? '' : String(v);
@@ -37,6 +40,43 @@ function toNumOrNull(v) {
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }
+const MIN_PROFILE_AGE = 3;
+const ENGLISH_NAME_RE = /^[A-Za-z][A-Za-z\s.'-]*$/;
+const ARABIC_NAME_RE = /^[\u0600-\u06FF\s.'-]+$/;
+
+function formatISODate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parseISODate(iso) {
+  const value = safeStr(iso);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function getAgeYears(iso) {
+  const dob = parseISODate(iso);
+  if (!dob) return null;
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const monthDiff = now.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dob.getDate())) {
+    age -= 1;
+  }
+  return age;
+}
+
+function getMaxDobDate(minAgeYears = MIN_PROFILE_AGE) {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - minAgeYears);
+  return date;
+}
 
 export function PortalProfileScreen() {
   const router = useRouter();
@@ -44,7 +84,7 @@ export function PortalProfileScreen() {
   const { t } = useI18n();
   const actions = usePlayerPortalActions();
   const toast = useToast();
-  const { ensurePortalReauthOnce } = useAuth();
+  const { ready: portalReady, ensure: ensurePortalReady } = usePortalReady();
   const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
   const didReauthRedirectRef = useRef(false);
@@ -96,6 +136,7 @@ export function PortalProfileScreen() {
 
   // ----------- Edit state -----------
   const [editMode, setEditMode] = useState(false);
+  const [showDobPicker, setShowDobPicker] = useState(false);
   const isSaving = Boolean(updatingProfile);
 
   const [formErrors, setFormErrors] = useState({});
@@ -155,28 +196,42 @@ export function PortalProfileScreen() {
   }, [profile, phoneNumbers]);
 
   useEffect(() => {
+    if (!portalReady) return;
     if (didFetchRef.current) return;
     didFetchRef.current = true;
     actions.fetchProfile();
-  }, [actions]);
+  }, [actions, portalReady]);
 
-  const load = useCallback(() => actions.fetchProfile(), [actions]);
+  const load = useCallback(async () => {
+    const sessionReady = await ensurePortalReady({ source: 'profile_load' });
+    if (!sessionReady?.ready) {
+      return { success: false, reason: sessionReady?.reason || 'portal_not_ready' };
+    }
+    return actions.fetchProfile();
+  }, [actions, ensurePortalReady]);
   const handleReauthRequired = useCallback(async () => {
     if (reauthHandledRef.current || didReauthRedirectRef.current) return;
     reauthHandledRef.current = true;
-    const res = await ensurePortalReauthOnce?.();
-    if (res?.success) {
+    const res = await ensurePortalReady({ source: 'profile_gate_reauth', force: true });
+    if (res?.ready) {
       reauthHandledRef.current = false;
       load();
       return;
     }
     didReauthRedirectRef.current = true;
     router.replace('/(auth)/login?mode=player');
-  }, [ensurePortalReauthOnce, load, router]);
+  }, [ensurePortalReady, load, router]);
 
   useEffect(() => {
     if (profile && !editMode) hydrateFormFromProfile();
   }, [profile, editMode, hydrateFormFromProfile]);
+
+  const maxDobDate = useMemo(() => getMaxDobDate(MIN_PROFILE_AGE), []);
+  const pickerDobValue = useMemo(() => {
+    const parsed = parseISODate(form.date_of_birth);
+    if (!parsed) return maxDobDate;
+    return parsed > maxDobDate ? maxDobDate : parsed;
+  }, [form.date_of_birth, maxDobDate]);
 
   const setField = (key) => (value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -185,20 +240,62 @@ export function PortalProfileScreen() {
 
   const startEdit = () => {
     hydrateFormFromProfile();
+    setShowDobPicker(false);
     setEditMode(true);
   };
 
   const cancelEdit = () => {
     hydrateFormFromProfile();
+    setShowDobPicker(false);
     setEditMode(false);
   };
 
+  const openDobPicker = () => setShowDobPicker((prev) => !prev);
+
+  const handleDobChange = (event, selectedDate) => {
+    if (Platform.OS === 'android') {
+      setShowDobPicker(false);
+    }
+    if (event?.type === 'dismissed') return;
+    if (!(selectedDate instanceof Date) || Number.isNaN(selectedDate.getTime())) return;
+    setField('date_of_birth')(formatISODate(selectedDate));
+  };
 
   const validateForm = () => {
     const next = {};
-    if (!form.first_eng_name.trim()) next.first_eng_name = 'First name is required.';
-    if (!form.last_eng_name.trim()) next.last_eng_name = 'Last name is required.';
-    if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) next.email = 'Enter a valid email address.';
+    const firstEngName = form.first_eng_name.trim();
+    const middleEngName = form.middle_eng_name.trim();
+    const lastEngName = form.last_eng_name.trim();
+    const firstArName = form.first_ar_name.trim();
+    const middleArName = form.middle_ar_name.trim();
+    const lastArName = form.last_ar_name.trim();
+
+    if (!firstEngName) {
+      next.first_eng_name = t('portal.profile.validation.firstNameRequired');
+    } else if (!ENGLISH_NAME_RE.test(firstEngName)) {
+      next.first_eng_name = t('profile.errors.englishOnly');
+    }
+    if (middleEngName && !ENGLISH_NAME_RE.test(middleEngName)) {
+      next.middle_eng_name = t('profile.errors.englishOnly');
+    }
+    if (!lastEngName) {
+      next.last_eng_name = t('portal.profile.validation.lastNameRequired');
+    } else if (!ENGLISH_NAME_RE.test(lastEngName)) {
+      next.last_eng_name = t('profile.errors.englishOnly');
+    }
+
+    if (firstArName && !ARABIC_NAME_RE.test(firstArName)) next.first_ar_name = t('profile.errors.arabicOnly');
+    if (middleArName && !ARABIC_NAME_RE.test(middleArName)) next.middle_ar_name = t('profile.errors.arabicOnly');
+    if (lastArName && !ARABIC_NAME_RE.test(lastArName)) next.last_ar_name = t('profile.errors.arabicOnly');
+
+    if (form.date_of_birth) {
+      const age = getAgeYears(form.date_of_birth);
+      if (age === null || age < MIN_PROFILE_AGE) {
+        next.date_of_birth = t('profile.errors.minAge', { age: MIN_PROFILE_AGE });
+      }
+    }
+
+    if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) next.email = t('portal.profile.validation.emailInvalid');
     setFormErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -234,29 +331,22 @@ export function PortalProfileScreen() {
       const ok = res?.ok === true || res?.success === true || res?.data != null;
 
       if (ok) {
+        const successMessage = t('profile.messages.updated');
+        setShowDobPicker(false);
         setEditMode(false);
-        setSaveMessage(t('portal.profile.updateSuccess') || 'Profile updated successfully');
-        toast?.show?.({ type: 'success', message: t('portal.profile.updateSuccess') || 'Profile updated successfully' });
+        setSaveMessage(successMessage);
+        toast?.show?.({ type: 'success', message: successMessage });
       } else {
-        const status = res?.error?.status ?? profileUpdateError?.status ?? null;
-        const msg =
-          status === 400
-            ? (t('portal.profile.updateBadRequest') || 'Please check the entered values.')
-            : status === 401
-              ? (t('portal.errors.reAuthAction') || 'Please sign in again.')
-              : status === 403
-                ? (t('portal.errors.forbidden') || 'You do not have access to do this.')
-                : (t('portal.common.somethingWentWrong') || 'Something went wrong.');
-toast?.show?.({ type: 'error', message: msg });
+        const msg = normalizeApiError(res?.error || profileUpdateError, t);
+        toast?.show?.({ type: 'error', message: msg });
       }
     } catch (_e) {
-      // Defensive catch: store already normalizes, but ensure we never fail silently.
-      toast?.show?.({ type: 'error', message: t('portal.common.somethingWentWrong') || 'Something went wrong.' });
+      toast?.show?.({ type: 'error', message: normalizeApiError(_e, t) });
     }
   };
 
   // ----------- Loading / Error states -----------
-  if (profileLoading && !profile) {
+  if ((!portalReady || profileLoading) && !profile) {
     return (
       <AppScreen safe>
         <View style={styles.skeletonWrap}>
@@ -268,7 +358,7 @@ toast?.show?.({ type: 'error', message: msg });
     );
   }
 
-  if (profileError && !profile) {
+  if (profileError && !profile && portalReady) {
     const isForbidden = isPortalForbiddenError(profileError);
     return (
       <AppScreen safe>
@@ -280,7 +370,9 @@ toast?.show?.({ type: 'error', message: msg });
               : (profileError?.message || t('portal.profile.errorDescription'))
           }
           actionLabel={t('portal.common.retry')}
-          onAction={load}
+          onAction={() => {
+            load();
+          }}
         />
       </AppScreen>
     );
@@ -330,24 +422,37 @@ toast?.show?.({ type: 'error', message: msg });
           </Button>
         </>
       ) : (
-        <TouchableOpacity onPress={startEdit} activeOpacity={0.8} style={styles.editPill}>
-          <Text variant="bodySmall" weight="bold" color="#fff">
-            {t('portal.common.edit')}
-          </Text>
-        </TouchableOpacity>
+        <IconButton
+          icon="edit-2"
+          size={16}
+          color={colors.white}
+          onPress={startEdit}
+          accessibilityLabel={t('portal.common.edit')}
+          style={[styles.editIconButton, { backgroundColor: colors.accentOrange, borderColor: colors.accentOrange }]}
+        />
       )}
     </View>
   );
 
   return (
-    <PortalAccessGate titleOverride={t('portal.profile.title')} error={profileError} onRetry={load} onReauthRequired={handleReauthRequired}>
+    <PortalAccessGate
+      titleOverride={t('portal.profile.title')}
+      error={profileError}
+      onRetry={() => {
+        load();
+      }}
+      onReauthRequired={handleReauthRequired}
+    >
       <AppScreen safe scroll>
         <AppHeader
           title={t('portal.profile.title')}
           subtitle={t('portal.profile.subtitle')}
           rightSlot={<RightAction />}
         />
-        <PortalActionBanner title="Profile setup" description="Update contact and player details. Save is disabled while changes are being submitted." />
+        <PortalActionBanner
+          title={t('portal.profile.setupTitle')}
+          description={t('portal.profile.setupDescription')}
+        />
         {saveMessage ? <Card style={[styles.savedCard, { backgroundColor: `${colors.success}12`, borderColor: colors.success }]}><Text variant="caption" weight="bold" color={colors.success}>{saveMessage}</Text></Card> : null}
 
         {/* -------- Player Card -------- */}
@@ -407,8 +512,12 @@ toast?.show?.({ type: 'error', message: msg });
           ) : (
             // EDIT
             <View style={styles.formGrid}>
-              <Text variant="caption" weight="bold" color={colors.textMuted}>Contact</Text>
-              <Text variant="caption" weight="bold" color={colors.textMuted}>Player info</Text>
+              <Text variant="caption" weight="bold" color={colors.textMuted}>
+                {t('portal.profile.editContact')}
+              </Text>
+              <Text variant="caption" weight="bold" color={colors.textMuted}>
+                {t('portal.profile.editPlayerInfo')}
+              </Text>
               <Input
                 label={t('portal.profile.firstNameEn')}
                 value={form.first_eng_name}
@@ -419,6 +528,7 @@ toast?.show?.({ type: 'error', message: msg });
                 label={t('portal.profile.middleNameEn')}
                 value={form.middle_eng_name}
                 onChangeText={setField('middle_eng_name')}
+                error={formErrors.middle_eng_name}
               />
               <Input
                 label={t('portal.profile.lastNameEn')}
@@ -431,16 +541,19 @@ toast?.show?.({ type: 'error', message: msg });
                 label={t('portal.profile.firstNameAr')}
                 value={form.first_ar_name}
                 onChangeText={setField('first_ar_name')}
+                error={formErrors.first_ar_name}
               />
               <Input
                 label={t('portal.profile.middleNameAr')}
                 value={form.middle_ar_name}
                 onChangeText={setField('middle_ar_name')}
+                error={formErrors.middle_ar_name}
               />
               <Input
                 label={t('portal.profile.lastNameAr')}
                 value={form.last_ar_name}
                 onChangeText={setField('last_ar_name')}
+                error={formErrors.last_ar_name}
               />
 
               <Input
@@ -463,12 +576,28 @@ toast?.show?.({ type: 'error', message: msg });
                 autoCapitalize="none"
                 error={formErrors.email}
               />
-              <Input
-                label={t('portal.profile.dob')}
-                value={form.date_of_birth}
-                onChangeText={setField('date_of_birth')}
-                placeholder={t('portal.profile.dobPlaceholder')}
-              />
+              <Pressable onPress={openDobPicker} style={styles.dobPressable} accessibilityRole="button" accessibilityLabel={t('portal.profile.dob')}>
+                <View pointerEvents="none">
+                  <Input
+                    label={t('portal.profile.dob')}
+                    value={form.date_of_birth}
+                    placeholder={t('portal.profile.dobPlaceholder')}
+                    editable={false}
+                    error={formErrors.date_of_birth}
+                  />
+                </View>
+              </Pressable>
+              {showDobPicker ? (
+                <View style={styles.dobPickerWrap}>
+                  <DateTimePicker
+                    value={pickerDobValue}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    maximumDate={maxDobDate}
+                    onChange={handleDobChange}
+                  />
+                </View>
+              ) : null}
             </View>
           )}
         </Card>
@@ -589,14 +718,6 @@ toast?.show?.({ type: 'error', message: msg });
                 </View>
               </View>
 
-              <View style={styles.bottomSaveWrap}>
-                <Button onPress={handleSave} disabled={isSaving}>
-                  {isSaving ? t('portal.common.saving') : t('portal.common.save')}
-                </Button>
-                <Button variant="secondary" onPress={cancelEdit} disabled={isSaving}>
-                  {t('portal.common.cancel')}
-                </Button>
-              </View>
             </View>
           )}
         </Card>
@@ -639,11 +760,11 @@ const styles = StyleSheet.create({
   headerBtn: {
     minWidth: 84,
   },
-  editPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#FF7A00',
+  editIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
   },
 
   formGrid: {
@@ -654,9 +775,10 @@ const styles = StyleSheet.create({
   inlineField: {
     flex: 1,
   },
-  bottomSaveWrap: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
+  dobPressable: {
+    width: '100%',
+  },
+  dobPickerWrap: {
+    marginTop: -spacing.sm,
   },
 });

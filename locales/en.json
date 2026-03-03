@@ -22,7 +22,21 @@
     "notFound": "Not found",
     "apply": "Apply filters",
     "reset": "Reset",
-    "search": "Search"
+    "search": "Search",
+    "errors": {
+      "network": "You're offline. Check your connection and try again.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "profile": {
+    "errors": {
+      "englishOnly": "Use English letters only.",
+      "arabicOnly": "Use Arabic letters only.",
+      "minAge": "Player must be at least {{age}} years old."
+    },
+    "messages": {
+      "updated": "Profile updated successfully."
+    }
   },
   "venueDetails": {
     "title": "Venue details",
@@ -2049,7 +2063,7 @@
       "errors": {
         "generic": "Something went wrong. Please try again.",
         "network": "You're offline. Check your connection and try again.",
-        "invalidCredentials": "Invalid credentials. Please try again.",
+        "invalidCredentials": "Invalid username or password.",
         "deactivated": "This account is deactivated. Contact support.",
         "invalidOtp": "Invalid or expired code."
       },
@@ -2203,7 +2217,7 @@
       "invalidOtp": "Invalid or expired code.",
       "network": "You're offline. Check your connection and try again.",
       "generic": "Something went wrong. Please try again.",
-      "invalidCredentials": "Invalid credentials. Please try again."
+      "invalidCredentials": "Invalid username or password."
     },
     "fields": {
       "academy": "Academy",
@@ -2966,7 +2980,14 @@
       "somethingWentWrong": "Something went wrong.",
       "player": "Player",
       "loading": "Loading...",
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "actionRequired": "Action Required",
+      "timeline": {
+        "created": "Created",
+        "pending": "Pending",
+        "approved": "Approved",
+        "completed": "Completed"
+      }
     },
     "errors": {
       "forbidden": "You do not have access to do this.",
@@ -3019,14 +3040,60 @@
       "currentFreeze": "Current freeze",
       "upcomingFreeze": "Upcoming freeze",
       "available": "Available freezes:",
-      "summary": "Manage freeze requests with ease."
+      "summary": "Manage freeze requests with ease.",
+      "loadingTitle": "Loading freezes",
+      "loadingDescription": "Fetching your freeze history and status.",
+      "errorTitle": "Unable to load freezes",
+      "errorTryAgain": "Could not load freeze data. Please try again.",
+      "currentFreezeRange": "Current freeze: {{start}} to {{end}}",
+      "upcomingFreezeRange": "Upcoming freeze: {{start}} to {{end}}",
+      "confirmDescription": "Please review your freeze dates and reason before submission.",
+      "acknowledge": "I confirm the freeze details are correct.",
+      "info": {
+        "title": "How freezing works",
+        "summary": "Freeze requests pause your sessions after academy approval.",
+        "bullet1": "Choose valid start and end dates.",
+        "bullet2": "Requests remain pending until approved by the academy.",
+        "bullet3": "You can review your latest freeze status here."
+      },
+      "action": {
+        "description": "Submit a freeze request if you need to temporarily pause training.",
+        "label": "Request freeze"
+      },
+      "policy": {
+        "one": "Freeze dates must match your intended pause period.",
+        "two": "The academy reviews and confirms freeze eligibility.",
+        "three": "Your remaining sessions are adjusted after approval."
+      }
     },
     "home": {
       "academy": "Your academy",
       "activePlayer": "Active player",
       "subtitle": "Your personalised training hub",
       "title": "Player Portal",
-      "welcomeBack": "Welcome back"
+      "welcomeBack": "Welcome back",
+      "startHereTitle": "Start Here",
+      "startHereDescription": "Use quick actions to manage payments, renewals, orders, and profile updates.",
+      "readyTitle": "Everything looks good",
+      "readyDescription": "No urgent actions are currently required.",
+      "quickActions": "Quick Actions",
+      "topCount": "Top {{count}}",
+      "upcomingDueSoon": "Upcoming",
+      "nextPaymentDue": "Next payment due on {{date}}.",
+      "registrationEnds": "Registration ends on {{date}}.",
+      "review": "Review",
+      "recentUpdates": "Recent Updates",
+      "latestPayment": "Latest Payment",
+      "latestOrder": "Latest Order",
+      "sessionsRemaining": "Sessions Remaining",
+      "action": {
+        "paymentDue": "Payment is due on {{date}}.",
+        "payNow": "Pay now",
+        "renewalRecommended": "Renewal is recommended in {{days}} days.",
+        "renewNow": "Renew now",
+        "pendingFreeze": "You have a pending freeze request.",
+        "viewFreeze": "View freeze"
+      }
     },
     "login": {
       "academyFallback": "Academy",
@@ -3078,13 +3145,51 @@
       },
       "performance": {
         "title": "Performance"
+      ,
+        "subtitle": "Ratings and progress"
       },
       "subtitle": "Everything else in your portal",
       "title": "More",
       "uniforms": {
         "subtitle": "Latest kits and gear",
         "title": "Uniform store"
-      }
+      },
+      "startHereTitle": "Start Here",
+      "startHereDescription": "Find support, legal pages, and account tools in one place.",
+      "sections": {
+        "account": {
+          "title": "Account",
+          "subtitle": "Profile, payments, and freezes"
+        },
+        "support": {
+          "title": "Support",
+          "subtitle": "Performance and academy updates"
+        },
+        "about": {
+          "title": "Store & Orders",
+          "subtitle": "Uniform catalog and order tracking"
+        },
+        "legal": {
+          "title": "Legal",
+          "subtitle": "Privacy and terms"
+        },
+        "settings": {
+          "title": "Settings",
+          "subtitle": "Portal preferences"
+        }
+      },
+      "legal": {
+        "privacyTitle": "Privacy Policy",
+        "privacySubtitle": "How your data is handled",
+        "termsTitle": "Terms of Service",
+        "termsSubtitle": "Rules for using the portal"
+      },
+      "settings": {
+        "portalSettingsTitle": "Portal Settings",
+        "portalSettingsSubtitle": "Notifications, language, and preferences"
+      },
+      "destructiveTitle": "Destructive Actions",
+      "signOutSubtitle": "Sign out of your player portal account"
     },
     "news": {
       "defaultDescription": "Stay tuned for upcoming matches and announcements.",
@@ -3097,7 +3202,12 @@
       "subtitle": "Latest academy updates",
       "title": "News",
       "loadingTitle": "Loading news",
-      "loadingDescription": "Fetching the latest updates for you."
+      "loadingDescription": "Fetching the latest updates for you.",
+      "startHereTitle": "Start Here",
+      "startHereDescription": "Important updates appear first. Open each card for details and media.",
+      "important": "Important",
+      "allUpdates": "All updates",
+      "sourceFallback": "SporHive"
     },
     "orders": {
       "createdLabel": "Created at",
@@ -3132,7 +3242,27 @@
       "reorderError": "Reorder failed.",
       "reorderSuccess": "Reorder submitted.",
       "reorderUnavailable": "No items available to reorder.",
-      "statusDefault": "Processing"
+      "statusDefault": "Processing",
+      "sections": {
+        "inProgress": "Action Required",
+        "past": "Order history"
+      },
+      "info": {
+        "title": "How orders work",
+        "summary": "Track your active and completed uniform orders.",
+        "bullet1": "Use filters to find current or past orders quickly.",
+        "bullet2": "Open any order to review status and delivery details."
+      },
+      "actionInProgress": "Order {{id}} needs your attention.",
+      "lastUpdated": "Last updated: {{date}}",
+      "statusTitle": "Order status",
+      "statusDescriptionInProgress": "Your order is still in progress.",
+      "statusDescriptionCompleted": "Your order is completed.",
+      "backToOrders": "Back to orders",
+      "statusTracking": "Status tracking",
+      "summaryTitle": "Order summary",
+      "deliveryNextStep": "Delivery next step",
+      "awaitingDispatch": "Awaiting dispatch"
     },
     "payments": {
       "amountLabel": "Amount",
@@ -3156,7 +3286,32 @@
       "statusPaid": "Paid",
       "statusUnpaid": "Unpaid",
       "subtitle": "Invoices, transactions, and receipts",
-      "title": "Payments"
+      "title": "Payments",
+      "sections": {
+        "unpaidAction": "Action Required",
+        "dueSoon": "Due soon",
+        "paid": "Paid"
+      },
+      "info": {
+        "title": "Payment information",
+        "bullet1": "Review invoices before the due date.",
+        "bullet2": "Use filters to find paid and unpaid items.",
+        "bullet3": "Open any payment to view full details and receipt info."
+      },
+      "actionBannerDescription": "Payment is due on {{date}}.",
+      "actionBannerLabel": "View payment",
+      "emptyDescription": "You have no payment records yet.",
+      "detailInfo": {
+        "title": "Payment receipt",
+        "bullet1": "Verify amount, due date, and status.",
+        "bullet2": "Download the invoice when available.",
+        "bullet3": "Contact support if payment details look incorrect."
+      },
+      "resolveBefore": "Please resolve this payment before {{date}}.",
+      "statusNextStep": "Status and next step",
+      "whatYouCanDoTitle": "What you can do now",
+      "whatYouCanDoUnpaid": "Complete payment and upload proof if required.",
+      "whatYouCanDoPaid": "Keep this receipt for your records."
     },
     "performance": {
       "emptyDescription": "Ratings will appear as soon as your coach publishes them.",
@@ -3174,7 +3329,20 @@
       "loadingDescription": "Fetching ratings and feedback from your coach.",
       "basedOn": "Based on",
       "period": "Period",
-      "sessions": "Recent sessions"
+      "sessions": "Recent sessions",
+      "missingTryOut": "Performance data is unavailable. Please refresh your portal session.",
+      "introTitle": "What this means",
+      "introDescription": "Performance shows how your training progresses over time.",
+      "trendsTitle": "Trends",
+      "trendsDescription": "Each bar compares your latest rating by category.",
+      "periodNarrativeTitle": "Period narrative",
+      "periodScore": "Player {{player}} / Coach {{coach}}",
+      "highlights": {
+        "title": "Highlights",
+        "overallScore": "Overall score",
+        "recentRatings": "Recent ratings",
+        "trackedPeriods": "Tracked periods"
+      }
     },
     "profile": {
       "address": "Address",
@@ -3221,7 +3389,16 @@
       "addPhoto": "Add photo",
       "photoHint": "Tap to upload image",
       "save": "Save changes",
-      "logout": "Logout"
+      "logout": "Logout",
+      "setupTitle": "Profile Setup",
+      "setupDescription": "Complete your profile details to keep your records up to date.",
+      "editContact": "Contact",
+      "editPlayerInfo": "Player info",
+      "validation": {
+        "firstNameRequired": "First name is required.",
+        "lastNameRequired": "Last name is required.",
+        "emailInvalid": "Please enter a valid email address."
+      }
     },
     "renewals": {
       "actions": {
@@ -3294,7 +3471,51 @@
         "title": "Period summary"
       },
       "title": "Renewals",
-      "viewDetails": "View details"
+      "viewDetails": "View details",
+      "missingTryOut": "Renewal data is unavailable. Please refresh your portal session.",
+      "groups": {
+        "title": "Renewal groups",
+        "actionNeeded": "Action needed",
+        "active": "Active",
+        "expired": "Expired",
+        "upcoming": "Upcoming"
+      },
+      "info": {
+        "title": "Renewal information",
+        "bullet1": "Check eligibility before submitting a renewal.",
+        "bullet2": "Pick preferred dates and sessions.",
+        "bullet3": "The academy reviews and approves requests."
+      },
+      "actionBanner": {
+        "description": "Your current plan ends on {{date}}.",
+        "label": "Open renewals"
+      },
+      "detailInfo": {
+        "title": "Renewal details",
+        "bullet1": "Review your current eligibility and end date.",
+        "bullet2": "Compare available course and group options.",
+        "bullet3": "Submit when all details are confirmed."
+      },
+      "statusNextStep": "Status and next step",
+      "whatYouCanDoTitle": "What you can do now",
+      "whatYouCanDoAction": "Submit your renewal request from this page.",
+      "whatYouCanDoNoAction": "No action is needed right now.",
+      "openOptions": "Open options",
+      "submit": {
+        "confirmTitle": "Confirm renewal request",
+        "confirmDescription": "Please confirm your renewal details before submitting.",
+        "confirmWarning": "Please review all details before submitting your renewal request.",
+        "acknowledge": "I confirm these renewal details are correct.",
+        "policy": {
+          "one": "Submitted renewals are reviewed by the academy.",
+          "two": "Requested dates may be adjusted based on availability.",
+          "three": "You will be notified once your request is processed."
+        },
+        "errorMessage": "Please try again.",
+        "errorTitle": "Submission failed",
+        "successMessage": "The academy will review your request shortly.",
+        "successTitle": "Renewal request submitted!"
+      }
     },
     "uniforms": {
       "addToCart": "Add to cart",
@@ -3328,7 +3549,7 @@
       "title": "Uniform Store",
       "total": "Total",
       "validation": "Add items to your cart first.",
-      "viewCart": "View",
+      "viewCart": "View cart",
       "viewDetails": "View",
       "loadingTitle": "Loading catalog",
       "loadingDescription": "Fetching the latest gear from your academy.",
@@ -3336,7 +3557,22 @@
       "defaultDescription": "High-quality, lightweight training uniform.",
       "quantity": "Quantity",
       "quantityPlaceholder": "1",
-      "sizePlaceholder": "S / M / L"
+      "sizePlaceholder": "S / M / L",
+      "startHereTitle": "Start Here",
+      "startHereDescription": "Select your required items first, then add optional pieces.",
+      "sections": {
+        "required": "Required",
+        "recommended": "Recommended",
+        "optional": "Optional"
+      },
+      "sectionHints": {
+        "required": "Items your academy requires.",
+        "recommended": "Suggested items for regular training.",
+        "optional": "Extra items you can add if needed."
+      },
+      "validationPrinting": "Please enter player number before adding printed items.",
+      "playerNumberRequired": "Player number is required.",
+      "outOfStock": "This item is out of stock."
     },
     "reset": {
       "title": "Reset password",
@@ -3410,6 +3646,22 @@
       "group": "Group",
       "level": "Level",
       "session": "Session"
+    }
+  },
+  "payment": {
+    "receipt": {
+      "downloadSuccess": "Receipt downloaded successfully.",
+      "downloadFailed": "Unable to download receipt. Please try again."
+    },
+    "subType": {
+      "additional_uniform": "Additional uniform",
+      "renewal": "Renew subscription",
+      "new": "New registration"
+    },
+    "type": {
+      "full": "Full",
+      "installment": "Installment",
+      "unknown": "Payment"
     }
   }
 }
