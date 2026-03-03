@@ -9,6 +9,7 @@ import { spacing } from '../../theme/tokens';
 import { Text } from '../../components/ui/Text';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAuth } from '../../services/auth/auth.store';
+import { LOGOUT_REASONS } from '../../services/auth/logoutReasons';
 import { PortalCard } from '../../components/portal/PortalCard';
 
 function Section({ title, subtitle, children, colors }) {
@@ -69,7 +70,11 @@ export function PortalMoreScreen() {
           leadingIcon="log-out"
           title={t('auth.logout')}
           subtitle={t('portal.more.signOutSubtitle')}
-          onPress={() => logout().finally(() => router.replace('/(auth)/login?mode=player'))}
+          onPress={() =>
+            logout({ reason: LOGOUT_REASONS.USER_LOGOUT }).finally(() =>
+              router.replace('/(auth)/login?mode=player')
+            )
+          }
           style={{ borderColor: colors.error, backgroundColor: `${colors.error}11` }}
         />
       </View>

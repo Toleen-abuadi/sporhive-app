@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import { useAuth } from '../services/auth/auth.store';
 import { validatePortalSession } from '../services/auth/portalSession';
 
-const DEBUG_PORTAL_READY = true;
+const DEBUG_PORTAL_READY = __DEV__;
 
 const logPortalReady = (event, payload = {}) => {
   if (!DEBUG_PORTAL_READY) return;
@@ -14,6 +14,7 @@ export function usePortalReady() {
   const { session, isLoading, isHydrating, ensurePortalReauthOnce } = useAuth();
   const [ensuring, setEnsuring] = useState(false);
   const [lastEnsureReason, setLastEnsureReason] = useState(null);
+  const [error, setError] = useState(null);
   const ensureInFlightRef = useRef(null);
   const lastAutoAttemptKeyRef = useRef(null);
 
@@ -41,6 +42,7 @@ export function usePortalReady() {
         const currentValidation = validatePortalSession(session);
         if (currentValidation.ok && !options?.force) {
           setLastEnsureReason(null);
+          setError(null);
           logPortalReady('ensure:alreadyReady', { source });
           return { ready: true, reason: null };
         }
@@ -53,6 +55,7 @@ export function usePortalReady() {
 
         if (reauthResult?.success) {
           setLastEnsureReason(null);
+          setError(null);
           logPortalReady('ensure:success', { source });
           return { ready: true, reason: null };
         }
@@ -60,6 +63,11 @@ export function usePortalReady() {
         const reason =
           reauthResult?.reason || currentValidation.reason || 'portal_session_invalid';
         setLastEnsureReason(reason);
+        setError({
+          kind: 'PORTAL_SESSION_INVALID',
+          reason,
+          message: reason === 'TOKEN_EXPIRED' ? 'Session expired, please login' : 'Portal session is not ready',
+        });
         logPortalReady('ensure:failed', { source, reason });
         return { ready: false, reason };
       })().finally(() => {
@@ -77,6 +85,7 @@ export function usePortalReady() {
     if (validation.ok) {
       lastAutoAttemptKeyRef.current = null;
       setLastEnsureReason(null);
+      setError(null);
       return;
     }
 
@@ -112,5 +121,5 @@ export function usePortalReady() {
         ? 'portal_ensuring'
         : lastEnsureReason || validation.reason || 'portal_not_ready';
 
-  return { ready, reason, ensure };
+  return { ready, reason, error, ensure };
 }

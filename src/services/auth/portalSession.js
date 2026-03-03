@@ -4,8 +4,9 @@ import { API_BASE_URL_V1 } from '../../config/env';
 import { extractTryOutIdFromOverview, isValidTryOutId } from '../portal/portal.tryout';
 
 const PORTAL_OVERVIEW_PATH = '/player-portal-external-proxy/player-profile/overview';
+const PORTAL_AUTH_ME_PATH = '/player-portal-external-proxy/auth/me';
 const PORTAL_EXPIRY_GRACE_MS = 30_000;
-const DEBUG_PORTAL_SESSION = true;
+const DEBUG_PORTAL_SESSION = __DEV__;
 
 const maskToken = (token) => {
   if (!token) return null;
@@ -17,6 +18,25 @@ const maskToken = (token) => {
 const logPortalSession = (event, payload = {}) => {
   if (!DEBUG_PORTAL_SESSION) return;
   console.info(`[portalSession] ${event}`, payload);
+};
+
+const sessionReasonCode = (reason) => {
+  switch (reason) {
+    case 'expired':
+      return 'TOKEN_EXPIRED';
+    case 'missing_portal_access':
+      return 'TOKEN_MISSING';
+    case 'missing_session':
+      return 'SESSION_MISSING';
+    case 'missing_academy_id':
+      return 'ACADEMY_MISSING';
+    case 'missing_player_context':
+      return 'PLAYER_CONTEXT_MISSING';
+    case 'not_player':
+      return 'NOT_PLAYER';
+    default:
+      return String(reason || 'UNKNOWN');
+  }
 };
 
 const normalizeNumber = (value) => {
@@ -69,6 +89,49 @@ const pickPlayerIdFromOverview = (payload, fallback) => {
     fallback,
   ];
 
+  for (const candidate of candidates) {
+    const normalized = normalizePlayerId(candidate);
+    if (normalized != null) return normalized;
+  }
+  return null;
+};
+
+const pickAcademyIdFromAuthPayload = (payload, fallback) => {
+  const candidates = [
+    payload?.academy_id,
+    payload?.academyId,
+    payload?.customer_id,
+    payload?.customerId,
+    payload?.user?.academy_id,
+    payload?.user?.academyId,
+    payload?.data?.academy_id,
+    payload?.data?.academyId,
+    payload?.data?.customer_id,
+    fallback,
+  ];
+  for (const candidate of candidates) {
+    const normalized = normalizeNumber(candidate);
+    if (normalized != null && normalized > 0) return normalized;
+  }
+  return null;
+};
+
+const pickPlayerIdFromAuthPayload = (payload, fallback) => {
+  const candidates = [
+    payload?.external_player_id,
+    payload?.externalPlayerId,
+    payload?.player_id,
+    payload?.playerId,
+    payload?.user?.external_player_id,
+    payload?.user?.externalPlayerId,
+    payload?.user?.player_id,
+    payload?.user?.playerId,
+    payload?.data?.external_player_id,
+    payload?.data?.externalPlayerId,
+    payload?.data?.player_id,
+    payload?.data?.playerId,
+    fallback,
+  ];
   for (const candidate of candidates) {
     const normalized = normalizePlayerId(candidate);
     if (normalized != null) return normalized;
@@ -180,6 +243,29 @@ const requestOverviewSnapshot = async ({ token, academyId, playerId }) => {
           : null,
   });
 
+  return { ok: response.ok, status: response.status, payload };
+};
+
+const requestAuthMeSnapshot = async ({ token }) => {
+  const urlBase = String(API_BASE_URL_V1 || '').replace(/\/+$/, '');
+  const url = `${urlBase}${PORTAL_AUTH_ME_PATH}`;
+  const startedAt = Date.now();
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    },
+  });
+  const payload = await parseFetchPayload(response);
+  const tookMs = Date.now() - startedAt;
+  logPortalSession('authMeAttempt', {
+    url: PORTAL_AUTH_ME_PATH,
+    status: response.status,
+    ok: response.ok,
+    tookMs,
+    tokenPreview: maskToken(token),
+  });
   return { ok: response.ok, status: response.status, payload };
 };
 
@@ -299,32 +385,35 @@ export const isPortalSessionExpired = (session, now = Date.now()) => {
 
 export const validatePortalSession = (session, options = {}) => {
   const portalSession = options?.portalSession || null;
+  const expiresAt = getPortalSessionExpiresAt(session);
+  const ttlSec = expiresAt != null ? Math.floor((expiresAt - Date.now()) / 1000) : null;
+  const emit = (result) => {
+    logPortalSession('validatePortalSession', result);
+    if (__DEV__) {
+      console.info(
+        `[SESSION][CHECK] ok=${result.ok} reason=${sessionReasonCode(result.reason)} ttlSec=${ttlSec ?? 'NA'}`
+      );
+    }
+    return result;
+  };
 
   if (!session) {
-    const result = { ok: false, reason: 'missing_session' };
-    logPortalSession('validatePortalSession', result);
-    return result;
+    return emit({ ok: false, reason: 'missing_session' });
   }
 
   const loginAs = toPlayerLoginAs(session.login_as || session.user?.type || session.userType);
   if (loginAs !== 'player') {
-    const result = { ok: false, reason: 'not_player', loginAs };
-    logPortalSession('validatePortalSession', result);
-    return result;
+    return emit({ ok: false, reason: 'not_player', loginAs });
   }
 
   const token = getPortalAccessToken(session);
   if (!token) {
-    const result = { ok: false, reason: 'missing_portal_access' };
-    logPortalSession('validatePortalSession', result);
-    return result;
+    return emit({ ok: false, reason: 'missing_portal_access' });
   }
 
   const academyId = getPortalAcademyId(session);
   if (!academyId) {
-    const result = { ok: false, reason: 'missing_academy_id' };
-    logPortalSession('validatePortalSession', result);
-    return result;
+    return emit({ ok: false, reason: 'missing_academy_id' });
   }
 
   const playerId = getPortalPlayerId(session);
@@ -336,31 +425,25 @@ export const validatePortalSession = (session, options = {}) => {
     null;
 
   if (!playerId && !isValidTryOutId(tryOutId)) {
-    const result = { ok: false, reason: 'missing_player_context' };
-    logPortalSession('validatePortalSession', result);
-    return result;
+    return emit({ ok: false, reason: 'missing_player_context' });
   }
 
   if (isPortalSessionExpired(session)) {
-    const result = {
+    return emit({
       ok: false,
       reason: 'expired',
-      expiresAt: getPortalSessionExpiresAt(session),
-    };
-    logPortalSession('validatePortalSession', result);
-    return result;
+      expiresAt,
+    });
   }
 
-  const result = {
+  return emit({
     ok: true,
     reason: 'ok',
     academyId,
     playerId,
     hasTryOut: isValidTryOutId(tryOutId),
-    expiresAt: getPortalSessionExpiresAt(session),
-  };
-  logPortalSession('validatePortalSession', result);
-  return result;
+    expiresAt,
+  });
 };
 
 const persistRefreshedPortalState = async ({
@@ -423,6 +506,13 @@ export const refreshPortalSessionIfNeeded = async (sessionOverride) => {
   const session = sessionOverride || (await readAuthSession());
   const existingPortalSession = await readPortalSession();
   const validation = validatePortalSession(session, { portalSession: existingPortalSession });
+  const token = getPortalAccessToken(session) || (await resolveAppToken());
+  const tokenSession =
+    session && typeof session === 'object'
+      ? { ...session, token: token || session?.token || null }
+      : { login_as: 'player', token: token || null };
+  const expiresAt = getPortalSessionExpiresAt(tokenSession);
+  const ttlSec = expiresAt != null ? Math.floor((expiresAt - Date.now()) / 1000) : null;
 
   logPortalSession('refreshPortalSessionIfNeeded:start', {
     needed: !validation.ok,
@@ -430,7 +520,23 @@ export const refreshPortalSessionIfNeeded = async (sessionOverride) => {
     hasSession: Boolean(session),
     academyId: getPortalAcademyId(session),
     playerId: getPortalPlayerId(session),
+    ttlSec,
+    hasToken: Boolean(token),
   });
+  if (__DEV__) {
+    console.info(
+      `[SESSION][REHYDRATE] start reason=${sessionReasonCode(validation.reason)} ttlSec=${ttlSec ?? 'NA'}`
+    );
+  }
+  const finalize = (result) => {
+    logPortalSession('refreshPortalSessionIfNeeded:end', result);
+    if (__DEV__) {
+      console.info(
+        `[SESSION][REHYDRATE] end success=${result?.success === true} reason=${sessionReasonCode(result?.reason)}`
+      );
+    }
+    return result;
+  };
 
   if (validation.ok) {
     return {
@@ -442,21 +548,86 @@ export const refreshPortalSessionIfNeeded = async (sessionOverride) => {
     };
   }
 
-  const token = getPortalAccessToken(session) || (await resolveAppToken());
   if (!token) {
     const result = {
       success: false,
-      reason: validation.reason || 'missing_portal_access',
+      reason: 'TOKEN_MISSING',
       session,
       portalSession: existingPortalSession,
     };
-    logPortalSession('refreshPortalSessionIfNeeded:end', result);
-    return result;
+    return finalize(result);
   }
 
-  const knownPlayerId = getPortalPlayerId(session);
+  if (isPortalSessionExpired(tokenSession)) {
+    const result = {
+      success: false,
+      reason: 'TOKEN_EXPIRED',
+      session,
+      portalSession: existingPortalSession,
+    };
+    return finalize(result);
+  }
+
+  const attempts = [];
+  let knownPlayerId = getPortalPlayerId(session);
+  let authMeAcademyId = null;
+
+  if (
+    validation.reason === 'missing_session' ||
+    validation.reason === 'missing_academy_id' ||
+    validation.reason === 'missing_player_context'
+  ) {
+    const authMeAttempt = await requestAuthMeSnapshot({ token });
+    attempts.push({ source: 'auth_me', status: authMeAttempt.status, ok: authMeAttempt.ok });
+
+    if (authMeAttempt.status === 401) {
+      const result = {
+        success: false,
+        reason: 'TOKEN_EXPIRED',
+        session,
+        portalSession: existingPortalSession,
+        attempts,
+      };
+      return finalize(result);
+    }
+
+    if (authMeAttempt.ok && authMeAttempt.payload && typeof authMeAttempt.payload === 'object') {
+      authMeAcademyId = pickAcademyIdFromAuthPayload(
+        authMeAttempt.payload,
+        getPortalAcademyId(session)
+      );
+      knownPlayerId = pickPlayerIdFromAuthPayload(authMeAttempt.payload, knownPlayerId);
+
+      if (authMeAcademyId && knownPlayerId) {
+        const { nextSession, nextPortalSession } = await persistRefreshedPortalState({
+          session,
+          existingPortalSession,
+          academyId: authMeAcademyId,
+          playerId: knownPlayerId,
+          tryOutId:
+            existingPortalSession?.tryOutId ??
+            existingPortalSession?.try_out_id ??
+            session?.tryOutId ??
+            session?.try_out_id ??
+            null,
+          token,
+        });
+        const result = {
+          success: true,
+          refreshed: true,
+          reason: 'rehydrated_from_auth_me',
+          session: nextSession,
+          portalSession: nextPortalSession,
+          attempts,
+        };
+        return finalize(result);
+      }
+    }
+  }
+
   const candidateAcademyIds = [
     getPortalAcademyId(session),
+    authMeAcademyId,
     existingPortalSession?.academyId,
     ...(await readStoredAcademyIds()),
   ].filter((value, index, arr) => {
@@ -464,23 +635,21 @@ export const refreshPortalSessionIfNeeded = async (sessionOverride) => {
     return normalized != null && normalized > 0 && arr.findIndex((x) => Number(x) === normalized) === index;
   });
 
-  const attempts = [];
-
-  for (const academyId of candidateAcademyIds) {
+  const academyAttempts = candidateAcademyIds.length ? candidateAcademyIds : [null];
+  for (const academyId of academyAttempts) {
     const attempt = await requestOverviewSnapshot({ token, academyId, playerId: knownPlayerId });
-    attempts.push({ academyId, status: attempt.status, ok: attempt.ok });
+    attempts.push({ source: 'overview', academyId, status: attempt.status, ok: attempt.ok });
 
     if (!attempt.ok) {
       if (attempt.status === 401) {
         const result = {
           success: false,
-          reason: 'expired',
+          reason: 'TOKEN_EXPIRED',
           session,
           portalSession: existingPortalSession,
           attempts,
         };
-        logPortalSession('refreshPortalSessionIfNeeded:end', result);
-        return result;
+        return finalize(result);
       }
       continue;
     }
@@ -511,11 +680,10 @@ export const refreshPortalSessionIfNeeded = async (sessionOverride) => {
       portalSession: nextPortalSession,
       attempts,
     };
-    logPortalSession('refreshPortalSessionIfNeeded:end', result);
-    return result;
+    return finalize(result);
   }
 
-  const fallbackAcademyId = candidateAcademyIds[0] || null;
+  const fallbackAcademyId = candidateAcademyIds[0] || authMeAcademyId || null;
   const fallbackPlayerId = knownPlayerId;
 
   if (fallbackAcademyId && fallbackPlayerId) {
@@ -541,17 +709,15 @@ export const refreshPortalSessionIfNeeded = async (sessionOverride) => {
       portalSession: nextPortalSession,
       attempts,
     };
-    logPortalSession('refreshPortalSessionIfNeeded:end', fallbackResult);
-    return fallbackResult;
+    return finalize(fallbackResult);
   }
 
   const result = {
     success: false,
-    reason: validation.reason || 'portal_rehydrate_failed',
+    reason: sessionReasonCode(validation.reason || 'portal_rehydrate_failed'),
     session,
     portalSession: existingPortalSession,
     attempts,
   };
-  logPortalSession('refreshPortalSessionIfNeeded:end', result);
-  return result;
+  return finalize(result);
 };

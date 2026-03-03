@@ -84,6 +84,9 @@ const shouldAttemptPortalReauth = (error) => {
     error?.meta?.status ||
     null;
   const kind = error?.kind || error?.code || null;
+  const alreadyRetried = Boolean(error?.config?._portalRetried || error?.config?.meta?.portalRetried);
+
+  if (kind === 'PORTAL_REAUTH_FAILED' || alreadyRetried) return false;
 
   if (status === 401) return true;
   if (kind === 'PORTAL_REAUTH_REQUIRED' || kind === 'PORTAL_SESSION_INVALID') return true;
@@ -186,6 +189,8 @@ const executePortalRequestWithRetry = async (requestFactory, meta = {}) => {
         reason: reauthResult?.reason || null,
       });
       const normalized = normalizePortalError(error);
+      normalized.kind = 'PORTAL_REAUTH_FAILED';
+      normalized.code = 'PORTAL_REAUTH_FAILED';
       normalized.reauthReason = reauthResult?.reason || 'reauth_failed';
       throw normalized;
     }
@@ -201,6 +206,11 @@ const portalPost = (path, body, options = {}) => {
     ({ refreshAttempted, retried }) =>
       apiClient.post(path, body != null ? body : {}, {
         ...rest,
+        meta: {
+          ...(rest.meta || {}),
+          portalRefreshAttempted: Boolean(refreshAttempted),
+          portalRetried: Boolean(retried),
+        },
         portal,
         _portalRefreshAttempted: Boolean(refreshAttempted),
         _portalRetried: Boolean(retried),
@@ -220,6 +230,11 @@ const portalGet = (path, params, options = {}) => {
     ({ refreshAttempted, retried }) =>
       apiClient.get(path, {
         ...rest,
+        meta: {
+          ...(rest.meta || {}),
+          portalRefreshAttempted: Boolean(refreshAttempted),
+          portalRetried: Boolean(retried),
+        },
         params: params != null ? params : {},
         portal,
         _portalRefreshAttempted: Boolean(refreshAttempted),

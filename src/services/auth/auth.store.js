@@ -10,6 +10,7 @@ import {
 import { authApi } from "./auth.api";
 import { refreshPortalSessionIfNeeded } from "./portalSession";
 import { storage, APP_STORAGE_KEYS } from "../storage/storage";
+import { LOGOUT_REASONS } from "./logoutReasons";
 
 const INITIAL_STATE = {
   isAuthenticated: false,
@@ -123,11 +124,62 @@ const buildSession = ({ loginAs, user, token, academyId, username }) => {
 const tokenPreview = (token) => {
   if (!token) return null;
   const s = String(token);
-  return s.length > 18 ? s.slice(0, 18) + "â€¦" : s;
+  return s.length > 18 ? `${s.slice(0, 6)}...${s.slice(-4)}` : s;
 };
 
-const DEBUG_PORTAL_REAUTH = true;
+const DEBUG_PORTAL_REAUTH = __DEV__;
 const portalReauthBridge = { handler: null };
+
+const nowIso = () => new Date().toISOString();
+
+const authDevLog = (tag, payload = {}) => {
+  if (!__DEV__) return;
+  console.warn(`[AUTH][${tag}]`, {
+    t: nowIso(),
+    ...payload,
+  });
+};
+
+const decodeBase64Url = (value) => {
+  if (!value || typeof value !== "string") return null;
+  try {
+    const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4 || 4)) % 4);
+    if (typeof atob === "function") return atob(padded);
+    if (typeof globalThis?.Buffer !== "undefined") {
+      return globalThis.Buffer.from(padded, "base64").toString("utf8");
+    }
+  } catch {
+    return null;
+  }
+  return null;
+};
+
+const decodeJwtPayload = (token) => {
+  if (!token || typeof token !== "string") return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const decoded = decodeBase64Url(parts[1]);
+  if (!decoded) return null;
+  try {
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+};
+
+const getTokenExpiryMs = (token) => {
+  const payload = decodeJwtPayload(token);
+  const exp = Number(payload?.exp);
+  if (!Number.isFinite(exp)) return null;
+  return exp * 1000;
+};
+
+const getTokenTtlSec = (token) => {
+  const expMs = getTokenExpiryMs(token);
+  if (!expMs) return null;
+  return Math.floor((expMs - Date.now()) / 1000);
+};
 
 const normalizePortalReauthResult = (result) => {
   if (result?.success) {
@@ -145,9 +197,11 @@ export const runPortalReauthOnce = async (meta = {}) => {
     return portalReauthBridge.handler(meta);
   }
 
-  if (DEBUG_PORTAL_REAUTH) {
-    console.info("[auth.store] runPortalReauthOnce fallback (provider unavailable)", meta);
-  }
+  authDevLog("PORTAL_REAUTH", {
+    mode: "fallback",
+    source: meta?.source || null,
+    reason: meta?.reason || null,
+  });
 
   const result = await refreshPortalSessionIfNeeded();
   return normalizePortalReauthResult(result);
@@ -269,14 +323,13 @@ export function AuthProvider({ children }) {
 
         hadSessionData = Boolean(session || storedToken || lastAcademyRaw != null);
 
-        if (__DEV__) {
-          console.log("[auth.restoreSession:storage]", {
-            hasSession: !!session,
-            hasStoredToken: !!storedToken,
-            storedTokenPreview: tokenPreview(storedToken),
-            lastAcademyRaw,
-          });
-        }
+        authDevLog("RESTORE", {
+          hasSession: !!session,
+          hasStoredToken: !!storedToken,
+          storedTokenPreview: tokenPreview(storedToken),
+          lastAcademyRaw,
+          sessionKeys: session ? Object.keys(session) : [],
+        });
 
         const resolvedToken = session?.token || storedToken || null;
 
@@ -328,13 +381,13 @@ export function AuthProvider({ children }) {
         if (resolvedToken) {
           await storage.setAuthToken(resolvedToken);
         } else {
-          if (__DEV__) {
-            console.warn("[auth.restoreSession:CLEARING_STORAGE]", {
-              loginAs,
-              hadSession: !!session,
-              hadStoredToken: !!storedToken,
-            });
-          }
+          authDevLog("STORAGE_CLEAR", {
+            reason: LOGOUT_REASONS.STORAGE_CORRUPT,
+            loginAs,
+            hadSession: !!session,
+            hadStoredToken: !!storedToken,
+            stack: new Error().stack,
+          });
 
           await Promise.all([
             storage.removeAuthToken(),
@@ -387,6 +440,11 @@ export function AuthProvider({ children }) {
         }
       } catch (error) {
         if (__DEV__) console.warn("Failed to restore auth session", error);
+        authDevLog("LOGOUT", {
+          reason: LOGOUT_REASONS.STORAGE_CORRUPT,
+          error: String(error?.message || error),
+          stack: new Error().stack,
+        });
 
         // hard reset storage on failure
         await Promise.all([
@@ -479,6 +537,21 @@ export function AuthProvider({ children }) {
           return { success: false, error: err };
         }
 
+        authDevLog("LOGIN", {
+          token: tokenPreview(token),
+          exp: getTokenExpiryMs(token),
+          now: Date.now(),
+          ttlSec: getTokenTtlSec(token),
+        });
+        if (__DEV__) {
+          const exp = getTokenExpiryMs(token);
+          const now = Date.now();
+          const ttlSec = getTokenTtlSec(token);
+          console.info(
+            `[AUTH][LOGIN] t=${nowIso()} token=${tokenPreview(token)} exp=${exp ?? 'NA'} now=${now} ttlSec=${ttlSec ?? 'NA'}`
+          );
+        }
+
         const user = extractUser(result.data);
 
         const session = buildSession({
@@ -551,11 +624,16 @@ export function AuthProvider({ children }) {
    * If it refreshes successfully, we keep session in sync.
    */
   const logout = useCallback(async (options = {}) => {
-    if (__DEV__ && !options?.skipLog) {
-      console.log("[auth.logout] clearing auth + tenant storage", {
-        reason: options?.reason || null,
+    const reason = options?.reason || LOGOUT_REASONS.USER_LOGOUT;
+    if (__DEV__) {
+      console.warn(`[AUTH][LOGOUT] t=${nowIso()} reason=${reason}`, {
+        stack: new Error().stack,
       });
     }
+    authDevLog("LOGOUT", {
+      reason,
+      stack: new Error().stack,
+    });
 
     await Promise.all([
       storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
@@ -604,14 +682,7 @@ export function AuthProvider({ children }) {
             reason: result?.reason || null,
           });
         }
-
-        if (!result?.success) {
-          await logout({
-            reason: `portal_reauth_failed:${result?.reason || "unknown"}`,
-            skipLog: false,
-          });
-        }
-        return result;
+        return normalizePortalReauthResult(result);
       } catch (error) {
         const normalized = {
           success: false,
@@ -624,10 +695,6 @@ export function AuthProvider({ children }) {
             reason: normalized.reason,
           });
         }
-        await logout({
-          reason: `portal_reauth_exception:${normalized.reason}`,
-          skipLog: false,
-        });
         return normalized;
       } finally {
         portalReauthInFlightRef.current = null;
@@ -635,7 +702,7 @@ export function AuthProvider({ children }) {
     })();
 
     return portalReauthInFlightRef.current;
-  }, [logout, refreshPortalIfNeeded]);
+  }, [refreshPortalIfNeeded]);
 
   useEffect(() => {
     portalReauthBridge.handler = ensurePortalReauthOnce;
@@ -691,4 +758,5 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
   return ctx;
 }
+
 

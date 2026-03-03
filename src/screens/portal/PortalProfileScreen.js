@@ -2,7 +2,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useRouter } from 'expo-router';
 
 import { useTheme } from '../../theme/ThemeProvider';
 import { AppScreen } from '../../components/ui/AppScreen';
@@ -79,7 +78,6 @@ function getMaxDobDate(minAgeYears = MIN_PROFILE_AGE) {
 }
 
 export function PortalProfileScreen() {
-  const router = useRouter();
   const { colors } = useTheme();
   const { t } = useI18n();
   const actions = usePlayerPortalActions();
@@ -87,7 +85,6 @@ export function PortalProfileScreen() {
   const { ready: portalReady, ensure: ensurePortalReady } = usePortalReady();
   const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
-  const didReauthRedirectRef = useRef(false);
 
   const {
     profile,
@@ -210,17 +207,16 @@ export function PortalProfileScreen() {
     return actions.fetchProfile();
   }, [actions, ensurePortalReady]);
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
+    if (reauthHandledRef.current) return { recovered: false };
     reauthHandledRef.current = true;
     const res = await ensurePortalReady({ source: 'profile_gate_reauth', force: true });
     if (res?.ready) {
       reauthHandledRef.current = false;
-      load();
-      return;
+      await load();
+      return { recovered: true };
     }
-    didReauthRedirectRef.current = true;
-    router.replace('/(auth)/login?mode=player');
-  }, [ensurePortalReady, load, router]);
+    return { recovered: false, reason: res?.reason || 'PORTAL_REAUTH_FAILED' };
+  }, [ensurePortalReady, load]);
 
   useEffect(() => {
     if (profile && !editMode) hydrateFormFromProfile();

@@ -56,6 +56,17 @@ const dbg = (...args) => {
   if (DEBUG_STORAGE) console.log('[storage]', ...args);
 };
 
+const nowIso = () => new Date().toISOString();
+const AUTH_TRACE_KEYS = new Set([APP_STORAGE_KEYS.AUTH_SESSION, APP_STORAGE_KEYS.AUTH_TOKEN]);
+
+const logAuthStorage = (tag, payload = {}) => {
+  if (!__DEV__) return;
+  const line = [`t=${nowIso()}`];
+  if (payload?.key) line.push(`key=${payload.key}`);
+  if (typeof payload?.hasValue === 'boolean') line.push(`hasValue=${payload.hasValue}`);
+  console.warn(`[AUTH][${tag}] ${line.join(' ')}`, payload);
+};
+
 const captureStorageException = (error, context) => {
   if (typeof LogRocket?.captureException !== 'function') return;
   try {
@@ -265,6 +276,12 @@ export const storage = {
       if (__DEV__ && DEBUG_KEYS.has(key)) dbg('GET raw', key, raw);
       const parsed = parseStoredValue(raw);
       if (__DEV__ && DEBUG_KEYS.has(key)) dbg('GET parsed', key, parsed);
+      if (AUTH_TRACE_KEYS.has(key)) {
+        logAuthStorage('STORAGE_READ', {
+          key,
+          hasValue: parsed != null,
+        });
+      }
       return parsed;
     } catch (error) {
       reportStorageError('getItem', key, error);
@@ -282,6 +299,13 @@ export const storage = {
       // ✅ log a stable single representation (prevents "merged" / duplicated console prints)
       if (__DEV__ && DEBUG_KEYS.has(key)) {
         dbg('SET', key, safePreview(value));
+      }
+
+      if (AUTH_TRACE_KEYS.has(key)) {
+        logAuthStorage('STORAGE_WRITE', {
+          key,
+          hasValue: value != null,
+        });
       }
 
       // ✅ null/undefined => remove key instead of writing ''
@@ -326,6 +350,12 @@ export const storage = {
     try {
       const adapter = resolveAdapter();
       await adapter.removeItem(key);
+      if (AUTH_TRACE_KEYS.has(key)) {
+        logAuthStorage('STORAGE_CLEAR', {
+          key,
+          stack: new Error().stack,
+        });
+      }
     } catch (error) {
       reportStorageError('removeItem', key, error, { critical: isCritical });
       if (isCritical) {
@@ -378,6 +408,12 @@ export const storage = {
   async getAuthToken() {
     const token = await secureStorage.getItem(APP_STORAGE_KEYS.AUTH_TOKEN);
     if (__DEV__) dbg('getAuthToken', tokenPreview(token));
+    if (__DEV__) {
+      logAuthStorage('STORAGE_READ', {
+        key: APP_STORAGE_KEYS.AUTH_TOKEN,
+        hasValue: Boolean(token),
+      });
+    }
     return typeof token === 'string' ? token : null;
   },
 
@@ -385,6 +421,12 @@ export const storage = {
     if (__DEV__) dbg('setAuthToken', tokenPreview(token));
     try {
       await secureStorage.setItem(APP_STORAGE_KEYS.AUTH_TOKEN, token, { critical: true });
+      if (__DEV__) {
+        logAuthStorage('STORAGE_WRITE', {
+          key: APP_STORAGE_KEYS.AUTH_TOKEN,
+          hasValue: token != null,
+        });
+      }
     } catch (error) {
       reportStorageError('setAuthToken', APP_STORAGE_KEYS.AUTH_TOKEN, error, {
         critical: true,
@@ -397,6 +439,12 @@ export const storage = {
     if (__DEV__) dbg('removeAuthToken');
     try {
       await secureStorage.removeItem(APP_STORAGE_KEYS.AUTH_TOKEN, { critical: true });
+      if (__DEV__) {
+        logAuthStorage('STORAGE_CLEAR', {
+          key: APP_STORAGE_KEYS.AUTH_TOKEN,
+          stack: new Error().stack,
+        });
+      }
     } catch (error) {
       reportStorageError('removeAuthToken', APP_STORAGE_KEYS.AUTH_TOKEN, error, {
         critical: true,

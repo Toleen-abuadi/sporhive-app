@@ -111,9 +111,7 @@ const appendParams = (url, params) => {
   return url.includes('?') ? `${url}&${qs}` : `${url}?${qs}`;
 };
 
-const DEBUG_API = !__DEV__ || true;
-// ✅ For preview APK, __DEV__ is often false.
-// Set true temporarily, then revert to `__DEV__`.
+const DEBUG_API = __DEV__;
 
 const redact = (value) => {
   if (value == null) return value;
@@ -247,43 +245,25 @@ const createApiError = (message, status, payload, config, kind) => {
 
 const clearPortalSessionOnAuthFailure = async ({ status, scope, refreshAttempted, retried }) => {
   if (scope !== 'portal') return;
-  if (status !== 401) return;
-  if (!refreshAttempted || !retried) {
-    if (DEBUG_API) {
-      console.info('[apiClient] skipped portal session clear (reauth pipeline has not exhausted retry)', {
-        status,
-        refreshAttempted: Boolean(refreshAttempted),
-        retried: Boolean(retried),
-      });
+  if (status !== 401 && status !== 403) return;
+  if (!__DEV__) return;
+  const reason = status === 403
+    ? 'PORTAL_FORBIDDEN'
+    : retried || refreshAttempted
+      ? 'PORTAL_REAUTH_FAILED'
+      : 'PORTAL_REAUTH_REQUIRED';
+  console.warn(
+    `[API][AUTH_FAIL] scope=${scope} status=${status} willClearAuth=false reason=${reason}`,
+    {
+    scope,
+    status,
+    reason,
+    willClearAuth: false,
+    refreshAttempted: Boolean(refreshAttempted),
+    retried: Boolean(retried),
+    stack: new Error().stack,
     }
-    return;
-  }
-
-  try {
-    await Promise.all([
-      typeof storage.logoutPortal === 'function'
-        ? storage.logoutPortal()
-        : Promise.resolve(),
-      storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
-      typeof storage.removeAuthToken === 'function'
-        ? storage.removeAuthToken().catch(() => { })
-        : Promise.resolve(),
-    ]);
-    if (DEBUG_API) {
-      console.warn('[apiClient] cleared portal session after failed reauth retry', {
-        status,
-        refreshAttempted: Boolean(refreshAttempted),
-        retried: Boolean(retried),
-      });
-    }
-  } catch (error) {
-    if (__DEV__) {
-      console.warn('[apiClient] failed clearing portal session after auth failure', {
-        status,
-        error: String(error?.message || error),
-      });
-    }
-  }
+  );
 };
 
 const apiRequest = async (config = {}) => {
@@ -291,8 +271,10 @@ const apiRequest = async (config = {}) => {
   const method = String(nextConfig.method || 'GET').toUpperCase();
   const path = resolveRequestPath(nextConfig);
   const scope = classifyEndpoint(path);
-  const portalRefreshAttempted = Boolean(nextConfig._portalRefreshAttempted);
-  const portalRetried = Boolean(nextConfig._portalRetried);
+  const portalRefreshAttempted = Boolean(
+    nextConfig?._portalRefreshAttempted ?? nextConfig?.meta?.portalRefreshAttempted
+  );
+  const portalRetried = Boolean(nextConfig?._portalRetried ?? nextConfig?.meta?.portalRetried);
   const baseURL = nextConfig.baseURL || API_BASE_URL;
   const url = appendParams(resolveRequestUrl(nextConfig), nextConfig.params);
 
@@ -329,6 +311,7 @@ const apiRequest = async (config = {}) => {
   const startedAt = nowMs();
 
   if (DEBUG_API) {
+    console.info(`[API][REQ] scope=${scope} method=${method} path=${path}`);
     console.info('[apiClient] request', {
       method,
       scope,
@@ -375,6 +358,11 @@ const apiRequest = async (config = {}) => {
 
   if (DEBUG_API) {
     const tookMs = Math.round(nowMs() - startedAt);
+    const willAttemptRefresh =
+      scope === 'portal' && response.status === 401 && !portalRetried;
+    console.info(
+      `[API][RESP] scope=${scope} status=${response.status} path=${path} willAttemptRefresh=${willAttemptRefresh} retried=${portalRetried}`
+    );
     console.info('[apiClient] response', {
       method,
       scope,
@@ -385,6 +373,7 @@ const apiRequest = async (config = {}) => {
       tookMs,
       portalRefreshAttempted,
       portalRetried,
+      willAttemptRefresh,
       payload: typeof payload === 'string' ? payload.slice(0, 500) : sanitizeForLog(payload),
     });
   }

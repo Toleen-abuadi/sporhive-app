@@ -72,7 +72,6 @@ export function PortalMyOrdersScreen() {
   const { ready: portalReady, ensure: ensurePortalReady } = usePortalReady();
   const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
-  const didReauthRedirectRef = useRef(false);
   const productLookupAttemptedRef = useRef(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [catalogProductsById, setCatalogProductsById] = useState(() => catalogProductsByIdCache || {});
@@ -152,17 +151,16 @@ export function PortalMyOrdersScreen() {
     return actions.fetchOrders?.();
   }, [actions, ensurePortalReady]);
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
+    if (reauthHandledRef.current) return { recovered: false };
     reauthHandledRef.current = true;
     const res = await ensurePortalReady({ source: 'orders_gate_reauth', force: true });
     if (res?.ready) {
       reauthHandledRef.current = false;
-      load();
-      return;
+      await load();
+      return { recovered: true };
     }
-    didReauthRedirectRef.current = true;
-    router.replace('/(auth)/login?mode=player');
-  }, [ensurePortalReady, load, router]);
+    return { recovered: false, reason: res?.reason || 'PORTAL_REAUTH_FAILED' };
+  }, [ensurePortalReady, load]);
 
   return (
     <PortalAccessGate titleOverride={t('portal.orders.title')} error={ordersError} onRetry={load} onReauthRequired={handleReauthRequired}>

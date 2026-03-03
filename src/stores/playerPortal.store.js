@@ -50,6 +50,7 @@ const INITIAL_STATE = {
   renewals: [],
   renewalsLoading: false,
   renewalsError: null,
+  renewalsLoadedOnce: false,
 };
 
 let portalState = { ...INITIAL_STATE };
@@ -294,7 +295,14 @@ export const playerPortalStore = {
 
   async fetchProfile() {
     setState({ profileLoading: true, profileError: null });
-    const res = await playerPortalApi.getProfile();
+    let res;
+    try {
+      res = await playerPortalApi.getProfile();
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      setState({ profileLoading: false, profileError: normalized });
+      return { success: false, error };
+    }
 
     if (res.success) {
       setState({
@@ -345,7 +353,14 @@ export const playerPortalStore = {
 
   async fetchPayments() {
     setState({ paymentsLoading: true, paymentsError: null });
-    const res = await playerPortalApi.listPayments();
+    let res;
+    try {
+      res = await playerPortalApi.listPayments();
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      setState({ paymentsLoading: false, paymentsError: normalized });
+      return { success: false, error };
+    }
 
     if (res.success) {
       setState({
@@ -364,7 +379,14 @@ export const playerPortalStore = {
 
   async fetchOrders(payload = {}) {
     setState({ ordersLoading: true, ordersError: null });
-    const res = await playerPortalApi.listOrders(null, payload);
+    let res;
+    try {
+      res = await playerPortalApi.listOrders(null, payload);
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      setState({ ordersLoading: false, ordersError: normalized });
+      return { success: false, error };
+    }
 
     if (res.success) {
       setState({
@@ -391,11 +413,18 @@ export const playerPortalStore = {
       return { success: false, error: normalized };
     }
 
-    const res = await playerPortalApi.listRenewals(null, payload);
+    let res;
+    try {
+      res = await playerPortalApi.listRenewals(null, payload);
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      setState({ renewalsLoading: false, renewalsError: normalized });
+      return { success: false, error };
+    }
 
     if (res.success) {
       const data = res.data?.data || res.data || [];
-      setState({ renewals: data, renewalsLoading: false, renewalsError: null });
+      setState({ renewals: data, renewalsLoading: false, renewalsError: null, renewalsLoadedOnce: true });
       return { success: true, data };
     }
 

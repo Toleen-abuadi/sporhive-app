@@ -1,6 +1,5 @@
 // Portal Uniform Store Screen (Redesigned): famous-app style catalog + cart bar + size chips + quantity stepper.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'expo-router';
 import {
   View,
   StyleSheet,
@@ -101,7 +100,6 @@ const formatMoney = (value, currency = '') => {
 };
 
 export function PortalUniformStoreScreen() {
-  const router = useRouter();
   const { colors } = useTheme();
   const toast = useToast();
   const { t, isRTL } = useTranslation();
@@ -113,7 +111,6 @@ export function PortalUniformStoreScreen() {
   }));
   const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
-  const didReauthRedirectRef = useRef(false);
 
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -177,17 +174,16 @@ export function PortalUniformStoreScreen() {
   }, [ensurePortalReady, portalActions, t]);
 
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
+    if (reauthHandledRef.current) return { recovered: false };
     reauthHandledRef.current = true;
     const res = await ensurePortalReady({ source: 'uniform_store_gate_reauth', force: true });
     if (res?.ready) {
       reauthHandledRef.current = false;
-      loadCatalog();
-      return;
+      await loadCatalog();
+      return { recovered: true };
     }
-    didReauthRedirectRef.current = true;
-    router.replace('/(auth)/login?mode=player');
-  }, [ensurePortalReady, loadCatalog, router]);
+    return { recovered: false, reason: res?.reason || 'PORTAL_REAUTH_FAILED' };
+  }, [ensurePortalReady, loadCatalog]);
 
   useEffect(() => {
     if (!portalReady) return;

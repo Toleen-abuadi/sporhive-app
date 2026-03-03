@@ -9,6 +9,7 @@ export const isPortalReauthError = (error) => {
   const kind = error?.kind || error?.code || null;
   return (
     kind === 'PORTAL_REAUTH_REQUIRED' ||
+    kind === 'PORTAL_REAUTH_FAILED' ||
     kind === 'PORTAL_SESSION_INVALID' ||
     kind === 'PORTAL_ACADEMY_REQUIRED' ||
     status === 401

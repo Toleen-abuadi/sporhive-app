@@ -26,6 +26,7 @@ import { QuickSettingsSheet } from '../components/services/QuickSettingsSheet';
 import { useTheme } from '../theme/ThemeProvider';
 import { useI18n } from '../services/i18n/i18n';
 import { useAuth } from '../services/auth/auth.store';
+import { LOGOUT_REASONS } from '../services/auth/logoutReasons';
 import { playgroundsApi } from '../services/playgrounds/playgrounds.api';
 import { API_BASE_URL } from '../services/api/client';
 import { normalizeApiError } from '../services/api/normalizeApiError';
@@ -733,7 +734,7 @@ export function HomeServicesScreen() {
 
   const handleLogout = useCallback(async () => {
     try {
-      await logout();
+      await logout({ reason: LOGOUT_REASONS.USER_LOGOUT });
     } finally {
       router.replace('/(auth)/login');
     }
