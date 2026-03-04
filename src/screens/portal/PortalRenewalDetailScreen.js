@@ -34,7 +34,6 @@ export function PortalRenewalDetailScreen() {
   const { ensurePortalReauthOnce } = useAuth();
   const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
-  const didReauthRedirectRef = useRef(false);
   const { overview, overviewLoading, overviewError, renewals, renewalsError } = usePlayerPortalStore((state) => ({
     overview: state.overview,
     overviewLoading: state.overviewLoading,
@@ -77,17 +76,16 @@ export function PortalRenewalDetailScreen() {
   }, [fetchOverview, fetchRenewals, overview, renewals]);
 
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
+    if (reauthHandledRef.current) return { recovered: false };
     reauthHandledRef.current = true;
     const res = await ensurePortalReauthOnce?.();
     if (res?.success) {
       reauthHandledRef.current = false;
-      load();
-      return;
+      await load();
+      return { recovered: true };
     }
-    didReauthRedirectRef.current = true;
-    router.replace('/(auth)/login?mode=player');
-  }, [ensurePortalReauthOnce, load, router]);
+    return { recovered: false, reason: res?.reason || 'PORTAL_REAUTH_FAILED' };
+  }, [ensurePortalReauthOnce, load]);
 
   const eligibility = useMemo(() => renewals || {}, [renewals]);
   const missingTryOut = isMissingTryOutError(renewalsError);

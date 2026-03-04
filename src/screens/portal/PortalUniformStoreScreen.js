@@ -26,6 +26,7 @@ import { spacing } from '../../theme/tokens';
 import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
 import { usePortalReady } from '../../hooks/usePortalReady';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
+import { isTokenExpiredReason } from '../../services/portal/portal.errors';
 
 const alphaHex = (hex, alpha = '1A') => {
   if (!hex) return hex;
@@ -46,6 +47,15 @@ const clampInt = (n, min, max) => {
 };
 
 const safeArray = (v) => (Array.isArray(v) ? v : []);
+
+const buildPortalReadyError = (reason) => {
+  const expired = isTokenExpiredReason(reason);
+  const error = new Error(expired ? 'AUTH_TOKEN_EXPIRED' : 'PORTAL_SESSION_INVALID');
+  error.kind = expired ? 'AUTH_TOKEN_EXPIRED' : 'PORTAL_SESSION_INVALID';
+  error.code = error.kind;
+  error.reason = reason || (expired ? 'token_expired' : 'portal_not_ready');
+  return error;
+};
 
 const STOCK_NUMBER_KEYS = [
   'stock',
@@ -139,9 +149,7 @@ export function PortalUniformStoreScreen() {
   const loadCatalog = useCallback(async () => {
     const sessionReady = await ensurePortalReady({ source: 'uniform_store_load' });
     if (!sessionReady?.ready) {
-      const sessionError = new Error('PORTAL_SESSION_INVALID');
-      sessionError.kind = 'PORTAL_SESSION_INVALID';
-      sessionError.reason = sessionReady?.reason || 'portal_not_ready';
+      const sessionError = buildPortalReadyError(sessionReady?.reason || 'portal_not_ready');
       setError(sessionError);
       return { success: false, reason: sessionReady?.reason || 'portal_not_ready' };
     }

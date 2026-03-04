@@ -39,11 +39,13 @@ const INITIAL_STATE = {
   paymentsLoading: false,
   paymentsError: null,
   paymentsLoadedOnce: false,
+  hasLoadedOncePayments: false,
 
   orders: [],
   ordersLoading: false,
   ordersError: null,
   ordersLoadedOnce: false,
+  hasLoadedOnceOrders: false,
 
   storeLoadedOnce: false,
 
@@ -51,6 +53,7 @@ const INITIAL_STATE = {
   renewalsLoading: false,
   renewalsError: null,
   renewalsLoadedOnce: false,
+  hasLoadedOnceRenewals: false,
 };
 
 let portalState = { ...INITIAL_STATE };
@@ -368,6 +371,7 @@ export const playerPortalStore = {
         paymentsLoading: false,
         paymentsError: null,
         paymentsLoadedOnce: true,
+        hasLoadedOncePayments: true,
       });
       return { success: true, data: res.data };
     }
@@ -394,6 +398,7 @@ export const playerPortalStore = {
         ordersLoading: false,
         ordersError: null,
         ordersLoadedOnce: true,
+        hasLoadedOnceOrders: true,
       });
       return { success: true, data: res.data };
     }
@@ -424,7 +429,13 @@ export const playerPortalStore = {
 
     if (res.success) {
       const data = res.data?.data || res.data || [];
-      setState({ renewals: data, renewalsLoading: false, renewalsError: null, renewalsLoadedOnce: true });
+      setState({
+        renewals: data,
+        renewalsLoading: false,
+        renewalsError: null,
+        renewalsLoadedOnce: true,
+        hasLoadedOnceRenewals: true,
+      });
       return { success: true, data };
     }
 

@@ -2,12 +2,34 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useAuth } from '../services/auth/auth.store';
 import { validatePortalSession } from '../services/auth/portalSession';
+import { isTokenExpiredReason } from '../services/portal/portal.errors';
 
 const DEBUG_PORTAL_READY = __DEV__;
 
 const logPortalReady = (event, payload = {}) => {
   if (!DEBUG_PORTAL_READY) return;
   console.info(`[usePortalReady] ${event}`, payload);
+};
+
+const normalizePortalReadyReason = (reason) => {
+  const value = String(reason || '').trim().toLowerCase();
+  if (!value) return 'portal_session_invalid';
+  if (isTokenExpiredReason(value)) return 'token_expired';
+  return value;
+};
+
+const buildPortalReadyError = (reason) => {
+  const normalizedReason = normalizePortalReadyReason(reason);
+  const isExpired = isTokenExpiredReason(normalizedReason);
+
+  return {
+    code: isExpired ? 'AUTH_TOKEN_EXPIRED' : 'PORTAL_SESSION_INVALID',
+    kind: isExpired ? 'AUTH_TOKEN_EXPIRED' : 'PORTAL_SESSION_INVALID',
+    reason: normalizedReason,
+    message: isExpired
+      ? 'Session expired. Please sign in again to continue.'
+      : 'Portal session is not ready',
+  };
 };
 
 export function usePortalReady() {
@@ -60,14 +82,11 @@ export function usePortalReady() {
           return { ready: true, reason: null };
         }
 
-        const reason =
-          reauthResult?.reason || currentValidation.reason || 'portal_session_invalid';
+        const reason = normalizePortalReadyReason(
+          reauthResult?.reason || currentValidation.reason || 'portal_session_invalid'
+        );
         setLastEnsureReason(reason);
-        setError({
-          kind: 'PORTAL_SESSION_INVALID',
-          reason,
-          message: reason === 'TOKEN_EXPIRED' ? 'Session expired, please login' : 'Portal session is not ready',
-        });
+        setError(buildPortalReadyError(reason));
         logPortalReady('ensure:failed', { source, reason });
         return { ready: false, reason };
       })().finally(() => {

@@ -1,11 +1,18 @@
 import { storage, APP_STORAGE_KEYS, PORTAL_KEYS } from '../storage/storage';
-import { getPortalAcademyId, getPortalPlayerId, validatePortalSession } from '../auth/portalSession';
+import {
+  getPortalAcademyId,
+  getPortalPlayerId,
+  getToken,
+  isTokenExpired,
+  validatePortalSession,
+} from '../auth/portalSession';
 import { normalizePortalOverview, normalizeUniformOrders } from '../portal/portal.normalize';
 import { assertTryOutId, getTryOutIdFromPortalSession, isValidTryOutId } from '../portal/portal.tryout';
 import { runPortalReauthOnce } from '../auth/auth.store';
 import { API_BASE_URL_V1 } from '../../config/env';
 import { apiClient } from './client';
 import { resolvePortalAcademyId } from './portalHeaders';
+import { isTokenExpiredReason } from '../portal/portal.errors';
 
 const API_BASE_URL = API_BASE_URL_V1;
 const DEBUG_PORTAL_PIPELINE = true;
@@ -61,12 +68,12 @@ const normalizePortalError = (error, fallbackKind = 'PORTAL_ERROR') => {
     null;
 
   let kind;
-  if (status === 401) {
+  if (explicitKind) {
+    kind = explicitKind;
+  } else if (status === 401) {
     kind = 'PORTAL_REAUTH_REQUIRED';
   } else if (status === 403) {
     kind = 'PORTAL_FORBIDDEN';
-  } else if (explicitKind) {
-    kind = explicitKind;
   } else {
     kind = fallbackKind;
   }
@@ -86,6 +93,7 @@ const shouldAttemptPortalReauth = (error) => {
   const kind = error?.kind || error?.code || null;
   const alreadyRetried = Boolean(error?.config?._portalRetried || error?.config?.meta?.portalRetried);
 
+  if (kind === 'AUTH_TOKEN_EXPIRED') return false;
   if (kind === 'PORTAL_REAUTH_FAILED' || alreadyRetried) return false;
 
   if (status === 401) return true;
@@ -96,16 +104,31 @@ const shouldAttemptPortalReauth = (error) => {
   return false;
 };
 
+const isExpiredValidation = (validation, session) => {
+  if (isTokenExpiredReason(validation?.reason)) return true;
+  return isTokenExpired(getToken(session));
+};
+
+const createAuthTokenExpiredError = (context = {}) => {
+  const error = new Error('AUTH_TOKEN_EXPIRED');
+  error.code = 'AUTH_TOKEN_EXPIRED';
+  error.kind = 'AUTH_TOKEN_EXPIRED';
+  error.reason = 'token_expired';
+  error.context = context;
+  return error;
+};
+
 const createPortalSessionInvalidError = (validation, session) => {
   const error = new Error('PORTAL_SESSION_INVALID');
   error.code = 'PORTAL_SESSION_INVALID';
   error.kind = 'PORTAL_SESSION_INVALID';
   error.reason = validation.reason;
   error.context = {
+    validationReason: validation?.reason || null,
     loginAs: session?.login_as || session?.user?.type || null,
     academyId: getPortalAcademyId(session),
     playerId: getPortalPlayerId(session),
-    hasToken: Boolean(session?.token),
+    hasToken: Boolean(getToken(session)),
   };
   return error;
 };
@@ -126,12 +149,21 @@ const ensureSession = async (sessionOverride, options = {}) => {
     academyId: getPortalAcademyId(session),
     playerId: getPortalPlayerId(session),
     loginAs: session?.login_as || session?.user?.type || null,
-    hasToken: Boolean(session?.token),
-    isExpired: validation.reason === 'expired',
+    hasToken: Boolean(getToken(session)),
+    isExpired: isExpiredValidation(validation, session),
   };
   logPortalPipeline('ensureSession:invalid', missingBeforeThrow);
 
   if (options?.allowReauth === false) {
+    if (isExpiredValidation(validation, session)) {
+      throw createAuthTokenExpiredError({
+        source,
+        step: 'validate',
+        reason: validation.reason,
+        academyId: getPortalAcademyId(session),
+        playerId: getPortalPlayerId(session),
+      });
+    }
     throw createPortalSessionInvalidError(validation, session);
   }
 
@@ -146,6 +178,15 @@ const ensureSession = async (sessionOverride, options = {}) => {
   });
 
   if (!reauthResult?.success) {
+    if (isTokenExpiredReason(reauthResult?.reason) || isExpiredValidation(validation, session)) {
+      throw createAuthTokenExpiredError({
+        source,
+        step: 'reauth',
+        reason: reauthResult?.reason || validation.reason || 'token_expired',
+        academyId: getPortalAcademyId(session),
+        playerId: getPortalPlayerId(session),
+      });
+    }
     const error = createPortalSessionInvalidError(validation, session);
     error.reauthReason = reauthResult?.reason || 'reauth_failed';
     throw error;
@@ -155,6 +196,15 @@ const ensureSession = async (sessionOverride, options = {}) => {
   portalSession = await readPortalSession();
   validation = validatePortalSession(session, { portalSession });
   if (!validation.ok) {
+    if (isExpiredValidation(validation, session)) {
+      throw createAuthTokenExpiredError({
+        source,
+        step: 'post_reauth_validate',
+        reason: validation.reason,
+        academyId: getPortalAcademyId(session),
+        playerId: getPortalPlayerId(session),
+      });
+    }
     throw createPortalSessionInvalidError(validation, session);
   }
 
@@ -188,6 +238,18 @@ const executePortalRequestWithRetry = async (requestFactory, meta = {}) => {
         label,
         reason: reauthResult?.reason || null,
       });
+
+      if (isTokenExpiredReason(reauthResult?.reason)) {
+        const expiredError = createAuthTokenExpiredError({
+          source: `request:${label}`,
+          reason: reauthResult?.reason || 'token_expired',
+          status: error?.status || error?.response?.status || null,
+        });
+        expiredError.status = 401;
+        expiredError.response = { status: 401, data: error?.response?.data || null };
+        throw expiredError;
+      }
+
       const normalized = normalizePortalError(error);
       normalized.kind = 'PORTAL_REAUTH_FAILED';
       normalized.code = 'PORTAL_REAUTH_FAILED';
@@ -269,6 +331,11 @@ const withAcademyPayload = async (payload = {}, options = {}) => {
 
     if (reauthResult?.success) {
       academyId = await resolvePortalAcademyId(options);
+    } else if (isTokenExpiredReason(reauthResult?.reason)) {
+      throw createAuthTokenExpiredError({
+        source: 'withAcademyPayload',
+        reason: reauthResult?.reason || 'token_expired',
+      });
     }
   }
 

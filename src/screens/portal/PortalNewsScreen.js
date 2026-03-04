@@ -1,7 +1,6 @@
 // Portal News Screen: academy updates and announcements.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, FlatList, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import dayjs from 'dayjs';
 
@@ -31,12 +30,10 @@ function safeJsonParse(value) {
 }
 
 export function PortalNewsScreen() {
-  const router = useRouter();
   const { colors } = useTheme();
   const { t, isRTL } = useTranslation();
   const { ensurePortalReauthOnce } = useAuth();
   const didFetchRef = useRef(false);
-  const didReauthRedirectRef = useRef(false);
 
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -189,15 +186,14 @@ export function PortalNewsScreen() {
   }, [loadNews]);
 
   const handleReauthRequired = useCallback(async () => {
-    if (didReauthRedirectRef.current) return;
+    if (!ensurePortalReauthOnce) return { recovered: false };
     const res = await ensurePortalReauthOnce?.();
     if (res?.success) {
-      loadNews();
-      return;
+      await loadNews();
+      return { recovered: true };
     }
-    didReauthRedirectRef.current = true;
-    router.replace('/(auth)/login?mode=player');
-  }, [ensurePortalReauthOnce, loadNews, router]);
+    return { recovered: false, reason: res?.reason || 'PORTAL_REAUTH_FAILED' };
+  }, [ensurePortalReauthOnce, loadNews]);
 
 
   const importantNews = useMemo(() => news.filter((item) => item?.is_important || item?.pinned || Number(item?.priority || 0) > 0), [news]);

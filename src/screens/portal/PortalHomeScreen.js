@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Image, RefreshControl, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { UserCircle, CreditCard, ShoppingBag, RefreshCcw, Shirt, ShieldAlert, ArrowLeft, ArrowRight } from 'lucide-react-native';
@@ -17,6 +17,7 @@ import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 import { Badge } from '../../components/ui/Badge';
 import { PortalActionBanner } from '../../components/portal/PortalActionBanner';
 import { ThemedLoader } from '../../components/ui/ThemedLoader';
+import { isTokenExpiredReason } from '../../services/portal/portal.errors';
 
 const parseDaysLeft = (dateText) => {
   if (!dateText) return null;
@@ -36,10 +37,10 @@ export function PortalHomeScreen() {
     overviewError: state.overviewError,
   }));
   const actions = usePlayerPortalActions();
+  const fetchOverview = actions.fetchOverview;
   const [refreshing, setRefreshing] = useState(false);
   const refreshingRef = useRef(false);
   const reauthHandledRef = useRef(false);
-  const didReauthRedirectRef = useRef(false);
   const placeholder = t('portal.common.placeholder');
   const sessionValidation = authLoading ? { ok: true } : validatePortalSession(session);
 
@@ -48,8 +49,8 @@ export function PortalHomeScreen() {
   const autoFetchOnceRef = useRef(false);
 
   useEffect(() => {
-    fetchOverviewRef.current = actions.fetchOverview;
-  }, [actions.fetchOverview]);
+    fetchOverviewRef.current = fetchOverview;
+  }, [fetchOverview]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -75,29 +76,44 @@ export function PortalHomeScreen() {
     if (__DEV__) console.trace('[TRACE] onRefresh called (force=true)');
     setRefreshing(true);
     try {
-      await actions.fetchOverview({ force: true });
+      await fetchOverview({ force: true });
     } finally {
       refreshingRef.current = false;
       setRefreshing(false);
     }
-  }, [actions.fetchOverview]);
+  }, [fetchOverview]);
 
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
+    if (reauthHandledRef.current) return { recovered: false };
     reauthHandledRef.current = true;
     const res = await ensurePortalReauthOnce?.();
     if (res?.success) {
       reauthHandledRef.current = false;
-      onRefresh();
-      return;
+      await onRefresh();
+      return { recovered: true };
     }
-    didReauthRedirectRef.current = true;
-    router.replace('/(auth)/login?mode=player');
-  }, [ensurePortalReauthOnce, onRefresh, router]);
+    return { recovered: false, reason: res?.reason || 'PORTAL_REAUTH_FAILED' };
+  }, [ensurePortalReauthOnce, onRefresh]);
 
   const errorStatus = overviewError?.status || overviewError?.response?.status || overviewError?.statusCode || null;
   const invalidSessionReason = !authLoading && !sessionValidation.ok ? sessionValidation.reason : null;
-  const isSessionInvalid = Boolean(invalidSessionReason || overviewError?.kind === 'PORTAL_SESSION_INVALID' || errorStatus === 401);
+  const isSessionInvalid = Boolean(
+    invalidSessionReason ||
+    overviewError?.kind === 'PORTAL_SESSION_INVALID' ||
+    overviewError?.kind === 'AUTH_TOKEN_EXPIRED' ||
+    errorStatus === 401
+  );
+  const sessionGateError = useMemo(() => {
+    if (overviewError) return overviewError;
+    if (!invalidSessionReason) return null;
+
+    const expired = isTokenExpiredReason(invalidSessionReason);
+    const error = new Error(expired ? 'AUTH_TOKEN_EXPIRED' : 'PORTAL_SESSION_INVALID');
+    error.kind = expired ? 'AUTH_TOKEN_EXPIRED' : 'PORTAL_SESSION_INVALID';
+    error.code = error.kind;
+    error.reason = invalidSessionReason;
+    return error;
+  }, [invalidSessionReason, overviewError]);
 
   if ((overviewLoading || authLoading) && !overview) {
     return (
@@ -166,7 +182,7 @@ export function PortalHomeScreen() {
   return (
     <PortalAccessGate
       titleOverride={t('portal.home.title')}
-      error={isSessionInvalid ? (overviewError || new Error(String(invalidSessionReason || 'Portal session invalid'))) : overviewError}
+      error={isSessionInvalid ? sessionGateError : overviewError}
       onRetry={onRefresh}
       onReauthRequired={handleReauthRequired}
     >

@@ -5,8 +5,10 @@ import { extractTryOutIdFromOverview, isValidTryOutId } from '../portal/portal.t
 
 const PORTAL_OVERVIEW_PATH = '/player-portal-external-proxy/player-profile/overview';
 const PORTAL_AUTH_ME_PATH = '/player-portal-external-proxy/auth/me';
-const PORTAL_EXPIRY_GRACE_MS = 30_000;
+const PORTAL_TOKEN_EXP_SKEW_SEC = 60;
 const DEBUG_PORTAL_SESSION = __DEV__;
+const DEBUG_FORCE_TOKEN_EXPIRED =
+  __DEV__ && String(globalThis?.process?.env?.EXPO_PUBLIC_DEBUG_FORCE_TOKEN_EXPIRED || '').trim() === '1';
 
 const maskToken = (token) => {
   if (!token) return null;
@@ -23,8 +25,13 @@ const logPortalSession = (event, payload = {}) => {
 const sessionReasonCode = (reason) => {
   switch (reason) {
     case 'expired':
+    case 'token_expired':
+    case 'TOKEN_EXPIRED':
+    case 'AUTH_TOKEN_EXPIRED':
       return 'TOKEN_EXPIRED';
     case 'missing_portal_access':
+    case 'token_missing':
+    case 'TOKEN_MISSING':
       return 'TOKEN_MISSING';
     case 'missing_session':
       return 'SESSION_MISSING';
@@ -37,6 +44,20 @@ const sessionReasonCode = (reason) => {
     default:
       return String(reason || 'UNKNOWN');
   }
+};
+
+const normalizePortalReason = (reason) => {
+  const value = String(reason || '').trim().toLowerCase();
+  if (!value) return 'portal_rehydrate_failed';
+  if (value === 'expired' || value === 'token_expired' || value === 'tokenexpired') {
+    return 'token_expired';
+  }
+  if (value === 'token_missing' || value === 'missing_portal_access') return 'token_missing';
+  if (value === 'missing_session') return 'missing_session';
+  if (value === 'missing_academy_id') return 'missing_academy_id';
+  if (value === 'missing_player_context') return 'missing_player_context';
+  if (value === 'not_player') return 'not_player';
+  return value;
 };
 
 const normalizeNumber = (value) => {
@@ -52,6 +73,13 @@ const normalizePlayerId = (value) => {
   if (Number.isFinite(numeric) && numeric > 0) return numeric;
   const text = String(value).trim();
   return text || null;
+};
+
+const pickFirstDefined = (...candidates) => {
+  for (const candidate of candidates) {
+    if (candidate != null && candidate !== '') return candidate;
+  }
+  return null;
 };
 
 const toPlayerLoginAs = (value) => {
@@ -269,15 +297,20 @@ const requestAuthMeSnapshot = async ({ token }) => {
   return { ok: response.ok, status: response.status, payload };
 };
 
-export const getPortalAccessToken = (session) =>
-  session?.token || session?.access_token || session?.accessToken || null;
+export const getToken = (sessionOrPortalSession) =>
+  sessionOrPortalSession?.token ||
+  sessionOrPortalSession?.access_token ||
+  sessionOrPortalSession?.accessToken ||
+  null;
 
-export const getPortalAcademyId = (session) => {
+export const getPortalAccessToken = getToken;
+
+export const getPortalAcademyId = (sessionOrPortalSession) => {
   const candidates = [
-    session?.user?.academy_id,
-    session?.user?.academyId,
-    session?.academy_id,
-    session?.academyId,
+    sessionOrPortalSession?.user?.academy_id,
+    sessionOrPortalSession?.user?.academyId,
+    sessionOrPortalSession?.academy_id,
+    sessionOrPortalSession?.academyId,
   ];
   for (const candidate of candidates) {
     const normalized = normalizeNumber(candidate);
@@ -286,15 +319,17 @@ export const getPortalAcademyId = (session) => {
   return null;
 };
 
-export const getPortalPlayerId = (session) => {
+export const getPortalPlayerId = (sessionOrPortalSession) => {
   const candidates = [
-    session?.user?.external_player_id,
-    session?.user?.externalPlayerId,
-    session?.user?.player_id,
-    session?.user?.playerId,
-    session?.user?.id,
-    session?.player_id,
-    session?.playerId,
+    sessionOrPortalSession?.user?.external_player_id,
+    sessionOrPortalSession?.user?.externalPlayerId,
+    sessionOrPortalSession?.user?.player_id,
+    sessionOrPortalSession?.user?.playerId,
+    sessionOrPortalSession?.user?.id,
+    sessionOrPortalSession?.external_player_id,
+    sessionOrPortalSession?.externalPlayerId,
+    sessionOrPortalSession?.player_id,
+    sessionOrPortalSession?.playerId,
   ];
   for (const candidate of candidates) {
     const normalized = normalizePlayerId(candidate);
@@ -371,27 +406,49 @@ export const getPortalSessionExpiresAt = (session) => {
 
   if (explicitExpiry != null) return explicitExpiry;
 
-  const token = getPortalAccessToken(session);
-  const payload = decodeJwtPayload(token);
-  const exp = parseExpiryValue(payload?.exp);
-  return exp;
+  const token = getToken(session);
+  return getTokenExpMs(token);
 };
 
-export const isPortalSessionExpired = (session, now = Date.now()) => {
+export const getTokenExpMs = (token) => {
+  const payload = decodeJwtPayload(token);
+  return parseExpiryValue(payload?.exp);
+};
+
+export const isTokenExpired = (token, skewSec = PORTAL_TOKEN_EXP_SKEW_SEC) => {
+  if (DEBUG_FORCE_TOKEN_EXPIRED) {
+    if (__DEV__) {
+      console.warn('[SESSION][CHECK] forced expiry via EXPO_PUBLIC_DEBUG_FORCE_TOKEN_EXPIRED=1');
+    }
+    return true;
+  }
+
+  const expMs = getTokenExpMs(token);
+  if (expMs == null) return false;
+  return Date.now() >= expMs - Number(skewSec || 0) * 1000;
+};
+
+export const forceExpireTokenForDev = () => DEBUG_FORCE_TOKEN_EXPIRED;
+
+export const isPortalSessionExpired = (session, now = Date.now(), skewSec = PORTAL_TOKEN_EXP_SKEW_SEC) => {
+  const token = getToken(session);
+  if (isTokenExpired(token, skewSec)) return true;
+
   const expiresAt = getPortalSessionExpiresAt(session);
   if (expiresAt == null) return false;
-  return now >= expiresAt + PORTAL_EXPIRY_GRACE_MS;
+  return now >= expiresAt - Number(skewSec || 0) * 1000;
 };
 
 export const validatePortalSession = (session, options = {}) => {
   const portalSession = options?.portalSession || null;
+  const token = getToken(session);
   const expiresAt = getPortalSessionExpiresAt(session);
   const ttlSec = expiresAt != null ? Math.floor((expiresAt - Date.now()) / 1000) : null;
   const emit = (result) => {
     logPortalSession('validatePortalSession', result);
     if (__DEV__) {
       console.info(
-        `[SESSION][CHECK] ok=${result.ok} reason=${sessionReasonCode(result.reason)} ttlSec=${ttlSec ?? 'NA'}`
+        `[SESSION][CHECK] ok=${result.ok} reason=${sessionReasonCode(result.reason)} ttlSec=${ttlSec ?? 'NA'} academyId=${result?.academyId ?? 'NA'} playerId=${result?.playerId ?? 'NA'}`
       );
     }
     return result;
@@ -406,17 +463,16 @@ export const validatePortalSession = (session, options = {}) => {
     return emit({ ok: false, reason: 'not_player', loginAs });
   }
 
-  const token = getPortalAccessToken(session);
   if (!token) {
     return emit({ ok: false, reason: 'missing_portal_access' });
   }
 
-  const academyId = getPortalAcademyId(session);
+  const academyId = getPortalAcademyId(session) ?? getPortalAcademyId(portalSession);
   if (!academyId) {
     return emit({ ok: false, reason: 'missing_academy_id' });
   }
 
-  const playerId = getPortalPlayerId(session);
+  const playerId = getPortalPlayerId(session) ?? getPortalPlayerId(portalSession);
   const tryOutId =
     portalSession?.tryOutId ??
     portalSession?.try_out_id ??
@@ -431,7 +487,9 @@ export const validatePortalSession = (session, options = {}) => {
   if (isPortalSessionExpired(session)) {
     return emit({
       ok: false,
-      reason: 'expired',
+      reason: 'token_expired',
+      academyId,
+      playerId,
       expiresAt,
     });
   }
@@ -454,50 +512,129 @@ const persistRefreshedPortalState = async ({
   tryOutId,
   token,
 }) => {
+  const sessionAcademyId = getPortalAcademyId(session);
+  const existingPortalAcademyId = getPortalAcademyId(existingPortalSession);
+  const sessionPlayerId = getPortalPlayerId(session);
+  const existingPortalPlayerId = getPortalPlayerId(existingPortalSession);
+  const resolvedAcademyId = normalizeNumber(
+    pickFirstDefined(academyId, existingPortalAcademyId, sessionAcademyId)
+  );
+  const resolvedPlayerId = normalizePlayerId(
+    pickFirstDefined(playerId, existingPortalPlayerId, sessionPlayerId)
+  );
+  const resolvedTryOutId = isValidTryOutId(tryOutId)
+    ? tryOutId
+    : pickFirstDefined(
+        existingPortalSession?.tryOutId,
+        existingPortalSession?.try_out_id,
+        session?.tryOutId,
+        session?.try_out_id,
+        null
+      );
+  const resolvedToken = token || getToken(session);
+
   const nextSession = {
     ...(session || {}),
     login_as: 'player',
-    academyId: academyId ?? session?.academyId ?? null,
-    token: token || session?.token || null,
+    token: resolvedToken || session?.token || null,
     user: {
       ...(session?.user || {}),
       type: 'player',
-      academy_id: academyId ?? session?.user?.academy_id ?? session?.user?.academyId ?? null,
-      academyId: academyId ?? session?.user?.academyId ?? session?.user?.academy_id ?? null,
-      external_player_id:
-        playerId ?? session?.user?.external_player_id ?? session?.user?.externalPlayerId ?? null,
-      externalPlayerId:
-        playerId ?? session?.user?.externalPlayerId ?? session?.user?.external_player_id ?? null,
     },
   };
+  if (resolvedAcademyId != null && resolvedAcademyId > 0) {
+    nextSession.academyId = resolvedAcademyId;
+    nextSession.user.academy_id = resolvedAcademyId;
+    nextSession.user.academyId = resolvedAcademyId;
+  }
+  if (resolvedPlayerId != null) {
+    nextSession.user.external_player_id = resolvedPlayerId;
+    nextSession.user.externalPlayerId = resolvedPlayerId;
+    nextSession.playerId = resolvedPlayerId;
+  }
+  if (isValidTryOutId(resolvedTryOutId)) {
+    nextSession.tryOutId = resolvedTryOutId;
+    nextSession.try_out_id = resolvedTryOutId;
+  }
 
   const nextPortalSession = {
     ...(existingPortalSession || {}),
-    academyId: academyId ?? existingPortalSession?.academyId ?? null,
-    playerId: playerId ?? existingPortalSession?.playerId ?? null,
-    tryOutId: isValidTryOutId(tryOutId) ? tryOutId : existingPortalSession?.tryOutId ?? null,
-    try_out_id: isValidTryOutId(tryOutId) ? tryOutId : existingPortalSession?.try_out_id ?? null,
     login_as: 'player',
     loginAs: 'player',
-    tokenRef: token ? 'auth-session' : existingPortalSession?.tokenRef || null,
+    tokenRef: resolvedToken ? 'auth-session' : existingPortalSession?.tokenRef || null,
     refreshedAt: new Date().toISOString(),
   };
+  if (resolvedAcademyId != null && resolvedAcademyId > 0) {
+    nextPortalSession.academyId = resolvedAcademyId;
+  }
+  if (resolvedPlayerId != null) {
+    nextPortalSession.playerId = resolvedPlayerId;
+  }
+  if (isValidTryOutId(resolvedTryOutId)) {
+    nextPortalSession.tryOutId = resolvedTryOutId;
+    nextPortalSession.try_out_id = resolvedTryOutId;
+  }
+
+  if (__DEV__ && existingPortalAcademyId == null && sessionAcademyId != null && resolvedAcademyId != null) {
+    console.info('[PORTAL][FALLBACK_PERSIST] repaired portalSession academyId from AUTH_SESSION', {
+      sessionAcademyId,
+      portalAcademyIdBefore: existingPortalAcademyId,
+      portalAcademyIdAfter: nextPortalSession?.academyId ?? null,
+      playerIdFromSession: sessionPlayerId ?? null,
+    });
+  }
 
   await storage.setItem(APP_STORAGE_KEYS.AUTH_SESSION, nextSession);
-  if (token) {
-    await storage.setAuthToken(token).catch((error) => {
+  if (resolvedToken) {
+    await storage.setAuthToken(resolvedToken).catch((error) => {
       logPortalSession('refreshPortalSessionIfNeeded:setAuthTokenFailed', {
         error: String(error?.message || error),
       });
     });
   }
-  if (academyId != null) {
+  if (resolvedAcademyId != null && resolvedAcademyId > 0) {
     await Promise.all([
-      storage.setPortalAcademyId(academyId),
-      storage.setItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID, String(academyId)),
+      storage.setPortalAcademyId(resolvedAcademyId),
+      storage.setItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID, String(resolvedAcademyId)),
     ]);
   }
   await storage.setPortalSession(nextPortalSession);
+
+  return { nextSession, nextPortalSession };
+};
+
+const persistFallbackPortalState = async ({ session, existingPortalSession, token, source, reason }) => {
+  const sessionAcademyId = getPortalAcademyId(session);
+  const sessionPlayerId = getPortalPlayerId(session);
+  const fallbackTryOutId = pickFirstDefined(
+    existingPortalSession?.tryOutId,
+    existingPortalSession?.try_out_id,
+    session?.tryOutId,
+    session?.try_out_id,
+    null
+  );
+
+  const { nextSession, nextPortalSession } = await persistRefreshedPortalState({
+    session,
+    existingPortalSession,
+    academyId: sessionAcademyId,
+    playerId: sessionPlayerId,
+    tryOutId: fallbackTryOutId,
+    token,
+  });
+
+  if (__DEV__) {
+    console.info('[PORTAL][FALLBACK_PERSIST]', {
+      source,
+      reason: normalizePortalReason(reason),
+      sessionAcademyId: sessionAcademyId ?? null,
+      portalAcademyIdBefore: getPortalAcademyId(existingPortalSession),
+      portalAcademyIdAfter: getPortalAcademyId(nextPortalSession),
+      sessionPlayerId: sessionPlayerId ?? null,
+      portalPlayerIdAfter: getPortalPlayerId(nextPortalSession),
+      hasToken: Boolean(getToken(nextSession)),
+    });
+  }
 
   return { nextSession, nextPortalSession };
 };
@@ -506,7 +643,7 @@ export const refreshPortalSessionIfNeeded = async (sessionOverride) => {
   const session = sessionOverride || (await readAuthSession());
   const existingPortalSession = await readPortalSession();
   const validation = validatePortalSession(session, { portalSession: existingPortalSession });
-  const token = getPortalAccessToken(session) || (await resolveAppToken());
+  const token = getToken(session) || (await resolveAppToken());
   const tokenSession =
     session && typeof session === 'object'
       ? { ...session, token: token || session?.token || null }
@@ -551,7 +688,7 @@ export const refreshPortalSessionIfNeeded = async (sessionOverride) => {
   if (!token) {
     const result = {
       success: false,
-      reason: 'TOKEN_MISSING',
+      reason: 'token_missing',
       session,
       portalSession: existingPortalSession,
     };
@@ -559,11 +696,18 @@ export const refreshPortalSessionIfNeeded = async (sessionOverride) => {
   }
 
   if (isPortalSessionExpired(tokenSession)) {
+    const { nextSession, nextPortalSession } = await persistFallbackPortalState({
+      session,
+      existingPortalSession,
+      token,
+      source: 'refreshPortalSessionIfNeeded:expired_precheck',
+      reason: 'token_expired',
+    });
     const result = {
       success: false,
-      reason: 'TOKEN_EXPIRED',
-      session,
-      portalSession: existingPortalSession,
+      reason: 'token_expired',
+      session: nextSession || session,
+      portalSession: nextPortalSession || existingPortalSession,
     };
     return finalize(result);
   }
@@ -581,11 +725,18 @@ export const refreshPortalSessionIfNeeded = async (sessionOverride) => {
     attempts.push({ source: 'auth_me', status: authMeAttempt.status, ok: authMeAttempt.ok });
 
     if (authMeAttempt.status === 401) {
+      const { nextSession, nextPortalSession } = await persistFallbackPortalState({
+        session,
+        existingPortalSession,
+        token,
+        source: 'refreshPortalSessionIfNeeded:auth_me_401',
+        reason: 'token_expired',
+      });
       const result = {
         success: false,
-        reason: 'TOKEN_EXPIRED',
-        session,
-        portalSession: existingPortalSession,
+        reason: 'token_expired',
+        session: nextSession || session,
+        portalSession: nextPortalSession || existingPortalSession,
         attempts,
       };
       return finalize(result);
@@ -642,11 +793,18 @@ export const refreshPortalSessionIfNeeded = async (sessionOverride) => {
 
     if (!attempt.ok) {
       if (attempt.status === 401) {
+        const { nextSession, nextPortalSession } = await persistFallbackPortalState({
+          session,
+          existingPortalSession,
+          token,
+          source: 'refreshPortalSessionIfNeeded:overview_401',
+          reason: 'token_expired',
+        });
         const result = {
           success: false,
-          reason: 'TOKEN_EXPIRED',
-          session,
-          portalSession: existingPortalSession,
+          reason: 'token_expired',
+          session: nextSession || session,
+          portalSession: nextPortalSession || existingPortalSession,
           attempts,
         };
         return finalize(result);
@@ -714,7 +872,7 @@ export const refreshPortalSessionIfNeeded = async (sessionOverride) => {
 
   const result = {
     success: false,
-    reason: sessionReasonCode(validation.reason || 'portal_rehydrate_failed'),
+    reason: normalizePortalReason(validation.reason || 'portal_rehydrate_failed'),
     session,
     portalSession: existingPortalSession,
     attempts,

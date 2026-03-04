@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
@@ -13,7 +12,7 @@ import { portalApi } from '../../services/api/playerPortalApi';
 import { usePortalOverview } from '../../services/portal/portal.hooks';
 import { useAuth } from '../../services/auth/auth.store';
 import { useTranslation } from '../../services/i18n/i18n';
-import { isMissingTryOutError, isValidTryOutId } from '../../services/portal/portal.tryout';
+import { isValidTryOutId } from '../../services/portal/portal.tryout';
 import { spacing } from '../../theme/tokens';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 
@@ -23,11 +22,9 @@ const asArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 export function PortalPerformanceScreen() {
   const { colors } = useTheme();
   const { t, isRTL } = useTranslation();
-  const router = useRouter();
   const { ensurePortalReauthOnce } = useAuth();
   const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
-  const didReauthRedirectRef = useRef(false);
   const placeholder = t('portal.common.placeholder');
   const { overview } = usePortalOverview();
 
@@ -37,16 +34,18 @@ export function PortalPerformanceScreen() {
   const [summary, setSummary] = useState(null);
   const [periods, setPeriods] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
     if (!isValidTryOutId(tryoutId)) {
-      setError(t('portal.performance.missingTryOut'));
+      const missingTryOutError = new Error(t('portal.performance.missingTryOut'));
+      missingTryOutError.kind = 'PORTAL_TRY_OUT_REQUIRED';
+      setError(missingTryOutError);
       return;
     }
 
     setLoading(true);
-    setError('');
+    setError(null);
 
     try {
       const typesRes = await portalApi.fetchRatingTypes({ tryout_id: tryoutId });
@@ -59,10 +58,16 @@ export function PortalPerformanceScreen() {
       if (periodsRes?.success) setPeriods(asArray(periodsRes.data?.data ?? periodsRes.data));
 
       if (!typesRes?.success && !summaryRes?.success && !periodsRes?.success) {
-        setError(typesRes?.error?.message || summaryRes?.error?.message || periodsRes?.error?.message || t('portal.performance.error'));
+        const firstError = typesRes?.error || summaryRes?.error || periodsRes?.error || null;
+        if (firstError) {
+          setError(firstError);
+        } else {
+          setError(new Error(t('portal.performance.error')));
+        }
       }
     } catch (e) {
-      setError(e?.message || t('portal.performance.error'));
+      const fallbackError = e instanceof Error ? e : new Error(e?.message || t('portal.performance.error'));
+      setError(fallbackError);
     } finally {
       setLoading(false);
     }
@@ -75,17 +80,16 @@ export function PortalPerformanceScreen() {
   }, [load]);
 
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
+    if (reauthHandledRef.current) return { recovered: false };
     reauthHandledRef.current = true;
     const res = await ensurePortalReauthOnce?.();
     if (res?.success) {
       reauthHandledRef.current = false;
-      load();
-      return;
+      await load();
+      return { recovered: true };
     }
-    didReauthRedirectRef.current = true;
-    router.replace('/(auth)/login?mode=player');
-  }, [ensurePortalReauthOnce, load, router]);
+    return { recovered: false, reason: res?.reason || 'PORTAL_REAUTH_FAILED' };
+  }, [ensurePortalReauthOnce, load]);
 
   const overallScore = summary?.average || summary?.overall_average || summary?.score || 0;
   const recentRatings = asArray(summary?.recent || summary?.ratings);
@@ -104,8 +108,10 @@ export function PortalPerformanceScreen() {
 
   if (loading && !summary && periods.length === 0 && ratingTypes.length === 0 && !error) return <Screen><SporHiveLoader /></Screen>;
 
+  const errorMessage = error?.message || '';
+
   return (
-    <PortalAccessGate titleOverride={t('portal.performance.title')} error={error ? { message: error, status: isMissingTryOutError({ message: error }) ? 401 : undefined } : null} onRetry={load} onReauthRequired={handleReauthRequired}>
+    <PortalAccessGate titleOverride={t('portal.performance.title')} error={error} onRetry={load} onReauthRequired={handleReauthRequired}>
       <Screen scroll contentContainerStyle={[styles.scroll, isRTL && styles.rtl]}>
         <PortalHeader title={t('portal.performance.title')} subtitle={t('portal.performance.subtitle')} />
 
@@ -157,7 +163,7 @@ export function PortalPerformanceScreen() {
             ))}
           </PortalCard>
         ) : (
-          !error ? <PortalEmptyState icon="trending-up" title={t('portal.performance.emptyTitle')} description={t('portal.performance.emptyDescription')} /> : <PortalEmptyState icon="alert-triangle" title={t('portal.performance.errorTitle')} description={error} action={<Button variant="secondary" onPress={load}>{t('portal.common.retry')}</Button>} />
+          !error ? <PortalEmptyState icon="trending-up" title={t('portal.performance.emptyTitle')} description={t('portal.performance.emptyDescription')} /> : <PortalEmptyState icon="alert-triangle" title={t('portal.performance.errorTitle')} description={errorMessage} action={<Button variant="secondary" onPress={load}>{t('portal.common.retry')}</Button>} />
         )}
       </Screen>
     </PortalAccessGate>

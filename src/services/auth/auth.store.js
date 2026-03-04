@@ -181,13 +181,32 @@ const getTokenTtlSec = (token) => {
   return Math.floor((expMs - Date.now()) / 1000);
 };
 
+const normalizePortalReason = (reason) => {
+  const value = String(reason || "").trim().toLowerCase();
+  if (!value) return "portal_reauth_failed";
+  if (
+    value === "token_expired" ||
+    value === "expired" ||
+    value === "tokenexpired" ||
+    value === "auth_token_expired"
+  ) {
+    return "token_expired";
+  }
+  if (value === "token_missing" || value === "missing_portal_access") return "token_missing";
+  return value;
+};
+
 const normalizePortalReauthResult = (result) => {
   if (result?.success) {
-    return { success: true, session: result?.session || null, reason: result?.reason || "ok" };
+    return {
+      success: true,
+      session: result?.session || null,
+      reason: normalizePortalReason(result?.reason || "ok"),
+    };
   }
   return {
     success: false,
-    reason: result?.reason || result?.code || result?.kind || "portal_reauth_failed",
+    reason: normalizePortalReason(result?.reason || result?.code || result?.kind || "portal_reauth_failed"),
     session: result?.session || null,
   };
 };
@@ -665,33 +684,52 @@ export function AuthProvider({ children }) {
     if (portalReauthInFlightRef.current) {
       if (DEBUG_PORTAL_REAUTH) {
         console.info("[auth.store] ensurePortalReauthOnce lock reused", meta);
+        console.info("[PORTAL][REAUTH] reuse lock", {
+          source: meta?.source || null,
+          reason: normalizePortalReason(meta?.reason),
+        });
       }
       return portalReauthInFlightRef.current;
     }
 
     if (DEBUG_PORTAL_REAUTH) {
       console.info("[auth.store] ensurePortalReauthOnce lock engaged", meta);
+      console.info("[PORTAL][REAUTH] start", {
+        source: meta?.source || null,
+        reason: normalizePortalReason(meta?.reason),
+      });
     }
 
     portalReauthInFlightRef.current = (async () => {
       try {
         const result = await refreshPortalIfNeeded();
+        const normalized = normalizePortalReauthResult(result);
         if (DEBUG_PORTAL_REAUTH) {
           console.info("[auth.store] ensurePortalReauthOnce result", {
-            success: result?.success === true,
-            reason: result?.reason || null,
+            success: normalized?.success === true,
+            reason: normalized?.reason || null,
+          });
+          console.info("[PORTAL][REAUTH] end", {
+            success: normalized?.success === true,
+            reason: normalized?.reason || null,
           });
         }
-        return normalizePortalReauthResult(result);
+        return normalized;
       } catch (error) {
         const normalized = {
           success: false,
-          reason: error?.reason || error?.code || error?.kind || error?.message || "portal_reauth_exception",
+          reason: normalizePortalReason(
+            error?.reason || error?.code || error?.kind || error?.message || "portal_reauth_exception"
+          ),
           session: null,
         };
 
         if (DEBUG_PORTAL_REAUTH) {
           console.warn("[auth.store] ensurePortalReauthOnce failure", {
+            reason: normalized.reason,
+          });
+          console.info("[PORTAL][REAUTH] end", {
+            success: false,
             reason: normalized.reason,
           });
         }

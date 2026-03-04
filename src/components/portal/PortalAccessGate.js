@@ -8,6 +8,7 @@ import { useI18n } from '../../services/i18n/i18n';
 import { useAuth } from '../../services/auth/auth.store';
 import { LOGOUT_REASONS } from '../../services/auth/logoutReasons';
 import {
+  isAuthTokenExpiredError,
   isPortalReauthError,
   isPortalForbiddenError,
 } from '../../services/portal/portal.errors';
@@ -41,6 +42,11 @@ export function PortalAccessGate({
     if (!error) {
       handledReauthRef.current = false;
       setReauthFailed(false);
+      return;
+    }
+    if (isAuthTokenExpiredError(error)) {
+      handledReauthRef.current = true;
+      setReauthFailed(true);
       return;
     }
     if (!isPortalReauthError(error)) return;
@@ -91,6 +97,23 @@ export function PortalAccessGate({
 
   // Handle portal API errors (optional, only if a screen passes `error` in)
   if (error) {
+    if (isAuthTokenExpiredError(error)) {
+      return (
+        <AppScreen safe scroll={false}>
+          <AppHeader title={titleOverride || t('portal.access.title')} />
+          <EmptyState
+            title="Session expired"
+            message="Please sign in again to continue."
+            actionLabel="Sign in"
+            onAction={async () => {
+              await logout({ reason: LOGOUT_REASONS.TOKEN_EXPIRED_USER_ACTION });
+              router.replace('/(auth)/login?mode=player');
+            }}
+          />
+        </AppScreen>
+      );
+    }
+
     if (isPortalReauthError(error)) {
       if (!reauthFailed) {
         // Rendering nothing while reauth flow is handled by the effect above.
@@ -100,8 +123,8 @@ export function PortalAccessGate({
         <AppScreen safe scroll={false}>
           <AppHeader title={titleOverride || t('portal.access.title')} />
           <EmptyState
-            title="Session expired"
-            message="Session expired, please login."
+            title={t('portal.access.title')}
+            message={t('portal.access.description')}
             actionLabel={t('auth.login')}
             onAction={async () => {
               await logout({ reason: LOGOUT_REASONS.PORTAL_REAUTH_FAILED });

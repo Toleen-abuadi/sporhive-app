@@ -62,6 +62,7 @@ import { useTranslation } from '../../services/i18n/i18n';
 import { useAuth } from '../../services/auth/auth.store';
 import { useSmartBack } from '../../navigation/useSmartBack';
 import { isMissingTryOutError } from '../../services/portal/portal.tryout';
+import { isAuthTokenExpiredError } from '../../services/portal/portal.errors';
 import { usePlayerPortalActions, usePlayerPortalStore } from '../../stores/playerPortal.store';
 import { PortalAccessGate } from '../../components/portal/PortalAccessGate';
 
@@ -468,7 +469,6 @@ export function PortalRenewalsScreen() {
   const { ensurePortalReauthOnce } = useAuth();
   const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
-  const didReauthRedirectRef = useRef(false);
   const placeholder = t('portal.common.placeholder');
   const scheduleSeparator = t('portal.renewals.scheduleSeparator');
 
@@ -784,23 +784,23 @@ export function PortalRenewalsScreen() {
     isMissingTryOutError(overviewError) ||
     isMissingTryOutError(renewalsError);
   const combinedError = fatalError || overviewError || renewalsError;
+  const isSessionExpiredError = isAuthTokenExpiredError(combinedError);
   const renewalLoadErrorSubtitle = missingTryOut
     ? t('portal.renewals.missingTryOut')
     : t('portal.common.somethingWentWrong');
 
   const handleReauthRequired = useCallback(async () => {
-    if (reauthHandledRef.current || didReauthRedirectRef.current) return;
+    if (reauthHandledRef.current) return { recovered: false };
     reauthHandledRef.current = true;
     const res = await ensurePortalReauthOnce?.();
     if (res?.success) {
       reauthHandledRef.current = false;
       setRefreshing(true);
-      fetchAll();
-      return;
+      await fetchAll();
+      return { recovered: true };
     }
-    didReauthRedirectRef.current = true;
-    router.replace('/(auth)/login?mode=player');
-  }, [ensurePortalReauthOnce, fetchAll, router]);
+    return { recovered: false, reason: res?.reason || 'PORTAL_REAUTH_FAILED' };
+  }, [ensurePortalReauthOnce, fetchAll]);
 
   if (loading || overviewLoading || renewalsLoading) {
     return (
@@ -840,7 +840,7 @@ export function PortalRenewalsScreen() {
     );
   }
 
-  if (fatalError || overviewError || renewalsError) {
+  if ((fatalError || overviewError || renewalsError) && !isSessionExpiredError) {
     return (
       <Screen>
         <PortalHeader
