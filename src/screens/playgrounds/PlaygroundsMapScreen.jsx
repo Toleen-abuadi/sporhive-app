@@ -7,7 +7,13 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { List, Map as MapIcon, Search, SlidersHorizontal } from 'lucide-react-native';
+import {
+  CalendarDays,
+  List,
+  Map as MapIcon,
+  Search,
+  SlidersHorizontal,
+} from 'lucide-react-native';
 
 import { AppScreen } from '../../components/ui/AppScreen';
 import { BackButton } from '../../components/ui/BackButton';
@@ -30,8 +36,12 @@ import { distanceKm, formatDistanceLabel } from '../../utils/distance';
 import { DEFAULT_MAP_CENTER, averageCenter, normalizeLatLng } from '../../utils/map';
 import { borderRadius, spacing } from '../../theme/tokens';
 import { safeArray } from '../../utils/safeRender';
-
-const LIST_ROUTE = '/playgrounds/explore';
+import {
+  PLAYGROUNDS_ORIGINS,
+  PLAYGROUNDS_ROUTES,
+  buildBookingRoute,
+  buildVenueRoute,
+} from './playgrounds.routes';
 
 const toNumberOrNull = (value) => {
   const parsed = Number(value);
@@ -255,13 +265,20 @@ export function PlaygroundsMapScreen() {
   const openVenueDetails = useCallback(() => {
     if (!selectedVenue?.id) return;
     setDetailsOpen(false);
-    router.push(`/playgrounds/venue/${selectedVenue.id}`);
+    const route = buildVenueRoute(selectedVenue.id, {
+      origin: PLAYGROUNDS_ORIGINS.map,
+    });
+    if (route) router.push(route);
   }, [router, selectedVenue]);
 
   const openVenueBooking = useCallback(() => {
     if (!selectedVenue?.id) return;
     setDetailsOpen(false);
-    router.push(`/playgrounds/book/${selectedVenue.id}`);
+    const route = buildBookingRoute(selectedVenue.id, {
+      origin: PLAYGROUNDS_ORIGINS.map,
+      returnTo: PLAYGROUNDS_ROUTES.map,
+    });
+    if (route) router.push(route);
   }, [router, selectedVenue]);
 
   const showLocationWarning =
@@ -295,7 +312,7 @@ export function PlaygroundsMapScreen() {
               { flexDirection: rtl ? 'row-reverse' : 'row' },
             ]}
           >
-            <BackButton fallbackRoute="/(app)/services" />
+            <BackButton fallbackRoute={PLAYGROUNDS_ROUTES.services} />
             <View style={styles.headerCopy}>
               <Text variant="h3" weight="bold">
                 {t('playgrounds.discovery.title')}
@@ -332,7 +349,7 @@ export function PlaygroundsMapScreen() {
                 </Text>
               </View>
               <Pressable
-                onPress={() => router.push(LIST_ROUTE)}
+                onPress={() => router.replace(PLAYGROUNDS_ROUTES.explore)}
                 style={({ pressed }) => [
                   styles.segmentItem,
                   {
@@ -344,6 +361,21 @@ export function PlaygroundsMapScreen() {
                 <List size={14} color={colors.textSecondary} />
                 <Text variant="caption" weight="semibold" color={colors.textSecondary}>
                   {t('playgrounds.discovery.list')}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => router.replace(PLAYGROUNDS_ROUTES.bookings)}
+                style={({ pressed }) => [
+                  styles.segmentItem,
+                  {
+                    opacity: pressed ? 0.88 : 1,
+                    flexDirection: rtl ? 'row-reverse' : 'row',
+                  },
+                ]}
+              >
+                <CalendarDays size={14} color={colors.textSecondary} />
+                <Text variant="caption" weight="semibold" color={colors.textSecondary}>
+                  {t('playgrounds.bookings.title')}
                 </Text>
               </Pressable>
             </View>

@@ -12,12 +12,14 @@ import { BackButton } from '../../components/ui/BackButton';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
 import { spacing } from '../../theme/tokens';
+import { PLAYGROUNDS_ROUTES, withQuery } from './playgrounds.routes';
 
 export function RatingLinkResolverScreen() {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const router = useRouter();
-  const { token } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const token = Array.isArray(params?.token) ? params.token[0] : params?.token;
 
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState(() => t('service.playgrounds.ratingResolver.loading'));
@@ -25,6 +27,11 @@ export function RatingLinkResolverScreen() {
   const [userId, setUserId] = useState(null);
 
   const resolveToken = useCallback(async () => {
+    if (!token) {
+      setStatus('error');
+      setMessage(t('service.playgrounds.ratingResolver.invalid'));
+      return;
+    }
     setStatus('loading');
     setMessage(t('service.playgrounds.ratingResolver.loading'));
     try {
@@ -36,6 +43,7 @@ export function RatingLinkResolverScreen() {
         setBookingId(String(resolvedBookingId));
         setUserId(String(resolvedUserId));
         setStatus('ready');
+        setMessage(t('service.playgrounds.ratingResolver.loading'));
         return;
       }
       setStatus('error');
@@ -50,9 +58,23 @@ export function RatingLinkResolverScreen() {
     resolveToken();
   }, [resolveToken]);
 
+  useEffect(() => {
+    if (status !== 'ready' || !bookingId || !userId) return;
+    router.replace(
+      withQuery('/playgrounds/rate', {
+        bookingId,
+        userId,
+        from: 'resolver',
+      })
+    );
+  }, [bookingId, router, status, userId]);
+
   return (
     <AppScreen safe>
-      <AppHeader title={t('service.playgrounds.ratingResolver.title')} leftSlot={<BackButton />} />
+      <AppHeader
+        title={t('service.playgrounds.ratingResolver.title')}
+        leftSlot={<BackButton fallbackRoute={PLAYGROUNDS_ROUTES.bookings} />}
+      />
       {status === 'loading' ? (
         <SporHiveLoader message={t('service.playgrounds.ratingResolver.loading')} />
       ) : (
@@ -62,7 +84,15 @@ export function RatingLinkResolverScreen() {
           </Text>
           {status === 'ready' && bookingId && userId ? (
             <Button
-              onPress={() => router.replace(`/playgrounds/rate?bookingId=${bookingId}&userId=${userId}`)}
+              onPress={() =>
+                router.replace(
+                  withQuery('/playgrounds/rate', {
+                    bookingId,
+                    userId,
+                    from: 'resolver',
+                  })
+                )
+              }
               accessibilityLabel={t('service.playgrounds.ratingResolver.actions.continueAccessibility')}
             >
               {t('service.playgrounds.ratingResolver.actions.continue')}
@@ -70,14 +100,20 @@ export function RatingLinkResolverScreen() {
           ) : (
             <View style={styles.actions}>
               <Button
-                onPress={() => router.replace('/playgrounds/explore')}
+                onPress={() => router.replace(PLAYGROUNDS_ROUTES.bookings)}
                 accessibilityLabel={t('service.playgrounds.ratingResolver.actions.backAccessibility')}
               >
-                {t('service.playgrounds.ratingResolver.actions.back')}
+                {t('service.playgrounds.rating.actions.bookings', 'My Bookings')}
+              </Button>
+              <Button
+                variant="secondary"
+                onPress={() => router.replace(PLAYGROUNDS_ROUTES.explore)}
+              >
+                {t('playgrounds.bookings.segment.explore', 'Explore')}
               </Button>
               <Button
                 onPress={resolveToken}
-                variant="secondary"
+                variant="ghost"
                 accessibilityLabel={t('service.playgrounds.ratingResolver.actions.retryAccessibility')}
               >
                 {t('service.playgrounds.ratingResolver.actions.retry')}
@@ -98,7 +134,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   actions: {
-    flexDirection: 'row',
     gap: spacing.sm,
   },
 });

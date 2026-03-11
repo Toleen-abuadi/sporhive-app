@@ -7,6 +7,7 @@ import { useToast } from '../../components/ui/ToastHost';
 import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
 import { AppScreen } from '../../components/ui/AppScreen';
+import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
@@ -25,6 +26,14 @@ import {
 } from './bookingWizard.utils';
 
 import { BookingWizardSteps } from './BookingWizardSteps';
+import {
+  normalizePlaygroundsOrigin,
+  PLAYGROUNDS_ORIGINS,
+  PLAYGROUNDS_ROUTES,
+  buildBookingRoute,
+  resolveBookingFallbackRoute,
+  resolveSafeReturnTo,
+} from './playgrounds.routes';
 
 const CURRENCY = 'JOD';
 
@@ -33,7 +42,6 @@ export function BookingWizardScreen() {
   const styles = useMemo(() => makeWizardStyles(colors), [colors]);
   const { t } = useTranslation();
   const router = useRouter();
-  const { goBack } = useSmartBack({ fallbackRoute: '/playgrounds/explore' });
   const toast = useToast();
   const { session } = useAuth();
 
@@ -43,7 +51,25 @@ export function BookingWizardScreen() {
   const venueId = useMemo(() => {
     const raw = routeParams?.venueId ?? routeParams?.venue_id ?? routeParams?.id;
     return normalizeRouterParam(raw);
-  }, [routeParams]);
+  }, [routeParams?.id, routeParams?.venueId, routeParams?.venue_id]);
+  const origin = useMemo(
+    () => normalizePlaygroundsOrigin(routeParams?.from),
+    [routeParams?.from],
+  );
+  const returnTo = useMemo(
+    () => resolveSafeReturnTo(routeParams?.returnTo),
+    [routeParams?.returnTo],
+  );
+  const fallbackRoute = useMemo(
+    () =>
+      resolveBookingFallbackRoute({
+        venueId,
+        origin,
+        returnTo,
+      }),
+    [origin, returnTo, venueId],
+  );
+  const { goBack } = useSmartBack({ fallbackRoute });
   const hasVenueId = Boolean(venueId);
 
   const { bookingDraft, durationsLoading } = usePlaygroundsStore((s) => ({
@@ -355,7 +381,11 @@ export function BookingWizardScreen() {
 
     if (!publicUser?.id) {
       if (draftPayload) await persistBookingDraft(draftPayload);
-      const redirectTo = `/playgrounds/book/${venue?.id || venueId}`;
+      const redirectTo =
+        buildBookingRoute(venue?.id || venueId, {
+          origin: origin || PLAYGROUNDS_ORIGINS.explore,
+          returnTo: returnTo || fallbackRoute,
+        }) || PLAYGROUNDS_ROUTES.explore;
       router.push(`/(auth)/login?redirectTo=${encodeURIComponent(redirectTo)}`);
       return;
     }
@@ -445,13 +475,16 @@ export function BookingWizardScreen() {
     createBooking,
     draftPayload,
     durationMinutes,
+    fallbackRoute,
     idempotencyKey,
     listBookings,
+    origin,
     paymentType,
     persistBookingDraft,
     players,
     publicUser?.id,
     router,
+    returnTo,
     selectedDuration,
     selectedSlot,
     submitting,
@@ -464,8 +497,7 @@ export function BookingWizardScreen() {
   ]);
 
   const goToMyBookings = useCallback(() => {
-    // replace so user doesn’t come back to a stale wizard
-    router.replace('/playgrounds/bookings');
+    router.replace(PLAYGROUNDS_ROUTES.bookings);
   }, [router]);
 
 
@@ -476,10 +508,16 @@ export function BookingWizardScreen() {
         <EmptyState
           title={t('errors.missingParamsTitle')}
           message={t('errors.missingParamsMessage')}
-          actionLabel={t('common.goBack')}
-          onAction={goBack}
-          secondaryActionLabel={t('common.goHome')}
-          onSecondaryAction={() => router.push('/playgrounds/explore')}
+          action={(
+            <View style={{ width: '100%', gap: 10 }}>
+              <Button variant="secondary" onPress={goBack}>
+                {t('common.goBack')}
+              </Button>
+              <Button onPress={() => router.replace(PLAYGROUNDS_ROUTES.explore)}>
+                {t('service.playgrounds.booking.empty.action')}
+              </Button>
+            </View>
+          )}
         />
       </AppScreen>
     );

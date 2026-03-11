@@ -29,9 +29,12 @@ import {
 } from '../../services/playgrounds/playgrounds.store';
 import { borderRadius, spacing } from '../../theme/tokens';
 import { safeArray } from '../../utils/safeRender';
-
-const MAP_ROUTE = '/playgrounds';
-const BOOKINGS_ROUTE = '/playgrounds/bookings';
+import {
+  PLAYGROUNDS_ORIGINS,
+  PLAYGROUNDS_ROUTES,
+  buildBookingRoute,
+  buildVenueRoute,
+} from './playgrounds.routes';
 
 const normalizeImageUrl = (uri) => {
   if (!uri || typeof uri !== 'string') return null;
@@ -319,11 +322,11 @@ export function PlaygroundsExploreScreen() {
   }, [listVenues, resetFilters]);
 
   const handleMapToggle = useCallback(() => {
-    router.push(MAP_ROUTE);
+    router.replace(PLAYGROUNDS_ROUTES.map);
   }, [router]);
 
   const handleBookingsToggle = useCallback(() => {
-    router.push(BOOKINGS_ROUTE);
+    router.replace(PLAYGROUNDS_ROUTES.bookings);
   }, [router]);
 
   const resolveActivityLabel = useCallback(
@@ -341,7 +344,8 @@ export function PlaygroundsExploreScreen() {
       if (!venue?.id) return;
       const id = String(venue.id);
       setSelectedVenue(id);
-      router.push(`/playgrounds/venue/${id}`);
+      const route = buildVenueRoute(id, { origin: PLAYGROUNDS_ORIGINS.explore });
+      if (route) router.push(route);
     },
     [router, setSelectedVenue]
   );
@@ -351,7 +355,11 @@ export function PlaygroundsExploreScreen() {
       if (!venue?.id) return;
       const id = String(venue.id);
       setSelectedVenue(id);
-      router.push(`/playgrounds/book/${id}`);
+      const route = buildBookingRoute(id, {
+        origin: PLAYGROUNDS_ORIGINS.explore,
+        returnTo: PLAYGROUNDS_ROUTES.explore,
+      });
+      if (route) router.push(route);
     },
     [router, setSelectedVenue]
   );
@@ -458,7 +466,7 @@ export function PlaygroundsExploreScreen() {
                 { flexDirection: rtl ? 'row-reverse' : 'row' },
               ]}
             >
-              <BackButton fallbackRoute="/(app)/services" />
+              <BackButton fallbackRoute={PLAYGROUNDS_ROUTES.services} />
               <View style={styles.headerCopy}>
                 <Text variant="h3" weight="bold">
                   {t('playgrounds.discovery.title')}

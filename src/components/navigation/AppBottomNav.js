@@ -27,7 +27,7 @@ const TAB_ICON_MAP = {
 const TAB_ROUTES = {
   home: '/(app)/services',
   discover: '/academies',
-  book: '/playgrounds/explore',
+  book: '/playgrounds/bookings',
   portal: '/portal/home',
   profile: '/portal/profile',
 };

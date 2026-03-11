@@ -214,7 +214,6 @@ function WizardFooter({
   step,
   priceLabel,
   submitting,
-  bookingSuccess,
   disableNext,
   onBack,
   onNext,
@@ -222,11 +221,9 @@ function WizardFooter({
 }) {
   const isLast = step === 3;
 
-  const primaryLabel = bookingSuccess
-    ? t('service.playgrounds.booking.actions.done') || 'Done'
-    : isLast
-      ? t('service.playgrounds.booking.actions.confirm') || 'Confirm'
-      : t('service.playgrounds.booking.actions.continue') || 'Continue';
+  const primaryLabel = isLast
+    ? t('service.playgrounds.booking.actions.confirm') || 'Confirm booking'
+    : t('service.playgrounds.booking.actions.continue') || 'Continue';
 
   return (
     <View
@@ -272,7 +269,7 @@ function WizardFooter({
         </Button>
 
         <Button
-          onPress={bookingSuccess ? onNext : isLast ? onConfirm : onNext}
+          onPress={isLast ? onConfirm : onNext}
           disabled={disableNext}
           loading={submitting}
           style={{ flex: 2 }}
@@ -299,7 +296,6 @@ export function BookingWizardSteps(props) {
   const colors = React.useMemo(() => safeObjectColors(props?.colors), [props?.colors]);
 
   const step = Number(props?.step ?? 0);
-  const setStep = typeof props?.setStep === 'function' ? props.setStep : () => {};
 
   const priceLabel = props?.priceLabel ?? '--';
   const submitting = !!props?.submitting;
@@ -846,7 +842,13 @@ export function BookingWizardSteps(props) {
               <Row label={t('service.playgrounds.booking.review.labels.players') || 'Players'} value={`${players}`} colors={colors} />
               <Row
                 label={t('service.playgrounds.booking.review.labels.payment') || 'Payment'}
-                value={paymentType === 'cash' ? 'Cash' : paymentType === 'cliq' ? 'CliQ' : '--'}
+                value={
+                  paymentType === 'cash'
+                    ? t('service.playgrounds.booking.payment.cash') || 'Cash'
+                    : paymentType === 'cliq'
+                      ? t('service.playgrounds.booking.payment.cliq') || 'CliQ'
+                      : '--'
+                }
                 colors={colors}
               />
             </View>
@@ -878,16 +880,9 @@ export function BookingWizardSteps(props) {
         step={step}
         priceLabel={priceLabel}
         submitting={submitting}
-        bookingSuccess={bookingSuccess}
         disableNext={disableNext}
         onBack={onBack}
-        onNext={() => {
-          if (bookingSuccess) {
-            setStep(0);
-            return;
-          }
-          onNext();
-        }}
+        onNext={onNext}
         onConfirm={onConfirm}
       />
 

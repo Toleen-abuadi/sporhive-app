@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -10,9 +10,14 @@ import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { BackButton } from '../../components/ui/BackButton';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { playgroundsApi } from '../../services/playgrounds/playgrounds.api';
 import { spacing } from '../../theme/tokens';
+import {
+  PLAYGROUNDS_ROUTES,
+  normalizeRouteParam,
+} from './playgrounds.routes';
 
 const CRITERIA = [
   { key: 'cleanliness', labelKey: 'service.playgrounds.rating.criteria.cleanliness' },
@@ -55,7 +60,10 @@ export function VenueRatingScreen() {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const router = useRouter();
-  const { bookingId, userId } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const bookingId = normalizeRouteParam(params?.bookingId);
+  const userId = normalizeRouteParam(params?.userId);
+  const hasParams = Boolean(bookingId && userId);
 
   const [rating, setRating] = useState(0);
   const [criteria, setCriteria] = useState({
@@ -74,6 +82,12 @@ export function VenueRatingScreen() {
   const [checkingEligibility, setCheckingEligibility] = useState(true);
 
   const checkCanRate = useCallback(async () => {
+    if (!hasParams) {
+      setCanRate(false);
+      setMessage(t('service.playgrounds.rating.errors.verify'));
+      setCheckingEligibility(false);
+      return;
+    }
     setCheckingEligibility(true);
     try {
       const res = await playgroundsApi.canRateBooking({
@@ -91,13 +105,17 @@ export function VenueRatingScreen() {
     } finally {
       setCheckingEligibility(false);
     }
-  }, [bookingId, t, userId]);
+  }, [bookingId, hasParams, t, userId]);
 
   useEffect(() => {
     checkCanRate();
   }, [checkCanRate]);
 
   const handleSubmit = useCallback(async () => {
+    if (!hasParams) {
+      setMessage(t('service.playgrounds.rating.errors.verify'));
+      return;
+    }
     if (!rating) {
       setMessage(t('service.playgrounds.rating.errors.overallRequired'));
       return;
@@ -118,11 +136,39 @@ export function VenueRatingScreen() {
     } finally {
       setLoading(false);
     }
-  }, [bookingId, comment, criteria, rating, t, userId]);
+  }, [bookingId, comment, criteria, hasParams, rating, t, userId]);
+
+  if (!hasParams) {
+    return (
+      <AppScreen safe>
+        <AppHeader
+          title={t('service.playgrounds.rating.title')}
+          leftSlot={<BackButton fallbackRoute={PLAYGROUNDS_ROUTES.bookings} />}
+        />
+        <EmptyState
+          title={t('errors.missingParamsTitle')}
+          message={t('errors.missingParamsMessage')}
+          action={(
+            <View style={styles.actions}>
+              <Button onPress={() => router.replace(PLAYGROUNDS_ROUTES.bookings)}>
+                {t('service.playgrounds.rating.actions.bookings')}
+              </Button>
+              <Button variant="secondary" onPress={() => router.replace(PLAYGROUNDS_ROUTES.explore)}>
+                {t('playgrounds.bookings.segment.explore', 'Explore')}
+              </Button>
+            </View>
+          )}
+        />
+      </AppScreen>
+    );
+  }
 
   return (
     <AppScreen safe>
-      <AppHeader title={t('service.playgrounds.rating.title')} leftSlot={<BackButton />} />
+      <AppHeader
+        title={t('service.playgrounds.rating.title')}
+        leftSlot={<BackButton fallbackRoute={PLAYGROUNDS_ROUTES.bookings} />}
+      />
       {checkingEligibility ? (
         <SporHiveLoader message={t('service.playgrounds.rating.loading')} />
       ) : (
@@ -131,9 +177,17 @@ export function VenueRatingScreen() {
             {t('service.playgrounds.rating.subtitle')}
           </Text>
           {!canRate ? (
-            <Text variant="bodySmall" color={colors.textSecondary}>
-              {message}
-            </Text>
+            <View style={styles.actions}>
+              <Text variant="bodySmall" color={colors.textSecondary}>
+                {message}
+              </Text>
+              <Button onPress={() => router.replace(PLAYGROUNDS_ROUTES.bookings)}>
+                {t('service.playgrounds.rating.actions.bookings')}
+              </Button>
+              <Button variant="secondary" onPress={() => router.replace(PLAYGROUNDS_ROUTES.explore)}>
+                {t('playgrounds.bookings.segment.explore', 'Explore')}
+              </Button>
+            </View>
           ) : success ? (
             <View style={styles.successCard}>
               <Text variant="h4" weight="semibold">
@@ -143,7 +197,7 @@ export function VenueRatingScreen() {
                 {t('service.playgrounds.rating.success.message')}
               </Text>
               <Button
-                onPress={() => router.replace('/playgrounds/bookings')}
+                onPress={() => router.replace(PLAYGROUNDS_ROUTES.bookings)}
                 accessibilityLabel={t('service.playgrounds.rating.actions.bookingsAccessibility')}
               >
                 {t('service.playgrounds.rating.actions.bookings')}
@@ -214,5 +268,8 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderRadius: 16,
     gap: spacing.md,
+  },
+  actions: {
+    gap: spacing.sm,
   },
 });

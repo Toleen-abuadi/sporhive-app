@@ -41,6 +41,12 @@ import { API_BASE_URL } from '../../services/api/client';
 import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playgrounds/playgrounds.store';
 import { borderRadius, shadows, spacing } from '../../theme/tokens';
 import { useSmartBack } from '../../navigation/useSmartBack';
+import {
+  buildBookingRoute,
+  buildVenueRoute,
+  normalizePlaygroundsOrigin,
+  resolveVenueFallbackRoute,
+} from './playgrounds.routes';
 
 const CURRENCY = 'JOD';
 const CTA_BAR_HEIGHT = 108;
@@ -182,8 +188,7 @@ export function VenueDetailsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
-  const { venueId } = useLocalSearchParams();
-  const { goBack } = useSmartBack({ fallbackRoute: '/playgrounds/explore' });
+  const routeParams = useLocalSearchParams();
 
   const heroListRef = useRef(null);
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
@@ -191,10 +196,23 @@ export function VenueDetailsScreen() {
   const rtl = typeof isRTL === 'boolean' ? isRTL : I18nManager.isRTL;
   const rowDirection = rtl ? 'row-reverse' : 'row';
 
+  const origin = useMemo(
+    () => normalizePlaygroundsOrigin(routeParams?.from),
+    [routeParams?.from],
+  );
+
+  const fallbackRoute = useMemo(
+    () => resolveVenueFallbackRoute({ origin }),
+    [origin],
+  );
+
+  const { goBack } = useSmartBack({ fallbackRoute });
+
   const resolvedVenueId = useMemo(() => {
+    const venueId = routeParams?.venueId;
     const raw = Array.isArray(venueId) ? venueId[0] : venueId;
     return typeof raw === 'string' ? raw.trim() : raw ? String(raw).trim() : '';
-  }, [venueId]);
+  }, [routeParams?.venueId]);
 
   const hasVenueId = Boolean(resolvedVenueId);
 
@@ -445,8 +463,10 @@ export function VenueDetailsScreen() {
 
   const handleBookNow = useCallback(() => {
     if (!venue?.id) return;
-    router.push(`/playgrounds/book/${venue.id}`);
-  }, [router, venue?.id]);
+    const returnTo = buildVenueRoute(venue.id, { origin }) || fallbackRoute;
+    const route = buildBookingRoute(venue.id, { origin, returnTo });
+    if (route) router.push(route);
+  }, [fallbackRoute, origin, router, venue?.id]);
 
   const handleViewAcademy = useCallback(() => {
     const slug = `${academy?.slug || ''}`.trim();
@@ -488,7 +508,7 @@ export function VenueDetailsScreen() {
     return (
       <AppScreen safe={false} noPadding withBottomNavPadding={false}>
         <View style={[styles.topBackRow, { paddingTop: insets.top + spacing.sm }]}>
-          <BackButton onPress={goBack} fallbackRoute="/playgrounds/explore" />
+          <BackButton onPress={goBack} fallbackRoute={fallbackRoute} />
         </View>
         <EmptyState
           title={t('venueDetails.notFoundTitle')}
@@ -504,7 +524,7 @@ export function VenueDetailsScreen() {
     return (
       <AppScreen safe={false} noPadding withBottomNavPadding={false}>
         <View style={[styles.topBackRow, { paddingTop: insets.top + spacing.sm }]}>
-          <BackButton onPress={goBack} fallbackRoute="/playgrounds/explore" />
+          <BackButton onPress={goBack} fallbackRoute={fallbackRoute} />
         </View>
         <VenueDetailsSkeleton contentWidth={contentWidth} heroHeight={heroHeight} isDark={isDark} insets={insets} />
       </AppScreen>
@@ -515,7 +535,7 @@ export function VenueDetailsScreen() {
     return (
       <AppScreen safe={false} noPadding withBottomNavPadding={false}>
         <View style={[styles.topBackRow, { paddingTop: insets.top + spacing.sm }]}>
-          <BackButton onPress={goBack} fallbackRoute="/playgrounds/explore" />
+          <BackButton onPress={goBack} fallbackRoute={fallbackRoute} />
         </View>
         <ErrorState
           title={t('playgrounds.explore.errorTitle', t('common.error'))}
@@ -531,7 +551,7 @@ export function VenueDetailsScreen() {
     return (
       <AppScreen safe={false} noPadding withBottomNavPadding={false}>
         <View style={[styles.topBackRow, { paddingTop: insets.top + spacing.sm }]}>
-          <BackButton onPress={goBack} fallbackRoute="/playgrounds/explore" />
+          <BackButton onPress={goBack} fallbackRoute={fallbackRoute} />
         </View>
         <EmptyState
           title={t('venueDetails.notFoundTitle')}
@@ -598,7 +618,7 @@ export function VenueDetailsScreen() {
                       },
                     ]}
                   >
-                    <BackButton onPress={goBack} fallbackRoute="/playgrounds/explore" style={styles.overlayBackButton} />
+                    <BackButton onPress={goBack} fallbackRoute={fallbackRoute} style={styles.overlayBackButton} />
                   </View>
 
                   <Pressable

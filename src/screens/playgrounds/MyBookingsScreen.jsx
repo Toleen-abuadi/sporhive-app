@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { FlatList, I18nManager, Pressable, StyleSheet, View } from 'react-native';
+import { usePathname, useRouter } from 'expo-router';
 
 import { useTranslation } from '../../services/i18n/i18n';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -20,20 +20,28 @@ import { usePlaygroundsActions, usePlaygroundsStore } from '../../services/playg
 import { useAuth } from '../../services/auth/auth.store';
 import { spacing } from '../../theme/tokens';
 import { safeArray } from '../../utils/safeRender';
+import { PLAYGROUNDS_ROUTES } from './playgrounds.routes';
 
 const STATUS_TABS = ['all', 'pending', 'approved', 'rejected', 'cancelled'];
+const normalizePath = (value) => {
+  if (typeof value !== 'string') return '';
+  const [path] = value.split('?');
+  return (path || '').replace(/\/+$/, '');
+};
 
 export function MyBookingsScreen() {
   const { colors } = useTheme();
-  const { t } = useTranslation();
+  const { t, isRTL } = useTranslation();
   const router = useRouter();
+  const pathname = usePathname();
+  const rtl = typeof isRTL === 'boolean' ? isRTL : I18nManager.isRTL;
+  const normalizedPathname = normalizePath(pathname);
+  const activeCluster = normalizedPathname === PLAYGROUNDS_ROUTES.explore ? 'explore' : 'bookings';
 
   /** ✅ AUTH (FIX) */
   const {
     session,
     authLoading,
-    restoreSession,
-    logout,
   } = useAuth();
 
   const loginMode = session?.login_as === 'player' ? 'player' : 'public';
@@ -53,6 +61,14 @@ export function MyBookingsScreen() {
   /** LOCAL STATE */
   const [activeStatus, setActiveStatus] = useState('all');
   const [cancelTarget, setCancelTarget] = useState(null);
+
+  const openExplore = useCallback(() => {
+    router.replace(PLAYGROUNDS_ROUTES.explore);
+  }, [router]);
+
+  const openBookings = useCallback(() => {
+    router.replace(PLAYGROUNDS_ROUTES.bookings);
+  }, [router]);
 
   /** LOAD BOOKINGS (PUBLIC USER) */
   const loadBookings = useCallback(async () => {
@@ -106,14 +122,89 @@ export function MyBookingsScreen() {
   /** ---------- UI ---------- */
   return (
     <AppScreen safe>
-      <AppHeader title={t('service.playgrounds.bookings.title')} leftSlot={<BackButton />} />
+      <AppHeader
+        title={t('service.playgrounds.bookings.title')}
+        leftSlot={<BackButton fallbackRoute={PLAYGROUNDS_ROUTES.explore} />}
+      />
+
+      <View style={styles.clusterSegmentWrap}>
+        <View
+          style={[
+            styles.clusterSegmentTrack,
+            {
+              backgroundColor: colors.surfaceElevated,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Pressable
+            onPress={openExplore}
+            style={({ pressed }) => [
+              styles.clusterSegmentItem,
+              {
+                opacity: pressed ? 0.88 : 1,
+                flexDirection: rtl ? 'row-reverse' : 'row',
+              },
+              activeCluster === 'explore'
+                ? { backgroundColor: colors.primary }
+                : null,
+            ]}
+          >
+            <Text
+              variant="caption"
+              weight={activeCluster === 'explore' ? 'bold' : 'semibold'}
+              color={activeCluster === 'explore' ? colors.white : colors.textSecondary}
+            >
+              {t('playgrounds.bookings.segment.explore', 'Explore')}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={openBookings}
+            style={({ pressed }) => [
+              styles.clusterSegmentItem,
+              {
+                opacity: pressed ? 0.88 : 1,
+                flexDirection: rtl ? 'row-reverse' : 'row',
+              },
+              activeCluster === 'bookings'
+                ? { backgroundColor: colors.primary }
+                : null,
+            ]}
+          >
+            <Text
+              variant="caption"
+              weight={activeCluster === 'bookings' ? 'bold' : 'semibold'}
+              color={activeCluster === 'bookings' ? colors.white : colors.textSecondary}
+            >
+              {t('playgrounds.bookings.segment.bookings', 'Bookings')}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
 
       {!session && !authLoading ? (
         <EmptyState
           title={t('service.playgrounds.bookings.empty.authTitle')}
           message={t('service.playgrounds.bookings.empty.authMessage')}
-          actionLabel={t('service.playgrounds.bookings.empty.authAction')}
-          onAction={() => router.push(`/(auth)/login?mode=${loginMode}`)}
+          action={(
+            <View style={styles.authActions}>
+              <Button
+                onPress={() =>
+                  router.push(
+                    `/(auth)/login?mode=${loginMode}&redirectTo=${encodeURIComponent(
+                      PLAYGROUNDS_ROUTES.bookings
+                    )}`
+                  )
+                }
+              >
+                {t('service.playgrounds.bookings.empty.authAction')}
+              </Button>
+              <Button variant="secondary" onPress={openExplore}>
+                {t('playgrounds.bookings.segment.explore', 'Explore')}
+              </Button>
+            </View>
+          )}
         />
       ) : bookingsLoading ? (
         <SporHiveLoader message={t('service.playgrounds.bookings.loading')} />
@@ -155,7 +246,7 @@ export function MyBookingsScreen() {
               title={t('service.playgrounds.bookings.empty.title')}
               message={t('service.playgrounds.bookings.empty.message')}
               actionLabel={t('service.playgrounds.bookings.empty.action')}
-              onAction={() => router.push('/playgrounds/explore')}
+              onAction={openExplore}
             />
           )}
         </>
@@ -184,6 +275,25 @@ export function MyBookingsScreen() {
 }
 
 const styles = StyleSheet.create({
+  clusterSegmentWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  clusterSegmentTrack: {
+    borderWidth: 1,
+    borderRadius: 999,
+    padding: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  clusterSegmentItem: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   filterRow: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -202,6 +312,10 @@ const styles = StyleSheet.create({
   cancelActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  authActions: {
+    width: '100%',
     gap: spacing.sm,
   },
 });
