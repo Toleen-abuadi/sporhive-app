@@ -129,6 +129,28 @@ const tokenPreview = (token) => {
 
 const DEBUG_PORTAL_REAUTH = __DEV__;
 const portalReauthBridge = { handler: null };
+const logoutBridge = { handler: null };
+
+const normalizeReauthMeta = (metaOrScope = {}) => {
+  if (typeof metaOrScope === "string") {
+    return { source: metaOrScope };
+  }
+  if (metaOrScope && typeof metaOrScope === "object") {
+    return metaOrScope;
+  }
+  return {};
+};
+
+const clearPersistedAuthState = async () => {
+  await Promise.all([
+    storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
+    storage.removeItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID),
+    storage.removeAuthToken(),
+    storage.removePortalTokens(),
+    storage.removeLegacyPortalCredentials(),
+    storage.clearTenantState ? storage.clearTenantState() : Promise.resolve(),
+  ]);
+};
 
 const nowIso = () => new Date().toISOString();
 
@@ -225,6 +247,25 @@ export const runPortalReauthOnce = async (meta = {}) => {
   const result = await refreshPortalSessionIfNeeded();
   return normalizePortalReauthResult(result);
 };
+
+// Compatibility export used by API helpers.
+export const ensurePortalReauthOnce = async (metaOrScope = {}) =>
+  runPortalReauthOnce(normalizeReauthMeta(metaOrScope));
+
+// Compatibility export used by some portal UI entry points.
+export async function logout(reasonOrOptions = {}) {
+  const options =
+    typeof reasonOrOptions === "string"
+      ? { reason: reasonOrOptions }
+      : reasonOrOptions || {};
+
+  if (typeof logoutBridge.handler === "function") {
+    return logoutBridge.handler(options);
+  }
+
+  await clearPersistedAuthState();
+}
+
 export function AuthProvider({ children }) {
   const [state, setState] = useState(INITIAL_STATE);
 
@@ -644,24 +685,23 @@ export function AuthProvider({ children }) {
    */
   const logout = useCallback(async (options = {}) => {
     const reason = options?.reason || LOGOUT_REASONS.USER_LOGOUT;
-    if (__DEV__) {
-      console.warn(`[AUTH][LOGOUT] t=${nowIso()} reason=${reason}`, {
-        stack: new Error().stack,
-      });
-    }
-    authDevLog("LOGOUT", {
+    const logPayload = {
       reason,
       stack: new Error().stack,
-    });
+    };
+    if (__DEV__) {
+      const message = `[AUTH][LOGOUT] t=${nowIso()} reason=${reason}`;
+      if (reason === LOGOUT_REASONS.USER_LOGOUT) {
+        console.info(message);
+      } else {
+        console.warn(message, logPayload);
+      }
+    }
+    if (reason !== LOGOUT_REASONS.USER_LOGOUT) {
+      authDevLog("LOGOUT", logPayload);
+    }
 
-    await Promise.all([
-      storage.removeItem(APP_STORAGE_KEYS.AUTH_SESSION),
-      storage.removeItem(APP_STORAGE_KEYS.LAST_ACADEMY_ID),
-      storage.removeAuthToken(),
-      storage.removePortalTokens(),
-      storage.removeLegacyPortalCredentials(),
-      storage.clearTenantState ? storage.clearTenantState() : Promise.resolve(),
-    ]);
+    await clearPersistedAuthState();
 
     safeSetState({ ...INITIAL_STATE, isLoading: false });
   }, [safeSetState]);
@@ -750,6 +790,15 @@ export function AuthProvider({ children }) {
       }
     };
   }, [ensurePortalReauthOnce]);
+
+  useEffect(() => {
+    logoutBridge.handler = logout;
+    return () => {
+      if (logoutBridge.handler === logout) {
+        logoutBridge.handler = null;
+      }
+    };
+  }, [logout]);
 
   // âœ… explicit logins required by your screens
   const loginPublic = useCallback(

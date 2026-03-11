@@ -427,3 +427,4 @@ const apiClient = {
 };
 
 export { apiClient, API_BASE_URL };
+export default apiClient;
