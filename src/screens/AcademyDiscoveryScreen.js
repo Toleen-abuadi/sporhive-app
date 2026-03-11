@@ -481,15 +481,11 @@ export function AcademyDiscoveryScreen({ initialView = 'list' }) {
   const renderListState = () => {
     if (listLoading && academies.length === 0) {
       return (
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={styles.skeletonScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={[styles.skeletonStateWrap, styles.skeletonScrollContent]}>
           {Array.from({ length: 5 }).map((_, idx) => (
             <AcademyCardSkeleton key={`academy-skeleton-${idx}`} />
           ))}
-        </ScrollView>
+        </View>
       );
     }
 
@@ -886,9 +882,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   skeletonScrollContent: {
+    flex: 1,
     paddingHorizontal: 20,
     gap: 20,
     paddingTop: 16,
+  },
+  skeletonStateWrap: {
+    justifyContent: 'flex-start',
   },
   cardRowWrap: {
     paddingHorizontal: 20,

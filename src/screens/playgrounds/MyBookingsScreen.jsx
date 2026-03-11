@@ -9,7 +9,6 @@ import { AppHeader } from '../../components/ui/AppHeader';
 import { Text } from '../../components/ui/Text';
 import { Button } from '../../components/ui/Button';
 import { Chip } from '../../components/ui/Chip';
-import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { SporHiveLoader } from '../../components/ui/SporHiveLoader';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
@@ -109,19 +108,6 @@ export function MyBookingsScreen() {
     <AppScreen safe>
       <AppHeader title={t('service.playgrounds.bookings.title')} leftSlot={<BackButton />} />
 
-      <View style={styles.segmentedWrap}>
-        <SegmentedControl
-          value="bookings"
-          onChange={(value) => {
-            if (value === 'explore') router.push('/playgrounds/explore');
-          }}
-          options={[
-            { value: 'explore', label: t('playgrounds.explore.header') },
-            { value: 'bookings', label: t('playgrounds.bookings.title') },
-          ]}
-        />
-      </View>
-
       {!session && !authLoading ? (
         <EmptyState
           title={t('service.playgrounds.bookings.empty.authTitle')}
@@ -198,10 +184,6 @@ export function MyBookingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  segmentedWrap: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-  },
   filterRow: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,

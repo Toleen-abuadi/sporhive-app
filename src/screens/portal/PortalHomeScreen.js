@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, Image, RefreshControl, ScrollView, Pressable } from 'react-native';
+import { View, StyleSheet, Image, RefreshControl, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { UserCircle, CreditCard, ShoppingBag, RefreshCcw, Shirt, ShieldAlert, ArrowLeft, ArrowRight } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -186,18 +186,21 @@ export function PortalHomeScreen() {
       onRetry={onRefresh}
       onReauthRequired={handleReauthRequired}
     >
-      <AppScreen safe scroll={false} style={{ backgroundColor: colors.background }}>
-        <ScrollView
-          contentContainerStyle={[styles.content, isRTL && styles.rtl]}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentOrange} />}
-          showsVerticalScrollIndicator={false}
-        >
-          <AppHeader title={t('portal.home.title')} subtitle={t('portal.home.subtitle')} />
+      <AppScreen
+        safe
+        scroll
+        noPadding
+        style={{ backgroundColor: colors.background }}
+        contentContainerStyle={[styles.content, isRTL && styles.rtl]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accentOrange} />}
+        showsVerticalScrollIndicator={false}
+      >
+        <AppHeader title={t('portal.home.title')} subtitle={t('portal.home.subtitle')} />
 
-          <Card style={[styles.startCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text variant="bodySmall" weight="semibold" color={colors.textPrimary}>{t('portal.home.startHereTitle')}</Text>
-            <Text variant="caption" color={colors.textSecondary}>{t('portal.home.startHereDescription')}</Text>
-          </Card>
+        <Card style={[styles.startCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text variant="bodySmall" weight="semibold" color={colors.textPrimary}>{t('portal.home.startHereTitle')}</Text>
+          <Text variant="caption" color={colors.textSecondary}>{t('portal.home.startHereDescription')}</Text>
+        </Card>
 
           <Card style={[styles.heroCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={[styles.heroRow, isRTL && styles.rowReverse]}>
@@ -246,15 +249,14 @@ export function PortalHomeScreen() {
             <Pressable onPress={() => router.push(hasUnpaid ? '/portal/payments' : '/portal/renewals')} style={[styles.inlineLink, isRTL && styles.rowReverse]}><Text variant="caption" weight="semibold" color={colors.accentOrange}>{t('portal.home.review')}</Text>{isRTL ? <ArrowLeft size={14} color={colors.accentOrange} /> : <ArrowRight size={14} color={colors.accentOrange} />}</Pressable>
           </Card>
 
-          {recentUpdates.length ? (
-            <Card style={[styles.secondaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text variant="body" weight="bold" color={colors.textPrimary}>{t('portal.home.recentUpdates')}</Text>
-              {recentUpdates.map((item) => (
-                <View key={item.key} style={[styles.feedRow, isRTL && styles.feedRowRtl]}><Text variant="bodySmall" weight="semibold" color={colors.textPrimary}>{item.title}</Text><Text variant="caption" color={colors.textSecondary}>{item.subtitle}</Text></View>
-              ))}
-            </Card>
-          ) : null}
-        </ScrollView>
+        {recentUpdates.length ? (
+          <Card style={[styles.secondaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text variant="body" weight="bold" color={colors.textPrimary}>{t('portal.home.recentUpdates')}</Text>
+            {recentUpdates.map((item) => (
+              <View key={item.key} style={[styles.feedRow, isRTL && styles.feedRowRtl]}><Text variant="bodySmall" weight="semibold" color={colors.textPrimary}>{item.title}</Text><Text variant="caption" color={colors.textSecondary}>{item.subtitle}</Text></View>
+            ))}
+          </Card>
+        ) : null}
       </AppScreen>
     </PortalAccessGate>
   );

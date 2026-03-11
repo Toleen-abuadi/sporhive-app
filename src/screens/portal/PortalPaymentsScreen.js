@@ -25,6 +25,7 @@ import { getGlossaryHelp } from '../../portal/portalGlossary';
 import { getPaymentKindLabel } from '../../utils/paymentLabel';
 import { usePortalReady } from '../../hooks/usePortalReady';
 import { ThemedLoader } from '../../components/ui/ThemedLoader';
+import { useBottomNavInset } from '../../navigation/bottomNav';
 
 const isPaid = (item) => String(item?.status || '').toLowerCase().includes('paid') && !String(item?.status || '').toLowerCase().includes('unpaid');
 const isUnpaid = (item) => {
@@ -43,6 +44,7 @@ export function PortalPaymentsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { t } = useI18n();
+  const bottomNavInset = useBottomNavInset();
   const { ready: portalReady, ensure: ensurePortalReady } = usePortalReady();
   const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
@@ -114,7 +116,7 @@ export function PortalPaymentsScreen() {
 
   return (
     <PortalAccessGate titleOverride={t('portal.payments.title')} error={paymentsError} onRetry={load} onReauthRequired={handleReauthRequired}>
-      <AppScreen safe scroll={false}>
+      <AppScreen safe scroll={false} withBottomNavPadding={false}>
         <AppHeader
           title={t('portal.payments.title')}
           subtitle={t('portal.payments.subtitle')}
@@ -203,7 +205,7 @@ export function PortalPaymentsScreen() {
                 </Pressable>
               );
             }}
-            contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
+            contentContainerStyle={{ paddingBottom: spacing['2xl'] + bottomNavInset }}
             showsVerticalScrollIndicator={false}
             stickySectionHeadersEnabled={false}
           />

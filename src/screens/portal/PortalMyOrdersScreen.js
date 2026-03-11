@@ -22,6 +22,7 @@ import { getMappedStatus } from '../../portal/statusMaps';
 import { portalApi } from '../../services/api/playerPortalApi';
 import { usePortalReady } from '../../hooks/usePortalReady';
 import { ThemedLoader } from '../../components/ui/ThemedLoader';
+import { useBottomNavInset } from '../../navigation/bottomNav';
 
 const isProgress = (status) => ['pending', 'processing', 'shipped'].some((s) => String(status || '').toLowerCase().includes(s));
 const safeArray = (value) => (Array.isArray(value) ? value : []);
@@ -69,6 +70,7 @@ export function PortalMyOrdersScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { t, isRTL } = useI18n();
+  const bottomNavInset = useBottomNavInset();
   const { ready: portalReady, ensure: ensurePortalReady } = usePortalReady();
   const didFetchRef = useRef(false);
   const reauthHandledRef = useRef(false);
@@ -164,7 +166,7 @@ export function PortalMyOrdersScreen() {
 
   return (
     <PortalAccessGate titleOverride={t('portal.orders.title')} error={ordersError} onRetry={load} onReauthRequired={handleReauthRequired}>
-      <AppScreen safe scroll={false} contentStyle={styles.screen}>
+      <AppScreen safe scroll={false} withBottomNavPadding={false} contentStyle={styles.screen}>
         <AppHeader title={t('portal.orders.title')} subtitle={t('portal.orders.subtitle')} rightAction={{ icon: <Filter size={18} color={colors.textPrimary} />, onPress: () => setFiltersOpen(true), accessibilityLabel: t('portal.filters.open') }} />
 
         <View style={styles.pad}>
@@ -217,7 +219,7 @@ export function PortalMyOrdersScreen() {
                 </Pressable>
               );
             }}
-            contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
+            contentContainerStyle={{ paddingBottom: spacing['2xl'] + bottomNavInset }}
             stickySectionHeadersEnabled={false}
           />
         )}

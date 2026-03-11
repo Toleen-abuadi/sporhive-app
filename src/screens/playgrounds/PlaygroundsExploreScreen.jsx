@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { List, Map as MapIcon, Search, SlidersHorizontal } from 'lucide-react-native';
+import { CalendarDays, List, Map as MapIcon, Search, SlidersHorizontal } from 'lucide-react-native';
 
 import { AppScreen } from '../../components/ui/AppScreen';
 import { BackButton } from '../../components/ui/BackButton';
@@ -31,6 +31,7 @@ import { borderRadius, spacing } from '../../theme/tokens';
 import { safeArray } from '../../utils/safeRender';
 
 const MAP_ROUTE = '/playgrounds';
+const BOOKINGS_ROUTE = '/playgrounds/bookings';
 
 const normalizeImageUrl = (uri) => {
   if (!uri || typeof uri !== 'string') return null;
@@ -321,6 +322,10 @@ export function PlaygroundsExploreScreen() {
     router.push(MAP_ROUTE);
   }, [router]);
 
+  const handleBookingsToggle = useCallback(() => {
+    router.push(BOOKINGS_ROUTE);
+  }, [router]);
+
   const resolveActivityLabel = useCallback(
     (venue) => {
       if (!venue?.activity_id) return t('playgrounds.explore.multiSport');
@@ -501,6 +506,21 @@ export function PlaygroundsExploreScreen() {
                     {t('playgrounds.discovery.list')}
                   </Text>
                 </View>
+                <Pressable
+                  onPress={handleBookingsToggle}
+                  style={({ pressed }) => [
+                    styles.segmentItem,
+                    {
+                      opacity: pressed ? 0.88 : 1,
+                      flexDirection: rtl ? 'row-reverse' : 'row',
+                    },
+                  ]}
+                >
+                  <CalendarDays size={14} color={colors.textSecondary} />
+                  <Text variant="caption" weight="semibold" color={colors.textSecondary}>
+                    {t('playgrounds.bookings.title')}
+                  </Text>
+                </Pressable>
               </View>
             </View>
 

@@ -821,7 +821,7 @@ export function JoinAcademyScreen({ slug: slugProp }) {
 
   if (isContactOnly || showClosed) {
     return (
-      <Screen safe scroll={false} style={ad.screen(theme)}>
+      <Screen safe scroll style={ad.screen(theme)} noPadding showsVerticalScrollIndicator={false}>
         <View style={styles.simpleHeaderWrap}>
           <View style={[styles.simpleHeaderRow, isRTL && styles.rowReverse]}>
             <BackButton color={theme.text.primary} onPress={goBack} />
@@ -855,10 +855,7 @@ export function JoinAcademyScreen({ slug: slugProp }) {
           </View>
         </View>
 
-        <ScrollView
-          contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing['3xl'] }}
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing['3xl'] }}>
           <Card
             style={[
               styles.contactOnlyCard,
@@ -914,13 +911,13 @@ export function JoinAcademyScreen({ slug: slugProp }) {
               ) : null}
             </View>
           </Card>
-        </ScrollView>
+        </View>
       </Screen>
     );
   }
 
   return (
-    <Screen safe scroll={false} style={ad.screen(theme)}>
+    <Screen safe scroll={false} noPadding style={ad.screen(theme)}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={CTA_BAR_HEIGHT}

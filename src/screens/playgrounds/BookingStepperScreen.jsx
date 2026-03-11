@@ -1,6 +1,6 @@
 // src/screens/playgrounds/BookingWizardScreen.jsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { useToast } from '../../components/ui/ToastHost';
@@ -520,82 +520,80 @@ export function BookingWizardScreen() {
   }
 
   return (
-    <AppScreen safe edges={['top']} style={styles.screen}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          <BookingWizardSteps
-            // ui
-            styles={styles}
-            colors={colors}
-            t={t}
-            // wizard
-            step={step}
-            setStep={setStep}
-            priceLabel={priceLabel}
-            submitting={submitting}
-            bookingSuccess={bookingSuccess}
-            bookingResult={bookingResult}
-            errorText={errorText}
-            onGoToBookings={goToMyBookings}
-            // venue
-            venue={venue}
-            academy={academy}
-            // schedule state
-            durations={durations}
-            durationsLoading={durationsLoading}
-            selectedDurationId={selectedDurationId}
-            onSelectDuration={onSelectDuration}
-            quickDates={quickDates}
-            bookingDate={bookingDate}
-            onSelectDate={onSelectDate}
-            slots={slots}
-            slotsLoading={slotsLoading}
-            selectedSlot={selectedSlot}
-            onSelectSlot={onSelectSlot}
-            // players
-            players={players}
-            minPlayers={minPlayers}
-            maxPlayers={maxPlayers}
-            onPlayersPreset={onPlayersPreset}
-            onPlayersInc={onPlayersInc}
-            onPlayersDec={onPlayersDec}
-            // payment
-            allowCash={allowCash}
-            allowCashOnDate={allowCashOnDate}
-            allowCliq={allowCliq}
-            cliqName={cliqName}
-            cliqNumber={cliqNumber}
-            paymentType={paymentType}
-            onPaymentType={onPaymentType}
-            cashOnDate={cashOnDate}
-            onCashOnDate={onCashOnDate}
-            cliqImage={cliqImage}
-            onPickCliqImage={onPickCliqImage}
-            inlinePaymentError={inlinePaymentError}
-            // navigation/submit
-            onBack={prevStep}
-            onNext={nextStep}
-            onConfirm={submitBooking}
-            // validations
-            scheduleReady={scheduleReady}
-            playersValid={playersValid}
-            paymentReady={paymentReady}
-            allValid={allValid}
-            // helpers
-            formatSlotLabel={formatSlotLabel}
-          />
+    <AppScreen
+      safe
+      edges={['top']}
+      style={styles.screen}
+      scroll
+      keyboardAvoiding
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      <BookingWizardSteps
+        // ui
+        styles={styles}
+        colors={colors}
+        t={t}
+        // wizard
+        step={step}
+        setStep={setStep}
+        priceLabel={priceLabel}
+        submitting={submitting}
+        bookingSuccess={bookingSuccess}
+        bookingResult={bookingResult}
+        errorText={errorText}
+        onGoToBookings={goToMyBookings}
+        // venue
+        venue={venue}
+        academy={academy}
+        // schedule state
+        durations={durations}
+        durationsLoading={durationsLoading}
+        selectedDurationId={selectedDurationId}
+        onSelectDuration={onSelectDuration}
+        quickDates={quickDates}
+        bookingDate={bookingDate}
+        onSelectDate={onSelectDate}
+        slots={slots}
+        slotsLoading={slotsLoading}
+        selectedSlot={selectedSlot}
+        onSelectSlot={onSelectSlot}
+        // players
+        players={players}
+        minPlayers={minPlayers}
+        maxPlayers={maxPlayers}
+        onPlayersPreset={onPlayersPreset}
+        onPlayersInc={onPlayersInc}
+        onPlayersDec={onPlayersDec}
+        // payment
+        allowCash={allowCash}
+        allowCashOnDate={allowCashOnDate}
+        allowCliq={allowCliq}
+        cliqName={cliqName}
+        cliqNumber={cliqNumber}
+        paymentType={paymentType}
+        onPaymentType={onPaymentType}
+        cashOnDate={cashOnDate}
+        onCashOnDate={onCashOnDate}
+        cliqImage={cliqImage}
+        onPickCliqImage={onPickCliqImage}
+        inlinePaymentError={inlinePaymentError}
+        // navigation/submit
+        onBack={prevStep}
+        onNext={nextStep}
+        onConfirm={submitBooking}
+        // validations
+        scheduleReady={scheduleReady}
+        playersValid={playersValid}
+        paymentReady={paymentReady}
+        allValid={allValid}
+        // helpers
+        formatSlotLabel={formatSlotLabel}
+      />
 
-          <View style={styles.footerSpacer} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+      <View style={styles.footerSpacer} />
     </AppScreen>
   );
 }

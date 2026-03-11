@@ -15,6 +15,7 @@ export function AppScreen({
   children,
   scroll = false,
   keyboardAvoiding = false,
+  keyboardVerticalOffset = 0,
   safe = true,
   noPadding = false,
   withBottomNavPadding = true,
@@ -74,6 +75,7 @@ export function AppScreen({
     <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={keyboardVerticalOffset}
     >
       {content}
     </KeyboardAvoidingView>

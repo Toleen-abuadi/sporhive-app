@@ -1190,7 +1190,7 @@ export function AcademyTemplateScreen({ slug }) {
 
   if (!slug) {
     return (
-      <Screen safe>
+      <Screen safe noPadding withBottomNavPadding={false}>
         <View style={styles.fallbackHeader}>
           <BackButton onPress={goBack} />
         </View>
@@ -1206,7 +1206,7 @@ export function AcademyTemplateScreen({ slug }) {
 
   if (loading && !payload) {
     return (
-      <Screen safe style={{ backgroundColor: colors.background }}>
+      <Screen safe noPadding withBottomNavPadding={false} style={{ backgroundColor: colors.background }}>
         <View style={styles.fallbackHeader}>
           <BackButton onPress={goBack} />
         </View>
@@ -1217,7 +1217,7 @@ export function AcademyTemplateScreen({ slug }) {
 
   if (error && !payload) {
     return (
-      <Screen safe>
+      <Screen safe noPadding withBottomNavPadding={false}>
         <View style={styles.fallbackHeader}>
           <BackButton onPress={goBack} />
         </View>
@@ -1232,7 +1232,7 @@ export function AcademyTemplateScreen({ slug }) {
   }
 
   return (
-    <Screen safe style={{ backgroundColor: colors.background }}>
+    <Screen safe noPadding withBottomNavPadding={false} style={{ backgroundColor: colors.background }}>
       <Animated.View
         style={[
           styles.topBar,
