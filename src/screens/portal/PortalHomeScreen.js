@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Image, RefreshControl, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { UserCircle, CreditCard, ShoppingBag, RefreshCcw, Shirt, ShieldAlert, ArrowLeft, ArrowRight } from 'lucide-react-native';
+import { UserCircle, CreditCard, ShoppingBag, RefreshCcw, Shirt, ShieldAlert, ArrowLeft, ArrowRight, Plus } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Text } from '../../components/ui/Text';
 import { AppScreen } from '../../components/ui/AppScreen';
@@ -172,6 +172,7 @@ export function PortalHomeScreen() {
     { key: 'uniforms', title: t('portal.uniforms.title'), route: '/portal/uniform-store', icon: Shirt },
     { key: 'orders', title: t('portal.orders.title'), route: '/portal/my-orders', icon: ShoppingBag },
     { key: 'profile', title: t('portal.profile.title'), route: '/portal/profile', icon: UserCircle },
+    { key: 'other', title: t('portal.home.otherActions'), route: '/portal/more', icon: Plus },
   ];
 
   const recentUpdates = [];

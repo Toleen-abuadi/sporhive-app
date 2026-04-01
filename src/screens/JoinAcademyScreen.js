@@ -323,18 +323,6 @@ export function JoinAcademyScreen({ slug: slugProp }) {
   }, [requireArabicNames]);
 
   useEffect(() => {
-    const primaryCode = safeText(form.phone1?.countryCode || EMPTY_PHONE.countryCode);
-    const secondaryDigits = digitsOnly(form.phone2?.nationalNumber);
-    if (!secondaryDigits && primaryCode && form.phone2?.countryCode !== primaryCode) {
-      dispatchForm({
-        type: 'SET_PHONE',
-        field: 'phone2',
-        value: { countryCode: primaryCode },
-      });
-    }
-  }, [form.phone1?.countryCode, form.phone2?.countryCode, form.phone2?.nationalNumber]);
-
-  useEffect(() => {
     let mounted = true;
 
     (async () => {

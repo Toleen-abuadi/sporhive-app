@@ -38,6 +38,7 @@ const INITIAL_STATE = {
   detailsBySlug: {},
   detailsLoadingBySlug: {},
   detailsErrorBySlug: {},
+  favoriteBySlug: {},
 };
 
 let discoveryState = { ...INITIAL_STATE };
@@ -82,6 +83,7 @@ const persistState = async () => {
     sort: discoveryState.sort,
     query: discoveryState.query,
     viewMode: discoveryState.viewMode,
+    favoriteBySlug: discoveryState.favoriteBySlug,
   };
   await setAcademyDiscoveryState(payload);
 };
@@ -103,6 +105,10 @@ export const academyDiscoveryStore = {
     const nextFilters = normalizeDiscoveryFilters(rawStoredFilters);
     const nextSort = normalizeDiscoverySort(stored.sort ?? rawStoredFilters.sort);
     const nextQuery = stored.query || '';
+    const nextFavoriteBySlug =
+      stored?.favoriteBySlug && typeof stored.favoriteBySlug === 'object'
+        ? stored.favoriteBySlug
+        : discoveryState.favoriteBySlug;
 
     const nextClientData = applyCurrentClientFilters({
       rawAcademies: discoveryState.rawAcademies,
@@ -117,9 +123,25 @@ export const academyDiscoveryStore = {
       sort: nextSort,
       query: nextQuery,
       viewMode: stored.viewMode || 'list',
+      favoriteBySlug: nextFavoriteBySlug,
       ...nextClientData,
       filtersLoaded: true,
     });
+  },
+  async setFavorite(slug, value) {
+    if (!slug) return;
+    const key = String(slug);
+    const nextValue = Boolean(value);
+    const hasCurrentValue = Object.prototype.hasOwnProperty.call(discoveryState.favoriteBySlug || {}, key);
+    const currentValue = hasCurrentValue ? Boolean(discoveryState.favoriteBySlug?.[key]) : undefined;
+    if (currentValue === nextValue) return;
+    setState({
+      favoriteBySlug: {
+        ...discoveryState.favoriteBySlug,
+        [key]: nextValue,
+      },
+    });
+    await persistState();
   },
   setQuery(query) {
     const nextQuery = query ?? '';
@@ -379,6 +401,7 @@ export function useAcademyDiscoveryActions() {
       refresh: academyDiscoveryStore.refresh,
       fetchMore: academyDiscoveryStore.fetchMore,
       fetchDetails: academyDiscoveryStore.fetchDetails,
+      setFavorite: academyDiscoveryStore.setFavorite,
     }),
     []
   );

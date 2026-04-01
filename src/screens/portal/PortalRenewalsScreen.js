@@ -36,7 +36,6 @@ import {
   Sparkles,
   ShieldCheck,
   BadgeCheck,
-  Zap,
   CalendarClock,
 } from 'lucide-react-native';
 
@@ -155,6 +154,16 @@ function computeSessionsFromStartAndEnd({ startDate, endDate, sessionsPerWeek })
   const weeks = Math.ceil((diff + 1) / 7);
   const sessions = weeks * spw;
   return sessions <= 0 ? null : sessions;
+}
+
+function hasPendingRenewalRequest(eligibility) {
+  if (!eligibility || typeof eligibility !== 'object') return false;
+  if (typeof eligibility.has_pending_request === 'boolean') {
+    return eligibility.has_pending_request;
+  }
+  // Backward-compatible fallback for older payloads without has_pending_request.
+  if (typeof eligibility.eligible === 'boolean') return !eligibility.eligible;
+  return false;
 }
 
 // ----------------------- UI Components -----------------------
@@ -561,15 +570,16 @@ export function PortalRenewalsScreen() {
   );
 
   const sessionsPerWeek = useMemo(() => (selectedGroup ? computeSessionsPerWeekFromGroup(selectedGroup) : 1), [selectedGroup]);
+  const hasPendingRequest = useMemo(() => hasPendingRenewalRequest(eligibility), [eligibility]);
 
   const canSubmit = useMemo(() => {
-    if (!eligibility?.eligible) return false;
+    if (hasPendingRequest) return false;
     if (!selectedGroupId) return false;
     if (!startDate || !endDate) return false;
     if (!sessions || sessions <= 0) return false;
     if (endDate.getTime() < startDate.getTime()) return false;
     return true;
-  }, [eligibility, selectedGroupId, startDate, endDate, sessions]);
+  }, [hasPendingRequest, selectedGroupId, startDate, endDate, sessions]);
 
 
   const fetchAll = useCallback(async () => {
@@ -864,6 +874,7 @@ export function PortalRenewalsScreen() {
 
   const eligible = !!eligibility?.eligible;
   const daysLeft = Number(topSummary?.daysLeft ?? eligibility?.days_left ?? 0);
+  const canOpenRenewDetails = !hasPendingRequest;
   const renewalGroups = [
     { key: 'action', title: t('portal.renewals.groups.actionNeeded'), count: !eligible || (Number.isFinite(daysLeft) && daysLeft <= 14) ? 1 : 0 },
     { key: 'active', title: t('portal.renewals.groups.active'), count: eligible && (!Number.isFinite(daysLeft) || daysLeft > 14) ? 1 : 0 },
@@ -902,7 +913,12 @@ export function PortalRenewalsScreen() {
         ]} />
 
         {(!eligible || (Number.isFinite(daysLeft) && daysLeft <= 14)) ? (
-          <PortalActionBanner title={t('portal.common.actionRequired')} description={t('portal.renewals.actionBanner.description', { date: topSummary.end || placeholder })} actionLabel={t('portal.renewals.actionBanner.label')} onAction={() => router.push('/portal/renewals/details')} />
+          <PortalActionBanner
+            title={t('portal.common.actionRequired')}
+            description={t('portal.renewals.actionBanner.description', { date: topSummary.end || placeholder })}
+            actionLabel={canOpenRenewDetails ? t('portal.renewals.actionBanner.label') : null}
+            onAction={canOpenRenewDetails ? () => router.push('/portal/renewals/details') : null}
+          />
         ) : null}
 
         <AnimatedCard delay={80}>
@@ -951,8 +967,12 @@ export function PortalRenewalsScreen() {
 
             <Button
               title={t('portal.renewals.viewDetails')}
-              onPress={() => router.push('/portal/renewals/details')}
+              onPress={() => {
+                if (!canOpenRenewDetails) return;
+                router.push('/portal/renewals/details');
+              }}
               variant="outline"
+              disabled={!canOpenRenewDetails}
               style={{ marginTop: 16 }}
             />
           </GradientCard>
@@ -973,7 +993,7 @@ export function PortalRenewalsScreen() {
         </AnimatedCard>
 
         <AnimatedCard delay={160} style={{ marginTop: 16 }}>
-          {!eligible ? (
+          {hasPendingRequest ? (
             <GradientCard style={styles.notEligibleCard}>
               <SectionTitle
                 icon={AlertCircle}
@@ -984,7 +1004,7 @@ export function PortalRenewalsScreen() {
               />
 
               <View style={styles.reasonsList}>
-                {eligibility?.has_pending_request && (
+                {hasPendingRequest && (
                   <View style={[styles.reasonItem, { borderColor: colors.border }]}>
                     <View style={[styles.reasonIcon, { backgroundColor: alpha(colors.warning, '15'), borderColor: alpha(colors.warning, '30') }]}>
                       <Clock size={16} color={colors.warning} />
@@ -993,20 +1013,6 @@ export function PortalRenewalsScreen() {
                       <Text style={[styles.reasonTitle, { color: colors.textPrimary }]}>{t('portal.renewals.notAvailable.pendingTitle')}</Text>
                       <Text style={[styles.reasonBody, { color: colors.textSecondary }]}>
                         {t('portal.renewals.notAvailable.pendingBody')}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
-                {Number(topSummary.daysLeft) >= 0 && (
-                  <View style={[styles.reasonItem, { borderColor: colors.border }]}>
-                    <View style={[styles.reasonIcon, { backgroundColor: alpha(colors.warning, '15'), borderColor: alpha(colors.warning, '30') }]}>
-                      <Zap size={16} color={colors.warning} />
-                    </View>
-                    <View style={{ flex: 1, gap: 4 }}>
-                      <Text style={[styles.reasonTitle, { color: colors.textPrimary }]}>{t('portal.renewals.notAvailable.activeTitle')}</Text>
-                      <Text style={[styles.reasonBody, { color: colors.textSecondary }]}>
-                        {t('portal.renewals.notAvailable.activeBody')}
                       </Text>
                     </View>
                   </View>

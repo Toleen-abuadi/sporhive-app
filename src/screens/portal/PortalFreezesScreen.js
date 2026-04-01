@@ -33,11 +33,42 @@ const alphaHex = (hex, alpha = '1A') => {
   return hex;
 };
 
+const pad2 = (n) => String(n).padStart(2, '0');
+
+const toDateOnly = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+  if (typeof value === 'string') {
+    const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      const year = Number(match[1]);
+      const month = Number(match[2]) - 1;
+      const day = Number(match[3]);
+      const localDate = new Date(year, month, day);
+      if (Number.isNaN(localDate.getTime())) return null;
+      return localDate;
+    }
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+};
+
 const formatDate = (value) => {
-  if (!value) return '';
-  const date = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().slice(0, 10);
+  const date = toDateOnly(value);
+  if (!date) return '';
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+};
+
+const addDays = (value, days) => {
+  const baseDate = toDateOnly(value);
+  if (!baseDate) return null;
+  const date = new Date(baseDate);
+  date.setDate(date.getDate() + days);
+  return toDateOnly(date);
 };
 
 function CountPill({ label, value, tone = 'neutral', colors }) {
@@ -61,6 +92,11 @@ export function PortalFreezesScreen() {
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const today = toDateOnly(new Date());
+  const minStartDate = addDays(today, 1);
+  const normalizedStartDate = toDateOnly(startDate);
+  const effectiveStartDate = normalizedStartDate && minStartDate && normalizedStartDate >= minStartDate ? normalizedStartDate : null;
+  const minEndDate = effectiveStartDate ? addDays(effectiveStartDate, 1) : addDays(minStartDate, 1);
 
   const currentFreeze = metrics?.current_freeze || null;
   const upcomingFreeze = metrics?.upcoming_freeze || null;
@@ -69,12 +105,26 @@ export function PortalFreezesScreen() {
   const canRequestFreeze = !currentFreeze && !upcomingFreeze && Number(metrics?.remaining_sessions || 0) > 0;
 
   const runSubmit = async () => {
-    if (!startDate || !endDate || !reason.trim()) {
-      toast.warning(t('portal.freezes.validation'));
+    const start = toDateOnly(startDate);
+    const end = toDateOnly(endDate);
+    const submitToday = toDateOnly(new Date());
+    const submitMinStartDate = addDays(submitToday, 1);
+    if (!start || !submitMinStartDate || start < submitMinStartDate) {
+      toast.warning(t('portal.freezes.validationStartDate'));
+      return;
+    }
+    const minAllowedEnd = addDays(start, 1);
+    if (!end || !minAllowedEnd || end < minAllowedEnd) {
+      toast.warning(t('portal.freezes.validationEndDate'));
       return;
     }
     setSubmitting(true);
-    const payload = { start_date: formatDate(startDate), end_date: formatDate(endDate), reason: reason.trim() };
+    const trimmedReason = String(reason || '').trim();
+    const payload = {
+      start_date: formatDate(start),
+      end_date: formatDate(end),
+      ...(trimmedReason ? { reason: trimmedReason } : {}),
+    };
     const res = await portalApi.submitFreeze(payload);
     if (res?.success) {
       toast.success(t('portal.freezes.success'));
@@ -142,7 +192,7 @@ export function PortalFreezesScreen() {
                 <Text variant="bodySmall" color={colors.textPrimary}>{formatDate(endDate) || t('portal.freezes.endDate')}</Text>
               </TouchableOpacity>
             </View>
-            <Input label={t('portal.freezes.reason')} value={reason} onChangeText={setReason} placeholder={t('portal.freezes.reasonPlaceholder')} multiline style={styles.textArea} />
+            <Input label={`${t('portal.freezes.reason')} (${t('join.optional')})`} value={reason} onChangeText={setReason} placeholder={t('portal.freezes.reasonPlaceholder')} multiline style={styles.textArea} />
             <Button onPress={() => setConfirmOpen(true)} loading={submitting}>{t('portal.freezes.submit')}</Button>
           </PortalCard>
 
@@ -168,8 +218,48 @@ export function PortalFreezesScreen() {
         onConfirm={() => { setConfirmOpen(false); runSubmit(); }}
       />
 
-      {showStartPicker ? <DateTimePicker value={startDate || new Date()} onChange={(event, date) => { setShowStartPicker(false); if (date) setStartDate(date); }} mode="date" /> : null}
-      {showEndPicker ? <DateTimePicker value={endDate || new Date()} onChange={(event, date) => { setShowEndPicker(false); if (date) setEndDate(date); }} mode="date" /> : null}
+      {showStartPicker ? (
+        <DateTimePicker
+          value={effectiveStartDate || minStartDate || today}
+          minimumDate={minStartDate || undefined}
+          onChange={(event, date) => {
+            setShowStartPicker(false);
+            if (!date) return;
+            const pickedStart = toDateOnly(date);
+            if (!pickedStart) return;
+            const safeStart = minStartDate && pickedStart < minStartDate ? minStartDate : pickedStart;
+            setStartDate(safeStart);
+            setEndDate((prev) => {
+              const fallbackEnd = addDays(safeStart, 1);
+              if (!prev) return fallbackEnd;
+              const prevEnd = toDateOnly(prev);
+              if (!prevEnd) return fallbackEnd;
+              if (!fallbackEnd) return prevEnd;
+              return prevEnd < fallbackEnd ? fallbackEnd : prevEnd;
+            });
+          }}
+          mode="date"
+        />
+      ) : null}
+      {showEndPicker ? (
+        <DateTimePicker
+          value={toDateOnly(endDate) || minEndDate || addDays(minStartDate, 1) || today}
+          minimumDate={minEndDate || undefined}
+          onChange={(event, date) => {
+            setShowEndPicker(false);
+            if (!date) return;
+            const pickedEnd = toDateOnly(date);
+            if (!pickedEnd) return;
+            const safeMinEnd = minEndDate || addDays(minStartDate, 1);
+            if (safeMinEnd && pickedEnd < safeMinEnd) {
+              setEndDate(safeMinEnd);
+              return;
+            }
+            setEndDate(pickedEnd);
+          }}
+          mode="date"
+        />
+      ) : null}
     </Screen>
   );
 }

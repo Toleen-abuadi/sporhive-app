@@ -48,26 +48,61 @@ function resolveContactPhone(booking) {
   return booking.contact_phone || booking.contact_whatsapp || booking.phone || '';
 }
 
+function getVenueName(booking, t) {
+  return booking?.venue?.name || booking?.venue_name || booking?.venue?.title || t('service.playgrounds.common.playground');
+}
+
+function getAcademyName(booking) {
+  return booking?.academy_profile?.public_name || booking?.academy?.public_name || booking?.academy_name || '';
+}
+
+function getBookingDate(booking, t) {
+  return booking?.date || booking?.booking_date || t('service.playgrounds.bookings.labels.dateTbd');
+}
+
+function getBookingPlayers(booking) {
+  const players = Number(booking?.number_of_players);
+  return Number.isFinite(players) && players > 0 ? players : null;
+}
+
+function getBookingLocation(booking) {
+  return booking?.venue?.base_location || '';
+}
+
+function getBookingPayment(booking) {
+  return {
+    type: booking?.payment?.payment_type || booking?.payment_type || '',
+    amount: booking?.payment?.amount ?? booking?.total ?? booking?.total_price,
+    currency: booking?.payment?.currency || booking?.currency,
+  };
+}
+
 export function BookingCard({ booking, onCancel }) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const statusMeta = resolveStatus(booking.status);
-  const venueName =
-    booking.venue?.name || booking.venue?.title || t('service.playgrounds.common.playground');
-  const date =
-    booking.booking_date || booking.date || t('service.playgrounds.bookings.labels.dateTbd');
+  const venueName = getVenueName(booking, t);
+  const academyName = getAcademyName(booking);
+  const date = getBookingDate(booking, t);
   const time = formatTimeWindow(booking, t);
-  const paymentType = booking.payment_type ? booking.payment_type.toLowerCase() : '';
-  const payment = booking.payment_type
+  const paymentInfo = getBookingPayment(booking);
+  const paymentType = paymentInfo.type ? String(paymentInfo.type).toLowerCase() : '';
+  const payment = paymentInfo.type
     ? paymentType === 'cash'
       ? t('service.playgrounds.bookings.payment.cash')
       : paymentType === 'cliq'
       ? t('service.playgrounds.bookings.payment.cliq')
       : t('service.playgrounds.bookings.payment.unknown', {
-          payment: booking.payment_type.toUpperCase(),
+          payment: String(paymentInfo.type).toUpperCase(),
         })
     : t('service.playgrounds.bookings.payment.tbd');
-  const total = formatMoney(booking.total || booking.total_price, booking.currency, t);
+  const total = formatMoney(paymentInfo.amount, paymentInfo.currency, t);
+  const bookingCode = booking?.booking_code || '';
+  const players = getBookingPlayers(booking);
+  const location = getBookingLocation(booking);
+  const detailsLine = [academyName, location, players ? t('service.playgrounds.filters.playersCount', { count: players }) : '', bookingCode ? `#${bookingCode}` : '']
+    .filter(Boolean)
+    .join(' • ');
   const phone = resolveContactPhone(booking);
   const statusLabel = statusMeta.customLabel
     ? t(statusMeta.labelKey, { status: statusMeta.customLabel })
@@ -100,6 +135,11 @@ export function BookingCard({ booking, onCancel }) {
       <Text variant="bodySmall" color={colors.textSecondary}>
         {t('service.playgrounds.bookings.labels.dateTime', { date, time })}
       </Text>
+      {detailsLine ? (
+        <Text variant="caption" color={colors.textSecondary}>
+          {detailsLine}
+        </Text>
+      ) : null}
       <View style={styles.metaRow}>
         <Chip label={payment} selected />
         <Text variant="bodySmall" weight="semibold">

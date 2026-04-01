@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -78,6 +78,18 @@ function getInputLikeHeight() {
   return spacing.md * 2 + fontSize.base + border * 2;
 }
 
+function getCountryMatchRank(country, query) {
+  if (!query) return null;
+  const label = String(country?.label || '').toLowerCase();
+  const code = String(country?.code || '').toLowerCase();
+  const dialCode = String(country?.dialCode || '').toLowerCase();
+
+  if (label === query || code === query || dialCode === query) return 0;
+  if (label.startsWith(query) || code.startsWith(query) || dialCode.startsWith(query)) return 1;
+  if (label.includes(query) || code.includes(query) || dialCode.includes(query)) return 2;
+  return null;
+}
+
 export function CountryCodeSelect({
   value,
   onChange,
@@ -91,6 +103,7 @@ export function CountryCodeSelect({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef(null);
+  const listRef = useRef(null);
 
   const computedHeight = height ?? getInputLikeHeight();
 
@@ -102,18 +115,37 @@ export function CountryCodeSelect({
   const filteredCountries = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return COUNTRY_CODES;
-    return COUNTRY_CODES.filter(
-      (c) =>
-        c.label.toLowerCase().includes(query) ||
-        c.code.includes(query) ||
-        c.dialCode.includes(query)
-    );
+    return COUNTRY_CODES
+      .map((country, index) => ({
+        country,
+        index,
+        rank: getCountryMatchRank(country, query),
+      }))
+      .filter((item) => item.rank !== null)
+      .sort((a, b) => (a.rank - b.rank) || (a.index - b.index))
+      .map((item) => item.country);
   }, [searchQuery]);
+
+  useEffect(() => {
+    if (!open) return;
+    const timeout = setTimeout(() => {
+      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
+    }, 0);
+    return () => clearTimeout(timeout);
+  }, [open, searchQuery]);
+
+  const closeModal = () => {
+    setOpen(false);
+    setSearchQuery('');
+  };
 
   return (
     <>
       <TouchableOpacity
-        onPress={() => setOpen(true)}
+        onPress={() => {
+          setSearchQuery('');
+          setOpen(true);
+        }}
         style={[
           styles.codeButton,
           style, // ✅ apply external style
@@ -161,10 +193,10 @@ export function CountryCodeSelect({
         visible={open}
         transparent
         animationType="slide"
-        onRequestClose={() => setOpen(false)}
+        onRequestClose={closeModal}
         statusBarTranslucent
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={closeModal}>
           <View
             style={[
               styles.modalCard,
@@ -188,7 +220,7 @@ export function CountryCodeSelect({
               </Text>
 
               <TouchableOpacity
-                onPress={() => setOpen(false)}
+                onPress={closeModal}
                 style={styles.closeButton}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
@@ -234,9 +266,11 @@ export function CountryCodeSelect({
             </View>
 
             <FlatList
+              ref={listRef}
               data={filteredCountries}
               keyExtractor={(item) => `${item.code}-${item.label}`}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.countryList}
               ItemSeparatorComponent={() => <View style={{ height: 2 }} />}
               renderItem={({ item }) => {
@@ -246,7 +280,7 @@ export function CountryCodeSelect({
                   <TouchableOpacity
                     onPress={() => {
                       onChange(item.code);
-                      setOpen(false);
+                      closeModal();
                     }}
                     style={[
                       styles.codeRow,
@@ -290,7 +324,7 @@ export function CountryCodeSelect({
             />
 
             <TouchableOpacity
-              onPress={() => setOpen(false)}
+              onPress={closeModal}
               style={[
                 styles.doneButton,
                 {

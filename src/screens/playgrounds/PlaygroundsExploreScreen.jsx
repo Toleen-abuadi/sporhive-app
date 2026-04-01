@@ -38,41 +38,90 @@ import {
 
 const normalizeImageUrl = (uri) => {
   if (!uri || typeof uri !== 'string') return null;
-  if (uri.startsWith('http')) return uri;
-  const normalized = uri.startsWith('/') ? uri : `/${uri}`;
+  const value = uri.trim();
+  if (!value) return null;
+  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:')) return value;
+  const normalized = value.startsWith('/') ? value : `/${value}`;
   return `${API_BASE_URL}${normalized}`;
+};
+
+const dataUrlFromBase64 = (base64, mime = 'image/jpeg') => {
+  if (!base64 || typeof base64 !== 'string') return null;
+  const value = base64.trim();
+  if (!value) return null;
+  if (value.startsWith('data:') || value.startsWith('http://') || value.startsWith('https://')) return value;
+  return `data:${mime};base64,${value}`;
+};
+
+const uniqueStrings = (items = []) => {
+  const seen = new Set();
+  return items.filter((item) => {
+    const key = `${item || ''}`.trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 const getVenueImages = (venue) => {
   const images = Array.isArray(venue?.images)
     ? venue.images
-    : venue?.venue_images || [];
+    : Array.isArray(venue?.venue_images)
+    ? venue.venue_images
+    : [];
 
-  return images
-    .map((img) => img?.url || img?.path || img?.filename || '')
-    .filter(Boolean)
-    .map((uri) => normalizeImageUrl(uri))
+  const galleryImages = images
+    .map((img) => {
+      if (typeof img === 'string') return img;
+      return (
+        img?.url ||
+        img?.image_url ||
+        img?.file_url ||
+        img?.path ||
+        img?.filename ||
+        img?.image ||
+        dataUrlFromBase64(img?.image_base64 || img?.file_base64, img?.image_meta?.mime || img?.file_meta?.mime)
+      );
+    })
     .filter(Boolean);
+
+  return uniqueStrings([
+    dataUrlFromBase64(venue?.cover_base64, venue?.cover_meta?.mime),
+    dataUrlFromBase64(venue?.image_base64, venue?.image_meta?.mime),
+    dataUrlFromBase64(venue?.poster_base64, venue?.poster_meta?.mime),
+    venue?.cover_image,
+    venue?.cover_url,
+    venue?.image,
+    venue?.image_url,
+    venue?.poster_url,
+    ...galleryImages,
+    venue?.academy_profile?.hero_image,
+    venue?.academy_profile?.image,
+    venue?.academy_profile?.image_url,
+  ])
+    .map((uri) => normalizeImageUrl(uri))
+    .filter(Boolean)
+    .slice(0, 12);
 };
 
 const resolveVenueImage = (venue) => {
-  if (venue?.image) return normalizeImageUrl(venue.image);
   const images = getVenueImages(venue);
-  if (images.length) return images[0];
-  if (venue?.academy_profile?.hero_image) {
-    return normalizeImageUrl(venue.academy_profile.hero_image);
-  }
-  return null;
+  return images.length ? images[0] : null;
 };
 
 const resolveVenueLogo = (venue) => {
   const candidates = [
+    dataUrlFromBase64(venue?.logo_base64, venue?.logo_meta?.mime),
     venue?.logo,
     venue?.logo_url,
+    venue?.logo_image,
+    venue?.logo_image_url,
+    dataUrlFromBase64(venue?.academy_profile?.logo_base64, venue?.academy_profile?.logo_meta?.mime),
     venue?.academy_profile?.logo,
     venue?.academy_profile?.logo_url,
     venue?.academy_profile?.avatar,
     venue?.academy_profile?.image,
+    venue?.academy_profile?.image_url,
   ];
 
   const found = candidates.find(Boolean);
@@ -84,11 +133,19 @@ const toNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const formatMoney = (amount, currency) => {
+const formatMoney = (amount, currency, locale) => {
   const parsed = toNumber(amount);
   if (parsed === null) return null;
-  const normalizedCurrency = currency || 'AED';
-  return `${parsed.toFixed(2)} ${normalizedCurrency}`;
+  const normalizedCurrency = currency || 'JOD';
+  try {
+    const formatter = new Intl.NumberFormat(locale === 'ar' ? 'ar-JO' : 'en-US', {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: parsed % 1 === 0 ? 0 : 2,
+    });
+    return `${formatter.format(parsed)} ${normalizedCurrency}`;
+  } catch {
+    return `${parsed.toFixed(parsed % 1 === 0 ? 0 : 2)} ${normalizedCurrency}`;
+  }
 };
 
 const getDurationList = (venue) =>
@@ -98,24 +155,52 @@ const getDurationList = (venue) =>
     ? venue.venue_durations
     : [];
 
-const resolveFeeValue = (venue, t) => {
+const resolveFeeValue = (venue, locale, t) => {
   const durations = getDurationList(venue);
-  const currency = venue?.currency || durations?.[0]?.currency || 'AED';
+  const slots = Array.isArray(venue?.slots)
+    ? venue.slots
+    : Array.isArray(venue?.available_slots)
+    ? venue.available_slots
+    : [];
+  const currency =
+    venue?.currency ||
+    venue?.currency_code ||
+    durations?.[0]?.currency ||
+    slots?.[0]?.currency ||
+    venue?.academy_profile?.currency ||
+    'JOD';
 
-  if (venue?.price !== null && venue?.price !== undefined) {
-    return (
-      formatMoney(venue.price, currency) ||
-      t('service.playgrounds.common.placeholder')
-    );
-  }
-
-  const durationPrices = durations
-    .map((item) => toNumber(item?.base_price ?? item?.price))
+  const directPrices = [
+    venue?.price,
+    venue?.base_price,
+    venue?.price_from,
+    venue?.starting_price,
+    venue?.min_price,
+    venue?.amount,
+  ]
+    .map((item) => toNumber(item))
     .filter((value) => value !== null);
 
-  if (!durationPrices.length) return t('service.playgrounds.common.placeholder');
-  const minPrice = Math.min(...durationPrices);
-  return formatMoney(minPrice, currency) || t('service.playgrounds.common.placeholder');
+  const durationPrices = durations
+    .map((item) =>
+      toNumber(
+        item?.base_price ??
+        item?.price ??
+        item?.amount ??
+        item?.price_from ??
+        item?.starting_price
+      )
+    )
+    .filter((value) => value !== null);
+
+  const slotPrices = slots
+    .map((item) => toNumber(item?.price ?? item?.base_price ?? item?.amount))
+    .filter((value) => value !== null);
+
+  const allPrices = [...directPrices, ...durationPrices, ...slotPrices];
+  if (!allPrices.length) return t('service.playgrounds.common.placeholder');
+  const minPrice = Math.min(...allPrices);
+  return formatMoney(minPrice, currency, locale) || t('service.playgrounds.common.placeholder');
 };
 
 const resolveSocialProofCount = (venue) => {
@@ -223,7 +308,7 @@ const useDebouncedValue = (value, delay = 350) => {
 
 export function PlaygroundsExploreScreen() {
   const { colors, isDark } = useTheme();
-  const { t, isRTL } = useTranslation();
+  const { t, isRTL, locale } = useTranslation();
   const router = useRouter();
 
   const rtl = typeof isRTL === 'boolean' ? isRTL : I18nManager.isRTL;
@@ -436,7 +521,7 @@ export function PlaygroundsExploreScreen() {
             logoImageUrl={resolveVenueLogo(item)}
             badges={badges}
             tags={tags}
-            feesValue={resolveFeeValue(item, t)}
+            feesValue={resolveFeeValue(item, locale, t)}
             capacityValue={resolveCapacityValue(item, activityLabel, t)}
             ratingValue={resolveRatingValue(item, t)}
             socialProofCount={socialProofCount}
@@ -447,7 +532,7 @@ export function PlaygroundsExploreScreen() {
         </View>
       );
     },
-    [handleBookVenue, handleOpenVenue, resolveActivityLabel, t]
+    [handleBookVenue, handleOpenVenue, locale, resolveActivityLabel, t]
   );
 
   return (

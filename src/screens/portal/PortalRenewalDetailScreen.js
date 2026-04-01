@@ -27,6 +27,13 @@ const renewalStepIndex = (eligibility) => {
   return 0;
 };
 
+const hasPendingRenewalRequest = (eligibility) => {
+  if (!eligibility || typeof eligibility !== 'object') return false;
+  if (typeof eligibility.has_pending_request === 'boolean') return eligibility.has_pending_request;
+  if (typeof eligibility.eligible === 'boolean') return !eligibility.eligible;
+  return false;
+};
+
 export function PortalRenewalDetailScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
@@ -88,6 +95,7 @@ export function PortalRenewalDetailScreen() {
   }, [ensurePortalReauthOnce, load]);
 
   const eligibility = useMemo(() => renewals || {}, [renewals]);
+  const hasPendingRequest = useMemo(() => hasPendingRenewalRequest(eligibility), [eligibility]);
   const missingTryOut = isMissingTryOutError(renewalsError);
   const statusMeta = getMappedStatus('renewal', eligibility?.eligible ? 'eligible' : 'ineligible');
   const needsAction = !eligibility?.eligible || Number(eligibility?.days_left) <= 14;
@@ -95,7 +103,7 @@ export function PortalRenewalDetailScreen() {
   return (
     <PortalAccessGate titleOverride={t('portal.renewals.detailTitle')} error={renewalsError} onRetry={load} onReauthRequired={handleReauthRequired}>
       <AppScreen safe scroll>
-        <AppHeader title={t('portal.renewals.detailTitle')} />
+        <AppHeader title={t('portal.renewals.detailTitle')} fallbackRoute="/portal/renewals" />
 
         <PortalInfoAccordion
           title={t('portal.renewals.detailInfo.title')}
@@ -111,8 +119,8 @@ export function PortalRenewalDetailScreen() {
           <PortalActionBanner
             title={t('portal.common.actionRequired')}
             description={t('portal.renewals.actionBanner.description', { date: eligibility?.end_date || overview?.registration?.endDate || t('portal.common.placeholder') })}
-            actionLabel={t('portal.renewals.actionBanner.label')}
-            onAction={() => router.push('/portal/renewals')}
+            actionLabel={hasPendingRequest ? null : t('portal.renewals.actionBanner.label')}
+            onAction={hasPendingRequest ? null : () => router.replace('/portal/renewals')}
           />
         ) : null}
 
@@ -138,7 +146,15 @@ export function PortalRenewalDetailScreen() {
             <Card style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
               <Text variant="body" weight="bold" color={colors.textPrimary}>{t('portal.renewals.whatYouCanDoTitle')}</Text>
               <Text variant="caption" color={colors.textSecondary}>{needsAction ? t('portal.renewals.whatYouCanDoAction') : t('portal.renewals.whatYouCanDoNoAction')}</Text>
-              <Button onPress={() => router.push('/portal/renewals')}>{needsAction ? t('portal.renewals.actionBanner.label') : t('portal.renewals.openOptions')}</Button>
+              <Button
+                onPress={() => {
+                  if (hasPendingRequest) return;
+                  router.replace('/portal/renewals');
+                }}
+                disabled={hasPendingRequest}
+              >
+                {needsAction ? t('portal.renewals.actionBanner.label') : t('portal.renewals.openOptions')}
+              </Button>
             </Card>
           </>
         )}

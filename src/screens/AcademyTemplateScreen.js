@@ -79,6 +79,35 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function toBooleanOrNull(value) {
+  if (value === true || value === false) return value;
+  if (value === 1 || value === 0) return Boolean(value);
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return null;
+    if (normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on') return true;
+    if (normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'off') return false;
+  }
+  return null;
+}
+
+function resolveFavoriteFlag(academy) {
+  if (!academy || typeof academy !== 'object') return null;
+  const candidates = [
+    academy?.is_favorite,
+    academy?.isFavourite,
+    academy?.is_favourited,
+    academy?.is_favorited,
+    academy?.favorite,
+    academy?.favourite,
+  ];
+  for (const candidate of candidates) {
+    const parsed = toBooleanOrNull(candidate);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
 function getLocalized(localeOrI18n, en, ar) {
   const langValue = typeof localeOrI18n === 'string'
     ? localeOrI18n
@@ -468,12 +497,10 @@ const ReviewList = memo(function ReviewList({ reviews, visibleCount, onLoadMore 
 });
 
 const ActionsFooter = memo(function ActionsFooter({
-  onBookNow,
   onJoin,
   onShare,
   onToggleFavorite,
   isFavorite,
-  canBook,
   joinLabel,
   insetsBottom,
 }) {
@@ -532,9 +559,6 @@ const ActionsFooter = memo(function ActionsFooter({
             </Pressable>
           </View>
           <View style={styles.footerButtons}>
-            <Button variant="secondary" onPress={onBookNow} disabled={!canBook} style={styles.footerBtn}>
-              {t('academy.details.bookNow')}
-            </Button>
             <Button onPress={onJoin} style={styles.footerBtn}>
               {joinLabel}
             </Button>
@@ -563,6 +587,9 @@ const HeroSection = memo(function HeroSection({
   const { colors } = useTheme();
   const isRTL = I18nManager.isRTL;
   const safeTopInset = Math.max(0, insetsTop);
+  const heroGradientColors = coverSource
+    ? [alphaHex(colors.black, '52'), alphaHex(colors.black, '1A'), alphaHex(colors.black, 'B3')]
+    : [alphaHex(colors.black, '1A'), alphaHex(colors.black, '0A'), alphaHex(colors.black, '4D')];
 
   return (
     <View style={styles.heroShell}>
@@ -575,12 +602,12 @@ const HeroSection = memo(function HeroSection({
           accessibilityLabel={academyName}
         />
         {!coverSource ? (
-          <View style={styles.heroFallback}>
+          <View style={[styles.heroFallback, { backgroundColor: alphaHex(colors.accentOrange, '14') }]}>
             <Sparkles size={36} color={alphaHex(colors.white, 'C2')} />
           </View>
         ) : null}
         <LinearGradient
-          colors={[alphaHex(colors.black, '52'), alphaHex(colors.black, '1A'), alphaHex(colors.black, 'B3')]}
+          colors={heroGradientColors}
           locations={[0, 0.45, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -593,20 +620,6 @@ const HeroSection = memo(function HeroSection({
             style={[styles.heroTopIcon, { backgroundColor: alphaHex(colors.black, '66') }]}
             onPress={onBack}
           />
-          <Pressable
-            onPress={onShare}
-            style={({ pressed }) => [
-              styles.heroTopIcon,
-              {
-                backgroundColor: alphaHex(colors.black, '66'),
-                opacity: pressed ? 0.82 : 1,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={t('academy.details.share')}
-          >
-            <Share2 size={18} color={colors.white} />
-          </Pressable>
         </View>
 
         <View style={styles.heroBottomContent}>
@@ -723,10 +736,11 @@ export function AcademyTemplateScreen({ slug }) {
   const { colors, isDark } = useTheme();
   const isRTL = I18nManager.isRTL;
 
-  const { detailsBySlug, detailsLoadingBySlug, detailsErrorBySlug } = useAcademyDiscoveryStore((state) => ({
+  const { detailsBySlug, detailsLoadingBySlug, detailsErrorBySlug, favoriteBySlug } = useAcademyDiscoveryStore((state) => ({
     detailsBySlug: state.detailsBySlug,
     detailsLoadingBySlug: state.detailsLoadingBySlug,
     detailsErrorBySlug: state.detailsErrorBySlug,
+    favoriteBySlug: state.favoriteBySlug,
   }));
   const discoveryActions = useAcademyDiscoveryActions();
 
@@ -743,7 +757,6 @@ export function AcademyTemplateScreen({ slug }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [mediaPreview, setMediaPreview] = useState(null);
   const [lightboxVisible, setLightboxVisible] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [visibleReviewCount, setVisibleReviewCount] = useState(3);
 
   const load = useCallback(async () => {
@@ -771,6 +784,17 @@ export function AcademyTemplateScreen({ slug }) {
   }, [slug]);
 
   const academy = payload?.academy || null;
+  const apiFavorite = useMemo(() => resolveFavoriteFlag(academy), [academy]);
+  const persistedFavorite = slug ? favoriteBySlug?.[slug] : undefined;
+  const isFavorite = persistedFavorite !== undefined ? Boolean(persistedFavorite) : Boolean(apiFavorite);
+
+  useEffect(() => {
+    if (!slug) return;
+    if (favoriteBySlug?.[slug] !== undefined) return;
+    if (apiFavorite === null) return;
+    discoveryActions.setFavorite(slug, apiFavorite).catch(() => {});
+  }, [apiFavorite, discoveryActions, favoriteBySlug, slug]);
+
   const templateSections = payload?.template_sections || {};
   const hasTemplateToggles = Object.keys(templateSections).length > 0;
   const allowSection = useCallback(
@@ -881,7 +905,6 @@ export function AcademyTemplateScreen({ slug }) {
 
   const registrationOpen = Boolean(academy?.registration_open);
   const secureEnabled = Boolean(academy?.is_verified || academy?.is_secure || academy?.is_pro);
-  const canBookNow = Boolean(academy?.has_facilities_booking);
 
   const ratingValue = toNumber(academy?.rating || academy?.rating_avg || academy?.avg_rating);
   const ratingCount = toNumber(academy?.rating_count || academy?.ratings_count || academy?.ratingCount);
@@ -1101,14 +1124,10 @@ export function AcademyTemplateScreen({ slug }) {
     scrollToSection('contact');
   }, [academy, router, scrollToSection]);
 
-  const onBookNow = useCallback(() => {
-    if (!academy?.has_facilities_booking) return;
-    router.push('/playgrounds/explore');
-  }, [academy, router]);
-
   const onToggleFavorite = useCallback(() => {
-    setIsFavorite((prev) => !prev);
-  }, []);
+    if (!slug) return;
+    discoveryActions.setFavorite(slug, !isFavorite).catch(() => {});
+  }, [discoveryActions, isFavorite, slug]);
 
   const onOpenMediaPreview = useCallback((media) => {
     setMediaPreview(media);
@@ -1635,12 +1654,10 @@ export function AcademyTemplateScreen({ slug }) {
       </Animated.ScrollView>
 
       <ActionsFooter
-        onBookNow={onBookNow}
         onJoin={onJoin}
         onShare={onShare}
         onToggleFavorite={onToggleFavorite}
         isFavorite={isFavorite}
-        canBook={canBookNow}
         joinLabel={registrationOpen ? t('academy.details.joinAcademy') : t('academy.details.contact')}
         insetsBottom={insets.bottom}
       />

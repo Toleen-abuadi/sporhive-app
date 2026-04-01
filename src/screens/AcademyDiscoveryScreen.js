@@ -79,6 +79,12 @@ const toAbsoluteUrlMaybe = (url, base) => {
   return `${base.replace(/\/$/, '')}/${value.replace(/^\//, '')}`;
 };
 
+const dataUrlFromBase64 = ({ mime, base64 }) => {
+  if (!base64 || typeof base64 !== 'string') return null;
+  if (base64.startsWith('data:') || base64.startsWith('http://') || base64.startsWith('https://')) return base64;
+  return `data:${mime || 'image/jpeg'};base64,${base64}`;
+};
+
 const academyImageUrl = (base, slug, kind) => {
   if (!base || !slug) return null;
   return `${base.replace(/\/$/, '')}/public/academies/image/${encodeURIComponent(slug)}/${kind}`;
@@ -100,12 +106,14 @@ const buildCompareEntry = (item, imageBaseUrl, t) => {
   const slug = academy.slug || item?.slug || null;
 
   const coverUri =
+    dataUrlFromBase64({ mime: academy?.cover_meta?.mime, base64: academy?.cover_base64 }) ||
     toAbsoluteUrlMaybe(academy.cover_url, imageBaseUrl) ||
-    (academy.cover_meta?.has ? academyImageUrl(imageBaseUrl, slug, 'cover') : null);
+    academyImageUrl(imageBaseUrl, slug, 'cover');
 
   const logoUri =
+    dataUrlFromBase64({ mime: academy?.logo_meta?.mime, base64: academy?.logo_base64 }) ||
     toAbsoluteUrlMaybe(academy.logo_url, imageBaseUrl) ||
-    (academy.logo_meta?.has ? academyImageUrl(imageBaseUrl, slug, 'logo') : null);
+    academyImageUrl(imageBaseUrl, slug, 'logo');
 
   return {
     compareId,

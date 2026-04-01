@@ -222,7 +222,7 @@ export function SignupScreen() {
               <Text
                 variant="bodySmall"
                 color={colors.textSecondary}
-                style={[styles.linkAlign, { textAlign: isRTL ? 'left' : 'right' }]}
+                style={[styles.linkAlign, { textAlign: isRTL ? 'right' : 'left' }]}
               >
                 {t('auth.signup.haveAccount')}{' '}
                 <Text variant="bodySmall" weight="bold" color={colors.accentOrange}>

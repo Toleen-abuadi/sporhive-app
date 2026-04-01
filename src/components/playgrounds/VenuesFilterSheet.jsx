@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { CalendarDays, Flame, MapPin, SlidersHorizontal, Star, Tag, Users } from 'lucide-react-native';
 
 import { BottomSheetModal } from '../ui/BottomSheetModal';
@@ -20,6 +21,21 @@ const DEFAULT_FILTERS = {
   sortBy: 'rating_desc',
 };
 
+const formatIsoDate = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const parseIsoDate = (value) => {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const parsed = new Date(`${text}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 export function VenuesFilterSheet({
   open,
   initialFilters,
@@ -31,6 +47,7 @@ export function VenuesFilterSheet({
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const activityIcons = [Star, Flame, Tag, Users];
 
   const activeFilters = useMemo(() => {
@@ -60,6 +77,10 @@ export function VenuesFilterSheet({
     });
   }, [initialFilters]);
 
+  useEffect(() => {
+    if (!open) setDatePickerOpen(false);
+  }, [open]);
+
   const handleReset = useCallback(() => {
     setFilters(DEFAULT_FILTERS);
   }, []);
@@ -68,6 +89,17 @@ export function VenuesFilterSheet({
     onApply(filters);
     onClose();
   }, [filters, onApply, onClose]);
+
+  const pickerDate = useMemo(() => parseIsoDate(filters.date) || new Date(), [filters.date]);
+
+  const handleDateChange = useCallback((event, selectedDate) => {
+    if (Platform.OS === 'android') {
+      setDatePickerOpen(false);
+      if (event?.type === 'dismissed') return;
+    }
+    if (!selectedDate) return;
+    setFilters((prev) => ({ ...prev, date: formatIsoDate(selectedDate) }));
+  }, []);
 
   return (
     <BottomSheetModal visible={open} onClose={onClose}>
@@ -129,20 +161,45 @@ export function VenuesFilterSheet({
             <Text variant="bodySmall" weight="semibold">
               {t('service.playgrounds.filters.bookingDate')}
             </Text>
-            <Input
-              label={t('service.playgrounds.filters.dateLabel')}
-              value={filters.date || ''}
-              onChangeText={(value) => setFilters((prev) => ({ ...prev, date: value }))}
-              placeholder={t('service.playgrounds.filters.datePlaceholder')}
-              leftIcon="calendar"
+            <Pressable
+              onPress={() => setDatePickerOpen(true)}
+              accessibilityRole="button"
               accessibilityLabel={t('service.playgrounds.filters.dateAccessibility')}
-            />
+            >
+              <View pointerEvents="none">
+                <Input
+                  label={t('service.playgrounds.filters.dateLabel')}
+                  value={filters.date || ''}
+                  editable={false}
+                  placeholder={t('service.playgrounds.filters.datePlaceholder')}
+                  leftIcon="calendar"
+                  accessibilityLabel={t('service.playgrounds.filters.dateAccessibility')}
+                />
+              </View>
+            </Pressable>
+            {datePickerOpen ? (
+              <View style={styles.datePickerWrap}>
+                <DateTimePicker
+                  value={pickerDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDateChange}
+                />
+                {Platform.OS === 'ios' ? (
+                  <View style={styles.datePickerActions}>
+                    <Button size="small" variant="secondary" onPress={() => setDatePickerOpen(false)}>
+                      {t('common.done')}
+                    </Button>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
             <View style={styles.chipsRow}>
               <Chip
                 label={t('service.playgrounds.filters.today')}
-                selected={filters.date === new Date().toISOString().slice(0, 10)}
+                selected={filters.date === formatIsoDate(new Date())}
                 onPress={() =>
-                  setFilters((prev) => ({ ...prev, date: new Date().toISOString().slice(0, 10) }))
+                  setFilters((prev) => ({ ...prev, date: formatIsoDate(new Date()) }))
                 }
                 icon={<CalendarDays size={12} color={colors.textMuted} />}
               />
@@ -298,6 +355,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  datePickerWrap: {
+    marginTop: spacing.xs,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+  },
+  datePickerActions: {
+    alignItems: 'flex-end',
+    paddingTop: spacing.xs,
   },
   stepperRow: {
     flexDirection: 'row',
